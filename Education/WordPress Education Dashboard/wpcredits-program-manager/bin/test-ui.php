@@ -4,9 +4,10 @@
  *
  * What each block pins, and why:
  *
- * - **The Administrator Dashboard is on, every other surface is off.** `LIVE` is `array( 'administrator' )` in the
- *   source (Task 18, release 1): `on()` is true for that surface alone, and false for every other surface and every
- *   wp-admin tab until a release adds its own, so every other page of the site renders as before.
+ * - **The Administrator Dashboard and the Institution Dashboard are on, every other surface is off.** `LIVE` is
+ *   `array( 'administrator', 'institution' )` in the source (release 1's Task 18, then the Institution Dashboard's
+ *   Task 23): `on()` is true for those two surfaces alone, and false for every other surface and every wp-admin tab
+ *   until a release adds its own, so every other page of the site renders as before.
  * - **The surface is a stack.** `enter()` names the surface that is drawing, `leave()` returns to the one
  *   named before; none named is ''.
  * - **`set_live()` is the suites' own** and `null` puts the constant back; `root_class()` is the one
@@ -87,19 +88,19 @@ if ( ! class_exists( 'WPCPM_UI' ) ) {
 	exit( 1 );
 }
 
-// The constant, from the source: the Administrator Dashboard alone (Task 18, release 1).
+// The constant, from the source: the Administrator Dashboard (Task 18, release 1) and the Institution Dashboard (Task 23).
 $source = (string) file_get_contents( __DIR__ . '/../includes/class-wpcpm-ui.php' );
-ck( 'LIVE is the Administrator Dashboard alone in the source', 1 === preg_match( "/^\tconst LIVE = array\( 'administrator' \);$/m", $source ), true );
-ck( 'LIVE is the Administrator Dashboard alone', WPCPM_UI::LIVE, array( 'administrator' ) );
+ck( 'LIVE is the Administrator Dashboard and the Institution Dashboard in the source', 1 === preg_match( "/^\tconst LIVE = array\( 'administrator', 'institution' \);$/m", $source ), true );
+ck( 'LIVE is the Administrator Dashboard and the Institution Dashboard', WPCPM_UI::LIVE, array( 'administrator', 'institution' ) );
 ck( 'the surfaces', WPCPM_UI::SURFACES, array( 'administrator', 'sponsor', 'institution', 'report-cards' ) );
 ck( 'the style handle', WPCPM_UI::STYLE, 'wpcpm-parts' );
 ck( 'the script handle', WPCPM_UI::SCRIPT, 'wpcpm-parts' );
 
-// Under the real constant: the Administrator Dashboard is on, every other surface and tab off, and none named is ''.
+// Under the real constant: the two dashboards are on, every other surface and tab off, and none named is ''.
 ck( 'no surface named', WPCPM_UI::surface(), '' );
 ck( 'off with none named', WPCPM_UI::on(), false );
 foreach ( array_merge( WPCPM_UI::SURFACES, array( 'wpcpm-institutions/pipeline', 'wpcpm-sponsors/queue', 'administrator/x', 'Administrator' ) ) as $name ) {
-	$is_on = 'administrator' === $name;
+	$is_on = in_array( $name, array( 'administrator', 'institution' ), true );
 	WPCPM_UI::enter( $name );
 	ck( "$name is named", WPCPM_UI::surface(), $name );
 	ck( $is_on ? "$name is on" : "$name is off", WPCPM_UI::on(), $is_on );
@@ -120,7 +121,7 @@ WPCPM_UI::leave();
 ck( 'leave on an empty stack stays at none', WPCPM_UI::surface(), '' );
 
 // The suites' own live list.
-ck( 'live is the constant', WPCPM_UI::live(), array( 'administrator' ) );
+ck( 'live is the constant', WPCPM_UI::live(), array( 'administrator', 'institution' ) );
 WPCPM_UI::set_live( array() );
 WPCPM_UI::enter( 'administrator' );
 ck( 'an empty list puts the Administrator Dashboard off, as a suite draws its off branch', array( WPCPM_UI::on(), WPCPM_UI::root_class() ), array( false, '' ) );
@@ -138,7 +139,7 @@ WPCPM_UI::leave();
 ck( 'on again after leaving', WPCPM_UI::on(), true );
 WPCPM_UI::leave();
 WPCPM_UI::set_live( null );
-ck( 'null puts the constant back', WPCPM_UI::live(), array( 'administrator' ) );
+ck( 'null puts the constant back', WPCPM_UI::live(), array( 'administrator', 'institution' ) );
 WPCPM_UI::enter( 'administrator' );
 ck( 'on again, by the constant', WPCPM_UI::on(), true );
 WPCPM_UI::enter( 'sponsor' );
@@ -198,8 +199,8 @@ $named_in = array(
 	'includes/tools/class-wpcpm-emails.php'                     => "WPCPM_UI::enter( \$this->page_slug() . '/' . \$tab );",
 	// The two views drawn in a dashboard's frame name the frame's surface: the Administrator Dashboard's, or the
 	// Sponsor Dashboard's for its own updates and guide (follow-up round, item 3).
-	'includes/modules/class-wpcpm-administrator-updates-view.php' => "WPCPM_UI::enter( 'sponsor' === \$audience ? 'sponsor' : 'administrator' );",
-	'includes/modules/class-wpcpm-administrator-guide-view.php'   => "WPCPM_UI::enter( 'WPCPM_Sponsors_Dashboard' === \$guide['dashboard'] ? 'sponsor' : 'administrator' );",
+	'includes/modules/class-wpcpm-administrator-updates-view.php' => "WPCPM_UI::enter( self::surface_of( \$audience ) );",
+	'includes/modules/class-wpcpm-administrator-guide-view.php'   => "WPCPM_UI::enter( self::surface_of( \$guide['dashboard'] ) );",
 );
 $named = array();
 foreach ( $named_in as $file => $call ) {

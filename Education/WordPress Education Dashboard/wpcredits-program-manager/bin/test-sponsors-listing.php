@@ -479,10 +479,18 @@ class WPCPM_Students_Dashboard {
 	}
 }
 
+require_once __DIR__ . '/stubs/institution-card-url.php';
 class WPCPM_Institutions_Dashboard {
 	public static function page_url() {
 		return $GLOBALS['pages']['institution'];
 	}
+	// The page's addresses, as the real class builds them (bin/stubs/institution-card-url.php, checked against it
+	// in bin/test-institution-ways-back.php).
+	public static function view_url( $view = 'overview', $record = '', array $args = array() ) { return wpcpm_test_institution_view_url( self::page_url(), $view, $record, $args ); }
+	public static function view_of( $card ) { return wpcpm_test_institution_view_of( $card ); }
+	public static function card_url( $card, $record = '', $item = '', array $args = array() ) { return wpcpm_test_institution_card_url( self::page_url(), $card, $record, $item, $args ); }
+	public static function requested_record() { return wpcpm_test_institution_requested_record(); }
+	public static function way_back( $card ) { return wpcpm_test_institution_way_back( self::page_url(), $card ); }
 }
 
 class WPCPM_Administrators_Dashboard {
@@ -962,7 +970,7 @@ ck(
 		array( '<p class="wpcpm-sponsors__join"><a href="https://example.test/administrator-dashboard/#wpcpm-sponsor-events">Join it on your Administrator Dashboard</a></p>' ),
 		array( '<p class="wpcpm-sponsors__join"><a href="https://example.test/student-report-card/#wpcpm-sevents">Join it on your Student Report Card</a></p>' ),
 		array( '<p class="wpcpm-sponsors__join"><a href="https://example.test/mentor-report-card/#wpcpm-sevents">Join it on your Mentor Report Card</a></p>' ),
-		array( '<p class="wpcpm-sponsors__join"><a href="https://example.test/?page_id=41&#038;lang=en#wpcpm-sevents">Join it on your Institution Dashboard</a></p>' ),
+		array( '<p class="wpcpm-sponsors__join"><a href="https://example.test/?page_id=41&#038;lang=en&#038;wpcpm_view=events#wpcpm-sevents">Join it on your Institution Dashboard</a></p>' ),
 	)
 );
 ck(

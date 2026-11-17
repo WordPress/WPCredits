@@ -810,3 +810,44 @@
 	direction: ltr;
 	text-align: right;
 }
+
+/* ---------- A head's small control in the narrow form (Gate B round 2, F11, ruled) ---------- */
+
+/* Viewing as institution ends the head's first row, after the H1 (WPCPM_UI::head_row()). In the narrow form (a window of
+   600px and under, a main area under 800px) its line comes after the title and the title's text (the facts, the lede)
+   and before the head's button, at full width: the row gives up its box, so the H1 and the control are the copy's own
+   grid items, and the control is drawn after the text and the button after it (`order`), each 16px apart (the copy's
+   10px gap and 6px of their own); the eyebrow and the title stay together. The order is the drawing's and not the
+   markup's, so the Tab key keeps today's order in the one-row form, where Administrators work. Only a head that prints
+   the row (the Institution Dashboard, for an Administrator) is reached. */
+@media (max-width: 600px) {
+	.wpcpm-head__copy > .wpcpm-ui-head-row {
+		display: contents;
+	}
+
+	.wpcpm-head__copy > .wpcpm-ui-head-row > .wpcpm-ui-viewing {
+		margin-block: 6px 0;
+		order: 1;
+	}
+
+	.wpcpm-head__copy > .wpcpm-ui-head-row ~ .wpcpm-head__actions {
+		margin-top: 6px;
+		order: 2;
+	}
+}
+
+@container wpcpm-main ( max-width: 799.98px ) {
+	.wpcpm-head__copy > .wpcpm-ui-head-row {
+		display: contents;
+	}
+
+	.wpcpm-head__copy > .wpcpm-ui-head-row > .wpcpm-ui-viewing {
+		margin-block: 6px 0;
+		order: 1;
+	}
+
+	.wpcpm-head__copy > .wpcpm-ui-head-row ~ .wpcpm-head__actions {
+		margin-top: 6px;
+		order: 2;
+	}
+}

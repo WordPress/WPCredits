@@ -7,6 +7,9 @@
 #                                         the zip, scrub people, put the rig's must-use plugin in place, write
 #                                         the Administrator guide, snapshot ui-base
 #   bin/ui/copy.sh swap <plugin.zip>      on a prepared copy: the database back to ui-ready, then another build in
+#   bin/ui/copy.sh theme <folder>|own     on a prepared copy: the theme folder wpcredits-theme replaced by another
+#                                         build of it (an unpacked `git archive`), the copy's own saved first, once;
+#                                         `own` puts the copy's own back (restore does too)
 #   bin/ui/copy.sh restore                take all of that away again and check the copy (after any swaps too)
 #
 # The Docker folder is $WPCPM_DOCKER (default ~/Projects/wpcredits-docker); the work folder, which holds the
@@ -16,10 +19,11 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"; REPO="$(cd "$HERE/../.." && pwd)"
 DOCKER="${WPCPM_DOCKER:-$HOME/Projects/wpcredits-docker}"; WP="$DOCKER/bin/wp"
 WORK="${WPCPM_UI_WORK:-$REPO/.superpowers/ui-rig/work}"; STAGE="$DOCKER/release/ui-rig"
-PLUGINS="$DOCKER/site/wp-content/plugins"; MU="$DOCKER/site/wp-content/mu-plugins"
+PLUGINS="$DOCKER/site/wp-content/plugins"; MU="$DOCKER/site/wp-content/mu-plugins"; THEMES="$DOCKER/site/wp-content/themes"
 COPY="http://localhost:8900"
 # A relative zip path is resolved before the cd into the Docker folder.
 if { [ "${1:-}" = prepare ] || [ "${1:-}" = swap ]; } && [ -n "${2:-}" ]; then set -- "$1" "$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"; fi
+if [ "${1:-}" = theme ] && [ -n "${2:-}" ] && [ "$2" != own ]; then set -- "$1" "$(cd "$2" && pwd)"; fi
 # Every entry of the plugin folder's .worktrees, with its size, time, mode and link target.
 worktrees_listing() { (cd "$PLUGINS/wpcredits-program-manager" && [ -e .worktrees ] && find .worktrees -print0 | sort -z | xargs -0 stat -f '%N %z %m %Lp %Y') || true; }
 # Refuse a zip that holds anything but the wpcredits-program-manager folder, or a .worktrees folder of its own.
@@ -110,6 +114,20 @@ swap)
   wait_for_copy
   echo "ready: node bin/ui/snap.mjs --skip-seed --out <folder>"
   ;;
+theme)
+  # Another build of the theme beside the plugin's (a frame the theme must name): the copy's own folder is saved once,
+  # in the work folder, and put back by `theme own` or by restore. Only the wpcredits-theme folder is touched.
+  SRC="${2:?a theme folder (an unpacked git archive of wpcredits-theme), or own}"
+  [ -e snapshots/before-ui-rig.tgz ] && [ -f "$MU/wpcpm-ui-rig.php" ] || { echo "refusing: the copy is not prepared (bin/ui/copy.sh prepare first)" >&2; exit 1; }
+  [ -s "$WORK/theme-before.tgz" ] || tar -czf "$WORK/theme-before.tgz" -C "$THEMES" wpcredits-theme
+  if [ "$SRC" = own ]; then
+    rm -rf "$THEMES/wpcredits-theme" && tar -xzf "$WORK/theme-before.tgz" -C "$THEMES"
+  else
+    [ -f "$SRC/style.css" ] && grep -q '^Theme Name:' "$SRC/style.css" || { echo "refusing: $SRC holds no theme (no style.css with a Theme Name)" >&2; exit 1; }
+    rm -rf "$THEMES/wpcredits-theme" && mkdir "$THEMES/wpcredits-theme" && cp -R "$SRC/." "$THEMES/wpcredits-theme/"
+  fi
+  echo "theme: $("$WP" theme list --name=wpcredits-theme --field=version 2>/dev/null | tail -1) ($([ "$SRC" = own ] && echo "the copy's own" || echo "$SRC"))"
+  ;;
 restore)
   # Nothing is taken away unless everything needed to put the copy back is there.
   [ -s "$WORK/plugin-before.tgz" ] && [ -e snapshots/before-ui-rig.tgz ] || { echo "refusing: there is nothing to restore from (the saved plugin folder $WORK/plugin-before.tgz or the snapshot before-ui-rig is missing); nothing was changed" >&2; exit 1; }
@@ -129,6 +147,8 @@ restore)
   fi
   echo "files the seed made, removed: $n"
   bin/unscrub | tail -1
+  # The copy's own theme, when `theme` put another build in its place.
+  if [ -s "$WORK/theme-before.tgz" ]; then rm -rf "$THEMES/wpcredits-theme" && tar -xzf "$WORK/theme-before.tgz" -C "$THEMES" && echo "theme: the copy's own put back"; fi
   # The plugin the snapshot was taken under goes back first, then the database (the copy's README: install
   # that line's plugin first, then restore). .worktrees stays as it is: the tarball's copy of it is not unpacked.
   find "$PLUGINS/wpcredits-program-manager" -mindepth 1 -maxdepth 1 ! -name .worktrees -exec rm -rf {} +
@@ -143,7 +163,8 @@ restore)
   bin/check | tail -1
   rm -f snapshots/ui-ready.tgz snapshots/ui-base.tgz snapshots/before-ui-rig.tgz
   # The copy is back and checked: the rig's work files go too, so a later round cannot restore a stale tarball.
+  rm -f "$WORK/theme-before.tgz"
   rm -f "$WORK/plugin-before.tgz" "$WORK/version-before.txt" "$WORK/real-names.json" "$WORK/created-files.txt" "$WORK/worktrees-before.txt"
   ;;
-*) echo "usage: bin/ui/copy.sh prepare <plugin.zip> | swap <plugin.zip> | restore" >&2; exit 2 ;;
+*) echo "usage: bin/ui/copy.sh prepare <plugin.zip> | swap <plugin.zip> | theme <folder>|own | restore" >&2; exit 2 ;;
 esac

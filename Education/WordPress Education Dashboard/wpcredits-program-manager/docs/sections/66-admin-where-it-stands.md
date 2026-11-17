@@ -4,7 +4,7 @@ Each table follows one path from first contact to the end. Find the words you se
 
 ### Where a school stands
 
-A school's state shows on the Administrator Dashboard's **Overview** cards, on `Institutions > Pipeline` and, for you alone, at the top of its Institution Dashboard.
+A school's state shows on the Administrator Dashboard's **Overview** cards, on `Institutions > Pipeline` and, for you alone, on its Institution Dashboard: a row on the **Overview**, and the first line of **Agreement**.
 
 | What you see | What it means | What to do next |
 |---|---|---|
@@ -19,10 +19,10 @@ A school's state shows on the Administrator Dashboard's **Overview** cards, on `
 | *Template generated* in the **Agreement** column | The school generated the template and has not uploaded a signed copy. | Wait for the upload. |
 | **Awaiting review** on the **Collaboration Agreements** card, *Overdue* once it is late | A signed copy waits for you. | See [[A signed Collaboration Agreement arrived]]. |
 | "1 returned, waiting for a new upload" on the **Collaboration Agreements** card; *Returned* in the **Agreement** column | You returned the copy with a note. The school must upload again. | Wait for the new upload. |
-| *Accepted* or *On file* in the **Agreement** column; "Accepted on the site" or "Recorded on file" under **Agreements in force** on `Institutions > Agreements` | The site holds an accepted agreement. It is in force once Airtable also records it as Accepted or On file, and then the school can enroll students and invite colleagues. If Airtable does not agree, the Institution Dashboard says so and the school's members see only the Collaboration Agreement card. **Agreements in force** lists only agreements in force. | See [[Enroll students for a school]] and [[Invite a representative or a tutor for a school, and keep its tutor list]]. |
+| *Accepted* or *On file* in the **Agreement** column; "Accepted on the site" or "Recorded on file" under **Agreements in force** on `Institutions > Agreements` | The site holds an accepted agreement. It is in force once Airtable also records it as Accepted or On file, and then the school can enroll students and invite colleagues. If Airtable does not agree, the Institution Dashboard says so, and the school's representatives reach only **Overview** and **Agreement**. **Agreements in force** lists only agreements in force. | See [[Enroll students for a school]] and [[Invite a representative or a tutor for a school, and keep its tutor list]]. |
 | "3 students now" on its row in `Institutions > Pipeline` | The school has students on the program. | Follow its semester reports. |
 | A row under **Due for drafting** or **To review** on the **Semester reports** card | A finished semester has no report yet, or a draft waits for you. | See [[A semester report: draft, review, approve, reopen]]. |
-| "1 revoked agreement" on the **Collaboration Agreements** card, with **Reinstate**; *Revoked* in the **Agreement** column | The agreement was taken out of force. The school's members see only the Collaboration Agreement card. | See [[Take an agreement out of force, or put it back]]. |
+| "1 revoked agreement" on the **Collaboration Agreements** card, with **Reinstate**; *Revoked* in the **Agreement** column | The agreement was taken out of force. The school's representatives reach only **Overview** and **Agreement**, and its tutors no page. | See [[Take an agreement out of force, or put it back]]. |
 
 ### Where a student stands
 

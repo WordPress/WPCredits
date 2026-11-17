@@ -1,33 +1,17 @@
 /**
- * Institution Dashboard - front-end styles.
+ * Institution Dashboard - the page's own styles.
  *
- * Loaded after the mentor stylesheet, which it depends on. Everything the three pages
- * share - the colour tokens, the "view as" switcher, avatars, badges, buttons, the
- * muted-text treatment - comes from there, so this file only carries what is specific
- * to the institution page. Anything defined twice is a chance for the pages to drift.
- *
- * A baseline, deliberately, the way triage.css is one: under any theme the header, the
- * banner and the cards are legible and usable on their own. Nothing here uses
- * `!important` and nothing is prefixed with a page class, so a theme that wants a richer
- * treatment overrides these on a plain tie rather than having to outrank them.
+ * Loaded after the mentor stylesheet, which it depends on for the colour tokens and the
+ * muted-text treatment. The page is drawn on the shared parts (parts.css) in the dashboards'
+ * frame (dashboard-frame.css), and those carry its cards, folds, lists, tables, fields and
+ * its Viewing as control. What is left here is what they do not draw: the school's icon,
+ * the read lines, the one look of every outcome, the head and the rows in the frame (keyed
+ * on `.wpcpm-frame .wpcpm-institution`, so no other dashboard moves), and the classes the
+ * agreement panel, the import form, the report card and the errors summary still print,
+ * which the parts take over at their next release. The parts owe this page one more pair at
+ * that release: a list row's name and its tag in the narrow form (at the end of this file).
+ * Nothing here uses `!important`.
  */
-
-/* The identity header: name, place, stage, contact, website. No avatar - an institution
-   has no wordpress.org profile, and a logo is not a fact the base holds. */
-/* The icon on the left, the identity beside it: the name, the place, the site and the two
-   facts are one block, and the icon belongs against all of it rather than against the first
-   line. `align-items: flex-start` so a tall block keeps the icon at the top with the name
-   instead of floating it down the middle. */
-.wpcpm-institution__identity {
-	align-items: flex-start;
-	display: flex;
-	gap: 1em;
-	margin-bottom: 1.5em;
-}
-
-.wpcpm-institution__details {
-	min-width: 0;
-}
 
 /* The institution's own site icon, which is the nearest thing it has to the profile photo a
    mentor and a student are shown. Sized rather than left to the file: a favicon can be 16px or
@@ -41,149 +25,10 @@
 	width: 48px;
 }
 
-/* The facts under the name, a line each. Quiet, and tight to one another: they are one block
-   of context, not four paragraphs. */
-.wpcpm-institution__fact {
-	margin: 0.15em 0 0;
-	opacity: 0.75;
-}
-
-
-/* Matches .wpcpm-dashboard__mentor-name on the mentor page, so the two headers read as
-   the same header. */
-.wpcpm-institution__name {
-	font-size: 1.2em;
-	font-weight: 700;
-	margin: 0;
-}
-
-.wpcpm-institution__website {
-	margin: 0.15em 0 0;
-}
-
-/**
- * The banner over an institution whose agreement is not settled.
- *
- * Only a program manager ever sees it, and it is the one thing on the page that says the
- * members are being shown something narrower. Bordered on the leading edge rather than
- * filled, because a solid warning colour a plugin picks cannot be known to read on the
- * theme's background - the tokens can.
- */
-.wpcpm-institution__banner {
-	background: var( --wpcpm-surface );
-	border: 1px solid var( --wpcpm-border );
-	border-inline-start-width: 4px;
-	border-radius: var( --wpcpm-radius );
-	margin: 0 0 1.5em;
-	padding: 0.75em 1em;
-}
-
-.wpcpm-institution__banner p {
-	margin: 0;
-}
-
-.wpcpm-institution__banner p + p {
-	margin-top: 0.4em;
-	opacity: 0.72;
-}
-
-/**
- * The cards under the header: the agreement panel, the roster, the People card, the
- * agreement card at the foot.
- *
- * One bordered, rounded block per topic, at the mentor page's radius and padding, the way
- * `.wpcpm-student__section` does it. Defined here rather than in each card's own piece so
- * that four separate commits cannot produce four slightly different boxes.
- */
-/*
- * The page's sections.
- *
- * The Mentor and Student Report Cards separate their sections with space and a heading, not
- * with a box each; three bordered slabs down a page is what made this one read as a different
- * product. So the roster and the People card are given the same rhythm as a `.wpcpm-group`
- * over there: a rule above, room to breathe, and nothing drawn around them.
- *
- * The two agreement blocks keep their border, and that is the one deliberate difference.
- * They are the only things on the page that ask the reader to do something, and a panel a
- * school is meant to act in should look like a panel rather than like more of the roster.
- */
-.wpcpm-roster,
-.wpcpm-import,
-.wpcpm-people,
-.wpcpm-details {
-	border-top: 1px solid var( --wpcpm-border );
-	margin: 2.5em 0 0;
-	padding: 2em 0 0;
-}
-
-.wpcpm-agreement-panel,
-.wpcpm-agreement-card {
-	background: var( --wpcpm-surface );
-	border: 1px solid var( --wpcpm-border );
-	border-radius: var( --wpcpm-radius );
-	margin: 2.5em 0 0;
-	padding: 1.5em;
-}
-
-/*
- * A panel's inset is its padding, and only its padding.
- *
- * Margins do not collapse through padding, so a heading that opens a panel lays its own top
- * margin on top of the panel's padding while the last line inside contributes nothing at the
- * bottom. The panels came out with 45px and 53px above their first line against 21px below
- * it, which reads as a box that has slipped down inside its own border. Two of the panels
- * looked wrong on the page before anybody measured them.
- *
- * The margins come from the theme's heading rules, so this is written as "whatever opens or
- * closes this panel" rather than as a list of the headings that do: a section added later
- * gets the same inset without anybody remembering this rule exists. Only the block direction
- * is zeroed, since the horizontal margins are nobody's problem here.
- */
-.wpcpm-institution .wpcpm-agreement-panel > :first-child,
-.wpcpm-institution .wpcpm-agreement-card > :first-child,
-.wpcpm-institution .wpcpm-dashboard__switcher > :first-child,
-.wpcpm-institution .wpcpm-roster__filters > :first-child,
-.wpcpm-institution .wpcpm-roster__strip > :first-child {
-	margin-block-start: 0;
-}
-
-.wpcpm-institution .wpcpm-agreement-panel > :last-child,
-.wpcpm-institution .wpcpm-agreement-card > :last-child,
-.wpcpm-institution .wpcpm-dashboard__switcher > :last-child,
-.wpcpm-institution .wpcpm-roster__filters > :last-child,
-.wpcpm-institution .wpcpm-roster__strip > :last-child {
-	margin-block-end: 0;
-}
-
-/* The student detail view replaces the roster rather than sitting beside it, so it needs
-   room under the header and nothing drawn around it: it is the page at that point. */
-.wpcpm-institution__card {
-	margin-bottom: 1.25em;
-}
-
-.wpcpm-institution__card:last-of-type {
-	margin-bottom: 0;
-}
-
-/* Matches .wpcpm-group__title on the mentor page. */
-.wpcpm-institution__heading {
-	align-items: center;
-	display: flex;
-	flex-wrap: wrap;
-	font-size: 1.05em;
-	gap: 0.5em;
-	margin: 0 0 1em;
-	padding: 0;
-}
-
 /* When the data was read. Every screen prints it, so it is styled once. */
 .wpcpm-institution__read {
-	margin: 1.25em 0 0;
-}
-
-.wpcpm-institution__read,
-.wpcpm-institution__empty {
 	color: inherit;
+	margin: 1.25em 0 0;
 	opacity: 0.72;
 }
 
@@ -197,68 +42,14 @@
  * fixed colours, so the page reads on a light theme and a dark one.
  * ---------------------------------------------------------------------- */
 
-/* The People card and the student detail view carry `wpcpm-institution__card` as
-   well, so their box is the one above and is not repeated here. */
 /* The People card's and both agreement blocks' headings are no longer here: each is the
-   summary of a `wpcpm-group__disclosure` now, drawn and spaced by the group rules the roster
-   shares, so that one chevron looks the same on every panel of the page. */
-.wpcpm-roster__title {
-	font-size: 1.05em;
-	margin: 0 0 0.75em;
-}
+   title of a fold now, drawn and spaced by the parts, so one chevron looks the same on every
+   card of the page. */
 
-.wpcpm-agreement-panel__lede,
-.wpcpm-agreement-panel__on-file-lede,
-.wpcpm-people__intro,
-.wpcpm-people__subtitle,
-.wpcpm-details__subtitle,
-.wpcpm-details__lead,
-.wpcpm-institution__edit-lede,
-.wpcpm-institution__edit-note {
+.wpcpm-agreement-panel__lede {
 	margin: 0 0 1em;
 }
 
-/* The three numbered steps: a list of things to do, so no bullet, and a rule between them.
-   The members were separated the same way until they became cards; their rules live with the
-   People card below, and naming them here as well left the first card without its top line,
-   because `:first-child` outranks the rule that draws the card. */
-.wpcpm-agreement-panel__steps {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-.wpcpm-agreement-panel__steps > li {
-	border-top: 1px solid var( --wpcpm-border );
-	padding: 0.75em 0;
-}
-
-.wpcpm-agreement-panel__steps > li:first-child {
-	border-top: 0;
-	padding-top: 0;
-}
-
-/* A manager's note, back to the institution verbatim. Quoted so it is plainly
-   somebody's words rather than the program's own wording. */
-.wpcpm-agreement-panel__note {
-	border-inline-start: 3px solid var( --wpcpm-border );
-	margin: 0 0 1em;
-	padding-block: 0.25em;
-	padding-inline: 1em 0;
-}
-
-.wpcpm-agreement-panel__contact,
-.wpcpm-agreement-panel__hint,
-.wpcpm-agreement-panel__note-by,
-.wpcpm-agreement-panel__on-file-note,
-.wpcpm-agreement-panel__read,
-.wpcpm-agreement-card__route,
-.wpcpm-people__facts,
-.wpcpm-people__note,
-.wpcpm-people__read,
-.wpcpm-details__when,
-.wpcpm-details__note,
-.wpcpm-roster__note,
 .wpcpm-roster__read,
 .wpcpm-roster__empty,
 /* Not this page's own name: it arrives with the Student Report Card's markup, whose
@@ -269,23 +60,32 @@
 	opacity: 0.72;
 }
 
-.wpcpm-agreement-panel__input {
-	max-width: 32em;
-	width: 100%;
+/* Every outcome of a handler that has just run, whichever card prints it: one look, the Administrator
+   Dashboard's messages' (`.wpcpm-dashboard__message`, assets/css/administrator.css, and the theme's two
+   colors on that page). Each is printed by `WPCPM_Dashboard_Card::message()`, which marks it
+   `data-wpcpm-card-message` beside the card's own class, so the mark is what is dressed here: a card
+   added later, the sponsors' events among them, takes the look without a list to remember. The bar is
+   on the logical start, as the page's own were, so it stays one color in a right-to-left locale; the
+   tone is never the color alone, the sentence says it (Institution Dashboard, Task 23). Keyed on the root's
+   three classes (0,4,0): the theme's sheet prints after this one and dresses some of these classes at 0,3,0
+   (`.wpc-dashboard-page .wpcpm-sevent__message.is-success`, a tinted box), which a 0,3,0 rule here would lose
+   on the tie (Task 23, fix round 1). Not keyed on the frame: in the layout harness the frame's class sits on the
+   root itself. */
+.wpcpm-dashboard.wpcpm-institution.wpcpm-ui-on [data-wpcpm-card-message] {
+	background: none;
+	border: 0;
+	border-inline-start: 4px solid currentColor;
+	border-radius: 0;
+	margin: 0 0 16px;
+	padding: 12px 16px;
 }
 
-/* A flash from a handler that has just run: the same shape as the banner, so
-   the page has one way of saying something out of band. */
-.wpcpm-agreement-panel__message,
-.wpcpm-institution__invite-message,
-.wpcpm-people__message,
-.wpcpm-details__message,
-.wpcpm-institution__edit-message {
-	border: 1px solid var( --wpcpm-border );
-	border-inline-start-width: 4px;
-	border-radius: var( --wpcpm-radius );
-	margin: 0 0 1em;
-	padding: 0.6em 0.9em;
+.wpcpm-dashboard.wpcpm-institution.wpcpm-ui-on [data-wpcpm-card-message].is-success {
+	border-inline-start-color: var( --wpc-green, #1a7f37 );
+}
+
+.wpcpm-dashboard.wpcpm-institution.wpcpm-ui-on [data-wpcpm-card-message].is-error {
+	border-inline-start-color: var( --wpc-red, #b32d2e );
 }
 
 /* -------------------------------------------------------------------------
@@ -302,16 +102,8 @@
 /* Every form either half draws. Room above it, so a control never reads as the
    end of the sentence that introduced it, and none below, because whatever
    follows brings its own. */
-.wpcpm-agreement-panel__form,
-.wpcpm-agreement-panel__regenerate,
-.wpcpm-agreement-panel__on-file {
+.wpcpm-agreement-panel__form {
 	margin: 1em 0 0;
-}
-
-/* Inside a numbered step the form *is* the step: it sits under the sentence
-   that numbers it, and the list has already spaced the item around both. */
-.wpcpm-agreement-panel__steps .wpcpm-agreement-panel__form {
-	margin-top: 0.5em;
 }
 
 /* A file input is the one control on this page nobody can style much; what it
@@ -369,14 +161,8 @@
 }
 
 /* The link that fetches a document, and the lines the settled card ends on. */
-.wpcpm-agreement-panel__download,
-.wpcpm-agreement-card__accepted,
-.wpcpm-agreement-card__replace {
+.wpcpm-agreement-panel__download {
 	margin: 0 0 0.75em;
-}
-
-.wpcpm-agreement-card__drive {
-	margin: 0.75em 0 0;
 }
 
 /* The heading over a form only a program manager is offered. Smaller than the
@@ -386,376 +172,11 @@
 	margin: 1.25em 0 0.5em;
 }
 
-/*
- * The People card's rows.
- *
- * A card each, the same shape a student gets, because these are the only people on the page
- * who can be removed and the row that says who they are was reading as one more paragraph in
- * the explanation above it. The name leads at the size of a heading, the address and the mark
- * sit beside it, the control is at the end, and how they got here is the quiet line
- * underneath.
- *
- * Flexbox and not a grid: the parts are flat sibling spans in the markup, and three of them
- * in one grid cell sit on top of each other instead of flowing.
- */
-.wpcpm-people__list,
-.wpcpm-people__invites {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-.wpcpm-people__member {
-	align-items: baseline;
-	border: 1px solid var( --wpcpm-border );
-	border-radius: var( --wpcpm-radius );
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.3em 0.75em;
-	margin: 0 0 0.75em;
-	padding: 1em 1.25em;
-}
-
-.wpcpm-people__member:last-child {
-	margin-bottom: 0;
-}
-
-.wpcpm-people__name {
-	font-size: 1.05em;
-	font-weight: 700;
-}
-
-.wpcpm-people__email {
-	opacity: 0.75;
-	overflow-wrap: anywhere;
-}
-
-/* Ordered after the control so it drops to a line of its own, and given the whole width so
-   nothing can come up beside it. */
-.wpcpm-people__facts {
-	flex: 1 1 100%;
-	font-size: 0.9em;
-	opacity: 0.72;
-	order: 2;
-}
-
-/* The row for a contact who holds no account here. It reads as a representative, because
-   that is what the person is, and the status line below the name is what keeps it from
-   reading as access. No border change: a second border treatment down the list would say
-   the row is a lesser kind of thing, and on forty of the forty-two institutions it is the
-   only row there is. */
-.wpcpm-people__status {
-	font-style: italic;
-}
-
-.wpcpm-people__form {
-	margin: 0 0 0 auto;
-	order: 1;
-}
-
-.wpcpm-people__mark {
-	display: inline;
-	grid-area: identity;
-}
-
-/* "The program's contact", for information and with nothing attached to it. */
-.wpcpm-people__mark {
-	border: 1px solid var( --wpcpm-border );
-	border-radius: 999px;
-	font-size: 0.85em;
-	padding: 0.1em 0.6em;
-}
-
-.wpcpm-people__form {
-	margin-top: 1em;
-}
-
-/* A waiting invitation: the address and its two controls on one line, the facts on a line of
-   their own under them. The controls are forms, not links (see render_control()), so the
-   inline modifier undoes the block form's margin and pushes the first one to the right edge. */
-.wpcpm-people__invite {
-	align-items: baseline;
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.3em 0.75em;
-	padding: 0.75em 0;
-}
-
-.wpcpm-people__invite + .wpcpm-people__invite {
-	border-top: 1px solid var( --wpcpm-border );
-}
-
-.wpcpm-people__invite-email {
-	font-weight: 700;
-	overflow-wrap: anywhere;
-}
-
-.wpcpm-people__invite-facts {
-	flex-basis: 100%;
-	order: 2;
-}
-
-.wpcpm-people__form--inline {
-	display: inline;
-	margin: 0;
-}
-
-.wpcpm-people__form--inline:first-of-type {
-	margin-inline-start: auto;
-}
-
-/* The invite form: the address box and its button on one row, the sentence under them. */
-.wpcpm-people__form--invite {
-	align-items: center;
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.5em;
-}
-
-.wpcpm-people__form--invite input[type="email"] {
-	flex: 1 1 16em;
-	min-width: 0;
-}
-
-.wpcpm-people__form--invite .description {
-	flex-basis: 100%;
-	margin: 0;
-}
-
-/* The level choice sits between the address and the button, on a row of its own. */
-.wpcpm-people__level {
-	border: 0;
-	flex-basis: 100%;
-	margin: 0;
-	padding: 0;
-}
-
-.wpcpm-people__level p {
-	margin: 0.25em 0;
-}
-
-.wpcpm-people__level .description {
-	display: block;
-	margin-inline-start: 1.6em;
-}
-
-/* The cohort picker and the filter bar. A row that wraps rather than a grid: the
-   controls are of different widths and there are never many of them. */
-.wpcpm-roster__filters {
-	align-items: flex-end;
-	background: var( --wpcpm-surface );
-	border: 1px solid var( --wpcpm-border );
-	border-radius: var( --wpcpm-radius );
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.75em 1em;
-	margin: 0 0 1.5em;
-	padding: 0.9em 1em;
-}
-
-/* A field is its label above its control. The wrapper is a `<p>`, so its own margin has to
-   go or the row inherits paragraph spacing it does not want. */
-.wpcpm-roster__filter,
-.wpcpm-roster__actions {
-	display: flex;
-	margin: 0;
-}
-
-.wpcpm-roster__filter {
-	flex-direction: column;
-	gap: 0.25em;
-}
-
-.wpcpm-roster__filter label {
-	font-size: 0.85em;
-	font-weight: 600;
-	opacity: 0.75;
-}
-
-/* The controls carry no width of their own, so they collapse to their content and the row
-   reads as ragged. A floor each, and the search takes what is left. */
-.wpcpm-roster__filter select {
-	max-width: 100%;
-	min-width: 12em;
-}
-
-.wpcpm-roster__filter input[type="search"] {
-	max-width: 100%;
-	min-width: 14em;
-}
-
-.wpcpm-roster__filter:last-of-type {
-	flex: 1 1 14em;
-}
-
-/* Three controls now, not two: Show, Clear the filters and the export link. The row wraps
-   because the third one pushed it past the width of a phone, where the media query below
-   widens the fields and leaves this paragraph to fend for itself. `gap` covers both axes, so
-   a wrapped line keeps its spacing without a second declaration. */
-.wpcpm-roster__actions {
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 1em;
-}
-
-/* The button comes first and the two links follow it, so they are sized to match each other rather than it. They are the smaller
-   kind of thing in the paragraph, and a download link set at the button's size would read as
-   a second primary action beside Show. */
-.wpcpm-roster__clear,
-.wpcpm-roster__export {
-	font-size: 0.9em;
-}
-
-/*
- * The comparison strip: this cohort's two numbers, then the one before it.
- *
- * A notice, not a paragraph. It answers the question a school opens this page with, and as
- * plain text between the filter bar and the list it read as more body copy. The shape is the
- * one this page already uses for a notice, `.wpcpm-2fa`: a tinted panel with a weighted
- * leading edge, so it is recognisably the same kind of thing rather than a second invention.
- * Leading rather than left, as the banner and the messages above are: a school reading in an
- * RTL locale gets the bar on the side the text starts from.
- */
-.wpcpm-roster__strip {
-	background: rgba( 30, 64, 175, 0.05 );
-	border: 1px solid rgba( 30, 64, 175, 0.25 );
-	border-inline-start-width: 4px;
-	border-radius: var( --wpcpm-radius );
-	margin: 0 0 1.75em;
-
-	/* The same room inside as the agreement panel at the foot of the page. They are the two
-	   bordered blocks a school sees, and a block that is tighter than the other reads as a
-	   different kind of thing rather than as the same page. The leading edge is 4px of the 1.5em,
-	   so the text still starts where the card's does. */
-	padding: 1.5em;
-}
-
-.wpcpm-roster__strip-title {
-	font-size: 0.8em;
-	font-weight: 600;
-	letter-spacing: 0.04em;
-	margin: 0 0 0.35em;
-	opacity: 0.8;
-	text-transform: uppercase;
-}
-
-/* The sentence the panel exists for: how many signed up, and how many finished. */
-.wpcpm-roster__strip-now {
-	font-size: 1.15em;
-	font-weight: 600;
-	margin: 0;
-}
-
-.wpcpm-roster__strip-then {
-	margin: 0.35em 0 0;
-	opacity: 0.78;
-}
-
-/* One student's detail view: the way back, then the card. */
-.wpcpm-institution__back {
-	display: inline-block;
-	margin: 0 0 1em;
-}
-
-/* The card's header: the photo beside the name. The name and its badge are
-   `.wpcpm-mentee__identity` from the mentor stylesheet, so the two headers read as the
-   same header and that group is defined in one place rather than two. */
-.wpcpm-institution__student-identity {
-	align-items: center;
-	display: flex;
-	gap: 1em;
-	margin-bottom: 1.25em;
-}
-
-.wpcpm-institution__student-name {
-	font-size: 1.2em;
-	font-weight: 700;
-	margin: 0;
-}
-
-/* Whether the student has signed in yet, and the button that sends the invitation again. It is
-   about the name above it, so it sits close under the name (8px) and leaves the card's own room
-   (1.25em) before the table. `:has()` is a progressive touch: without it the line sits 1.25em
-   below the name, which is the gap the table had. */
-.wpcpm-institution__student-identity:has( + .wpcpm-institution__invite ) {
-	margin-bottom: 0.5em;
-}
-
-.wpcpm-institution__invite {
-	align-items: center;
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.5em 1em;
-	margin: 0 0 1.25em;
-}
-
-.wpcpm-institution__invite-note,
-.wpcpm-institution__invite-form {
-	margin: 0;
-}
-
 /* The outcome of a press, on a line of its own above the sentence. The flex gap is the room
    under it, so the shared message rule's own margin is taken off here. */
 .wpcpm-institution__invite-message {
 	flex: 1 1 100%;
 	margin: 0;
-}
-
-/**
- * The Student Report Card, read-only and fetched when it is opened.
- *
- * Two classes on the one element, which nothing else here needs. The card enqueues
- * the calendar stylesheet for the report's own markup, and that file gives
- * `.wpcpm-report__disclosure` a margin of its own; one class each would leave the winner to
- * be whichever of the two files the page happened to print last, which is not this file's to
- * know. Still no `!important`: a theme that wants this block its own way needs two classes
- * here rather than one.
- */
-.wpcpm-report__disclosure.wpcpm-institution__report {
-	border-top: 1px solid var( --wpcpm-border );
-	margin-top: 1.25em;
-	padding-top: 1.25em;
-}
-
-/**
- * "Correct this student's details", the card's second folded block.
- *
- * Drawn as the Student Report Card above it is: a hairline over it and the same room, and a summary in
- * the same weight, so the two read as the same kind of thing. The form inside is the student edit
- * form's own, which is a `wpcpm-institution__card` box of its own wherever else it could be drawn;
- * folded inside this card it is a part of the card and not a second one, so its heading, which the
- * summary has just said, its margin and, on the WPCredits theme, the 32px inset the theme gives every
- * card of the page, are taken off. The theme's inset rule has two classes
- * (`.wpc-institution-page .wpcpm-institution__card`); the last rule here has three, naming the page and
- * the disclosure, so it outranks the theme's whatever order the stylesheets load in.
- *
- * The form's own fields, lede, note and outcome are dressed further down by the rules they share with the
- * details card and the enrollment form (the label above its box, the box at the page's width, a date and a
- * select sized to what they hold, the outcome in the page's bordered flash), so the three forms read alike.
- */
-.wpcpm-institution__correct {
-	border-top: 1px solid var( --wpcpm-border );
-	margin-top: 1.25em;
-	padding-top: 1.25em;
-}
-
-.wpcpm-institution__correct-toggle {
-	cursor: pointer;
-	font-weight: 600;
-}
-
-/* The same space under its title as the details card's own folds (.wpcpm-details__form), measured
-   on the Docker trial of Institutions release 2: 0.75em left it 3px tighter than both. */
-.wpcpm-institution__correct > .wpcpm-institution__edit {
-	margin: 1em 0 0;
-}
-
-.wpcpm-institution__correct .wpcpm-institution__edit > .wpcpm-institution__heading {
-	display: none;
-}
-
-.wpc-institution-page .wpcpm-institution__correct > .wpcpm-institution__card {
-	padding-inline: 0;
 }
 
 /* Something the reader has to act on: a status that blocks a graduation, a
@@ -765,354 +186,23 @@
 	padding-inline-start: 0.75em;
 }
 
-/*
- * The roster's students, and the group they sit in.
- *
- * The cards are the Mentor Report Card's own component, so what they look like lives in
- * dashboard.css and is shared rather than copied. What belongs here is the list around them,
- * the detail view's table, and the one thing the filter bar needs on a phone.
- */
-.wpcpm-roster__students {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-.wpcpm-roster__student-item {
-	margin: 0 0 0.75em;
-}
-
-.wpcpm-roster__student-item:last-child {
-	margin-bottom: 0;
-}
-
-.wpcpm-roster__group {
-	margin-bottom: 2em;
-}
-
-.wpcpm-roster__group:last-child {
-	margin-bottom: 0;
-}
-
-/* "Enrollment not recorded yet": read-only, and a program manager's to fix. */
-.wpcpm-roster__group--unlinked .wpcpm-roster__students {
-	opacity: 0.9;
-}
-
 /* A manager sees an address beside the name here, and an address is one long word: it breaks
    where the line ends rather than running past the section's edge on a phone. The row carries
    the rule to the address inside it; a short one breaks nowhere. */
-.wpcpm-roster__unlinked li {
-	overflow-wrap: anywhere;
-}
 
 .wpcpm-roster__read--footer {
 	margin: 1.5em 0 0;
 }
 
-/*
- * One student's detail view: labels in a fixed column, every row printed even when its value
- * is empty, which is the shape the mentor page uses for the same job.
- */
-.wpcpm-institution__table {
-	border-collapse: collapse;
-	margin: 0;
-	width: 100%;
-}
-
-.wpcpm-institution__table th,
-.wpcpm-institution__table td {
-	border-bottom: 1px solid var( --wpcpm-border );
-	padding: 0.5em 0.75em;
-	text-align: start;
-	vertical-align: top;
-}
-
-.wpcpm-institution__table th {
-	font-weight: 600;
-	width: 12em;
-}
-
-/* Three controls side by side on a phone are three controls too narrow to use. */
-@media ( max-width: 782px ) {
-
-	.wpcpm-roster__filter,
-	.wpcpm-roster__filter:last-of-type {
-		flex: 1 1 100%;
-	}
-
-	.wpcpm-roster__filter select,
-	.wpcpm-roster__filter input[type="search"] {
-		min-width: 0;
-		width: 100%;
-	}
-}
-
-/*
- * The person in the Resources section.
- *
- * Under the guide and the channel, and set apart from them by a rule rather than a box: the
- * two above are places to read, this is somebody to write to, and the section is already one
- * bordered block at the foot of a page that has several.
- */
-.wpcpm-resources__contact {
-	border-top: 1px solid var( --wpcpm-border );
-	margin-top: 1.25em;
-	padding-top: 1.25em;
-}
-
 /* In a column of its own, the Sponsor Dashboard's third (1.118.0), the person is the column's only
    block, so the rule and the room that set it apart under the guide's buttons go, as the theme
-   takes them off (wpcredits-theme 1.29.0): what divides it from the resources is the column's. */
+   takes them off (wpcredits-theme 1.29.0): what divides it from the resources is the column's.
+   No markup in the plugin or the theme prints `wpcpm-resources__contact` now; this rule stays
+   only because bin/test-sponsors-dashboard.php, which every task leaves untouched, pins it. */
 .wpcpm-resources__col--contact > .wpcpm-resources__contact {
 	border-top: 0;
 	margin-top: 0;
 	padding-top: 0;
-}
-
-.wpcpm-resources__contact-name {
-	font-size: 1.05em;
-	font-weight: 600;
-	margin: 0;
-}
-
-.wpcpm-resources__contact-links {
-	margin: 0.2em 0 0;
-}
-
-/* ==========================================================================
-   Enrolling students
-   ========================================================================== */
-
-/*
- * The form is the longest thing on this page and the rarest thing anybody comes for, so it
- * is a disclosure rather than a section: the same `wpcpm-group` the roster's own buckets use,
- * which means it opens and closes with the control the reader has already met four times
- * above it rather than with a fifth kind of thing.
- *
- * Nothing here restates that component. What follows dresses only the form inside it, which
- * had no rules at all when it shipped: `.wpcpm-field` is defined in the application form's
- * stylesheet, and that stylesheet is not loaded on this page, so every label and every box
- * came out as the browser's own.
- */
-/*
- * **The theme owns this body's inset and its open state, and both are better than mine were.**
- * A dressed dashboard turns an open group into a bordered panel hanging off the summary row,
- * inset to match it, which is the visible answer to "is this section open" and the reason the
- * form now lines up with the row that opens it. An earlier version of this file added its own
- * left padding to fix the alignment by hand; the theme zeroes `.wpcpm-group__body`'s padding
- * at a higher specificity, so that padding never applied and the alignment it was credited
- * with came from the theme all along. Only the top gap is this file's.
- */
-.wpcpm-import__body {
-	padding-top: 0.5em;
-}
-
-/* The chevron matches the roster's, which is the point of borrowing the component. The
-   plugin's own rule leaves this one rotated in both states, so a reader saw a mark that never
-   changed; the roster's sits unrotated and lets the panel below say whether the row is open. */
-.wpcpm-import__disclosure .wpcpm-mentee__toggle {
-	transform: none;
-}
-
-.wpcpm-import__lede {
-	margin: 0 0 1.5em;
-}
-
-/* The batch-wide answers are one decision about the whole list, so they are boxed together
-   and the rows below them are not: a school choosing a term once should be able to see that
-   it applies to everything under it. Same tint and inset as the agreement panel. */
-.wpcpm-import__batch {
-	background: var( --wpcpm-surface );
-	border: 1px solid var( --wpcpm-border );
-	border-radius: var( --wpcpm-radius );
-	margin: 0 0 1.5em;
-	padding: 1.5em;
-}
-
-.wpcpm-import__subtitle {
-	font-size: 1em;
-	font-weight: 600;
-	margin: 1.5em 0 0.75em;
-}
-
-.wpcpm-import__rows > .wpcpm-import__subtitle:first-child {
-	margin-top: 0;
-}
-
-.wpcpm-import .wpcpm-field,
-.wpcpm-details .wpcpm-field,
-.wpcpm-institution__correct .wpcpm-institution__edit-field {
-	display: block;
-	margin: 0 0 1.25em;
-}
-
-.wpcpm-import .wpcpm-field:last-child,
-.wpcpm-details .wpcpm-field:last-child {
-	margin-bottom: 0;
-}
-
-.wpcpm-import .wpcpm-field > label,
-.wpcpm-details .wpcpm-field > label,
-.wpcpm-details .wpcpm-field__label,
-.wpcpm-institution__correct .wpcpm-institution__edit-field > label {
-	display: block;
-	font-weight: 600;
-	margin-bottom: 0.3em;
-}
-
-/* "Required" beside a label: the label's voice, not a red asterisk nobody can read. */
-.wpcpm-import .wpcpm-field__required,
-.wpcpm-details .wpcpm-field__required {
-	font-weight: 400;
-	opacity: 0.72;
-}
-
-.wpcpm-import .wpcpm-field input[type="text"],
-.wpcpm-import .wpcpm-field input[type="date"],
-.wpcpm-import .wpcpm-field select,
-.wpcpm-import .wpcpm-field textarea,
-.wpcpm-details .wpcpm-field input[type="text"],
-.wpcpm-details .wpcpm-field input[type="email"],
-.wpcpm-details .wpcpm-field select,
-.wpcpm-institution__correct .wpcpm-institution__edit-input {
-	border: 1px solid var( --wpcpm-control-border, var( --wpcpm-border ) );
-	border-radius: var( --wpcpm-radius );
-	box-sizing: border-box;
-	display: block;
-	max-width: 100%;
-	padding: 0.5em 0.6em;
-	width: 100%;
-}
-
-/* A date is eight characters and a full-width box for it reads as a paragraph field. The
-   select is sized to its longest option rather than to the column. */
-.wpcpm-import .wpcpm-field input[type="date"],
-.wpcpm-institution__correct input[type="date"].wpcpm-institution__edit-input {
-	max-width: 14em;
-}
-
-.wpcpm-import .wpcpm-field select,
-.wpcpm-institution__correct select.wpcpm-institution__edit-input {
-	max-width: 28em;
-	width: auto;
-}
-
-.wpcpm-import .wpcpm-field textarea {
-	min-height: 8em;
-	resize: vertical;
-}
-
-/* **Control first, label after it**, because "[x] These students have been told" is how a
-   tick reads. Without this the box floated on its own line above a paragraph that did not
-   look like its label, which is how the consent came out on the day it shipped. */
-.wpcpm-import .wpcpm-field--check > label {
-	align-items: flex-start;
-	display: flex;
-	font-weight: 400;
-	gap: 0.5em;
-	margin-bottom: 0;
-}
-
-/* **`width: auto` is the whole fix and it is not decoration.** Something above this gives
-   every input in the dashboard a full width, and a checkbox obeying it becomes a 1,133px flex
-   item with a tick drawn in the middle of it and its label pushed off to a column at the far
-   right of the page. That is what the consent looked like on the day it shipped. */
-.wpcpm-import .wpcpm-field--check input[type="checkbox"] {
-	flex: none;
-	height: auto;
-	margin: 0.2em 0 0;
-	width: auto;
-}
-
-.wpcpm-import .wpcpm-field__hint,
-.wpcpm-details .wpcpm-field__hint {
-	display: block;
-	font-size: 0.9em;
-	margin-top: 0.35em;
-	opacity: 0.72;
-}
-
-/* The sample list's link, on a line under the file box's hint: the hint's size, not its faded tone, since
-   it is the one thing on the line a reader can press. */
-.wpcpm-import__sample {
-	display: inline-block;
-	font-size: 0.9em;
-	margin-top: 0.35em;
-}
-
-.wpcpm-import__actions {
-	margin: 1.5em 0 0;
-}
-
-/* The preview: one line per row, with the verdict carrying the colour rather than the row,
-   so a list of thirty is read down the left and only the exceptions pull the eye. */
-.wpcpm-import__summary {
-	font-weight: 600;
-	margin: 0 0 0.75em;
-}
-
-.wpcpm-import__note {
-	font-size: 0.9em;
-	margin: 0.75em 0 0;
-	opacity: 0.72;
-}
-
-.wpcpm-import__rows-list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-.wpcpm-import__row {
-	align-items: baseline;
-	border-top: 1px solid var( --wpcpm-border );
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.3em 0.75em;
-	padding: 0.75em 0;
-}
-
-.wpcpm-import__row:last-child {
-	border-bottom: 1px solid var( --wpcpm-border );
-}
-
-.wpcpm-import__line {
-	flex: none;
-	font-size: 0.9em;
-	min-width: 5em;
-	opacity: 0.72;
-}
-
-.wpcpm-import__name {
-	font-weight: 600;
-}
-
-.wpcpm-import__email {
-	font-size: 0.9em;
-	opacity: 0.72;
-}
-
-/* The verdict takes the whole second line: a row that cannot be created is explained in a
-   sentence, and a sentence squeezed into a fourth column is a sentence nobody reads. */
-.wpcpm-import__verdict {
-	flex: 1 1 100%;
-	font-size: 0.9em;
-}
-
-.wpcpm-import__row--ok .wpcpm-import__verdict {
-	opacity: 0.72;
-}
-
-.wpcpm-import__row--blocked .wpcpm-import__verdict,
-.wpcpm-import__row--invalid .wpcpm-import__verdict,
-.wpcpm-import__row--duplicate-file .wpcpm-import__verdict {
-	font-weight: 600;
-	opacity: 1;
-}
-
-.wpcpm-import__cancel {
-	margin: 1.5em 0 0;
 }
 
 .wpcpm-import__message {
@@ -1141,259 +231,12 @@
 }
 
 /* -------------------------------------------------------------------------
- * For Administrators (1.123.29): the answers the application gave and the
- * institution's history, at the foot of the page for Administrators only.
+ * A refused form, on every card of the page.
  *
- * The section is a <section> under the last module, and it deliberately carries
- * no `wpcpm-module` class: modules.js collects every element with that class to
- * read, and send, the order of the movable modules, and this one has no place in
- * that order. Without the WPCredits theme it is spaced here, 1.25em under the
- * last module. Its two cards are the page's folded cards (`wpcpm-group__disclosure`),
- * drawn and spaced by the group rules the roster shares; what follows is the
- * inside of their bodies.
- *
- * On the WPCredits theme a module's hairline, its top padding, the room from the
- * module above and the margins of its cards are the theme's rules for
- * `.wpc-institution-page .wpcpm-module` and the three rules after it, which a
- * section with no such class does not match. So the last block below carries the
- * same values for the section, scoped to that page, value for value.
+ * The cards' forms are the shared parts' (their fields, their boxes and their
+ * rhythm are parts.css's); what is left here is the refusal they share: the
+ * summary at the form's head and the sentence beside a field.
  * ---------------------------------------------------------------------- */
-.wpcpm-institution__admin {
-	margin: 1.25em 0 0;
-}
-
-/* A body's inset is its padding, and only its padding, as it is for the agreement panels above.
-   That is the result without the theme. On the WPCredits theme the first block of an open card
-   stands 14px under the summary's line (`.wpc-institution-page .wpcpm-group__disclosure[open]
-   .wpcpm-group__body > :first-child`), which outweighs the first rule below, so these two cards
-   start where every other card on the page does. */
-.wpcpm-admin-answers__body > :first-child,
-.wpcpm-admin-history__body > :first-child {
-	margin-block-start: 0;
-}
-
-.wpcpm-admin-answers__body > :last-child,
-.wpcpm-admin-history__body > :last-child {
-	margin-block-end: 0;
-}
-
-/* Each question over its answer, the answer given room to wrap: an address or a long title
-   must not push the card wider than the page. */
-.wpcpm-admin-answers__list {
-	margin: 0;
-}
-
-.wpcpm-admin-answers__list dt {
-	font-weight: 600;
-	margin: 1em 0 0.2em;
-}
-
-.wpcpm-admin-answers__list dt:first-child {
-	margin-top: 0;
-}
-
-.wpcpm-admin-answers__list dd {
-	margin: 0;
-	overflow-wrap: anywhere;
-}
-
-/* One line of meta (when, and who) over the sentence, in the rhythm of the import preview's
-   rows: a rule above each, the quiet part first, the sentence given the whole width. */
-.wpcpm-admin-history__list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-.wpcpm-admin-history__row {
-	align-items: baseline;
-	border-top: 1px solid var( --wpcpm-border );
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.3em 0.75em;
-	padding: 0.75em 0;
-}
-
-.wpcpm-admin-history__row:first-child {
-	border-top: 0;
-	padding-top: 0;
-}
-
-.wpcpm-admin-history__row:last-child {
-	padding-bottom: 0;
-}
-
-.wpcpm-admin-history__meta {
-	flex: none;
-	font-size: 0.9em;
-	opacity: 0.72;
-}
-
-.wpcpm-admin-history__what {
-	flex: 1 1 100%;
-	overflow-wrap: anywhere;
-}
-
-.wpcpm-admin-history__limit {
-	margin: 1em 0 0;
-}
-
-/* The theme's module rhythm, for the section (theme assets/css/dashboard.css, "The Institution
-   Dashboard's three modules"), value for value:
-   - `.wpc-institution-page .wpcpm-module`: `border-top: 1px solid var( --wpc-line-soft )` and
-     `padding-top: 20px`, the hairline over every module's title;
-   - `.wpc-institution-page .wpcpm-module + .wpcpm-module`: `margin-top: 22px`, the room from the
-     module above;
-   - `.wpc-institution-page .wpcpm-module > .wpcpm-institution__card`: margin 0 top and bottom, and
-     the rule after it, `margin-top: 10px` between one card and the next.
-   The soft line's own value, #ededed, is the fallback where the variable is not defined. */
-.wpc-institution-page .wpcpm-institution__admin {
-	border-top: 1px solid var( --wpc-line-soft, #ededed );
-	margin-top: 22px;
-	padding-top: 20px;
-}
-
-.wpc-institution-page .wpcpm-institution__admin > .wpcpm-institution__card {
-	margin-bottom: 0;
-	margin-top: 0;
-}
-
-.wpc-institution-page .wpcpm-institution__admin > .wpcpm-institution__card + .wpcpm-institution__card {
-	margin-top: 10px;
-}
-
-/* -------------------------------------------------------------------------
- * The school's details card (Institutions release 2).
- *
- * The details read as rows under two small headings, and each group opens its
- * own form in place. The card's box, its heading and its rhythm are the ones
- * above, shared with the People card; its form is the enrollment form's, drawn
- * by the same rules for the second time (the `.wpcpm-details .wpcpm-field`
- * selectors beside the `.wpcpm-import` ones), so this section holds only what
- * is the card's own.
- * ---------------------------------------------------------------------- */
-.wpcpm-details__list {
-	margin: 0 0 0.75em;
-}
-
-/* A row is its label over to the left and its value beside it; a change that waits is a line of its
-   own under both, so it reads as part of the row it is about. */
-.wpcpm-details__row {
-	display: grid;
-	gap: 0.15em 1em;
-	grid-template-columns: minmax( 0, 40% ) minmax( 0, 1fr );
-	padding: 0.35em 0;
-}
-
-.wpcpm-details__row dt {
-	margin: 0;
-	opacity: 0.72;
-}
-
-.wpcpm-details__row dd {
-	margin: 0;
-	overflow-wrap: anywhere;
-}
-
-/* The line takes the page's warning tone from its `wpcpm-warning` class, the leading edge the page uses for
-   what the reader has to act on, and only its place in the row and its size are the card's own. */
-.wpcpm-details__row .wpcpm-details__waiting {
-	font-size: 0.9em;
-	grid-column: 1 / -1;
-	padding-block: 0.25em;
-}
-
-.wpcpm-details__withdraw {
-	display: inline;
-	margin: 0;
-}
-
-.wpcpm-details__withdraw-button {
-	background: none;
-	border: 0;
-	color: inherit;
-	cursor: pointer;
-	font: inherit;
-	padding: 0;
-	text-decoration: underline;
-}
-
-/* The Administrator's note is the Administrator's own line breaks. */
-.wpcpm-details__outcome {
-	margin: 0 0 0.75em;
-	white-space: pre-line;
-}
-
-.wpcpm-details__more,
-.wpcpm-details__decide {
-	margin: 0 0 1.5em;
-}
-
-.wpcpm-details__toggle {
-	cursor: pointer;
-}
-
-.wpcpm-details__form {
-	margin-top: 1em;
-}
-
-.wpcpm-details__note {
-	margin: 0 0 1em;
-	overflow-wrap: anywhere;
-}
-
-.wpcpm-details__actions {
-	margin: 1.5em 0 0;
-}
-
-/* What is wrong with one answer. Never color alone: the sentence says what to do, and the field is
-   marked `aria-invalid`. */
-.wpcpm-details .wpcpm-field__problem {
-	display: block;
-	font-weight: 600;
-	margin-top: 0.3em;
-}
-
-.wpcpm-details .wpcpm-field.has-problem input,
-.wpcpm-details .wpcpm-field.has-problem select {
-	border-width: 2px;
-}
-
-/* An author `display` beats the browser's `[hidden]`, so the plain select the country's field stands in
-   for is hidden again here, as the script hides it. */
-.wpcpm-details .wpcpm-field select[hidden] {
-	display: none;
-}
-
-/* The languages: boxes with the label after the control, in columns as wide as the longest name needs. The
-   width the fields above give every input would stretch a tick across the page, so a box takes none. */
-.wpcpm-details .wpcpm-field__check {
-	align-items: flex-start;
-	display: flex;
-	font-weight: 400;
-	gap: 0.5em;
-	margin-bottom: 0.4em;
-}
-
-.wpcpm-details .wpcpm-field__check input {
-	flex: none;
-	height: auto;
-	margin: 0.25em 0 0;
-	width: auto;
-}
-
-.wpcpm-details .wpcpm-field--columns .wpcpm-field__choices {
-	display: grid;
-	gap: 0 1.25em;
-	grid-template-columns: repeat( auto-fill, minmax( 13em, 1fr ) );
-}
-
-/* A phone: the label over its value. */
-@media ( max-width: 600px ) {
-	.wpcpm-details__row {
-		grid-template-columns: minmax( 0, 1fr );
-	}
-}
 
 /*
  * A refused form's summary (`WPCPM_Form_Errors::summary()`, 1.123.58): the count of answers to change
@@ -1429,4 +272,327 @@
 .wpcpm-field__problem {
 	font-weight: 600;
 	margin: 0.3em 0 0;
+}
+
+/* The Institution Dashboard's head in the dashboards' frame. A school's name is printed through
+   `WPCPM_UI::breakable()`, which gives a long unbroken run a break opportunity every ten characters; the title then
+   breaks a word only where the word would overflow its line, the guard the parts use, so an ordinary word is never
+   broken inside. Only this page draws a head inside its root. */
+.wpcpm-frame .wpcpm-institution .wpcpm-head__title {
+	overflow-wrap: break-word;
+}
+
+/* The head's one line of facts is an item's facts line (`WPCPM_UI::facts_line()`), drawn by the parts at every width.
+   A name breaks only where it would overflow; the website is an address and may break anywhere. */
+.wpcpm-frame .wpcpm-institution .wpcpm-head__facts {
+	overflow-wrap: break-word;
+}
+
+.wpcpm-frame .wpcpm-institution .wpcpm-head__facts a {
+	overflow-wrap: anywhere;
+}
+
+/* In the parts' phone form the line itself takes the facts' 16px gutter (parts.css); the frame's head rule sets the
+   line's margin to 0, so the gutter is given back here, or the facts would start 16px in from the title. */
+@container wpcpm-main ( max-width: 799.98px ) {
+	.wpcpm-frame .wpcpm-institution .wpcpm-head__facts {
+		margin-inline-start: -16px;
+	}
+}
+
+/* In the frame the page's root draws no line over the head and no inset of its own: the frame's main area holds the
+   views, as it holds the Administrator Dashboard's and the Sponsor Dashboard's. WPCredits theme 1.32.28 and older give
+   the page's root a hairline over it and 22px above and below (`.wpc-institution-page .wpcpm-dashboard.wpcpm-institution`),
+   which inside the frame stood 32px above the eyebrow (Gate A). Theme 1.32.29 drops that rule; this one stays for a
+   site whose theme is still older, as in the hours between installing this plugin and the theme. */
+.wpcpm-frame .wpcpm-frame__main > .wpcpm-dashboard.wpcpm-institution {
+	border-top: 0;
+	padding: 0;
+}
+
+/* What follows the head, at the frame's own room between its rows (`.wpcpm-frame__main`'s gap: 28px, 24px in a window
+   of 782px or less), as the Administrator and Sponsor Dashboards' views stand under theirs: every view's first block
+   (Gate B, B4: the Students, Enroll students, Semester reports and student card views touched the lede), and the
+   Overview's blocks under the head and under each other. One rule, so every view takes the head alike. */
+.wpcpm-frame .wpcpm-institution > .wpcpm-head + *,
+.wpcpm-frame .wpcpm-institution > .wpcpm-figures,
+.wpcpm-frame .wpcpm-institution > .wpcpm-overview__quiet,
+.wpcpm-frame .wpcpm-institution > .wpcpm-institution__waiting,
+.wpcpm-frame .wpcpm-institution > .wpcpm-institution__news,
+.wpcpm-frame .wpcpm-institution > .wpcpm-institution__contact {
+	margin-block-start: 28px;
+}
+
+@media ( max-width: 782px ) {
+	.wpcpm-frame .wpcpm-institution > .wpcpm-head + *,
+	.wpcpm-frame .wpcpm-institution > .wpcpm-figures,
+	.wpcpm-frame .wpcpm-institution > .wpcpm-overview__quiet,
+	.wpcpm-frame .wpcpm-institution > .wpcpm-institution__waiting,
+	.wpcpm-frame .wpcpm-institution > .wpcpm-institution__news,
+	.wpcpm-frame .wpcpm-institution > .wpcpm-institution__contact {
+		margin-block-start: 24px;
+	}
+}
+
+/* The figures' read line: the source line under the band, as the Sponsor Dashboard's figures have one, and not the
+   old page's closing line with its hairline. */
+.wpcpm-frame .wpcpm-institution > .wpcpm-figures + .wpcpm-dashboard__updated {
+	border: 0;
+	color: var( --wpcpm-f-muted );
+	font-size: 12px;
+	line-height: 1.5;
+	margin: 10px 0 0;
+	opacity: 1;
+	padding: 0;
+}
+
+/* The Students view's read line, at the roster's foot and on one student's card alike (Gate B, B6): the parts' muted
+   line (`.wpcpm-ui-intro--muted`) at the content's left edge, 24px under the cards, as a block that is not theirs; not
+   the old page's closing line, which the theme draws with a hairline and a 32px inset. The roster's own read line under
+   its last card (the roster drawn on its own, a tutor's narrower view among them) takes the same rule (Gate B round 3,
+   B10: it stood 21px under the card, its old 1.5em). */
+.wpcpm-frame .wpcpm-institution > .wpcpm-dashboard__updated,
+.wpcpm-frame .wpcpm-institution .wpcpm-roster__read--footer {
+	border: 0;
+	color: var( --wpcpm-f-muted );
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	margin: var( --wpcpm-f-apart ) 0 0;
+	opacity: 1;
+	padding: 0;
+}
+
+/* Waiting for you heads its quiet line 8px over it, as an in-card heading heads its block (parts design 2.11; Gate B,
+   B2): the quiet line is the Administrator Dashboard's, whose sheet gives it 12px above. */
+.wpcpm-frame .wpcpm-institution__waiting > .wpcpm-ui-h + .wpcpm-overview__quiet {
+	margin-block-start: 0;
+}
+
+/* A view with nothing to show, and the group of what waits when nothing does: one quiet line. */
+.wpcpm-frame .wpcpm-institution > .wpcpm-overview__quiet,
+.wpcpm-frame .wpcpm-institution__waiting > .wpcpm-overview__quiet {
+	color: var( --wpcpm-f-muted );
+	font-size: 14px;
+	line-height: 1.55;
+	margin-block-end: 0;
+	padding: 0;
+}
+
+.wpcpm-frame .wpcpm-institution__waiting,
+.wpcpm-frame .wpcpm-institution__news,
+.wpcpm-frame .wpcpm-institution__contact {
+	min-width: 0;
+	overflow-wrap: break-word;
+}
+
+/* The contact card: the name, the address and the booking link, the sentence under them (the parts' muted intro
+   line). */
+.wpcpm-frame .wpcpm-institution__contact-name {
+	color: var( --wpcpm-f-ink );
+	font-size: 16px;
+	font-weight: 600;
+	line-height: 22px;
+	margin: 0;
+}
+
+.wpcpm-frame .wpcpm-institution__contact-links {
+	font-size: 14px;
+	line-height: 20px;
+	margin: 6px 0 10px;
+	overflow-wrap: anywhere;
+}
+
+/* Three pairs the parts set no room for, given it on this page (Gate B round 2, F10), keyed on the page's root so that no
+   drawing of the Administrator Dashboard or the Sponsor Dashboard moves:
+   - a block under an action row, in a view's block (the Agreement view: the form that replaces the accepted copy, the
+     sentence of a newer copy waiting, under Download): 16px, the room between blocks of a card;
+   - a field under a muted line (the report editor's "This section is read from the program records."): 8px, the room
+     the parts give a form's intro over its first field (design 2.5);
+   - a field after a choice group with a hidden field between them (the upload form's signer tick after its kind, the
+     tick's unticked value posted first): 14px, the room between fields (design 2.4), as with no hidden field. */
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-block > .wpcpm-ui-actions + * {
+	margin-top: var( --wpcpm-f-block );
+}
+
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-intro--muted + .wpcpm-ui-field,
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-intro--muted + .wpcpm-ui-choices {
+	margin-top: 8px;
+}
+
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-choices + [type="hidden"] + .wpcpm-ui-choices,
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-choices + [type="hidden"] + .wpcpm-ui-field,
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-field + [type="hidden"] + .wpcpm-ui-choices {
+	margin-top: var( --wpcpm-f-field );
+}
+
+/* The Agreement view's steps and the block around them (Gate B round 3, B1 to B6, ruled). Two separate blocks never
+   touch; the lines of one thought do. Keyed on this page's root: only the Agreement view's steps hold a form (the
+   Administrator Dashboard's review checklist holds sentences), and no drawing of the other dashboards moves.
+   - B1: a step's sentence is the intro of the form under it: 8px over the form (design 2.5);
+   - B6: a step's form that opens with its refusal: the message 16px under the sentence, the room the parts give a
+     block of a card (design 2.3; a card body's blocks are 16px apart), the margins collapsing into one;
+   - B4: two forms in one step (Open that document again, then the name to generate with): 16px under the button row;
+   - B2: two steps 16px apart where either holds more than its sentence; two plain sentences keep the checklist's 6px;
+   - B3: what follows a form in the view's block, or a checklist whose last step holds one, 16px under its button
+     row; a heading keeps its own 24px;
+   - B5: separate thoughts at the block's top 8px apart: the Administrator's banner (a note) over the state's sentence,
+     and the returned or revoked note's by-line over the form's intro. */
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-checklist__item > form:first-of-type {
+	margin-top: 8px;
+}
+
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-checklist__item > form > [data-wpcpm-card-message] {
+	margin-top: var( --wpcpm-f-block );
+}
+
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-checklist__item > form + form {
+	margin-top: var( --wpcpm-f-block );
+}
+
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-checklist__item:has( > form ) + .wpcpm-ui-checklist__item,
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-checklist__item + .wpcpm-ui-checklist__item:has( > form ) {
+	margin-top: var( --wpcpm-f-block );
+}
+
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-block > form + :not( .wpcpm-ui-h ) {
+	margin-top: var( --wpcpm-f-block );
+}
+
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-block > .wpcpm-ui-checklist:has( > .wpcpm-ui-checklist__item:last-child > form ) + :not( .wpcpm-ui-h ) {
+	margin-top: var( --wpcpm-f-block );
+}
+
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-block > .wpcpm-ui-note + .wpcpm-ui-intro,
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-block > .wpcpm-ui-intro--muted + form {
+	margin-top: 8px;
+}
+
+/* More pairs the census found on this page (Gate B round 3, B7 to B13, ruled), keyed on its root as the rules above:
+   - B7: the ignored columns' muted line over the check table, 8px, as a line over the block it introduces;
+   - B8: "Download a sample list" under the file box, 6px: the link is the box's second line of help, as a hint stands
+     under its box (design 2.4);
+   - B9: a refused form's error summary 16px over its first field, a block of the form; its own sheet gave it 1.5em
+     (21px at the summary's 14px);
+   - B11: a form's intro 8px over the form in a fold's body, as every intro (the student's correction: the fold body's
+     16px between blocks took it);
+   - B12, B13: an empty list's line ("Nobody can act ...", "No students in this group.") stands 16px under the list or
+     the group's line above it, as a group's rows stand under its line, with the room as a margin and not inside the
+     line's box. */
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-block > .wpcpm-ui-intro--muted + .wpcpm-ui-table {
+	margin-top: 8px;
+}
+
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-file + .wpcpm-ui-intro {
+	margin-top: var( --wpcpm-f-tie );
+}
+
+.wpcpm-frame .wpcpm-institution .wpcpm-errors {
+	margin-bottom: var( --wpcpm-f-block );
+}
+
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-fold__body > .wpcpm-ui-intro:not( .wpcpm-ui-intro--muted ) + form {
+	margin-top: 8px;
+}
+
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-list + .wpcpm-ui-list__empty,
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-intro--muted + .wpcpm-ui-list__empty {
+	margin-top: var( --wpcpm-f-block );
+	padding-top: 0;
+}
+
+/* The empty line's 12px under its words is for a heading after it (the parts make that 24px with the heading's 12px) and
+   for the card's end. Before any other block it goes, so that block stands the card's 16px under the words, as under
+   any block: Tracks offered's "None listed yet." over the sentence on who sets the tracks was 28px, the frame's
+   distance under a view's head (Task 28 fix round 2, X14). */
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-list__empty:has( + :not( .wpcpm-ui-h, .wpcpm-ui-fold__foot ) ) {
+	padding-bottom: 0;
+}
+
+/* "Required" or "Optional" after a label's words (Gate B round 2, F12, ruled), on this page only: the parts draw the
+   6px as the word's margin after one ordinary space, which a word that wraps onto a line of its own keeps before it
+   (3px in at 390 under four labels). Here the margin goes, and the word's ::before prints one preserved space: with the
+   label's own space it makes one run of spaces, a line breaks only after the run, and a preserved space at a line's end
+   hangs, so a wrapped word starts at the lines' edge. Its width is word spacing alone (the space itself at no size),
+   set on the ::before only, so a need word of two words (a translation) keeps its own spacing (round 3, R5): the
+   margin it replaces, 6px less a quarter of an em of the labels' 14px face, so the unwrapped gap is today's. It has no
+   height of its own (`line-height: 0`): at no size with the label's 20px line its box reached 10px under the baseline,
+   and grew every label that carries the word by 5px (Task 28 fix round 2, X10). */
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-field__need {
+	margin-inline: 0;
+}
+
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-field__need::before {
+	content: " ";
+	font-size: 0;
+	line-height: 0;
+	white-space: pre-wrap;
+	word-spacing: calc( var( --wpcpm-f-tie ) - 3.5px );
+}
+
+/* A list row's name keeps its line, and its tag goes under it, in the narrow form (Task 28 fix round 2, X12): the parts'
+   narrow line is a grid whose first column shrinks below the name, so a short name was broken beside a long tag. Here
+   the line is a wrapping row: the name as wide as its words and growing into the room left, the tag after it while
+   both fit (at the line's end, as the grid put it), on the next line when they do not, and only a name longer than the
+   row breaks. The facts take a line of their own and the action the next, at its own width, 8px apart, as in the grid: an empty
+   break of the line's whole width stands before the action, and the action's -8px takes back the second 8px gap. A row with a note or
+   more under it keeps the parts' own grid. Only rows whose title is a person's or an address's name: the people card
+   (`#wpcpm-people`: Representatives and tutors, Invitations waiting, Tutors) and the Students view's unlinked rows
+   (`.wpcpm-roster__group--unlinked`); a row whose title is a sentence (the Overview's, the reports') keeps the grid, its
+   tag at the line's end, read down one column with its neighbors'. Owed by the parts at their next release (the list row is shared, and its
+   live rows elsewhere do not move); keyed on this page's root. */
+@media (max-width: 600px) {
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) {
+		align-content: center;
+		align-items: center;
+		display: flex;
+		flex-wrap: wrap;
+	}
+
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) > .wpcpm-ui-list__name {
+		flex: 1 1 auto;
+	}
+
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) > .wpcpm-ui-list__facts {
+		flex: 1 1 100%;
+	}
+
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ):has( > .wpcpm-ui-list__act )::after {
+		content: "";
+		flex: 0 0 100%;
+		order: 1;
+	}
+
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) > .wpcpm-ui-list__act {
+		flex: 0 1 auto;
+		margin-top: -8px;
+		order: 2;
+	}
+}
+
+@container wpcpm-main ( max-width: 799.98px ) {
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) {
+		align-content: center;
+		align-items: center;
+		display: flex;
+		flex-wrap: wrap;
+	}
+
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) > .wpcpm-ui-list__name {
+		flex: 1 1 auto;
+	}
+
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) > .wpcpm-ui-list__facts {
+		flex: 1 1 100%;
+	}
+
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ):has( > .wpcpm-ui-list__act )::after {
+		content: "";
+		flex: 0 0 100%;
+		order: 1;
+	}
+
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) > .wpcpm-ui-list__act {
+		flex: 0 1 auto;
+		margin-top: -8px;
+		order: 2;
+	}
 }

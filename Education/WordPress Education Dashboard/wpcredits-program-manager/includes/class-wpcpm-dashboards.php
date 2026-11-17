@@ -297,6 +297,8 @@ class WPCPM_Dashboards {
 	 *     @type string     $none    What the field's list says when no name matches what was typed.
 	 *     @type array      $keep    Query arguments the form carries as hidden fields, name to value: what the
 	 *                              page shows besides whose page it is, such as a dashboard's view.
+	 *     @type string     $blank   The words of the empty first option the compact control lists while no entry
+	 *                              is chosen, or ''. Read by the compact control alone; today's switcher prints none.
 	 * }
 	 */
 	public static function render_switcher( array $args ) {
@@ -310,6 +312,7 @@ class WPCPM_Dashboards {
 				'find'    => '',
 				'none'    => '',
 				'keep'    => array(),
+				'blank'   => '',
 			),
 			$args
 		);
@@ -320,11 +323,42 @@ class WPCPM_Dashboards {
 			return;
 		}
 
-		echo '<form class="wpcpm-dashboard__switcher" method="get">';
+		// The Institution Dashboard on the shared parts: the compact control (Task 14). Every other surface, and the
+		// Institution Dashboard while its surface is off, draws today's switcher below; so does a caller that loaded no
+		// switch at all (a suite of the switcher alone).
+		if ( class_exists( 'WPCPM_UI' ) && WPCPM_UI::on() && 'institution' === WPCPM_UI::surface() ) {
+			self::render_viewing( $args, $options );
+			return;
+		}
 
+		echo '<form class="wpcpm-dashboard__switcher" method="get">';
+		self::render_switcher_keep( (array) $args['keep'] );
+		echo '<div class="wpcpm-dashboard__switcher-fields">';
+		self::render_combo(
+			array_merge(
+				$args,
+				array(
+					'options' => $options,
+					'blank'   => '',
+				)
+			)
+		);
+		printf( '<button type="submit" class="wpcpm-button">%s</button>', esc_html__( 'Show', 'wpcredits-program-manager' ) );
+		printf( '<span class="wpcpm-dashboard__switcher-note">%s</span>', esc_html__( 'Only Administrators see this control.', 'wpcredits-program-manager' ) );
+		echo '</div>';
+		echo '</form>';
+	}
+
+	/**
+	 * The hidden fields a switcher's GET form carries: what the page is showing besides whose page it is, and the
+	 * page's ID where the site has no pretty permalinks.
+	 *
+	 * @param array $keep Query arguments, name to value.
+	 */
+	private static function render_switcher_keep( array $keep ) {
 		// What the page is showing besides whose page it is, such as a dashboard's view (1.123.78): a GET form
 		// replaces the address's query, so it travels as a hidden field.
-		foreach ( (array) $args['keep'] as $name => $value ) {
+		foreach ( $keep as $name => $value ) {
 			if ( is_scalar( $value ) && '' !== (string) $value ) {
 				printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( (string) $name ), esc_attr( (string) $value ) );
 			}
@@ -339,12 +373,43 @@ class WPCPM_Dashboards {
 				printf( '<input type="hidden" name="page_id" value="%d" />', (int) $queried );
 			}
 		}
+	}
 
-		echo '<div class="wpcpm-dashboard__switcher-fields">';
-		self::render_combo( array_merge( $args, array( 'options' => $options ) ) );
-		printf( '<button type="submit" class="wpcpm-button">%s</button>', esc_html__( 'Show', 'wpcredits-program-manager' ) );
-		printf( '<span class="wpcpm-dashboard__switcher-note">%s</span>', esc_html__( 'Only Administrators see this control.', 'wpcredits-program-manager' ) );
-		echo '</div>';
+	/**
+	 * Viewing as institution on the shared parts (Task 14, design 7): one small control, the label muted beside its
+	 * box (the parts' one exception, parts design 2.4), the one combobox and no Show of its own once the parts' script
+	 * runs. The form is marked `data-wpcpm-pick-submits`: switcher.js announces a pick, and the parts' script submits
+	 * a marked form on it and hides Show, after it listens. Without either script the sorted select and Show work as
+	 * today's switcher's. The note is the box's hint for screen readers. While no school is chosen the select's first
+	 * option names none and is chosen (`$blank`), so Show sends no school and the page stays on the choice; the script
+	 * never lists it, so the field is empty under its placeholder.
+	 *
+	 * @param array $args    The switcher's arguments, as `render_switcher()` filled them in.
+	 * @param array $options The entries, sorted.
+	 */
+	private static function render_viewing( array $args, array $options ) {
+		// The parts' script, whose job submits the form on a pick: enqueued as the file box enqueues it.
+		WPCPM_UI::enqueue_script();
+
+		$note  = (string) $args['id'] . '-note';
+		$blank = '' === (string) $args['current'] ? (string) $args['blank'] : '';
+
+		echo WPCPM_UI::viewing_open(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
+		self::render_switcher_keep( (array) $args['keep'] );
+		self::render_combo(
+			array_merge(
+				$args,
+				array(
+					'options'     => $options,
+					'describedby' => $note,
+					'label_class' => WPCPM_UI::VIEWING_LABEL,
+					'box_class'   => WPCPM_UI::VIEWING_BOX,
+					'blank'       => $blank,
+				)
+			)
+		);
+		printf( '<span class="screen-reader-text" id="%1$s">%2$s</span>', esc_attr( $note ), esc_html__( 'Only Administrators see this control. Choosing an institution opens its page.', 'wpcredits-program-manager' ) );
+		echo WPCPM_UI::viewing_show(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_UI::button() escapes.
 		echo '</form>';
 	}
 
@@ -385,23 +450,41 @@ class WPCPM_Dashboards {
 	 *     @type bool       $invalid Whether the form refused the answer: the select and the field are
 	 *                              then both marked `aria-invalid`, ahead of what describes them.
 	 *                              False by default, and only a form that bounced a post sets it.
+	 *     @type string     $label_class A class for the label, or '' for none (Task 14: the compact
+	 *                              Viewing as institution). '' prints today's label.
+	 *     @type string     $box_class A class for the select and the field, or '' for none. '' prints
+	 *                              today's select and field.
+	 *     @type string     $blank   The words of an empty first option, value '', marked
+	 *                              `data-wpcpm-blank` so the script never lists it and shows an empty
+	 *                              field while it is chosen; chosen while `$current` is ''. '' prints none.
+	 *     @type string     $need_html Markup, escaped by the caller, printed after the label's words in place
+	 *                              of `$mark`'s: the shared parts' need word (`WPCPM_UI::field()`'s type
+	 *                              `combo`, the Institution Dashboard, Task 19). '' prints today's label.
+	 *     @type bool       $aria_required Whether both boxes carry `aria-required="true"`: a field Required in
+	 *                              words whose select carries no `required` (`WPCPM_UI::field()`'s type `combo`,
+	 *                              Task 19, fix round 1). False prints today's boxes.
 	 * }
 	 */
 	public static function render_combo( array $args ) {
 		$args = array_merge(
 			array(
-				'id'          => '',
-				'name'        => '',
-				'options'     => array(),
-				'current'     => '',
-				'label'       => '',
-				'find'        => '',
-				'none'        => '',
-				'count'       => '',
-				'mark'        => '',
-				'describedby' => '',
-				'invalid'     => false,
-				'required'    => false,
+				'id'            => '',
+				'name'          => '',
+				'options'       => array(),
+				'current'       => '',
+				'label'         => '',
+				'find'          => '',
+				'none'          => '',
+				'count'         => '',
+				'mark'          => '',
+				'describedby'   => '',
+				'invalid'       => false,
+				'required'      => false,
+				'label_class'   => '',
+				'box_class'     => '',
+				'blank'         => '',
+				'need_html'     => '',
+				'aria_required' => false,
 			),
 			$args
 		);
@@ -430,15 +513,27 @@ class WPCPM_Dashboards {
 		// select until it has run, and the field they type into once it has. `aria-invalid` goes ahead
 		// of `aria-describedby`, as the forms' other fields write the pair.
 		$mark        = '' !== (string) $args['mark'] ? ' <span class="wpcpm-field__required">' . esc_html( $args['mark'] ) . '</span>' : '';
+		$mark        = '' !== (string) $args['need_html'] ? (string) $args['need_html'] : $mark;
 		$invalid     = ! empty( $args['invalid'] ) ? ' aria-invalid="true"' : '';
 		$describedby = '' !== (string) $args['describedby'] ? ' aria-describedby="' . esc_attr( $args['describedby'] ) . '"' : '';
-		$aria        = $invalid . $describedby;
+		$aria        = ( ! empty( $args['aria_required'] ) ? ' aria-required="true"' : '' ) . $invalid . $describedby;
 
-		printf( '<label for="%1$s" id="%2$s">%3$s%4$s</label> ', esc_attr( $id ), esc_attr( $named ), esc_html( $args['label'] ), $mark ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_html() above.
+		$box = (string) $args['box_class'];
+
+		if ( '' !== (string) $args['label_class'] ) {
+			printf( '<label class="%1$s" id="%2$s" for="%3$s">%4$s%5$s</label> ', esc_attr( $args['label_class'] ), esc_attr( $named ), esc_attr( $id ), esc_html( $args['label'] ), $mark ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_html() above.
+		} else {
+			printf( '<label for="%1$s" id="%2$s">%3$s%4$s</label> ', esc_attr( $id ), esc_attr( $named ), esc_html( $args['label'] ), $mark ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_html() above.
+		}
 		// Not put back as it was left: a browser that restores a form after Back would set the hidden
 		// list on the name picked last while the field reads the page's own, and Show would open
 		// somebody else's page.
-		printf( '<select name="%1$s" id="%2$s" autocomplete="off"%3$s%4$s>', esc_attr( $args['name'] ), esc_attr( $id ), $aria, ! empty( $args['required'] ) ? ' required' : '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr() above.
+		printf( '<select%1$s name="%2$s" id="%3$s" autocomplete="off"%4$s%5$s>', '' !== $box ? ' class="' . esc_attr( $box ) . '"' : '', esc_attr( $args['name'] ), esc_attr( $id ), $aria, ! empty( $args['required'] ) ? ' required' : '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr() above.
+
+		// An empty first option that names no entry, never listed by the script (Task 14).
+		if ( '' !== (string) $args['blank'] ) {
+			printf( '<option value="" data-wpcpm-blank%1$s>%2$s</option>', selected( '', (string) $args['current'], false ), esc_html( $args['blank'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- selected() prints a fixed attribute.
+		}
 
 		foreach ( (array) $args['options'] as $value => $label ) {
 			printf(
@@ -456,11 +551,12 @@ class WPCPM_Dashboards {
 		// the field brings its list.
 		echo '<div class="wpcpm-dashboard__switcher-combo" hidden>';
 		printf(
-			'<input type="text" id="%1$s" class="wpcpm-dashboard__switcher-input" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="%2$s" autocomplete="off" spellcheck="false" placeholder="%3$s"%4$s />',
+			'<input type="text" id="%1$s" class="wpcpm-dashboard__switcher-input%5$s" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="%2$s" autocomplete="off" spellcheck="false" placeholder="%3$s"%4$s />',
 			esc_attr( $field ),
 			esc_attr( $list ),
 			esc_attr( $args['find'] ),
-			$aria // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr() above.
+			$aria, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr() above.
+			'' !== $box ? ' ' . esc_attr( $box ) : '' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr().
 		);
 		printf( '<ul id="%1$s" class="wpcpm-dashboard__switcher-list" role="listbox" aria-labelledby="%2$s" hidden></ul>', esc_attr( $list ), esc_attr( $named ) );
 		// Empty until the list opens: a status region is read out when its text changes. Both

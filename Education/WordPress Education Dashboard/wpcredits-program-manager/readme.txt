@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.95
+Stable tag: 1.123.96
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,18 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.96 =
+
+* Institution Dashboard: the page is drawn in the dashboards' frame, as the Administrator Dashboard and the Sponsor Dashboard are, with a menu down the side and a page of its own for each item: Overview, Students, Enroll students, Semester reports, Your institution, Agreement and Events. The Institution guide and Program updates open in the same frame.
+* The Overview holds the school's figures, what waits for the school and what is new. Enroll students is a page of its own, at its own address.
+* An Administrator who belongs to no school chooses a school first, while two or more exist, and changes school with "Viewing as institution" at the top of every page.
+* A school with no settled Collaboration Agreement: its representatives see only the Overview and the Agreement, and its tutors no page. The screens and the Settings choice that describe this say so in the same words. Of the three emails, the one that says an agreement was revoked describes what such a school reaches; the other two name the Agreement view.
+* On every screen of the plugin that sends a reader back to a place on the page after a form (the dashboards, the Report Cards, the public forms and the wp-admin screens), the keyboard focus now lands on the message that says what happened, whether the form was refused or not.
+* The Institution guide and the Administrator guide describe the new page, and what a tutor sees.
+* In wp-admin three sentences change with it: the Settings choice and its description, the question the Institutions screen asks before an agreement is revoked, and the message after it. Nothing else changes on any other screen.
+* A semester report's heading, on the dashboard and on paper, and the title of its PDF no longer begin with "Private:".
+* Install this release and WPCredits theme 1.32.29 the same day, the plugin first, and roll them back together. If the plugin alone is rolled back under theme 1.32.29, the Institution Dashboard of 1.123.95 or older has no site header and no title, and the theme's new sheet does not dress it.
 
 = 1.123.95 =
 

@@ -14,13 +14,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * A screen names itself when its render begins, `enter()`, and leaves at the end, `leave()`; the parts'
  * branch of a renderer asks `on()`. `LIVE` lists the surfaces and the wp-admin tabs (`<page slug>/<tab>`)
- * that are on: the Administrator Dashboard since release 1; every other one is off until a release adds its own,
+ * that are on: the Administrator Dashboard since release 1, the Institution Dashboard since its frame's release;
+ * every other one is off until a release adds its own,
  * so every other page renders as before.
  */
 final class WPCPM_UI {
 
-	/** The surfaces and wp-admin tabs that are on: the Administrator Dashboard (release 1). */
-	const LIVE = array( 'administrator' );
+	/** The surfaces and wp-admin tabs that are on: the Administrator Dashboard (release 1), the Institution Dashboard. */
+	const LIVE = array( 'administrator', 'institution' );
 
 	/** The surfaces outside wp-admin; a wp-admin tab is named `<page slug>/<tab>`. */
 	const SURFACES = array( 'administrator', 'sponsor', 'institution', 'report-cards' );
@@ -30,6 +31,10 @@ final class WPCPM_UI {
 
 	/** The script's handle. */
 	const SCRIPT = 'wpcpm-parts';
+
+	/** The compact Viewing as control's label beside its box, and its box (Task 14): `WPCPM_Dashboards::render_combo()` prints them. */
+	const VIEWING_LABEL = 'wpcpm-ui-viewing__label';
+	const VIEWING_BOX   = 'wpcpm-ui-viewing__box';
 
 	/**
 	 * The surfaces named so far, the innermost last.
@@ -152,6 +157,10 @@ final class WPCPM_UI {
 	 *                    form's own; a link and a type="button" print none), confirm, controls, expanded, context, aria_label, hidden, id, side,
 	 *                    data (the plugin's own hooks: `array( 'wpcpm-cancel' => true, 'wpcpm-for' => 'done' )`
 	 *                    prints `data-wpcpm-cancel data-wpcpm-for="done"`; true prints the bare attribute).
+	 *                    A link also takes rel (its words, as `nofollow` or `noopener noreferrer`) and target (`_blank`
+	 *                    alone; anything else prints none), printed after its address: a file's download, a Drive folder
+	 *                    opened in a tab of its own, as today's links open them (Institution Dashboard, Task 21). Without
+	 *                    them, and on a button, the markup is as before.
 	 * @return string Escaped markup.
 	 */
 	public static function button( array $args ): string {
@@ -171,6 +180,13 @@ final class WPCPM_UI {
 		$out  = '';
 		if ( '' !== $href ) {
 			$out .= '<a class="' . esc_attr( $class ) . '" href="' . esc_url( $href ) . '"';
+			// How the link opens, as the link it replaces opened (Task 21).
+			if ( isset( $args['rel'] ) && 1 === preg_match( '/^[a-z]+( [a-z]+)*\z/', (string) $args['rel'] ) ) {
+				$out .= ' rel="' . esc_attr( (string) $args['rel'] ) . '"';
+			}
+			if ( isset( $args['target'] ) && '_blank' === $args['target'] ) {
+				$out .= ' target="_blank"';
+			}
 		} else {
 			$type = isset( $args['type'] ) && 'button' === $args['type'] ? 'button' : 'submit';
 			$out .= '<button type="' . $type . '" class="' . esc_attr( $class ) . '"';
@@ -218,11 +234,14 @@ final class WPCPM_UI {
 	 *
 	 * @param string $words The words.
 	 * @param string $tone  red, amber, green or ''.
+	 * @param string $title The tag's tooltip, '' for none (the tag then prints as before): today's words a tag kept from the
+	 *                      mark it replaces, such as the People card's "The program writes to this address about the
+	 *                      institution." (Institution Dashboard, Task 20).
 	 * @return string Escaped markup.
 	 */
-	public static function tag( string $words, string $tone = '' ): string {
+	public static function tag( string $words, string $tone = '', string $title = '' ): string {
 		$class = in_array( $tone, array( 'red', 'amber', 'green' ), true ) ? 'wpcpm-status wpcpm-status--' . $tone : 'wpcpm-status';
-		return '<span class="' . $class . '">' . esc_html( $words ) . '</span>';
+		return '<span class="' . $class . '"' . ( '' !== $title ? ' title="' . esc_attr( $title ) . '"' : '' ) . '>' . esc_html( $words ) . '</span>';
 	}
 
 	/**
@@ -258,25 +277,40 @@ final class WPCPM_UI {
 	 * @param string $id   An id, or '' (the line then prints as it did without one).
 	 * @param string $html The line as markup the caller already escaped (a sentence with its link after its words),
 	 *                     printed as given in place of the text; '' for none, and the text is printed as before.
+	 * @param string $names A class of the caller's after the part's own (a line its module's print sheet hides; the
+	 *                      Institution Dashboard, Task 18), '' for none, and the line is printed as before.
 	 * @return string Escaped markup.
 	 */
-	public static function intro( string $text, string $tone = '', string $id = '', string $html = '' ): string {
-		return '<p class="wpcpm-ui-intro' . ( 'muted' === $tone ? ' wpcpm-ui-intro--muted' : '' ) . '"' . ( '' !== $id ? ' id="' . esc_attr( $id ) . '"' : '' ) . '>' . ( '' !== $html ? $html : esc_html( $text ) ) . '</p>';
+	public static function intro( string $text, string $tone = '', string $id = '', string $html = '', string $names = '' ): string {
+		return '<p class="' . esc_attr( 'wpcpm-ui-intro' . ( 'muted' === $tone ? ' wpcpm-ui-intro--muted' : '' ) . ( '' !== trim( $names ) ? ' ' . trim( $names ) : '' ) ) . '"' . ( '' !== $id ? ' id="' . esc_attr( $id ) . '"' : '' ) . '>' . ( '' !== $html ? $html : esc_html( $text ) ) . '</p>';
 	}
 
 	/**
 	 * A list of sentences to read, not to tick (an agreement's review checklist): a plain list, each sentence a line of
 	 * its own class, so the sheet keys the room between two lines on the line and never on an element.
 	 *
-	 * @param string[] $lines Plain sentences, escaped here.
+	 * @param array $lines   Plain sentences, escaped here; or a line as `array( 'text' => sentence, 'body' => markup )`,
+	 *                       its body markup the caller built from the parts and escaped (as actions() takes buttons),
+	 *                       printed after the sentence inside its item: a step and the form that carries it out (the
+	 *                       Collaboration Agreement's steps; Institution Dashboard, Task 21, fix round 1). A line with no
+	 *                       body, or an empty one, prints as a plain line does.
+	 * @param bool  $ordered True: the sentences are steps taken in their order, an ordered list numbered by the
+	 *                       browser (the Collaboration Agreement's three steps; Institution Dashboard, Task 21); false,
+	 *                       or none, prints the list as before.
 	 * @return string Escaped markup, or '' for no lines.
 	 */
-	public static function checklist( array $lines ): string {
+	public static function checklist( array $lines, bool $ordered = false ): string {
 		$items = '';
 		foreach ( $lines as $line ) {
-			$items .= '<li class="wpcpm-ui-checklist__item">' . esc_html( (string) $line ) . '</li>';
+			$body = '';
+			if ( is_array( $line ) ) {
+				$body = (string) ( $line['body'] ?? '' );
+				$line = (string) ( $line['text'] ?? '' );
+			}
+			$items .= '<li class="wpcpm-ui-checklist__item">' . esc_html( (string) $line ) . $body . '</li>';
 		}
-		return '' === $items ? '' : '<ul class="wpcpm-ui-checklist">' . $items . '</ul>';
+		$list = $ordered ? 'ol' : 'ul';
+		return '' === $items ? '' : '<' . $list . ' class="wpcpm-ui-checklist">' . $items . '</' . $list . '>';
 	}
 
 	/**
@@ -306,20 +340,34 @@ final class WPCPM_UI {
 	 *                    (the refusal sentence, '' for none), required_attr (false: `need` required prints the word
 	 *                    alone and no `required` on the box, for a box the handler refuses empty although today's form
 	 *                    leaves that to the server, so what the browser refuses stays as it is; the box then carries
-	 *                    `aria-required="true"`, so a screen reader hears what the word says; true by default).
+	 *                    `aria-required="true"`, so a screen reader hears what the word says; true by default), disabled
+	 *                    (true prints `disabled` on the box; false or none prints the box as before).
 	 *                    `side` is accepted and not used: the field's markup is the same on both sides.
+	 *                    `attrs` may also hold `inputmode` (text, url, email, numeric, decimal, tel, search or none; any
+	 *                    other value prints none), printed after the others: a box of text that brings the address keyboard,
+	 *                    as today's forms draw a website (Institution Dashboard, Task 19). Without it the box is as before.
+	 *                    type `combo`: the one combobox (`WPCPM_Dashboards::render_combo()`, the field the application form
+	 *                    draws for a long list) in a field's wrapper, its label and its boxes in the field's classes, the need
+	 *                    word after the label, the hint and the refusal under it and tied to both boxes; it also takes
+	 *                    options (value to label, in the order to draw them), find, none and count (the field's words);
+	 *                    `required_attr` false prints no `required` on its select, as for any box. Task 19.
 	 * @return string Escaped markup.
 	 */
 	public static function field( array $args ): string {
 		$id      = (string) ( $args['id'] ?? '' );
 		$name    = (string) ( $args['name'] ?? '' );
 		$type    = isset( $args['type'] ) ? (string) $args['type'] : 'text';
-		$type    = in_array( $type, array( 'text', 'email', 'url', 'search', 'date', 'time', 'number', 'textarea', 'select' ), true ) ? $type : 'text';
-		$value   = (string) ( $args['value'] ?? '' );
 		$need    = (string) ( $args['need'] ?? '' );
 		$hint    = (string) ( $args['hint'] ?? '' );
 		$problem = (string) ( $args['problem'] ?? '' );
 		$hint_id = '' !== $hint ? $id . '-hint' : '';
+
+		if ( 'combo' === $type && class_exists( 'WPCPM_Dashboards' ) ) {
+			return self::combo( $args, $id, $name, $need, $hint, $problem, $hint_id );
+		}
+
+		$type  = in_array( $type, array( 'text', 'email', 'url', 'search', 'date', 'time', 'number', 'textarea', 'select' ), true ) ? $type : 'text';
+		$value = (string) ( $args['value'] ?? '' );
 
 		$class = 'wpcpm-ui-field__control';
 		if ( in_array( $type, array( 'date', 'number', 'textarea', 'select' ), true ) ) {
@@ -350,6 +398,15 @@ final class WPCPM_UI {
 			if ( in_array( $type, array( 'text', 'email', 'url', 'search' ), true ) && isset( $args['attrs']['pattern'] ) && '' !== (string) $args['attrs']['pattern'] ) {
 				$common .= ' pattern="' . esc_attr( (string) $args['attrs']['pattern'] ) . '"';
 			}
+			// The keyboard a phone brings for the box (Task 19); only the browser's own words.
+			if ( isset( $args['attrs']['inputmode'] ) && in_array( (string) $args['attrs']['inputmode'], array( 'text', 'url', 'email', 'numeric', 'decimal', 'tel', 'search', 'none' ), true ) ) {
+				$common .= ' inputmode="' . (string) $args['attrs']['inputmode'] . '"';
+			}
+		}
+		// A box the form may not use, as today's form draws it (the correction form's Students half while the site cannot tell
+		// which entry a change belongs to; Institution Dashboard, Task 16).
+		if ( ! empty( $args['disabled'] ) ) {
+			$common .= ' disabled';
 		}
 		$common .= WPCPM_Form_Errors::attrs( $id, $problem, $hint_id );
 
@@ -368,18 +425,30 @@ final class WPCPM_UI {
 			$control = '<input type="' . $type . '" class="' . $class . '"' . $common . ' value="' . esc_attr( $value ) . '">';
 		}
 
-		$word = '';
-		if ( 'required' === $need ) {
-			$word = '<span class="wpcpm-ui-field__need">' . esc_html__( 'Required', 'wpcredits-program-manager' ) . '</span>';
-		} elseif ( 'optional' === $need ) {
-			$word = '<span class="wpcpm-ui-field__need">' . esc_html__( 'Optional', 'wpcredits-program-manager' ) . '</span>';
-		}
+		$word = self::need_word( $need );
 
 		$out = '<div class="wpcpm-ui-field"><label class="wpcpm-ui-field__label" for="' . esc_attr( $id ) . '">' . esc_html( (string) ( $args['label'] ?? '' ) ) . self::need_gap( $word ) . '</label>' . $control;
 		if ( '' !== $hint ) {
 			$out .= '<p class="wpcpm-ui-field__hint" id="' . esc_attr( $hint_id ) . '">' . esc_html( $hint ) . '</p>';
 		}
 		return $out . WPCPM_Form_Errors::problem( $id, $problem ) . '</div>';
+	}
+
+	/**
+	 * The need word of a field, a choice group or a file box (design 2.4): "Required" or "Optional" in words, in its
+	 * span, or '' for any other need. need_gap() puts it after the label's text.
+	 *
+	 * @param string $need required, optional or ''.
+	 * @return string Escaped markup, or ''.
+	 */
+	private static function need_word( string $need ): string {
+		if ( 'required' === $need ) {
+			return '<span class="wpcpm-ui-field__need">' . esc_html__( 'Required', 'wpcredits-program-manager' ) . '</span>';
+		}
+		if ( 'optional' === $need ) {
+			return '<span class="wpcpm-ui-field__need">' . esc_html__( 'Optional', 'wpcredits-program-manager' ) . '</span>';
+		}
+		return '';
 	}
 
 	/**
@@ -392,6 +461,58 @@ final class WPCPM_UI {
 	 */
 	private static function need_gap( string $word ): string {
 		return '' === $word ? '' : ' ' . $word;
+	}
+
+	/**
+	 * The one combobox as a field (field()'s type `combo`, Task 19): `WPCPM_Dashboards::render_combo()`, called and not
+	 * copied, so its select, its hidden field, its list and its script are the ones every other form draws; given the
+	 * field's label class and the select's box classes, the need word after the label's words, and the problem's and the
+	 * hint's ids for both boxes, as field() ties a box's. Without the script the select is the field and works alone.
+	 *
+	 * @param array  $args    field()'s arguments.
+	 * @param string $id      The select's id.
+	 * @param string $name    The name it posts.
+	 * @param string $need    required, optional or ''.
+	 * @param string $hint    The hint, or ''.
+	 * @param string $problem The refusal sentence, or ''.
+	 * @param string $hint_id The hint's id, or ''.
+	 * @return string Escaped markup.
+	 */
+	private static function combo( array $args, string $id, string $name, string $need, string $hint, string $problem, string $hint_id ): string {
+		$described = array();
+		if ( '' !== trim( $problem ) ) {
+			$described[] = WPCPM_Form_Errors::problem_id( $id );
+		}
+		if ( '' !== $hint_id ) {
+			$described[] = $hint_id;
+		}
+
+		ob_start();
+		WPCPM_Dashboards::render_combo(
+			array(
+				'id'            => $id,
+				'name'          => $name,
+				'options'       => isset( $args['options'] ) && is_array( $args['options'] ) ? $args['options'] : array(),
+				'current'       => $args['value'] ?? '',
+				'label'         => (string) ( $args['label'] ?? '' ),
+				'find'          => (string) ( $args['find'] ?? '' ),
+				'none'          => (string) ( $args['none'] ?? '' ),
+				'count'         => (string) ( $args['count'] ?? '' ),
+				'need_html'     => self::need_gap( self::need_word( $need ) ),
+				'describedby'   => implode( ' ', $described ),
+				'invalid'       => '' !== trim( $problem ),
+				'required'      => 'required' === $need && false !== ( $args['required_attr'] ?? true ),
+				// Required in words with no `required` on the select: a screen reader is told so too, as field() tells it.
+				'aria_required' => 'required' === $need && false === ( $args['required_attr'] ?? true ),
+				'label_class'   => 'wpcpm-ui-field__label',
+				'box_class'     => 'wpcpm-ui-field__control wpcpm-ui-field__control--select',
+			)
+		);
+		$out = '<div class="wpcpm-ui-field wpcpm-ui-field--combo">' . (string) ob_get_clean();
+		if ( '' !== $hint ) {
+			$out .= '<p class="wpcpm-ui-field__hint" id="' . esc_attr( $hint_id ) . '">' . esc_html( $hint ) . '</p>';
+		}
+		return $out . WPCPM_Form_Errors::problem( $id, $problem ) . '</div>';
 	}
 
 	/**
@@ -408,6 +529,14 @@ final class WPCPM_UI {
 	 *                    checkbox), options (value to label, or value to `array( 'label' => ..., 'hint' => ... )`),
 	 *                    checked (a value or a list of values), need (required, optional or ''). `required` is printed
 	 *                    on a radio group's inputs and on a checkbox alone; a group of checkboxes says it in words only.
+	 *                    problem (the refusal sentence of a checkbox alone, tied to it as field() ties a box's: `aria-invalid`,
+	 *                    the sentence named before the option's hint, printed under the label, the wrapper then a field's
+	 *                    too; '' or none, or a group, prints as before; Institution Dashboard, Task 17).
+	 *                    A group also takes hint (the question's help, muted under the legend), group_problem (its refusal
+	 *                    sentence, under its options; the fieldset is then a field's wrapper too, for the refusal's look),
+	 *                    both named by the fieldset's `aria-describedby` (the sentence first), and columns (true: the options
+	 *                    in a grid of columns, a long list such as the application's languages). With none of them (or each
+	 *                    '' or false), and for a checkbox alone, it prints as before (Institution Dashboard, Task 19).
 	 * @return string Escaped markup.
 	 */
 	public static function choices( array $args ): string {
@@ -424,20 +553,16 @@ final class WPCPM_UI {
 			is_array( $args['checked'] ?? null ) ? $args['checked'] : ( isset( $args['checked'] ) ? array( $args['checked'] ) : array() )
 		);
 		$alone   = '' === $legend && 'checkbox' === $type && 1 === count( $options );
+		$problem = $alone ? (string) ( $args['problem'] ?? '' ) : '';
 
-		$word = '';
-		if ( 'required' === $need ) {
-			$word = '<span class="wpcpm-ui-field__need">' . esc_html__( 'Required', 'wpcredits-program-manager' ) . '</span>';
-		} elseif ( 'optional' === $need ) {
-			$word = '<span class="wpcpm-ui-field__need">' . esc_html__( 'Optional', 'wpcredits-program-manager' ) . '</span>';
-		}
+		$word = self::need_word( $need );
 
 		$items = '';
 		foreach ( $options as $value => $option ) {
 			$value = (string) $value;
 			$words = is_array( $option ) ? (string) ( $option['label'] ?? '' ) : (string) $option;
 			$hint  = is_array( $option ) ? (string) ( $option['hint'] ?? '' ) : '';
-			$id    = $alone ? $base : $base . '-' . preg_replace( '/[^A-Za-z0-9_-]/', '', $value );
+			$id    = $alone ? $base : self::choice_id( $base, $value );
 			$attrs = ' type="' . $type . '" class="wpcpm-ui-choice__input" id="' . esc_attr( $id ) . '" name="' . esc_attr( $name ) . '" value="' . esc_attr( $value ) . '"';
 			if ( in_array( $value, $checked, true ) ) {
 				$attrs .= ' checked';
@@ -446,7 +571,13 @@ final class WPCPM_UI {
 				$attrs .= ' required';
 			}
 			if ( '' !== $hint ) {
-				$attrs .= ' aria-labelledby="' . esc_attr( $id . '-words' ) . '" aria-describedby="' . esc_attr( $id . '-hint' ) . '"';
+				$attrs .= ' aria-labelledby="' . esc_attr( $id . '-words' ) . '"';
+			}
+			if ( '' !== trim( $problem ) ) {
+				// A checkbox alone, refused: said as a box is, its sentence first, then its hint.
+				$attrs .= WPCPM_Form_Errors::attrs( $id, $problem, '' !== $hint ? $id . '-hint' : '' );
+			} elseif ( '' !== $hint ) {
+				$attrs .= ' aria-describedby="' . esc_attr( $id . '-hint' ) . '"';
 			}
 			$items .= '<label class="wpcpm-ui-choice" for="' . esc_attr( $id ) . '"><input' . $attrs . '><span class="wpcpm-ui-choice__text">'
 				. '<span class="wpcpm-ui-choice__words" id="' . esc_attr( $id . '-words' ) . '">' . esc_html( $words ) . ( $alone ? self::need_gap( $word ) : '' ) . '</span>'
@@ -455,12 +586,96 @@ final class WPCPM_UI {
 		}
 
 		if ( $alone ) {
-			return '<div class="wpcpm-ui-choices wpcpm-ui-choices--alone">' . $items . '</div>';
+			// Refused, it is a field's wrapper too, so its sentence takes the field's refusal look (parts.css).
+			return '<div class="wpcpm-ui-choices wpcpm-ui-choices--alone' . ( '' !== trim( $problem ) ? ' wpcpm-ui-field' : '' ) . '">' . $items . WPCPM_Form_Errors::problem( $base, $problem ) . '</div>';
 		}
 
-		return '<fieldset class="wpcpm-ui-choices">'
+		// A group's help and refusal (Task 19), the refusal said first, as a box's are.
+		$hint      = (string) ( $args['hint'] ?? '' );
+		$refused   = (string) ( $args['group_problem'] ?? '' );
+		$columns   = ! empty( $args['columns'] );
+		$described = array();
+		if ( '' !== trim( $refused ) ) {
+			$described[] = WPCPM_Form_Errors::problem_id( $base );
+		}
+		if ( '' !== $hint ) {
+			$described[] = $base . '-hint';
+		}
+
+		return '<fieldset class="wpcpm-ui-choices' . ( $columns ? ' wpcpm-ui-choices--columns' : '' ) . ( '' !== trim( $refused ) ? ' wpcpm-ui-field' : '' ) . '"'
+			. ( array() !== $described ? ' aria-describedby="' . esc_attr( implode( ' ', $described ) ) . '"' : '' ) . '>'
 			. ( '' !== $legend ? '<legend class="wpcpm-ui-choices__legend">' . esc_html( $legend ) . self::need_gap( $word ) . '</legend>' : '' )
-			. $items . '</fieldset>';
+			. ( '' !== $hint ? '<p class="wpcpm-ui-field__hint" id="' . esc_attr( $base . '-hint' ) . '">' . esc_html( $hint ) . '</p>' : '' )
+			. ( $columns ? '<div class="wpcpm-ui-choices__grid">' . $items . '</div>' : $items )
+			. WPCPM_Form_Errors::problem( $base, $refused ) . '</fieldset>';
+	}
+
+	/**
+	 * The id choices() gives one option of a group: the group's id, a hyphen, and the option's value with anything but
+	 * letters, digits, hyphens and underscores left out. Public, so an outcome that leads to a group's first option names
+	 * the id the group draws (Institution Dashboard, Task 20).
+	 *
+	 * @param string $base  The group's id.
+	 * @param string $value The option's value.
+	 * @return string
+	 */
+	public static function choice_id( string $base, string $value ): string {
+		return $base . '-' . preg_replace( '/[^A-Za-z0-9_-]/', '', $value );
+	}
+
+	/**
+	 * The file box (design 2.4, "File box"; 3.2, job 3): the field's label, Required or Optional in words after it,
+	 * the browser's own file control, then a row holding the secondary button "Choose a file" and the chosen file's
+	 * name beside it ("No file chosen" until one is), the hint and the refusal under them as field() prints them.
+	 *
+	 * The button and the name are printed `hidden`, so with no script the browser's own control shows and works as
+	 * today. The parts' script reveals them, clips the control (never `display: none`, so its label, `required`, the
+	 * browser's refusal and the upload are the control's as before), opens the control from the button and writes
+	 * the chosen name, reading "No file chosen" back from this markup when the choice is cleared. One file: no
+	 * `multiple`.
+	 *
+	 * @param array $args id, name, label (required); accept (the control's, '' for none), need (required, optional
+	 *                    or ''; required prints `required` on the control alone), hint, problem (the refusal
+	 *                    sentence, '' for none), attrs (data-* attributes for the control; anything else is not
+	 *                    printed).
+	 * @return string Escaped markup.
+	 */
+	public static function file( array $args ): string {
+		$id      = (string) ( $args['id'] ?? '' );
+		$need    = (string) ( $args['need'] ?? '' );
+		$accept  = (string) ( $args['accept'] ?? '' );
+		$hint    = (string) ( $args['hint'] ?? '' );
+		$problem = (string) ( $args['problem'] ?? '' );
+		$hint_id = '' !== $hint ? $id . '-hint' : '';
+
+		$control = '<input class="wpcpm-ui-file__input" type="file" id="' . esc_attr( $id ) . '" name="' . esc_attr( (string) ( $args['name'] ?? '' ) ) . '"';
+		if ( '' !== $accept ) {
+			$control .= ' accept="' . esc_attr( $accept ) . '"';
+		}
+		if ( 'required' === $need ) {
+			$control .= ' required';
+		}
+		if ( isset( $args['attrs'] ) && is_array( $args['attrs'] ) ) {
+			foreach ( $args['attrs'] as $attr => $value ) {
+				if ( 1 === preg_match( '/^data-[a-z0-9-]+$/', (string) $attr ) ) {
+					$control .= ' ' . $attr . '="' . esc_attr( (string) $value ) . '"';
+				}
+			}
+		}
+		$control .= WPCPM_Form_Errors::attrs( $id, $problem, $hint_id ) . '>';
+
+		$word = self::need_word( $need );
+
+		self::enqueue_script();
+
+		$out = '<div class="wpcpm-ui-field wpcpm-ui-file"><label class="wpcpm-ui-field__label" for="' . esc_attr( $id ) . '">' . esc_html( (string) ( $args['label'] ?? '' ) ) . self::need_gap( $word ) . '</label>'
+			. $control
+			. '<span class="wpcpm-ui-file__row"><button type="button" class="wpcpm-btn wpcpm-btn--secondary wpcpm-ui-file__choose" hidden aria-controls="' . esc_attr( $id ) . '">' . esc_html__( 'Choose a file', 'wpcredits-program-manager' ) . '</button>'
+			. '<span class="wpcpm-ui-file__name" aria-live="polite" hidden>' . esc_html__( 'No file chosen', 'wpcredits-program-manager' ) . '</span></span>';
+		if ( '' !== $hint ) {
+			$out .= '<p class="wpcpm-ui-field__hint" id="' . esc_attr( $hint_id ) . '">' . esc_html( $hint ) . '</p>';
+		}
+		return $out . WPCPM_Form_Errors::problem( $id, $problem ) . '</div>';
 	}
 
 	/**
@@ -725,7 +940,7 @@ final class WPCPM_UI {
 	}
 
 	/**
-	 * A tag from an array of `words` and `tone`, or '' when there are no words.
+	 * A tag from an array of `words` and `tone`, and its `title` when it has one (Task 20), or '' when there are no words.
 	 *
 	 * @param mixed $tag An array with words and tone, or anything else for none.
 	 * @return string Escaped markup.
@@ -734,7 +949,7 @@ final class WPCPM_UI {
 		if ( ! is_array( $tag ) || '' === (string) ( $tag['words'] ?? '' ) ) {
 			return '';
 		}
-		return self::tag( (string) $tag['words'], (string) ( $tag['tone'] ?? '' ) );
+		return self::tag( (string) $tag['words'], (string) ( $tag['tone'] ?? '' ), (string) ( $tag['title'] ?? '' ) );
 	}
 
 	/**
@@ -772,10 +987,7 @@ final class WPCPM_UI {
 			: '<span class="wpcpm-ui-fold__chev" aria-hidden="true">' . WPCPM_Icons::ui( 'chevron', 20 ) . '</span>';
 
 		if ( isset( $args['size'] ) && 'inner' === $args['size'] ) {
-			$second = (string) ( $args['second'] ?? '' );
-			return '<span class="wpcpm-ui-fold__lead"><span class="wpcpm-ui-fold__title">' . $title . '</span>'
-				. ( '' !== $second ? '<span class="wpcpm-ui-fold__second">' . esc_html( $second ) . '</span>' : '' )
-				. '</span>' . $icon;
+			return self::inner_head( $title, esc_html( (string) ( $args['second'] ?? '' ) ), $icon );
 		}
 
 		$title_id = (string) ( $args['title_id'] ?? '' );
@@ -799,20 +1011,82 @@ final class WPCPM_UI {
 	}
 
 	/**
+	 * An inner head's markup (design 2.3), the one builder of it: the portrait's box when there is one, the text column (the
+	 * title, and the second piece when there is one), the tag at the end when there is one, then the icon. The sheet
+	 * places the second piece: in the one-row form of a head with no portrait on the title's line, 12px after it, so the
+	 * head is 44px, and under it where the line is too short; in the stacked form, and beside a portrait, under the title,
+	 * 2px apart (Gate B round 2, F1). Every argument is printed as given: the callers escape it.
+	 *
+	 * @param string $title    The title, escaped.
+	 * @param string $second   The second piece, escaped, or ''.
+	 * @param string $icon     The chevron's (or the leaving icon's) markup.
+	 * @param string $portrait The portrait's markup, escaped, or ''.
+	 * @param string $tag      tag()'s markup, or ''.
+	 * @return string Markup.
+	 */
+	private static function inner_head( string $title, string $second, string $icon, string $portrait = '', string $tag = '' ): string {
+		return ( '' !== $portrait ? '<span class="wpcpm-ui-fold__portrait">' . $portrait . '</span>' : '' )
+			. '<span class="wpcpm-ui-fold__lead"><span class="wpcpm-ui-fold__title">' . $title . '</span>'
+			. ( '' !== $second ? '<span class="wpcpm-ui-fold__second">' . $second . '</span>' : '' )
+			. '</span>' . ( '' !== $tag ? '<span class="wpcpm-ui-fold__end">' . $tag . '</span>' : '' ) . $icon;
+	}
+
+	/**
+	 * The initials a portrait's box shows for a person with no photo: the first character of the name as a reader sees
+	 * it (a grapheme cluster: a letter and its combining marks together), or '' for no name.
+	 *
+	 * @param string $name The name.
+	 * @return string Plain text, not escaped.
+	 */
+	public static function initials( string $name ): string {
+		// A name that starts with a combining mark or a zero-width joiner (a typing slip, a pasted name) would give a lone
+		// mark as its first character: they are skipped, with any space after them (Institution Dashboard, Task 16).
+		$name = trim( (string) preg_replace( '/^[\p{M}\x{200D}]+/u', '', trim( $name ) ) );
+		if ( '' === $name ) {
+			return '';
+		}
+		if ( function_exists( 'grapheme_substr' ) ) {
+			$first = grapheme_substr( $name, 0, 1 );
+			if ( is_string( $first ) && '' !== $first ) {
+				return $first;
+			}
+		}
+		if ( 1 === preg_match( '/^\X/u', $name, $m ) ) {
+			return $m[0];
+		}
+		return function_exists( 'mb_substr' ) ? mb_substr( $name, 0, 1 ) : substr( $name, 0, 1 );
+	}
+
+	/**
 	 * Open an inner fold (design 2.3); inner_close() closes it.
 	 *
-	 * @param array $args title, second, open (bool), id.
-	 * @return string Escaped markup.
+	 * @param array $args Plain text, escaped here: title, second, initials (drawn in the portrait's box when there is no
+	 *                    portrait; WPCPM_UI::initials() gives them from a name). Printed as given, so the caller must
+	 *                    escape them: portrait (a 44px photo's markup, before the text column), title_html and
+	 *                    second_html (in place of title and second: a name as a link through breakable(), dates whole),
+	 *                    tag (tag()'s markup, at the head's end). Also open (bool), id and data (the plugin's own data
+	 *                    attributes on the disclosure, as button() takes them: the Student Report Card's fetch hook,
+	 *                    Task 16). With none of portrait, initials, title_html, second_html, tag and data (or each
+	 *                    empty), the fold prints exactly what it printed before (Institution Dashboard, Task 15).
+	 * @return string Escaped markup, given the caller escaped the markup it passed.
 	 */
 	public static function inner_open( array $args ): string {
-		$id = (string) ( $args['id'] ?? '' );
-		return '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner"' . ( ! empty( $args['open'] ) ? ' open' : '' ) . ( '' !== $id ? ' id="' . esc_attr( $id ) . '"' : '' ) . '>'
-			. '<summary class="wpcpm-ui-fold__head">' . self::fold_head(
-				array(
-					'size'   => 'inner',
-					'title'  => $args['title'] ?? '',
-					'second' => $args['second'] ?? '',
-				)
+		$id       = (string) ( $args['id'] ?? '' );
+		$portrait = (string) ( $args['portrait'] ?? '' );
+		$initials = (string) ( $args['initials'] ?? '' );
+		if ( '' === $portrait && '' !== $initials ) {
+			$portrait = '<span class="wpcpm-ui-fold__initials" aria-hidden="true">' . esc_html( $initials ) . '</span>';
+		}
+		$title_html  = (string) ( $args['title_html'] ?? '' );
+		$second_html = (string) ( $args['second_html'] ?? '' );
+
+		return '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner' . ( '' !== $portrait ? ' wpcpm-ui-fold--portrait' : '' ) . '"' . ( ! empty( $args['open'] ) ? ' open' : '' ) . ( '' !== $id ? ' id="' . esc_attr( $id ) . '"' : '' ) . self::data_attrs( $args['data'] ?? array() ) . '>'
+			. '<summary class="wpcpm-ui-fold__head">' . self::inner_head(
+				'' !== $title_html ? $title_html : esc_html( (string) ( $args['title'] ?? '' ) ),
+				'' !== $second_html ? $second_html : esc_html( (string) ( $args['second'] ?? '' ) ),
+				'<span class="wpcpm-ui-fold__chev" aria-hidden="true">' . WPCPM_Icons::ui( 'chevron', 20 ) . '</span>',
+				$portrait,
+				(string) ( $args['tag'] ?? '' )
 			) . '</summary><div class="wpcpm-ui-fold__body">';
 	}
 
@@ -854,13 +1128,61 @@ final class WPCPM_UI {
 	}
 
 	/**
+	 * Open a run of inner folds as a list (Task 28, W6): a list whose items are the folds, so a screen reader hears how
+	 * many there are and moves from one to the next, as a list of people on the live page is heard. Each fold sits in an
+	 * item, `inner_item()` before it and `inner_item_close()` after; `inner_list_close()` closes the list. `role="list"`:
+	 * the list is drawn with no bullets, and Safari with VoiceOver reads a list styled so as no list at all.
+	 *
+	 * The sheet holds what the one list drawn today needs, a list that is the last thing in its block, after a paragraph or
+	 * a heading: its folds' hairlines shared, no gap between them, the block's 16px above it. Four rules of a bare run have
+	 * no twin for the list yet and are owed when a list is first drawn beside one of them: a fold after a table and after
+	 * an item, and a run followed by a Decide row or by a fold's foot (`parts.css`).
+	 *
+	 * @return string Markup.
+	 */
+	public static function inner_list(): string {
+		return '<ul class="wpcpm-ui-folds" role="list">';
+	}
+
+	/**
+	 * Open one item of a run of inner folds as a list.
+	 *
+	 * @return string Markup.
+	 */
+	public static function inner_item(): string {
+		return '<li class="wpcpm-ui-folds__item">';
+	}
+
+	/**
+	 * Close one item of a run of inner folds as a list.
+	 *
+	 * @return string Markup.
+	 */
+	public static function inner_item_close(): string {
+		return '</li>';
+	}
+
+	/**
+	 * Close a run of inner folds as a list.
+	 *
+	 * @return string Markup.
+	 */
+	public static function inner_list_close(): string {
+		return '</ul>';
+	}
+
+	/**
 	 * An item header (design 2.10): the name, its reference, then the tag and the facts.
 	 *
 	 * @param array $args name, href, mark (already escaped), ref, tag (words, tone), facts (strings, or
 	 *                    `array( 'html' => ... )` for a link already escaped), level (h2 to h6; h4 by default),
 	 *                    name_html (a name the caller built and escaped, such as a sentence with a linked name
 	 *                    in it, printed as given in place of name, href and mark; '' for none), id (the title's
-	 *                    id, '' for none).
+	 *                    id, '' for none), media (a photo's markup the caller built and escaped, drawn in a 44px box
+	 *                    before the name and the facts; '' for none), initials (plain text, escaped here, drawn in that
+	 *                    box when there is no media; WPCPM_UI::initials() gives them from a name). With neither media nor
+	 *                    initials (or each ''), the header prints exactly what it printed before (Institution Dashboard,
+	 *                    Task 16).
 	 * @return string Escaped markup.
 	 */
 	public static function item_header( array $args ): string {
@@ -877,7 +1199,34 @@ final class WPCPM_UI {
 		// The facts sit in one run that the sheet shifts and clips, so no middot starts a line (design 2.10).
 		$facts = self::facts_html( $args['facts'] ?? array() );
 		$line  = self::tag_from( $args['tag'] ?? null ) . ( '' !== $facts ? '<span class="wpcpm-ui-item__run">' . $facts . '</span>' : '' );
-		return $out . ( '' !== $line ? '<p class="wpcpm-ui-item__facts">' . $line . '</p>' : '' );
+		$out  .= '' !== $line ? '<p class="wpcpm-ui-item__facts">' . $line . '</p>' : '';
+
+		// A person's photo, or the first letter of their name when there is none, in a box before the name and its facts
+		// (Institution Dashboard, Task 16: a student's card); with neither, the header is what it was.
+		$media    = (string) ( $args['media'] ?? '' );
+		$initials = (string) ( $args['initials'] ?? '' );
+		if ( '' === $media && '' !== $initials ) {
+			$media = '<span class="wpcpm-ui-item__initials" aria-hidden="true">' . esc_html( $initials ) . '</span>';
+		}
+		if ( '' === $media ) {
+			return $out;
+		}
+		return '<div class="wpcpm-ui-item__head"><span class="wpcpm-ui-item__media">' . $media . '</span><div class="wpcpm-ui-item__lead">' . $out . '</div></div>';
+	}
+
+	/**
+	 * An item's line of facts on its own, for a block that is no item (the Institution Dashboard's head, its release's
+	 * Task 6): the line item_header() prints under a title, with no tag, and a class of the caller's beside the part's.
+	 * Each fact draws its own dot, so a missing one leaves no separator and no dot starts a line (design 2.10), at
+	 * every width.
+	 *
+	 * @param array  $facts As item_header()'s: plain strings (escaped) or `array( 'html' => ... )` (printed as given).
+	 * @param string $names The caller's own class for the line, or ''.
+	 * @return string Escaped markup, or '' for no fact.
+	 */
+	public static function facts_line( array $facts, string $names = '' ): string {
+		$html = self::facts_html( $facts );
+		return '' !== $html ? '<p class="' . esc_attr( trim( 'wpcpm-ui-item__facts ' . $names ) ) . '"><span class="wpcpm-ui-item__run">' . $html . '</span></p>' : '';
 	}
 
 	/**
@@ -898,10 +1247,15 @@ final class WPCPM_UI {
 	 * kept with its line breaks: one paragraph, the text escaped.
 	 *
 	 * @param string $text The note, as typed.
+	 * @param string $tag  'blockquote' for words quoted from a person (printed as a quotation, the note's look); 'p', or
+	 *                     anything else, prints the paragraph as before.
 	 * @return string Escaped markup.
 	 */
-	public static function note( string $text ): string {
-		return '<p class="wpcpm-ui-note">' . esc_html( $text ) . '</p>';
+	public static function note( string $text, string $tag = 'p' ): string {
+		// A person's words quoted (a student's released answer; the Institution Dashboard, Task 18) are a quotation, in
+		// the note's look; anything else is the paragraph it always was.
+		$tag = 'blockquote' === $tag ? 'blockquote' : 'p';
+		return '<' . $tag . ' class="wpcpm-ui-note">' . esc_html( $text ) . '</' . $tag . '>';
 	}
 
 	/**
@@ -1138,19 +1492,26 @@ final class WPCPM_UI {
 	 *                    for none, so its names line up; level (h4 or h5: the name printed inside that heading,
 	 *                    with the same look, so a screen reader moves from row to row by heading; anything else, or
 	 *                    none, keeps the name a span, as it was); id (the row's own id, an anchor a link lands on; ''
-	 *                    or none prints none, as before).
-	 * @return string Escaped markup.
+	 *                    or none prints none, as before); name_html (the name as markup the caller escaped, printed
+	 *                    as given in place of name, inside the link when there is an href: a long name through
+	 *                    breakable(); '' or none prints the name as before, Institution Dashboard Task 15); more (markup
+	 *                    the caller built from the parts and escaped, as `form` is, printed under the note and over the
+	 *                    form, at the row's full width, the row marked `wpcpm-ui-list__row--more` (on a phone it reads
+	 *                    before the row's action, as a note does): an event's description, a note() or a folded one,
+	 *                    Institution Dashboard Task 22; '' or none prints the row as before).
+	 * @return string Escaped markup, given the caller escaped the markup it passed.
 	 */
 	public static function row( array $args ): string {
 		$form  = (string) ( $args['form'] ?? '' );
+		$more  = (string) ( $args['more'] ?? '' );
 		$note  = (string) ( $args['note'] ?? '' );
 		$media = (string) ( $args['media'] ?? '' );
-		$name  = esc_html( (string) ( $args['name'] ?? '' ) );
+		$name  = '' !== (string) ( $args['name_html'] ?? '' ) ? (string) $args['name_html'] : esc_html( (string) ( $args['name'] ?? '' ) );
 		$href  = (string) ( $args['href'] ?? '' );
 		$tag   = isset( $args['level'] ) && in_array( $args['level'], array( 'h4', 'h5' ), true ) ? (string) $args['level'] : 'span';
 		$act   = implode( '', ( isset( $args['actions'] ) && is_array( $args['actions'] ) ? $args['actions'] : array() ) );
 		$id    = (string) ( $args['id'] ?? '' );
-		$out   = '<li class="wpcpm-ui-list__row' . ( '' !== $note ? ' wpcpm-ui-list__row--note' : '' ) . ( '' !== $media ? ' wpcpm-ui-list__row--media' : '' ) . '"' . ( '' !== $id ? ' id="' . esc_attr( $id ) . '"' : '' ) . '>'
+		$out   = '<li class="wpcpm-ui-list__row' . ( '' !== $note ? ' wpcpm-ui-list__row--note' : '' ) . ( '' !== $more ? ' wpcpm-ui-list__row--more' : '' ) . ( '' !== $media ? ' wpcpm-ui-list__row--media' : '' ) . '"' . ( '' !== $id ? ' id="' . esc_attr( $id ) . '"' : '' ) . '>'
 			. ( '' !== $media ? '<span class="wpcpm-ui-list__media">' . $media . '</span>' : '' )
 			. '<div class="wpcpm-ui-list__line"><' . $tag . ' class="wpcpm-ui-list__name">'
 			. ( '' !== $href ? '<a href="' . esc_url( $href ) . '">' . $name . '</a>' : $name ) . (string) ( $args['mark'] ?? '' ) . '</' . $tag . '>'
@@ -1160,9 +1521,47 @@ final class WPCPM_UI {
 		if ( '' !== $note ) {
 			$out .= '<p class="wpcpm-ui-list__note">' . esc_html( $note ) . '</p>';
 		}
+		if ( '' !== $more ) {
+			$out .= '<div class="wpcpm-ui-list__more">' . $more . '</div>';
+		}
 		if ( '' !== $form ) {
 			$out .= '<div class="wpcpm-ui-list__form" id="' . esc_attr( (string) ( $args['form_id'] ?? '' ) ) . '">' . $form . '</div>';
 		}
 		return $out . '</li>';
+	}
+	/**
+	 * A head's first row (Task 14): the page's H1 and, at its end, a small control such as Viewing as institution.
+	 *
+	 * @param string $html The row's markup, escaped by the caller.
+	 * @return string Markup.
+	 */
+	public static function head_row( string $html ): string {
+		return '<div class="wpcpm-ui-head-row">' . $html . '</div>';
+	}
+
+	/**
+	 * The opening of the compact Viewing as control (Task 14, design 7): a GET form marked `data-wpcpm-pick-submits`,
+	 * which the parts' script sends when a name is picked in its field (assets/js/parts.js).
+	 *
+	 * @return string Markup.
+	 */
+	public static function viewing_open(): string {
+		return '<form class="wpcpm-ui-viewing" method="get" data-wpcpm-pick-submits>';
+	}
+
+	/**
+	 * The compact Viewing as control's Show: a secondary button inside the wrapper the parts' script hides once a pick
+	 * sends the form, so without the script the select and Show work as today's switcher's.
+	 *
+	 * @return string Markup.
+	 */
+	public static function viewing_show(): string {
+		return '<span class="wpcpm-ui-viewing__show" data-wpcpm-noscript>' . self::button(
+			array(
+				'kind'  => 'secondary',
+				'label' => __( 'Show', 'wpcredits-program-manager' ),
+				'side'  => 'front',
+			)
+		) . '</span>';
 	}
 }

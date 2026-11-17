@@ -104,6 +104,12 @@ class WPCPM_Agreement_Generate {
 	/** A generated post to reproduce, as carried by the Regenerate link. */
 	const FIELD_POST = 'wpcpm_agreement_post';
 
+	/**
+	 * The form a refused generate keeps the name typed under for its one redraw (`WPCPM_Flash::keep()`), before the
+	 * institution (Institution Dashboard, Task 21, fix round 1). Only the Institution Dashboard's parts read it back.
+	 */
+	const KEPT_GENERATE = 'agreement-generate:';
+
 	/** How much of a posted name is kept. Characters, not bytes. */
 	const MAX_NAME = 200;
 
@@ -260,9 +266,17 @@ class WPCPM_Agreement_Generate {
 			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
 		}
 
+		// What an earlier refusal kept is dropped, as every handler that keeps does first (`WPCPM_Flash::forget()`).
+		WPCPM_Flash::forget( self::KEPT_GENERATE . $record );
+
 		$limit = (int) WPCPM_Settings::get_value( 'agreement_generations_per_day', self::CEILING_PER_DAY );
 
 		if ( ! WPCPM_Ceiling::claim( self::CEILING_KEY . $record, $limit, DAY_IN_SECONDS ) ) {
+			// The generate form's name, not Open that document again's: that one posts the document's own.
+			if ( 0 === self::requested_post() ) {
+				self::keep_name( $record );
+			}
+
 			self::bounce( 'agreement-busy' );
 		}
 
@@ -286,12 +300,14 @@ class WPCPM_Agreement_Generate {
 		$state = self::current_state( $record );
 
 		if ( ! in_array( $state, self::FROM_STATES, true ) ) {
+			self::keep_name( $record );
 			self::bounce( self::from_refusal( $state ) );
 		}
 
 		$name = self::clean_name( WPCPM_Request::posted_text( self::FIELD_NAME ) );
 
 		if ( '' === $name ) {
+			self::keep_name( $record );
 			self::bounce( 'agreement-name' );
 		}
 
@@ -303,6 +319,7 @@ class WPCPM_Agreement_Generate {
 		// nothing is wrong at their end, over a 500, and mails every program manager a false
 		// alarm about a template that is fine.
 		if ( preg_match( '/[\[\]]/', $name ) ) {
+			self::keep_name( $record );
 			self::bounce( 'agreement-name-brackets' );
 		}
 
@@ -323,6 +340,7 @@ class WPCPM_Agreement_Generate {
 		// and the next institutions sync will finish the job. Both halves of that would be false
 		// here.
 		if ( ! $post_id ) {
+			self::keep_name( $record );
 			self::bounce( 'agreement-generate-not-saved' );
 		}
 
@@ -1043,11 +1061,21 @@ class WPCPM_Agreement_Generate {
 	}
 
 	/**
+	 * Keep the name a refused generate typed, as typed, for the form's one redraw (Task 21, fix round 1).
+	 *
+	 * @param string $record Institutions record ID.
+	 */
+	private static function keep_name( $record ) {
+		// Cut where `clean_name()` cuts the name it would print.
+		WPCPM_Flash::keep( self::KEPT_GENERATE . $record, array( self::FIELD_NAME => mb_substr( WPCPM_Request::posted_raw( self::FIELD_NAME ), 0, self::MAX_NAME ) ) );
+	}
+
+	/**
 	 * Say what happened and go back where the form was.
 	 *
 	 * The generate form is on the institution's own dashboard, so the destination is where
 	 * the request came from; `wp_safe_redirect()` keeps that to this site, and a request with
-	 * no referer lands on the dashboard page. The words for each outcome live in
+	 * no referer lands on the dashboard's Agreement view. The words for each outcome live in
 	 * `WPCPM_Institution_Panel::messages()`, once, because the panel and the manager's row
 	 * both print them.
 	 *
@@ -1061,8 +1089,10 @@ class WPCPM_Agreement_Generate {
 
 		$back = wp_get_referer();
 
+		// With no referer, the Agreement view, which draws the panel that prints the outcome (`card_url()`), with the
+		// school an Administrator's request names.
 		if ( ! $back ) {
-			$back = WPCPM_Institutions_Dashboard::page_url();
+			$back = WPCPM_Institutions_Dashboard::card_url( 'agreement', WPCPM_Institutions_Dashboard::requested_record() );
 		}
 
 		wp_safe_redirect( $back ? $back : home_url( '/' ) );

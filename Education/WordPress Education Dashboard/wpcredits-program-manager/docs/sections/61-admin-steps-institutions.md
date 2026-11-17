@@ -94,8 +94,8 @@
 
 1. In Airtable, set the school's Current Stage to a stage listed in **Institution pipeline stages** on `Settings > Advanced`.
 2. Open `WPCredits Program > Institutions`, tab **Sync and storage**, and press **Sync institutions now**. The sync also runs by itself every three hours.
-3. Open the **Pipeline** tab, find the school under its stage, and press its name. Its Institution Dashboard opens.
-4. Read **Assigned Administrator** on its details card. If it says *Nobody yet*, see [[Assign a school to another Administrator, or to nobody]].
+3. Open the **Pipeline** tab, find the school under its stage, and press its name. Its Institution Dashboard opens on its **Overview**.
+4. Open **Your institution** and read **Assigned Administrator** on the details card. If it says *Nobody yet*, see [[Assign a school to another Administrator, or to nobody]].
 5. Give the school its first account. See [[Give a school its first account]].
 6. Then the agreement: the school uploads it, or you upload it for them, or you record one on file. See [[A signed Collaboration Agreement arrived]] and [[Record an agreement the program already holds]].
 
@@ -115,7 +115,7 @@
 *When:* a school has no account on the site. Its **Representatives and tutors** card says "Nobody can act for this institution on this site...". An approved school already has one.
 
 1. Open the school's Institution Dashboard. See [[Open a school's Institution Dashboard]].
-2. In **Representatives and tutors**, press **Add or re-add an account on the Institutions screen**.
+2. Open **Your institution**. In **Representatives and tutors**, press **Add or re-add an account on the Institutions screen**.
 3. Under **Add an account**, type the person's **Name** and **Email address**.
 4. Press **Add account**.
 
@@ -151,16 +151,16 @@
 **Good to know**
 
 - **Accept it** is refused while Airtable's Current Stage is *Not Moving Forward*, *SPAM* or *Revisit Later*. Change the stage in Airtable first.
-- A signed copy that came by email: open the school's Institution Dashboard, press **Add or re-add an account on the Institutions screen**, and use **Upload a signed agreement on the institution's behalf**. It lands on the card, tagged **Awaiting review**, like the school's own.
+- A signed copy that came by email: open the school's Institution Dashboard, open **Your institution**, press **Add or re-add an account on the Institutions screen**, and use **Upload a signed agreement on the institution's behalf**. It lands on the card, tagged **Awaiting review**, like the school's own.
 - An agreement is marked *Overdue* after the days set in **Agreement review** (3 unless changed).
 
 ### Record an agreement the program already holds
 
 *When:* the school signed before the site existed, and the program holds the signed copy. `Institutions > Agreements`, card **Agreements on file**, lists the *Confirmed* schools with no agreement recorded.
 
-1. Open `WPCredits Program > Institutions`, tab **Agreements**, and press the school's name under **Agreements on file**. Its Institution Dashboard opens at the agreement.
-2. Under **Record an agreement the program already holds**, paste the link in **Drive link to the folder or the file (required)**.
-3. Fill in **Date signed (optional)** and **Where it is, in one line (optional)** if you know them.
+1. Open `WPCredits Program > Institutions`, tab **Agreements**, and press the school's name under **Agreements on file**. Its Institution Dashboard opens on **Agreement**.
+2. Under **Record an agreement the program already holds**, paste the link in **Drive link to the folder or the file**. It is required.
+3. Fill in **Date signed** and **Where it is, in one line** if you know them. Both are optional.
 4. Press **Record it** and confirm.
 
 **What happens next**
@@ -172,7 +172,7 @@
 
 - The link must be an https address on drive.google.com or docs.google.com.
 - The form is there only while the school's agreement is not settled. It refuses a school that already has an accepted agreement.
-- You can record one for any school this way, from its Institution Dashboard, not only those on the list.
+- You can record one for any school this way, from the **Agreement** view of its Institution Dashboard, not only those on the list.
 
 ### Take an agreement out of force, or put it back
 
@@ -187,7 +187,7 @@
 
 **What happens next**
 
-- Revoke: the school's people keep their accounts but see only the Collaboration Agreement card. Waiting invitations are canceled. Everybody there gets your note in "Your agreement has been revoked".
+- Revoke: the school's people keep their accounts. Since 1.123.96 its representatives reach only **Overview** and **Agreement**, and its tutors no page. Waiting invitations are canceled. Everybody there gets your note in "Your agreement has been revoked".
 - Reinstate asks "Reinstate the agreement with {school}? It is back in force at once, and everybody at the institution is emailed." Once you confirm, the account opens again, and everybody at the school gets "Your agreement is in force again". You land back on the **Agreements** tab.
 
 **Good to know**
@@ -201,7 +201,7 @@
 
 *When:* someone else should follow a school up, or it has *Nobody yet*.
 
-1. Open the school's Institution Dashboard.
+1. Open the school's Institution Dashboard, then **Your institution**.
 2. On the details card, find **Assigned Administrator**.
 3. Open **Change who follows it up**.
 4. In **Administrator**, type part of the name and pick the person, or pick **Nobody**.
@@ -265,24 +265,26 @@
 
 *When:* you need to act for a school, or see what it sees.
 
-1. In the WordPress toolbar, point to **Dashboards** and choose **Institution Dashboard**.
-2. In **Viewing as institution**, type part of the school's name and pick it.
-3. Press **Show**.
+1. In the WordPress toolbar, point to **Dashboards** and choose **Institution Dashboard**. While you belong to no school and two or more schools exist, the page asks which school: its head reads **Choose an institution**.
+2. In **Viewing as institution**, type part of the school's name and pick it. The school's page opens on its **Overview**.
 
 **What happens next**
 
-- You see the school's whole page, even before its agreement is settled. A banner then says "This institution's agreement is not settled: {state}. Members see only the Collaboration Agreement card."
-- A section **For Administrators** holds the school's **History**: what was done, when and by whom.
+- You see every view the school's representatives see but **Events**, even before its agreement is settled.
+- While it is not settled, the **Overview** has the row *The agreement is not settled*, saying "This institution's agreement is not settled: {state}. Its representatives see only the Overview and the Agreement, and its tutors no page." It is tagged **Waits** when you are the one to act, and **With the school** otherwise. **Agreement** opens with the same sentence.
+- **For Administrators**, the last item in the menu, holds the school's **History**: what was done, when and by whom.
+- **Viewing as institution** stays at the end of the page's first line on every view. Picking another school keeps the view you are on.
 
 **Good to know**
 
+- Since 1.123.96 the page asks for a school before it draws one, while you belong to no school and two or more schools exist, and does not remember the choice: an address that names no school asks again. With JavaScript off, press **Show** after picking.
 - Other ways in: a school's name on the **Pipeline** tab, **Find an institution** with **Open its page** on the same tab, or a school's name on an Administrator Dashboard card. On the **Institution applications** card, a name opens the application on the Institutions screen instead.
 
 ### Correct a school's details yourself, and set the tracks it offers
 
 *When:* a school's details are wrong, or it offers a new track.
 
-1. Open the school's Institution Dashboard and find the details card.
+1. Open the school's Institution Dashboard, then **Your institution**. The details card comes first.
 2. Under **Contact and agreement** or **Name and address**, open **Correct these**.
 3. Change the details and press **Save the details**.
 4. For tracks: under **Tracks**, open **Change the tracks**.
@@ -303,11 +305,11 @@
 
 *When:* a school asks you to add a colleague, or its tutor list needs a name.
 
-1. Open the school's Institution Dashboard and find **Representatives and tutors**.
-2. Under **Invite a colleague**, type the address in **Their email address**.
+1. Open the school's Institution Dashboard, then **Your institution**, and find **Representatives and tutors**.
+2. Open **Invite a colleague** and type the address in **Email address**.
 3. Under **Level**, choose **Representative** or **Tutor**.
 4. Press **Send invitation**.
-5. For the tutor list: under **Tutors**, in **Add a tutor**, type the **Name** and **Email**, then press **Add**.
+5. For the tutor list: under **Tutors**, open **Add a tutor**, type the **Name** and **Email**, then press **Add**.
 6. To take a tutor off the list, press **Remove** beside them.
 
 **What happens next**
@@ -326,8 +328,8 @@
 
 *When:* a school sends you its students. **Enrollment lists from institutions** ("Let an institution send a list of students to enroll") must be on in `Settings > Institutions`. It is off unless changed.
 
-1. Open the school's Institution Dashboard and find **Enroll students**.
-2. Choose the **Program** and the **Start date**, and the end date if you know it.
+1. Open the school's Institution Dashboard, then **Enroll students** in its menu, or press **Enroll students** on its **Overview**.
+2. Choose the **Program** and the **Start date**, and the **End date** if you know it.
 3. Tick the box that says the students have been notified.
 4. Fill in **One student**, or give **Or a list** as a CSV file or pasted text.
 5. Press **Check the list** and read what it says for each row.
@@ -351,7 +353,7 @@
 
 1. For a semester under **Due for drafting**, press **Draft now**.
 2. For any other semester: open `Institutions > Semester reports`, under **Draft any semester** pick the **Institution** and the semester, and press **Draft now**.
-3. Under **To review**, press **Review** on the draft. It opens on the school's Institution Dashboard.
+3. Under **To review**, press **Review** on the draft. It opens on the school's Institution Dashboard, in its **Semester reports** view.
 4. Write what you want in the sections and press **Save the report**.
 5. Press **Approve this report**.
 6. To change an approved report, press **Reopen for editing**.

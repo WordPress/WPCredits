@@ -139,44 +139,77 @@ final class WPCPM_Institution_Import_Form {
 		// that is waiting does not leave the typing in the account's meta to fill a later form.
 		$kept = WPCPM_Flash::kept( self::KEPT_FORM . $record );
 
-		echo '<section class="wpcpm-institution__card wpcpm-import" id="wpcpm-import">';
-
-		// **Folded by default, and open when there is something to answer.** Enrolling is an
-		// occasional act and the form is the longest thing on this page; left open it pushes
-		// the people and the agreement off the screen for the ninety-nine visits that came to
-		// read the roster. It opens by itself when a list is waiting to be looked at or when
-		// the last attempt left something to say, because both of those are the page asking
-		// the reader for something rather than offering.
-		printf(
-			'<details class="wpcpm-group wpcpm-group__disclosure wpcpm-import__disclosure"%s>',
-			( $staged > 0 || '' !== $said ) ? ' open' : ''
-		);
-
-		printf(
-			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
-			esc_html__( 'Enroll students', 'wpcredits-program-manager' )
-		);
-
-		echo '<div class="wpcpm-group__body wpcpm-import__body">';
-
-		self::render_message( $flash );
-
 		$finished = ( 0 === $staged && ! empty( $flash['detail']['batch'] ) ) ? (int) $flash['detail']['batch'] : 0;
 
+		// **The card is the Enroll students view's content**, drawn with the shared parts (Institution Dashboard, Task 17): the view's
+		// head already says "Enroll students", so the card prints no head of its own and no fold, and its block starts at
+		// the head's edge, with the anchor every link and way back lands on.
+		echo '<section class="wpcpm-ui-block" id="wpcpm-import">';
+
+		// A refusal of the form is said at the form, after its intro and directly over it (Gate B round 2, F2); every
+		// other outcome, and a refusal while a list is in hand, at the block's top.
+		$at_form = 0 === $staged && 0 === $finished && '' !== $said && 'error' === self::tone( $said );
+
+		if ( ! $at_form ) {
+			self::render_message( $flash );
+		}
+
+		self::render_state( $staged, $finished, $record, $kept, $at_form ? $flash : array() );
+
+		echo '</section>';
+	}
+	// phpcs:enable Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
+	// phpcs:enable VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable
+
+	/**
+	 * The card's one state: a list in hand (checked, or being created), the outcome of one just
+	 * finished, or the form.
+	 *
+	 * @param int    $staged   The batch in hand, or 0.
+	 * @param int    $finished The batch the last press finished, or 0.
+	 * @param string $record   Institutions record ID.
+	 * @param array  $kept     What a refused check kept of the form.
+	 * @param array  $refusal  The flash of a refusal the form says over itself, or none.
+	 */
+	private static function render_state( $staged, $finished, $record, array $kept, array $refusal = array() ) {
 		if ( $staged > 0 ) {
 			self::render_preview( $staged, $record );
 		} elseif ( $finished > 0 ) {
 			self::render_outcome( $finished, $record );
 		} else {
-			self::render_form( $record, $kept );
+			self::render_form( $record, $kept, $refusal );
 		}
-
-		echo '</div>';
-		echo '</details>';
-		echo '</section>';
 	}
-	// phpcs:enable Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
-	// phpcs:enable VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable
+
+	/**
+	 * A form's hidden fields: the nonce and the page it was drawn on, with no id (`WPCPM_UI::nonce()`), since two of
+	 * these forms sit side by side in one row; the handler's action and, for a list, its batch.
+	 *
+	 * @param string   $nonce  The nonce's action.
+	 * @param string   $action The `admin_post_` action.
+	 * @param int|null $batch  The batch the form acts on, or null for none.
+	 */
+	private static function render_hidden( $nonce, $action, $batch = null ) {
+		echo WPCPM_UI::nonce( (string) $nonce ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::nonce().
+
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $action ) );
+
+		if ( null !== $batch ) {
+			printf( '<input type="hidden" name="batch" value="%d" />', (int) $batch );
+		}
+	}
+
+	/**
+	 * Markup a callable prints, as a string.
+	 *
+	 * @param callable $draw Prints markup.
+	 * @return string
+	 */
+	private static function captured( callable $draw ) {
+		ob_start();
+		$draw();
+		return (string) ob_get_clean();
+	}
 
 	/**
 	 * The address every form on this card posts to.
@@ -224,9 +257,10 @@ final class WPCPM_Institution_Import_Form {
 	 * again.
 	 *
 	 * @param string $record Institutions record ID.
-	 * @param array  $kept   What `WPCPM_Flash::kept()` handed back for this form.
+	 * @param array  $kept    What `WPCPM_Flash::kept()` handed back for this form.
+	 * @param array  $refusal The flash of a refusal to say over the form, or none.
 	 */
-	private static function render_form( $record, array $kept = array() ) {
+	private static function render_form( $record, array $kept = array(), array $refusal = array() ) {
 		$typed    = isset( $kept['values'] ) && is_array( $kept['values'] ) ? $kept['values'] : array();
 		$problems = isset( $kept['problems'] ) && is_array( $kept['problems'] ) ? $kept['problems'] : array();
 		$value    = static function ( $field ) use ( $typed ) {
@@ -235,194 +269,194 @@ final class WPCPM_Institution_Import_Form {
 		$said     = static function ( $id ) use ( $problems ) {
 			return isset( $problems[ $id ] ) && is_string( $problems[ $id ] ) ? $problems[ $id ] : '';
 		};
+		// The programs a school may choose, asked once for either branch: the server's gated map (decision 10).
+		$programs = WPCPM_Institutions::offered_programs();
+
+		self::render_form_parts( $record, $problems, $programs, $value, $said, $refusal );
+	}
+
+	/**
+	 * The form on the shared parts (design 6.2): the lede's fact, then one form posting what today's posts, under the same
+	 * ids. Program a select (at most 320px), Start date and End date 200px date boxes (End Optional, the rest of today's
+	 * label its hint), the notified tick its own question, then two field sets: One student, and Or a list (the file
+	 * box, the sample list's link, the paste box); Check the list. A refused answer keeps its typing and its sentence
+	 * under its box, as today.
+	 *
+	 * @param string   $record   Institutions record ID.
+	 * @param array    $problems The refused controls' sentences, by id.
+	 * @param array    $programs The programs offered, status to label.
+	 * @param callable $value    A kept answer by field name.
+	 * @param callable $said     A refusal by control id.
+	 * @param array    $refusal  The flash of a refusal to say over the form, after its intro, or none.
+	 */
+	private static function render_form_parts( $record, array $problems, array $programs, callable $value, callable $said, array $refusal = array() ) {
+		// The lede's fact alone: its first half ("Add one student, or a list of them.") repeats the view's head, which says
+		// what the view is; that nothing is created before the list is seen is said nowhere else (the controller's ruling).
+		echo WPCPM_UI::intro( __( 'Nothing is created until you have seen what the list was understood to say.', 'wpcredits-program-manager' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
+
+		self::render_message( $refusal );
 
 		printf(
-			'<p class="wpcpm-import__lede">%s</p>',
-			esc_html__( 'Add one student, or a list of them. Nothing is created until you have seen what the list was understood to say.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<form class="wpcpm-import__form" method="post" enctype="multipart/form-data" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			'<form method="post" enctype="multipart/form-data" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( self::post_url( $record ) ),
 			esc_attr__( 'Checking the list', 'wpcredits-program-manager' )
 		);
 
-		wp_nonce_field( self::ACTION_CHECK . '_' . $record );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CHECK ) );
+		self::render_hidden( self::ACTION_CHECK . '_' . $record, self::ACTION_CHECK );
 
-		echo WPCPM_Form_Errors::summary( $problems, self::field_map(), array( 'level' => 4 ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::summary() escapes every value it prints.
+		echo WPCPM_Form_Errors::summary( $problems, self::field_map(), array( 'level' => 3 ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::summary() escapes every value it prints.
 
-		echo '<div class="wpcpm-import__batch">';
-
-		printf( '<p class="wpcpm-field"><label for="wpcpm-import-program">%s</label>', esc_html__( 'Program', 'wpcredits-program-manager' ) );
-		printf(
-			'<select id="wpcpm-import-program" name="program"%s>',
-			WPCPM_Form_Errors::attrs( self::FIELD_PROGRAM, $said( self::FIELD_PROGRAM ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+		$out = WPCPM_UI::field(
+			array(
+				'id'      => self::FIELD_PROGRAM,
+				'name'    => 'program',
+				'label'   => __( 'Program', 'wpcredits-program-manager' ),
+				'type'    => 'select',
+				'options' => $programs,
+				'value'   => $value( 'program' ),
+				'problem' => $said( self::FIELD_PROGRAM ),
+			)
 		);
 
-		// The value is the status the base holds and the label is what a person calls it. The
-		// map is the server's, so a posted value that is not one of these is not a program. A
-		// Track Builder track appears only once its reports automation item is ticked, because a
-		// student on it before that never gets a report row (the design's decision 10).
-		foreach ( WPCPM_Institutions::offered_programs() as $status => $label ) {
-			printf(
-				'<option value="%1$s"%3$s>%2$s</option>',
-				esc_attr( $status ),
-				esc_html( $label ),
-				(string) $status === $value( 'program' ) ? ' selected="selected"' : ''
-			);
-		}
-
-		echo '</select>';
-		echo WPCPM_Form_Errors::problem( self::FIELD_PROGRAM, $said( self::FIELD_PROGRAM ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
-		echo '</p>';
-
-		printf(
-			'<p class="wpcpm-field"><label for="wpcpm-import-start">%1$s <span class="wpcpm-field__required">%3$s</span></label><input type="date" id="wpcpm-import-start" name="start" required%4$s%5$s />%6$s<span class="wpcpm-field__hint" id="wpcpm-import-start-hint">%2$s</span></p>',
-			esc_html__( 'Start date', 'wpcredits-program-manager' ),
-			esc_html__( 'The term these students begin. A date more than a year either side of today is refused as a typo.', 'wpcredits-program-manager' ),
-			esc_html__( 'Required', 'wpcredits-program-manager' ),
-			'' === $value( 'start' ) ? '' : ' value="' . esc_attr( $value( 'start' ) ) . '"',
-			WPCPM_Form_Errors::attrs( self::FIELD_START, $said( self::FIELD_START ), 'wpcpm-import-start-hint' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
-			WPCPM_Form_Errors::problem( self::FIELD_START, $said( self::FIELD_START ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
+		$out .= WPCPM_UI::field(
+			array(
+				'id'      => self::FIELD_START,
+				'name'    => 'start',
+				'label'   => __( 'Start date', 'wpcredits-program-manager' ),
+				'type'    => 'date',
+				'need'    => 'required',
+				'hint'    => __( 'The term these students begin. A date more than a year either side of today is refused as a typo.', 'wpcredits-program-manager' ),
+				'value'   => $value( 'start' ),
+				'problem' => $said( self::FIELD_START ),
+			)
 		);
 
-		printf(
-			'<p class="wpcpm-field"><label for="wpcpm-import-end">%1$s</label><input type="date" id="wpcpm-import-end" name="end"%3$s%4$s />%5$s<span class="wpcpm-field__hint" id="wpcpm-import-end-hint">%2$s</span></p>',
-			esc_html__( 'End date, if you know it', 'wpcredits-program-manager' ),
-			esc_html__( 'After the start date, and at most a year after it.', 'wpcredits-program-manager' ),
-			'' === $value( 'end' ) ? '' : ' value="' . esc_attr( $value( 'end' ) ) . '"',
-			WPCPM_Form_Errors::attrs( self::FIELD_END, $said( self::FIELD_END ), 'wpcpm-import-end-hint' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
-			WPCPM_Form_Errors::problem( self::FIELD_END, $said( self::FIELD_END ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
+		// Today's label "End date, if you know it" is split (parts design 2.4): its first clause the label, Optional in words,
+		// and the rest the hint, before today's hint.
+		$out .= WPCPM_UI::field(
+			array(
+				'id'      => self::FIELD_END,
+				'name'    => 'end',
+				'label'   => __( 'End date', 'wpcredits-program-manager' ),
+				'type'    => 'date',
+				'need'    => 'optional',
+				'hint'    => __( 'If you know it.', 'wpcredits-program-manager' ) . ' ' . __( 'After the start date, and at most a year after it.', 'wpcredits-program-manager' ),
+				'value'   => $value( 'end' ),
+				'problem' => $said( self::FIELD_END ),
+			)
 		);
 
-		// **Recorded on the batch and never written to a student's record.** The consent that
-		// matters is the student's own, given on their own form; this is the school saying it
-		// has notified them, which is a different statement by a different person and belongs
-		// in a different place.
-		//
-		// It names the name and the address and nothing else. A WordPress.org profile is not
-		// shared at this point because there is none to share: getting one is the student's own
-		// first step after enrollment, so a school confirming it had been notified about would
-		// be confirming something that has not happened.
-		// The sentence and its mark share one `<span>`: the label is a flex row (institution.css),
-		// where a bare text node and the mark beside it are two items with a gap between them, so
-		// "Required" was set as a third column instead of ending the sentence.
-		printf(
-			'<p class="wpcpm-field wpcpm-field--check"><label><input type="checkbox" id="wpcpm-import-notified" name="notified" value="1" required%3$s%4$s /> <span>%1$s <span class="wpcpm-field__required">%2$s</span></span></label>%5$s</p>',
-			esc_html( self::notified_label() ),
-			esc_html__( 'Required', 'wpcredits-program-manager' ),
-			'1' === $value( 'notified' ) ? ' checked="checked"' : '',
-			WPCPM_Form_Errors::attrs( self::FIELD_NOTIFIED, $said( self::FIELD_NOTIFIED ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
-			WPCPM_Form_Errors::problem( self::FIELD_NOTIFIED, $said( self::FIELD_NOTIFIED ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
+		$out .= WPCPM_UI::choices(
+			array(
+				'id'      => self::FIELD_NOTIFIED,
+				'name'    => 'notified',
+				'options' => array( '1' => self::notified_label() ),
+				'checked' => $value( 'notified' ),
+				'need'    => 'required',
+				'problem' => $said( self::FIELD_NOTIFIED ),
+			)
 		);
 
-		echo '</div>';
-
-		echo '<div class="wpcpm-import__rows">';
-
-		printf( '<h3 class="wpcpm-import__subtitle">%s</h3>', esc_html__( 'One student', 'wpcredits-program-manager' ) );
+		$out .= self::set_open( __( 'One student', 'wpcredits-program-manager' ) );
 
 		foreach ( self::single_fields() as $name => $label ) {
-			printf(
-				'<p class="wpcpm-field"><label for="wpcpm-import-%1$s">%2$s</label>',
-				esc_attr( $name ),
-				esc_html( $label )
-			);
-
 			$options = self::options_for( $name, $record );
-
-			if ( null === $options ) {
-				printf(
-					'<input type="text" id="wpcpm-import-%1$s" name="%1$s"%2$s /></p>',
-					esc_attr( $name ),
-					'' === $value( $name ) ? '' : ' value="' . esc_attr( $value( $name ) ) . '"'
-				);
-				continue;
-			}
-
-			printf( '<select id="wpcpm-import-%1$s" name="%1$s">', esc_attr( $name ) );
-			// Blank first and selected, because neither of these is required and a picker that
-			// opens on the first real answer is a picker that files half a cohort under it.
-			printf( '<option value="">%s</option>', esc_html__( 'Not recorded', 'wpcredits-program-manager' ) );
-
-			foreach ( $options as $option ) {
-				printf(
-					'<option value="%1$s"%2$s>%1$s</option>',
-					esc_attr( $option ),
-					'' !== $value( $name ) && (string) $option === $value( $name ) ? ' selected="selected"' : ''
-				);
-			}
-
-			echo '</select>';
-
-			if ( 'tutor' === $name && empty( $options ) ) {
-				printf(
-					'<span class="wpcpm-field__hint">%s</span>',
-					esc_html__( 'No tutors are listed for your institution yet. Add them in the Tutors section of the People card, and they will appear here.', 'wpcredits-program-manager' )
-				);
-			}
-
-			echo '</p>';
-		}
-
-		printf( '<h3 class="wpcpm-import__subtitle">%s</h3>', esc_html__( 'Or a list', 'wpcredits-program-manager' ) );
-
-		// The limit is said where the file is chosen, so a file over it is a refusal the person was
-		// told about rather than a surprise (1.123.58, IDB-16).
-		printf(
-			'<p class="wpcpm-field"><label for="wpcpm-import-file">%1$s</label><input type="file" id="wpcpm-import-file" name="list" accept=".csv,text/csv"%3$s />%4$s<span class="wpcpm-field__hint" id="wpcpm-import-file-hint">%2$s</span>',
-			esc_html__( 'A CSV file', 'wpcredits-program-manager' ),
-			esc_html(
-				sprintf(
-					/* translators: %s: the largest file the import reads, such as 256 KB. */
-					__( 'A CSV file of %s at most.', 'wpcredits-program-manager' ),
-					size_format( self::MAX_BYTES )
-				)
-				. ' '
-				. sprintf(
-					/* translators: %s: the largest number of students one import may carry. */
-					__( 'A header row, then one student per line. Name and email are needed; field of study and tutor are read when they are there. Up to %s students. The file is read and never stored.', 'wpcredits-program-manager' ),
-					number_format_i18n( WPCPM_Institution_Import::MAX_ROWS )
-				)
-			),
-			WPCPM_Form_Errors::attrs( self::FIELD_FILE, $said( self::FIELD_FILE ), 'wpcpm-import-file-hint' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
-			WPCPM_Form_Errors::problem( self::FIELD_FILE, $said( self::FIELD_FILE ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
-		);
-
-		// The format, shown rather than only described: a list the export class makes on request, with the
-		// four headers and one example student, which the import's own reader reads and refuses as the sample's
-		// until the school replaces it with a student of their own (`email_sample`). The nonced link is
-		// the export class's (`sample_url()`), keyed to this institution, so this file decides nothing about
-		// the download beyond where its link goes. Guarded, as the student card guards its controls, so a site
-		// that has not loaded the class draws the form without the link.
-		if ( class_exists( 'WPCPM_Institution_Export' ) ) {
-			printf(
-				'<a class="wpcpm-import__sample" href="%1$s">%2$s</a>',
-				esc_url( WPCPM_Institution_Export::sample_url( $record ) ),
-				esc_html__( 'Download a sample list', 'wpcredits-program-manager' )
+			$field   = array(
+				'id'    => 'wpcpm-import-' . $name,
+				'name'  => $name,
+				'label' => $label,
+				'value' => $value( $name ),
 			);
+
+			if ( null !== $options ) {
+				// Blank first, as today: neither is required, and a picker that opens on a real answer files a cohort under it.
+				$choices = array( '' => __( 'Not recorded', 'wpcredits-program-manager' ) );
+
+				foreach ( $options as $option ) {
+					$choices[ (string) $option ] = (string) $option;
+				}
+
+				$field['type']    = 'select';
+				$field['options'] = $choices;
+				$field['hint']    = self::tutor_hint( $name, $options );
+			}
+
+			$out .= WPCPM_UI::field( $field );
 		}
 
-		echo '</p>';
+		$out .= '</fieldset>' . self::set_open( __( 'Or a list', 'wpcredits-program-manager' ) );
 
-		printf(
-			'<p class="wpcpm-field"><label for="wpcpm-import-paste">%1$s</label><textarea id="wpcpm-import-paste" name="paste" rows="6"%3$s>%4$s</textarea>%5$s<span class="wpcpm-field__hint" id="wpcpm-import-paste-hint">%2$s</span></p>',
-			esc_html__( 'Or paste the same thing here', 'wpcredits-program-manager' ),
-			esc_html__( 'Useful when the list is in a spreadsheet you would rather not download.', 'wpcredits-program-manager' ),
-			WPCPM_Form_Errors::attrs( self::FIELD_PASTE, $said( self::FIELD_PASTE ), 'wpcpm-import-paste-hint' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
-			esc_textarea( $value( 'paste' ) ),
-			WPCPM_Form_Errors::problem( self::FIELD_PASTE, $said( self::FIELD_PASTE ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
+		$out .= WPCPM_UI::file(
+			array(
+				'id'      => self::FIELD_FILE,
+				'name'    => 'list',
+				'label'   => __( 'A CSV file', 'wpcredits-program-manager' ),
+				'accept'  => '.csv,text/csv',
+				'hint'    => self::file_hint(),
+				'problem' => $said( self::FIELD_FILE ),
+			)
 		);
 
-		echo '</div>';
+		// The sample list's link, the export class's own (see render_form()), on its line under the file box.
+		if ( class_exists( 'WPCPM_Institution_Export' ) ) {
+			$out .= WPCPM_UI::intro( '', '', '', '<a href="' . esc_url( WPCPM_Institution_Export::sample_url( $record ) ) . '">' . esc_html__( 'Download a sample list', 'wpcredits-program-manager' ) . '</a>' );
+		}
 
-		printf(
-			'<p class="wpcpm-import__actions"><button type="submit" class="wpcpm-button">%s</button></p>',
-			esc_html__( 'Check the list', 'wpcredits-program-manager' )
+		$out .= WPCPM_UI::field(
+			array(
+				'id'      => self::FIELD_PASTE,
+				'name'    => 'paste',
+				'label'   => __( 'Or paste the same thing here', 'wpcredits-program-manager' ),
+				'type'    => 'textarea',
+				'rows'    => 6,
+				'hint'    => __( 'Useful when the list is in a spreadsheet you would rather not download.', 'wpcredits-program-manager' ),
+				'value'   => $value( 'paste' ),
+				'problem' => $said( self::FIELD_PASTE ),
+			)
 		);
 
-		echo '</form>';
+		$out .= '</fieldset>' . WPCPM_UI::actions(
+			array(
+				WPCPM_UI::button(
+					array(
+						'label' => __( 'Check the list', 'wpcredits-program-manager' ),
+						'side'  => 'front',
+					)
+				),
+			)
+		);
+
+		echo $out . '</form>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts, each value through esc_html() or esc_attr() there.
+	}
+
+	/**
+	 * The opening of a set of fields on the parts: the choice group's fieldset (no border), its legend an in-card
+	 * heading. No part prints a set of fields; the caller closes it.
+	 *
+	 * @param string $legend The set's name.
+	 * @return string
+	 */
+	private static function set_open( $legend ) {
+		return '<fieldset class="wpcpm-ui-choices wpcpm-ui-choices--set"><legend class="wpcpm-ui-h">' . esc_html( $legend ) . '</legend>';
+	}
+
+	/**
+	 * The file box's hint: the limit, said where the file is chosen (1.123.58, IDB-16), then the format.
+	 *
+	 * @return string
+	 */
+	private static function file_hint() {
+		return sprintf(
+			/* translators: %s: the largest file the import reads, such as 256 KB. */
+			__( 'A CSV file of %s at most.', 'wpcredits-program-manager' ),
+			size_format( self::MAX_BYTES )
+		)
+		. ' '
+		. sprintf(
+			/* translators: %s: the largest number of students one import may carry. */
+			__( 'A header row, then one student per line. Name and email are needed; field of study and tutor are read when they are there. Up to %s students. The file is read and never stored.', 'wpcredits-program-manager' ),
+			number_format_i18n( WPCPM_Institution_Import::MAX_ROWS )
+		);
 	}
 
 	/**
@@ -458,13 +492,16 @@ final class WPCPM_Institution_Import_Form {
 	 * The controls a refused check can mark, in the form's order, each with its id and its label,
 	 * for `WPCPM_Form_Errors::summary()` (1.123.58).
 	 *
+	 * The end date's label is "End date", its rest the hint (Institution Dashboard, Task 17), so the summary names it by
+	 * that label.
+	 *
 	 * @return array<string, array{id: string, label: string}>
 	 */
 	private static function field_map() {
 		$labels = array(
 			self::FIELD_PROGRAM  => __( 'Program', 'wpcredits-program-manager' ),
 			self::FIELD_START    => __( 'Start date', 'wpcredits-program-manager' ),
-			self::FIELD_END      => __( 'End date, if you know it', 'wpcredits-program-manager' ),
+			self::FIELD_END      => __( 'End date', 'wpcredits-program-manager' ),
 			self::FIELD_NOTIFIED => self::notified_label(),
 			self::FIELD_FILE     => __( 'A CSV file', 'wpcredits-program-manager' ),
 			self::FIELD_PASTE    => __( 'Or paste the same thing here', 'wpcredits-program-manager' ),
@@ -479,6 +516,23 @@ final class WPCPM_Institution_Import_Form {
 		}
 
 		return $map;
+	}
+
+	/**
+	 * The sentence under the tutor picker while the school lists no tutor, saying where to add them, or '' for any other
+	 * field or when tutors are listed. It names the Tutors section of Your institution, since no card there is called
+	 * People (Stage B, Task 20).
+	 *
+	 * @param string        $name    The field.
+	 * @param string[]|null $options What the field offers (`options_for()`).
+	 * @return string
+	 */
+	private static function tutor_hint( $name, $options ) {
+		if ( 'tutor' === $name && empty( $options ) ) {
+			return __( 'No tutors are listed for your institution yet. Add them under Tutors on Your institution, and they will appear here.', 'wpcredits-program-manager' );
+		}
+
+		return '';
 	}
 
 	/**
@@ -519,6 +573,62 @@ final class WPCPM_Institution_Import_Form {
 	}
 
 	/**
+	 * The sentence the card prints above a checked list not yet created (how many of its rows can be created) or
+	 * above a creation in progress (how far it is), which the Institution Dashboard's Overview reads as its
+	 * waiting row's why. Not escaped: a caller escapes it where it prints it.
+	 *
+	 * @param int    $batch_id The batch, as `WPCPM_Institution_Import::active_for()` finds it.
+	 * @param string $record   The Institutions record ID the sentence is asked for: another school's batch says nothing.
+	 * @param array  $batch    The batch, when the caller has already read it (`WPCPM_Institution_Import::batch()`),
+	 *                         so it is not read again; read here when empty or of another number.
+	 * @return string '' for a number that is no batch, a batch of another school, or a batch neither checked nor
+	 *                being created.
+	 */
+	public static function waiting_sentence( int $batch_id, string $record, array $batch = array() ): string {
+		if ( ! isset( $batch['id'] ) || (int) $batch['id'] !== $batch_id ) {
+			$batch = WPCPM_Institution_Import::batch( $batch_id );
+		}
+
+		if ( ! is_array( $batch ) || '' === $record || $batch['institution'] !== $record || ! in_array( $batch['state'], array( WPCPM_Institution_Import::STATE_STAGED, WPCPM_Institution_Import::STATE_CREATING ), true ) ) {
+			return '';
+		}
+
+		return self::batch_sentence( $batch );
+	}
+
+	/**
+	 * The sentence over a batch already read, as the card prints it: how far a creation in progress is, and for
+	 * a batch in any other state how many of its rows can be created. `waiting_sentence()` asks it for a waiting
+	 * batch, and the card that holds the batch prints it without reading the batch again.
+	 *
+	 * @param array $batch The batch.
+	 * @return string
+	 */
+	private static function batch_sentence( array $batch ) {
+		$rows = $batch['rows'];
+
+		if ( WPCPM_Institution_Import::STATE_CREATING === $batch['state'] ) {
+			$tally = WPCPM_Institution_Create::tally( $rows );
+
+			return sprintf(
+				/* translators: 1: students created so far, 2: how many are still to come. */
+				__( '%1$s created so far. %2$s still to create.', 'wpcredits-program-manager' ),
+				number_format_i18n( $tally['created'] ),
+				number_format_i18n( WPCPM_Institution_Create::remaining( $rows ) )
+			);
+		}
+
+		$counts = self::counts( $rows );
+
+		return sprintf(
+			/* translators: 1: how many students would be created, 2: how many rows the list held. */
+			__( '%1$s of %2$s rows can be created.', 'wpcredits-program-manager' ),
+			number_format_i18n( $counts['ok'] ),
+			number_format_i18n( count( $rows ) )
+		);
+	}
+
+	/**
 	 * The preview of a staged batch.
 	 *
 	 * **Every row is shown, including the ones that will not be created.** A school that sent
@@ -542,60 +652,99 @@ final class WPCPM_Institution_Import_Form {
 			return;
 		}
 
-		$counts = self::counts( $batch['rows'] );
+		$counts   = self::counts( $batch['rows'] );
+		$question = self::confirm_question( $batch, $counts['ok'] );
 
-		printf(
-			'<p class="wpcpm-import__summary">%s</p>',
-			esc_html(
-				sprintf(
-					/* translators: 1: how many students would be created, 2: how many rows the list held. */
-					__( '%1$s of %2$s rows can be created.', 'wpcredits-program-manager' ),
-					number_format_i18n( $counts['ok'] ),
-					number_format_i18n( count( $batch['rows'] ) )
-				)
-			)
-		);
-
-		if ( ! empty( $batch['unknown'] ) ) {
-			printf(
-				'<p class="wpcpm-import__note">%s</p>',
-				esc_html(
-					sprintf(
-						/* translators: %s: the column headings the import did not read. */
-						__( 'Columns this import does not read, and ignored: %s', 'wpcredits-program-manager' ),
-						implode( ', ', array_map( 'sanitize_text_field', $batch['unknown'] ) )
-					)
-				)
-			);
-		}
-
-		echo '<ul class="wpcpm-import__rows-list">';
-
-		foreach ( $batch['rows'] as $row ) {
-			self::render_row( $row );
-		}
-
-		echo '</ul>';
-
-		self::render_confirm( $batch_id, $batch, $counts['ok'], $record );
-
-		printf(
-			'<form class="wpcpm-import__cancel" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
-			esc_url( self::post_url( $record ) ),
-			esc_attr__( 'Canceling', 'wpcredits-program-manager' )
-		);
-		wp_nonce_field( self::ACTION_CANCEL . '_' . (int) $batch_id );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CANCEL ) );
-		printf( '<input type="hidden" name="batch" value="%d" />', (int) $batch_id );
-		printf(
-			'<button type="submit" class="wpcpm-button wpcpm-button--quiet">%s</button>',
-			esc_html__( 'Throw this list away', 'wpcredits-program-manager' )
-		);
-		echo '</form>';
+		self::render_preview_parts( (int) $batch_id, $batch, $question, $record );
 	}
 
 	/**
-	 * The Confirm control, and the sentence it makes somebody read first.
+	 * The check on the shared parts (design 6.2): today's count sentence, the ignored columns line, the check table, then
+	 * today's question and one row holding Create these student records (primary, asking it first) and Throw this list
+	 * away (danger), each the form it is today.
+	 *
+	 * @param int    $batch_id The staged batch.
+	 * @param array  $batch    The batch.
+	 * @param string $question The question Create asks, or '' when no row can be created.
+	 * @param string $record   Institutions record ID the page is showing.
+	 */
+	private static function render_preview_parts( $batch_id, array $batch, $question, $record ) {
+		$out = WPCPM_UI::intro( self::batch_sentence( $batch ) );
+
+		if ( '' !== self::unknown_sentence( $batch ) ) {
+			$out .= WPCPM_UI::intro( self::unknown_sentence( $batch ), 'muted' );
+		}
+
+		$out  .= self::rows_table( $batch['rows'] );
+		$forms = array();
+
+		if ( '' !== $question ) {
+			$out .= WPCPM_UI::intro( '', '', '', self::question_html( $batch, $question ) );
+
+			$forms[] = sprintf(
+				'<form method="post" action="%1$s" data-wpcpm-confirm="%2$s" data-wpcpm-once data-wpcpm-busy="%3$s">',
+				esc_url( self::post_url( $record ) ),
+				esc_attr( $question ),
+				esc_attr__( 'Creating the records', 'wpcredits-program-manager' )
+			) . self::captured(
+				static function () use ( $batch_id ) {
+					self::render_hidden( WPCPM_Institution_Create::confirm_action( $batch_id ), self::ACTION_CONFIRM, $batch_id );
+				}
+			) . WPCPM_UI::button(
+				array(
+					'label' => __( 'Create these student records', 'wpcredits-program-manager' ),
+					'side'  => 'front',
+				)
+			) . '</form>';
+		}
+
+		$forms[] = sprintf(
+			'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( self::post_url( $record ) ),
+			esc_attr__( 'Canceling', 'wpcredits-program-manager' )
+		) . self::captured(
+			static function () use ( $batch_id ) {
+				self::render_hidden( self::ACTION_CANCEL . '_' . $batch_id, self::ACTION_CANCEL, $batch_id );
+			}
+		) . WPCPM_UI::button(
+			array(
+				'label' => __( 'Throw this list away', 'wpcredits-program-manager' ),
+				'kind'  => 'danger',
+				'side'  => 'front',
+			)
+		) . '</form>';
+
+		echo $out . WPCPM_UI::actions( $forms ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts and above.
+	}
+
+	/**
+	 * The line naming the columns a list carried that the import does not read, or '' when it carried none.
+	 *
+	 * @param array $batch The batch.
+	 * @return string
+	 */
+	private static function unknown_sentence( array $batch ) {
+		if ( empty( $batch['unknown'] ) ) {
+			return '';
+		}
+
+		return sprintf(
+			/* translators: %s: the column headings the import did not read. */
+			__( 'Columns this import does not read, and ignored: %s', 'wpcredits-program-manager' ),
+			implode(
+				', ',
+				array_map(
+					static function ( $heading ) {
+						return sanitize_text_field( $heading );
+					},
+					$batch['unknown']
+				)
+			)
+		);
+	}
+
+	/**
+	 * The question Create asks first, and the sentence it makes somebody read, or '' when nothing can be created.
 	 *
 	 * **Everything that is about to happen, and everything that is not.** The count, the
 	 * institution's own program and start date, that no mail goes out now, when the student
@@ -604,43 +753,44 @@ final class WPCPM_Institution_Import_Form {
 	 * creates a second record under their own hand, and no ladder here can tell that from a
 	 * new enrollment.
 	 *
-	 * @param int    $batch_id The staged batch.
-	 * @param array  $batch    The batch.
-	 * @param int    $creating How many rows would be created.
-	 * @param string $record   Institutions record ID the page is showing.
+	 * Nothing to create is not a button. A school whose whole list was blocked reads the rows and
+	 * throws the list away; a Confirm here would do nothing and would teach them that the button
+	 * sometimes does nothing. Both branches ask this, so the rule is written once.
+	 *
+	 * @param array $batch    The batch.
+	 * @param int   $creating How many rows would be created.
+	 * @return string
 	 */
-	private static function render_confirm( $batch_id, array $batch, $creating, $record ) {
+	private static function confirm_question( array $batch, $creating ) {
 		if ( $creating < 1 ) {
-			// Nothing to create is not a button. A school whose whole list was blocked reads
-			// the rows and throws the list away; a Confirm here would do nothing and would
-			// teach them that the button sometimes does nothing.
-			return;
+			return '';
 		}
 
 		$values = isset( $batch['values'] ) && is_array( $batch['values'] ) ? $batch['values'] : array();
-		$says   = sprintf(
+
+		return sprintf(
 			/* translators: 1: how many student records, 2: the program's name, 3: the start date. */
 			__( 'Create %1$s student records on the %2$s program, starting %3$s. No email is sent now. The program emails each student when their place is set up, and they receive their login when their account is created. Do not send these students to the registration form; it would create a second record.', 'wpcredits-program-manager' ),
 			number_format_i18n( $creating ),
 			WPCPM_Program::label( isset( $values['status'] ) ? (string) $values['status'] : '' ),
 			isset( $values['start'] ) ? (string) $values['start'] : ''
 		);
+	}
 
-		printf(
-			'<form class="wpcpm-import__actions" method="post" action="%1$s" data-wpcpm-confirm="%2$s" data-wpcpm-once data-wpcpm-busy="%3$s">',
-			esc_url( self::post_url( $record ) ),
-			esc_attr( $says ),
-			esc_attr__( 'Creating the records', 'wpcredits-program-manager' )
-		);
-		wp_nonce_field( WPCPM_Institution_Create::confirm_action( $batch_id ) );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CONFIRM ) );
-		printf( '<input type="hidden" name="batch" value="%d" />', (int) $batch_id );
-		printf( '<p class="wpcpm-import__note">%s</p>', esc_html( $says ) );
-		printf(
-			'<button type="submit" class="wpcpm-button">%s</button>',
-			esc_html__( 'Create these student records', 'wpcredits-program-manager' )
-		);
-		echo '</form>';
+	/**
+	 * The question as the parts print it: escaped, its start date one run that never breaks (`WPCPM_UI::whole()`).
+	 *
+	 * @param array  $batch    The batch.
+	 * @param string $question The question.
+	 * @return string Escaped markup.
+	 */
+	private static function question_html( array $batch, $question ) {
+		$html  = esc_html( $question );
+		$start = isset( $batch['values']['start'] ) ? esc_html( (string) $batch['values']['start'] ) : '';
+		$at    = '' !== $start ? strrpos( $html, $start ) : false;
+
+		// The date is the sentence's last placeholder, so its last occurrence is the date.
+		return false === $at ? $html : substr( $html, 0, $at ) . WPCPM_UI::whole( (string) $batch['values']['start'] ) . substr( $html, $at + strlen( $start ) );
 	}
 
 	/**
@@ -650,68 +800,118 @@ final class WPCPM_Institution_Import_Form {
 	 * quiet site runs when somebody visits, which for an institution's dashboard may be
 	 * tomorrow; a person watching a half-finished import should not have to wait for a visitor.
 	 *
+	 * On the parts: today's two sentences, the rows not created as the check table, Continue (secondary).
+	 *
 	 * @param array  $batch  The batch being created.
 	 * @param string $record Institutions record ID the page is showing.
 	 */
 	private static function render_progress( array $batch, $record ) {
-		$tally = WPCPM_Institution_Create::tally( $batch['rows'] );
-		$left  = WPCPM_Institution_Create::remaining( $batch['rows'] );
-
-		printf(
-			'<p class="wpcpm-import__summary">%s</p>',
-			esc_html(
-				sprintf(
-					/* translators: 1: students created so far, 2: how many are still to come. */
-					__( '%1$s created so far. %2$s still to create.', 'wpcredits-program-manager' ),
-					number_format_i18n( $tally['created'] ),
-					number_format_i18n( $left )
-				)
-			)
-		);
-
-		// Said rather than left to be worked out from a button that is not there: a batch with
-		// records behind it cannot be thrown away, because deleting the post would leave those
-		// students with a `Site import key` pointing at a batch that no longer exists.
-		printf(
-			'<p class="wpcpm-import__note">%s</p>',
-			esc_html__( 'This import has already created records, so it cannot be thrown away. It carries on by itself, and Continue picks it up now.', 'wpcredits-program-manager' )
-		);
+		echo WPCPM_UI::intro( self::batch_sentence( $batch ) ) . WPCPM_UI::intro( self::progress_note(), 'muted' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
 
 		self::render_exceptions( $batch['rows'] );
 
 		// Continue creates the next records, so it says the words Confirm says while it works.
 		printf(
-			'<form class="wpcpm-import__actions" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( self::post_url( $record ) ),
 			esc_attr__( 'Creating the records', 'wpcredits-program-manager' )
 		);
-		wp_nonce_field( WPCPM_Institution_Create::continue_action( $batch['id'] ) );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CONTINUE ) );
-		printf( '<input type="hidden" name="batch" value="%d" />', (int) $batch['id'] );
-		printf(
-			'<button type="submit" class="wpcpm-button">%s</button>',
-			esc_html__( 'Continue', 'wpcredits-program-manager' )
+		self::render_hidden( WPCPM_Institution_Create::continue_action( $batch['id'] ), self::ACTION_CONTINUE, (int) $batch['id'] );
+
+		$continue = WPCPM_UI::button(
+			array(
+				'label' => __( 'Continue', 'wpcredits-program-manager' ),
+				'kind'  => 'secondary',
+				'side'  => 'front',
+			)
 		);
+
+		echo WPCPM_UI::actions( array( $continue ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts.
+
 		echo '</form>';
 	}
 
 	/**
-	 * One row of the preview.
+	 * Said rather than left to be worked out from a button that is not there: a batch with records behind it cannot be
+	 * thrown away, because deleting the post would leave those students with a `Site import key` pointing at a batch that
+	 * no longer exists.
+	 *
+	 * @return string
+	 */
+	private static function progress_note() {
+		return __( 'This import has already created records, so it cannot be thrown away. It carries on by itself, and Continue picks it up now.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * What one row shows: its line, its name (today's words for none), its address and what happens to it.
 	 *
 	 * @param array $row A checked row.
+	 * @return array{line: int, name: string, named: bool, email: string, says: string}
 	 */
-	private static function render_row( array $row ) {
-		$name  = isset( $row['name'] ) && '' !== $row['name'] ? $row['name'] : __( '(no name)', 'wpcredits-program-manager' );
-		$email = isset( $row['email'] ) ? (string) $row['email'] : '';
+	private static function row_cells( array $row ) {
+		$named = isset( $row['name'] ) && '' !== $row['name'];
 
-		printf(
-			'<li class="wpcpm-import__row wpcpm-import__row--%1$s"><span class="wpcpm-import__line">%2$s</span> <span class="wpcpm-import__name">%3$s</span> <span class="wpcpm-import__email">%4$s</span> <span class="wpcpm-import__verdict">%5$s</span></li>',
-			esc_attr( isset( $row['verdict'] ) ? $row['verdict'] : 'ok' ),
-			esc_html( sprintf( /* translators: %s: a line number in the uploaded file. */ __( 'Line %s', 'wpcredits-program-manager' ), number_format_i18n( isset( $row['line'] ) ? (int) $row['line'] : 0 ) ) ),
-			esc_html( $name ),
-			esc_html( $email ),
-			esc_html( self::verdict_sentence( $row ) )
+		return array(
+			'line'  => isset( $row['line'] ) ? (int) $row['line'] : 0,
+			'name'  => $named ? (string) $row['name'] : __( '(no name)', 'wpcredits-program-manager' ),
+			'named' => $named,
+			'email' => isset( $row['email'] ) ? (string) $row['email'] : '',
+			'says'  => self::verdict_sentence( $row ),
 		);
+	}
+
+	/**
+	 * The check table's columns (design 6): Line, Name, Email address (a token: it may break anywhere), What happens.
+	 *
+	 * @return array[]
+	 */
+	private static function check_columns() {
+		return array(
+			array(
+				'key'   => 'line',
+				'label' => __( 'Line', 'wpcredits-program-manager' ),
+				'kind'  => 'num',
+			),
+			array(
+				'key'   => 'name',
+				'label' => __( 'Name', 'wpcredits-program-manager' ),
+				'kind'  => 'text',
+			),
+			array(
+				'key'   => 'email',
+				'label' => __( 'Email address', 'wpcredits-program-manager' ),
+				'kind'  => 'token',
+			),
+			array(
+				'key'   => 'says',
+				'label' => __( 'What happens', 'wpcredits-program-manager' ),
+				'kind'  => 'text',
+			),
+		);
+	}
+
+	/**
+	 * Rows as the check table on the parts: each row's line, its name through `WPCPM_UI::breakable()` (today's words in
+	 * the empty kind when it has none), its address and what happens to it, in words. It stacks under 800px of main area.
+	 *
+	 * @param array $rows Checked rows.
+	 * @return string Escaped markup.
+	 */
+	private static function rows_table( array $rows ) {
+		$columns = self::check_columns();
+		$out     = WPCPM_UI::table_open( $columns );
+
+		foreach ( $rows as $row ) {
+			$cells = self::row_cells( $row );
+			$out  .= WPCPM_UI::row_open()
+				. WPCPM_UI::cell( $columns[0], esc_html( number_format_i18n( $cells['line'] ) ) )
+				. WPCPM_UI::cell( $columns[1], WPCPM_UI::breakable( $cells['name'] ), $cells['named'] ? '' : 'empty' )
+				. WPCPM_UI::cell( $columns[2], esc_html( $cells['email'] ) )
+				. WPCPM_UI::cell( $columns[3], esc_html( $cells['says'] ) )
+				. WPCPM_UI::row_close();
+		}
+
+		return $out . WPCPM_UI::table_close();
 	}
 
 	/**
@@ -733,19 +933,15 @@ final class WPCPM_Institution_Import_Form {
 		}
 
 		$tally = WPCPM_Institution_Create::tally( $batch['rows'] );
-
-		printf(
-			'<p class="wpcpm-import__summary">%s</p>',
-			esc_html(
-				sprintf(
-					/* translators: 1: students created, 2: rows not created, 3: rows the program records refused. */
-					__( '%1$s created, %2$s blocked, %3$s failed.', 'wpcredits-program-manager' ),
-					number_format_i18n( $tally['created'] ),
-					number_format_i18n( $tally['blocked'] ),
-					number_format_i18n( $tally['failed'] )
-				)
-			)
+		$said  = sprintf(
+			/* translators: 1: students created, 2: rows not created, 3: rows the program records refused. */
+			__( '%1$s created, %2$s blocked, %3$s failed.', 'wpcredits-program-manager' ),
+			number_format_i18n( $tally['created'] ),
+			number_format_i18n( $tally['blocked'] ),
+			number_format_i18n( $tally['failed'] )
 		);
+
+		echo WPCPM_UI::intro( $said ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
 
 		self::render_exceptions( $batch['rows'] );
 	}
@@ -755,7 +951,7 @@ final class WPCPM_Institution_Import_Form {
 	 *
 	 * Only those: a list of two hundred students who were created exactly as asked is a list
 	 * nobody reads, and burying the three that were not in it is how a school comes back a
-	 * week later asking where somebody went.
+	 * week later asking where somebody went. On the parts they are the check table.
 	 *
 	 * @param array $rows The batch's rows.
 	 */
@@ -774,13 +970,7 @@ final class WPCPM_Institution_Import_Form {
 			return;
 		}
 
-		echo '<ul class="wpcpm-import__rows-list">';
-
-		foreach ( $shown as $row ) {
-			self::render_row( $row );
-		}
-
-		echo '</ul>';
+		echo self::rows_table( $shown ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in rows_table().
 	}
 
 	/**
@@ -1460,7 +1650,7 @@ final class WPCPM_Institution_Import_Form {
 	 * address for a viewer who holds `CAP_MANAGE` and for nobody else, because
 	 * `resolve_institution()` reads the argument on that branch alone: an administrator comes
 	 * back to the institution they were viewing instead of to the first one with a member, and
-	 * a member's address is what it always was. A press that acted on nothing, such as one on a
+	 * a member's address names no school. A press that acted on nothing, such as one on a
 	 * batch that is gone, passes none, and `return_record()` says where an administrator goes.
 	 *
 	 * @param string $status What happened.
@@ -1473,21 +1663,13 @@ final class WPCPM_Institution_Import_Form {
 			array_merge( array( 'status' => (string) $status ), $extra )
 		);
 
-		$url = WPCPM_Institutions_Dashboard::page_url();
+		// The Enroll students view, at the form (`card_url()`), with the batch to open and, for an Administrator, the
+		// school: the page draws one view at a time, and the form that prints the message is on this one.
+		$view = current_user_can( WPCPM_Roles::CAP_MANAGE ) ? self::return_record( $record ) : '';
+		$args = ! empty( $extra['batch'] ) ? array( self::ARG_BATCH => (string) (int) $extra['batch'] ) : array();
+		$url  = WPCPM_Institutions_Dashboard::card_url( 'import', $view, '', $args );
 
-		if ( ! empty( $extra['batch'] ) ) {
-			$url = add_query_arg( self::ARG_BATCH, (int) $extra['batch'], $url );
-		}
-
-		if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			$view = self::return_record( $record );
-
-			if ( '' !== $view ) {
-				$url = add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, $view, $url );
-			}
-		}
-
-		wp_safe_redirect( $url . '#wpcpm-import' );
+		wp_safe_redirect( '' !== $url ? $url : '#wpcpm-import' );
 		exit;
 	}
 

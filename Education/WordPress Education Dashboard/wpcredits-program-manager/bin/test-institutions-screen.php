@@ -610,6 +610,7 @@ if ( ! class_exists( 'WPCPM_Ceiling' ) ) {
 	}
 }
 
+require_once __DIR__ . '/stubs/institution-card-url.php';
 if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
 	/** Stands in for the institution's own page: this suite is about the manager screen. */
 	class WPCPM_Institutions_Dashboard {
@@ -625,6 +626,13 @@ if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
 			// A suite may take the page away, as a trashed page does, to see what a link to it becomes.
 			return isset( $GLOBALS['institution_page_url'] ) ? (string) $GLOBALS['institution_page_url'] : 'https://example.test/institution-dashboard/';
 		}
+		// The page's addresses, as the real class builds them (bin/stubs/institution-card-url.php, checked against it
+		// in bin/test-institution-ways-back.php).
+		public static function view_url( $view = 'overview', $record = '', array $args = array() ) { return wpcpm_test_institution_view_url( self::page_url(), $view, $record, $args ); }
+		public static function view_of( $card ) { return wpcpm_test_institution_view_of( $card ); }
+		public static function card_url( $card, $record = '', $item = '', array $args = array() ) { return wpcpm_test_institution_card_url( self::page_url(), $card, $record, $item, $args ); }
+		public static function requested_record() { return wpcpm_test_institution_requested_record(); }
+		public static function way_back( $card ) { return wpcpm_test_institution_way_back( self::page_url(), $card ); }
 		public static function is_member( $user = null ) {
 			return false;
 		}
@@ -2992,7 +3000,7 @@ ck( 'the card says how many Confirmed institutions have no agreement recorded, a
 ck( 'each name opens that institution\'s own page at its Collaboration Agreement panel, where one agreement is recorded', array(
 	isset( $listed[0][1] ) ? $listed[0][1] : '',
 	count( $listed ),
-), array( 'https://example.test/institution-dashboard/?wpcpm_institution_view=' . $confirmed[0] . '#wpcpm-agreement', 42 ) );
+), array( 'https://example.test/institution-dashboard/?wpcpm_view=agreement&wpcpm_institution_view=' . $confirmed[0] . '#wpcpm-agreement', 42 ) );
 ck( 'when the index was read comes first, and the one sentence under the list says how each is recorded', array(
 	0 === strpos( $on_file_card, '<p class="wpcpm-inst-read">Pipeline index: read ' . gmdate( 'Y-m-d H:i', $read_at ) . ' (4 hours ago).</p><p>42 Confirmed institutions' ),
 	false !== strpos( $on_file_card, '</ul><p class="description">Record each one from its own page, with the signed copy the program holds.</p>' ),
@@ -3128,7 +3136,8 @@ ck( 'the note is a required box of 20 to 2,000 characters, named the way the han
 	WPCPM_Institution_Panel::revoke_label(),
 ), array( true, true, 'Why it is revoked, in your own words' ) );
 ck( 'and the line under it says who receives the note', false !== strpos( $first_form, '<p class="description">Every member of this institution receives this note by email.</p>' ), true );
-ck( 'the button is "Revoke this agreement" and asks first, naming the institution and what follows', false !== strpos( $first_form, '<button type="submit" class="button button-primary" data-wpcpm-confirm="Revoke the agreement with Zeta College? Its members keep their accounts but reach only the agreement panel, pending invitations are canceled, and every member receives your note by email.">Revoke this agreement</button>' ), true );
+// Task 25, fix round 1, B1: the sentence says what a school with no settled agreement shows its people now.
+ck( 'the button is "Revoke this agreement" and asks first, naming the institution and what follows', false !== strpos( $first_form, '<button type="submit" class="button button-primary" data-wpcpm-confirm="Revoke the agreement with Zeta College? Its members keep their accounts, its representatives see only the Overview and the Agreement, its tutors see no page, pending invitations are canceled, and every member receives your note by email.">Revoke this agreement</button>' ), true );
 ck( 'the form comes back to the tab it was drawn on: no way back to a dashboard is carried, so the handler goes back where the request came from', array(
 	strpos( $first_form, 'wpcpm_return' ),
 	strpos( $in_force_card, 'wpcpm_return' ),
@@ -3558,6 +3567,18 @@ ck( 'and the log is drawn', false !== strpos( $html, 'Report log' ) && false !==
 ck( 'the row opens the report as that institution', false !== strpos( $report_rows[0], WPCPM_Institution_Roster::ARG_VIEW . '=' . $report_record ), true );
 ck( 'every row offers the consent request', substr_count( $html, 'value="' . WPCPM_Semester_Report_Screen::ACTION_ASK . '"' ), 2 );
 ck( 'each with a nonce keyed to its own report', false !== strpos( $report_rows[0], 'nonce-' . WPCPM_Semester_Report_Screen::ACTION_ASK . '_9101' ), true );
+
+// Institution Dashboard, Task 18: the Semester reports view draws the semester report card on the shared parts while
+// the Institution Dashboard is on; this tab names itself `wpcpm-institutions/reports` and stays off, so it prints
+// today's markup with that page's switch on, byte for byte. The digest was taken at 24db6e4b, before the view's
+// parts' branch was written, with every date the tab prints masked.
+$t18_mask = static function ( $html ) {
+	return (string) preg_replace( '/\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?/', '{date}', (string) $html );
+};
+WPCPM_UI::set_live( array( 'administrator', 'institution' ) );
+$t18_tab_on = render_tab( 'reports' );
+WPCPM_UI::set_live( null );
+ck( 'Task 18: with the Institution Dashboard on, the Semester reports tab is today\'s, byte for byte (digest)', array( $t18_tab_on === render_tab( 'reports' ), md5( $t18_mask( $t18_tab_on ) ) ), array( true, '11f60eb3f4740488c0437098ef222d75' ) );
 
 $GLOBALS['posts'] = array();
 $GLOBALS['pmeta'] = array();
@@ -6179,7 +6200,11 @@ foreach ( array( 'handle_list_form', 'invite_selected', 'handle_invite' ) as $me
 	$lands( 'accounts', $method, outcomes_handed( body_of_method( $trait_src, $method ), 'leave', 1 ) );
 }
 $lands( 'accounts', 'handle_stop', outcomes_handed( body_of_method( $mail_src, 'handle_stop' ), 'set', 1 ) );
-$lands( 'accounts', 'handle_upload', outcomes_handed( body_of_method( $agree_src, 'handle_upload' ), 'bounce', 0 ) );
+// Institution Dashboard, Task 21, fix round 1: a refused upload keeps the kind chosen and leaves through
+// `upload_refused( $record, <outcome> )`, its outcome the second argument; the one that lands still goes through bounce().
+$upload_landed  = outcomes_handed( body_of_method( $agree_src, 'handle_upload' ), 'bounce', 0 );
+$upload_refused = outcomes_handed( body_of_method( $agree_src, 'handle_upload' ), 'upload_refused', 1 );
+$lands( 'accounts', 'handle_upload', array( array_merge( $upload_landed[0], $upload_refused[0] ), array_merge( $upload_landed[1], $upload_refused[1] ) ) );
 $lands( 'accounts', 'handle_withdraw', outcomes_handed( body_of_method( $agree_src, 'handle_withdraw' ), 'bounce', 0 ) );
 $lands( 'queue', 'handle_resolve', outcomes_handed( body_of_method( $request_src, 'handle_resolve' ), 'finish', 0 ) );
 
@@ -7301,7 +7326,7 @@ ck( 'under the real switch the Institutions screen\'s Waiting for review tab is 
 	'' !== trim( (string) $tab_real ),
 	preg_match( '/wpcpm-ui-/', (string) $tab_real ),
 	WPCPM_UI::surface(),
-), array( array( 'administrator' ), true, true, 0, '' ) );
+), array( array( 'administrator', 'institution' ), true, true, 0, '' ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

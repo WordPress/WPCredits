@@ -13,7 +13,7 @@
  * control pressed in the form.
  */
 const path = require( 'path' );
-const { mk, load, flush, pageshow, dispatch, reset, registry, doc } = require( './run.js' );
+const { mk, load, flush, pageshow, loaded, dispatch, reset, registry, doc } = require( './run.js' );
 
 const FORMS = path.resolve( process.argv[ 2 ] || path.join( __dirname, '..', '..', '..', 'assets', 'js', 'forms.js' ) );
 
@@ -1075,6 +1075,119 @@ scenario(
 		load( FORMS );
 
 		return { focused: doc.activeElement ? doc.activeElement.id : null };
+	}
+);
+
+/*
+ * ---- A handler's way back names its card's anchor (`#wpcpm-people`), and a browser that follows a fragment to an element
+ * that takes no focus runs the focusing steps on it and drops the focus to the page, after the script has run on
+ * DOMContentLoaded (Gate B, B1: every refused form on the Institution Dashboard landed with the focus on the body). So on
+ * a page with a fragment the outcome takes the focus again once the page has loaded, unless the reader has moved it. ----
+ */
+
+scenario(
+	'a refusal that lands on its card\'s anchor: the browser drops the focus to the page, and the message takes it back once the page has loaded',
+	{ focused: 'message' },
+	() => {
+		mk( 'section', { id: 'wpcpm-people' } ).add( mk( 'p', { 'data-wpcpm-card-message': '', tabindex: '-1', id: 'message' } ) );
+		doc.readyState = 'interactive';
+
+		const { log } = load( FORMS, '#wpcpm-people' );
+
+		doc.activeElement = doc.body;
+		loaded( log );
+		flush( log );
+
+		return { focused: doc.activeElement ? ( doc.activeElement === doc.body ? 'body' : doc.activeElement.id ) : null };
+	}
+);
+
+scenario(
+	'and the error summary of a refused form does too, when the script runs after the page has loaded',
+	{ focused: 'summary' },
+	() => {
+		mk( 'div', { class: 'wpcpm-errors', role: 'alert', tabindex: '-1', id: 'summary' } );
+
+		const { log } = load( FORMS, '#wpcpm-student-form' );
+
+		doc.activeElement = doc.body;
+		flush( log );
+
+		return { focused: doc.activeElement ? ( doc.activeElement === doc.body ? 'body' : doc.activeElement.id ) : null };
+	}
+);
+
+scenario(
+	'a reader who moved the focus before the page finished loading keeps it',
+	{ focused: 'field' },
+	() => {
+		mk( 'p', { 'data-wpcpm-card-message': '', tabindex: '-1', id: 'message' } );
+		const field = mk( 'input', { id: 'field' } );
+		doc.readyState = 'interactive';
+
+		const { log } = load( FORMS, '#wpcpm-people' );
+
+		doc.activeElement = field;
+		loaded( log );
+		flush( log );
+
+		return { focused: doc.activeElement ? doc.activeElement.id : null };
+	}
+);
+
+// Gate B round 2, F3: a refusal's way back names the refused form's fold (`#wpcpm-people-invite`), the message its first
+// block: the second focus finds the message there as it does under a card's anchor.
+scenario(
+	'a refusal that lands on its form\'s fold: the message in the fold takes the focus back once the page has loaded',
+	{ focused: 'message', open: true },
+	() => {
+		const fold = mk( 'details', { id: 'wpcpm-people-invite', open: '' } );
+		fold.add( mk( 'p', { 'data-wpcpm-card-message': '', tabindex: '-1', id: 'message' } ) );
+		mk( 'section', { id: 'wpcpm-people' } ).add( fold );
+		doc.readyState = 'interactive';
+
+		const { log } = load( FORMS, '#wpcpm-people-invite' );
+
+		doc.activeElement = doc.body;
+		loaded( log );
+		flush( log );
+
+		return { focused: doc.activeElement ? ( doc.activeElement === doc.body ? 'body' : doc.activeElement.id ) : null, open: fold.open };
+	}
+);
+
+// Gate B round 2, F5: a reader who scrolled or pressed a key between the first focus and the load is not pulled back to
+// the outcome by the second one; the focus stays where the browser left it.
+[ [ 'keydown', 'pressed a key' ], [ 'wheel', 'scrolled with a wheel' ], [ 'touchmove', 'scrolled by touch' ], [ 'pointerdown', 'pressed on the page' ] ].forEach( ( [ type, words ] ) => {
+	scenario(
+		`a reader who ${ words } before the page loaded is not moved by the second focus`,
+		{ focused: 'body' },
+		() => {
+			mk( 'section', { id: 'wpcpm-people' } ).add( mk( 'p', { 'data-wpcpm-card-message': '', tabindex: '-1', id: 'message' } ) );
+			doc.readyState = 'interactive';
+
+			const { log } = load( FORMS, '#wpcpm-people' );
+
+			doc.activeElement = doc.body;
+			dispatch( doc, type );
+			loaded( log );
+			flush( log );
+
+			return { focused: doc.activeElement ? ( doc.activeElement === doc.body ? 'body' : doc.activeElement.id ) : null };
+		}
+	);
+} );
+
+scenario(
+	'an address with no fragment asks nothing of the load: the focus taken on DOMContentLoaded stays',
+	{ focused: 'message', waits: 0 },
+	() => {
+		mk( 'p', { 'data-wpcpm-card-message': '', tabindex: '-1', id: 'message' } );
+		doc.readyState = 'interactive';
+
+		const { log } = load( FORMS, '' );
+
+		return { focused: doc.activeElement ? doc.activeElement.id : null, waits: log.windowListeners.filter( ( l ) => 'load' === l.type ).length + log.timeouts.length };
 	}
 );
 

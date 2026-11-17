@@ -58,7 +58,17 @@ class WPCPM_Institution_Application { const META_ASSIGNED = '_wpcpm_app_assigned
 /** A distinct anchor, so a hard-coded one cannot pass. */
 class WPCPM_Institution_Details_Card { const ANCHOR = 'the-details-card'; }
 class WPCPM_Institution_Roster { const ARG_VIEW = 'wpcpm_institution_view'; }
-class WPCPM_Institutions_Dashboard { public static function page_url() { return 'https://example.test/institution-dashboard/'; } }
+require_once __DIR__ . '/stubs/institution-card-url.php';
+class WPCPM_Institutions_Dashboard {
+	public static function page_url() { return 'https://example.test/institution-dashboard/'; }
+	// The page's addresses, as the real class builds them (bin/stubs/institution-card-url.php, checked against it
+	// in bin/test-institution-ways-back.php).
+	public static function view_url( $view = 'overview', $record = '', array $args = array() ) { return wpcpm_test_institution_view_url( self::page_url(), $view, $record, $args ); }
+	public static function view_of( $card ) { return wpcpm_test_institution_view_of( $card ); }
+	public static function card_url( $card, $record = '', $item = '', array $args = array() ) { return wpcpm_test_institution_card_url( self::page_url(), $card, $record, $item, $args ); }
+	public static function requested_record() { return wpcpm_test_institution_requested_record(); }
+	public static function way_back( $card ) { return wpcpm_test_institution_way_back( self::page_url(), $card ); }
+}
 class WPCPM_Institutions_Index {
 	public static function row( $id ) {
 		if ( 'recCCCCCCCCCCCCC3' === $id ) { return array( 'name' => 'Sin Pais' ); }
@@ -132,7 +142,7 @@ check( 'row message', 'Ana Admin is now the assigned Administrator.' === $row['m
 check( 'one email, to 11, with the page link', 1 === count( $GLOBALS['sent'] ) && 11 === $GLOBALS['sent'][0]['to'] && 'institution-assigned' === $GLOBALS['sent'][0]['context'] );
 $values = $GLOBALS['sent'][0]['mail']['values'];
 check( 'its values', array( 'Site', 'Universidad Example', ', in Costa Rica,', WPCPM_Institution_Assignment::page_url( A ) ) === array( $values['site_name'], $values['institution_name'], $values['country_phrase'], $values['institution_link'] ) );
-check( 'the page link, at the details card\'s own anchor', 'https://example.test/institution-dashboard/?wpcpm_institution_view=' . A . '#the-details-card' === WPCPM_Institution_Assignment::page_url( A ) );
+check( 'the page link, at the details card\'s own anchor', 'https://example.test/institution-dashboard/?wpcpm_view=institution&wpcpm_institution_view=' . A . '#the-details-card' === WPCPM_Institution_Assignment::page_url( A ) );
 
 // The same call again.
 check( 'again: false', false === WPCPM_Institution_Assignment::assign( A, 11, 7 ) );

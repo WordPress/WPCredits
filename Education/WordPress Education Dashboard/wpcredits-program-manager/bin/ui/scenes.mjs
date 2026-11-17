@@ -3,12 +3,22 @@
 //
 // A scene is { area, screen, state, path, login?, act?, press?, card?, panelOf?, note?, viewportOnly?, tablet? }.
 // Its file is <area>-<screen>-<state>-<width>.png. A path or login may hold a token, {DESIGN_RECORD},
-// {DESIGN_LOGIN} or {UNIVERSITY_LOGIN}, which snap.mjs and measure.mjs fill from seed.mjs's lookups().
+// {DESIGN_LOGIN} or {UNIVERSITY_LOGIN}, which snap.mjs and measure.mjs fill from seed.mjs's lookups(); so are
+// {DESIGN_TUTOR_LOGIN} (the invented tutor's account), {DESIGN_STUDENT} (a student's user ID at that school) and
+// {INSTITUTION_UPDATES_PATH} (the newest update institutions read) and {INSTITUTION_UPDATES_VIEWING_PATH} (the same
+// address with the design school named, for an Administrator). A scene whose token the copy cannot fill is skipped.
 //   act    { open: scope }        press every closed fold inside the scope, outermost first
 //          { openCard: '#id' }    the card with that anchor must be on the page; it and every fold in it open
 //          { openFirst: scope }   the first closed fold inside the scope opens
-//          { openFold: { text, scope } } the fold whose head reads text opens
+//          { openFold: { text, scope } } the fold whose head reads text opens (the closed folds around it first)
 //          { pick: selector }     the second entry of a Viewing as list is picked (then `open` may follow)
+//          { refuse: { form, fill } } Gate B: the form is filled and posted, to be refused, and the page it lands on is the
+//                                 picture (a refused form keeps its typing for the one drawing that follows, so the scene
+//                                 posts again at each width); only a scene whose expect names the problem under a box posts
+//          { choose: { input, name, mimeType, text } } Gate B: a file is chosen in the file box, nothing posted
+//   gateB, who                    Gate B's state (GATE_B_STATES) and the reader who sees it (GATE_B_READERS)
+//   noScript true                 taken in a browser context with JavaScript off (snap.mjs, measure.mjs)
+//   expect.texts [[sel, words]]   Gate B: each element must hold those words
 //   press  { scope, text, nth? }  the opener whose words match the pattern text is pressed and must say it opened
 //                                 (aria-expanded="true", or its fold open); a button that is not an opener is
 //                                 never pressed, so nothing is ever posted
@@ -19,8 +29,59 @@
 //                                 own stored state (localStorage wpcpm-frame-folded = 1), set before the page loads
 //   firstPx n                     with viewportOnly: the first n px of the page instead of one screen
 //   panelBuild 'after'            a scene only the new build can show (listed as "after only")
+//   reader, view                  the Institution Dashboard's scenes: who looks (representative, representative-agreement-in-review,
+//                                 tutor, admin-viewing-school, admin-no-school) and which view (INSTITUTION_VIEWS)
+//   expect { address?, selector?, selectors?, wait? }  what must be true once the page has loaded (checkExpect()), for a
+//                                 scene reached by an old address or a view the reader may not open: `address` is a text the address bar must hold (only a hash the script
+//                                 moves changes it; the snapper waits up to 10 seconds for it when `wait` is true),
+//                                 `selector` an element that must exist, `selectors` a list of which every one must
+//                                 (a view read from the address is proved by the frame's current menu item and the view's card). A scene whose expect fails is reported, never saved as a picture.
+
+import { LONGWORD, LONG_STUDENT, LONG_TUTOR } from './seed.mjs';
 
 export const SIZES = [{ width: 1280, height: 800, scale: 1 }, { width: 390, height: 844, scale: 2 }, { width: 768, height: 1024, scale: 1 }];
+
+/**
+ * Why a loaded page fails its scene's `expect`, or '' when it holds: `facts` is what the page answered, { address, found }
+ * (the address bar's text, and each selector asked for with whether it exists). Names the address missing and every
+ * selector missing.
+ */
+export function expectProblem(expect, facts = {}) {
+  if (!expect) return '';
+  const why = [];
+  if (expect.address && !String(facts.address || '').includes(expect.address)) why.push(`the address does not hold ${expect.address} (it is ${facts.address || 'nothing'})`);
+  const wanted = [...(expect.selector ? [expect.selector] : []), ...(expect.selectors || [])];
+  const missing = wanted.filter(sel => !(facts.found || {})[sel]);
+  if (missing.length) why.push(`missing: ${missing.join(', ')}`);
+  // Gate B: what must NOT be drawn for this reader (`absent`, a list of selectors).
+  const present = (expect.absent || []).filter(sel => (facts.found || {})[sel]);
+  if (present.length) why.push(`drawn, and must not be: ${present.join(', ')}`);
+  // Gate B: words an element must hold (`texts`, each [selector, words]), read from the element's text as the reader sees it.
+  for (const [sel, words] of expect.texts || []) {
+    const text = (facts.texts || {})[sel];
+    if (typeof text !== 'string') why.push(`no ${sel}`);
+    // Read as the reader sees it, so a tag the sheet sets in capitals ("ACCEPTED") holds its words ("Accepted").
+    else if (!text.replace(/\s+/g, ' ').toLowerCase().includes(String(words).toLowerCase())) why.push(`without "${words}" in ${sel}`);
+  }
+  return why.join('; ');
+}
+
+/**
+ * The scene's `expect` read from a loaded page: with `wait`, the address is waited for (up to `waitMs`, 10 seconds); then
+ * every selector is looked for. Answers expectProblem()'s words, '' when the page holds what the scene expects.
+ */
+export async function checkExpect(page, scene, waitMs = 10000) {
+  const e = scene.expect;
+  if (!e) return '';
+  if (e.address && e.wait) {
+    const until = Date.now() + waitMs;
+    while (!page.url().includes(e.address) && Date.now() < until) await page.waitForTimeout(200);
+  }
+  const wanted = [...(e.selector ? [e.selector] : []), ...(e.selectors || []), ...(e.absent || [])];
+  const found = await page.evaluate(list => Object.fromEntries(list.map(sel => [sel, !!document.querySelector(sel)])), wanted);
+  const texts = await page.evaluate(list => Object.fromEntries(list.map(sel => { const el = document.querySelector(sel); return [sel, el ? el.innerText || el.textContent || '' : null]; })), (e.texts || []).map(t => t[0]));
+  return expectProblem(e, { address: page.url(), found, texts });
+}
 
 /** The size taken at a width: one of SIZES, or that width at 900 tall, scale 1 (2 under 600). */
 export function sizeOf(width) {
@@ -58,7 +119,184 @@ export const REQUESTS_WIDTHS = [601, 768];
 // Gate 6: Watch with every card open also at 716 (682px of main area, where Syncs and health and Students gone
 // quiet take four pairs a line) and 880 (their last stacked width).
 export const WATCH_WIDTHS = [716, 880];
+// The Institution Dashboard in the dashboards' frame (the frame's design, sections 3 and 7): every view of every kind of
+// reader at the seventeen widths where its menu, its head and its tables change form (the in-between widths and the
+// stacking widths, with the phone and the desktop).
+export const INSTITUTION_WIDTHS = [390, 601, 700, 716, 768, 782, 783, 880, 900, 927, 928, 1000, 1015, 1024, 1110, 1200, 1280];
+// Gate B's no-script pass: the phone, the tablet and the desktop.
+export const NOSCRIPT_WIDTHS = [390, 768, 1280];
+export const INSTITUTION_VIEWS = ['overview', 'students', 'enroll', 'reports', 'institution', 'agreement', 'events', 'administrators'];
+// Each reader, the account it signs in as (none: the rig's own Administrator) and the views it has, as
+// WPCPM_Institutions_Dashboard::views_for() answers for it: a locked school (its agreement not settled) only the
+// Overview and the Agreement; a tutor no Enroll students (ACT_ADD_STUDENT) and no Events (a school's own representatives');
+// an Administrator For Administrators and no Events (it belongs to no school).
+export const INSTITUTION_READERS = {
+  'representative': { login: '{DESIGN_LOGIN}', views: ['overview', 'students', 'enroll', 'reports', 'institution', 'agreement', 'events'] },
+  'representative-agreement-in-review': { login: '{UNIVERSITY_LOGIN}', views: ['overview', 'agreement'] },
+  'tutor': { login: '{DESIGN_TUTOR_LOGIN}', views: ['overview', 'students', 'reports', 'institution', 'agreement'] },
+  'admin-viewing-school': { login: '', views: ['overview', 'students', 'enroll', 'reports', 'institution', 'agreement', 'administrators'] },
+  // A locked school with no agreement at all (approved, nothing generated or uploaded): the Overview and the Agreement.
+  'representative-no-agreement': { login: '{NOAGREEMENT_LOGIN}', views: ['overview', 'agreement'] },
+};
+/** The selector of the frame's current menu item for a view (the Overview's link names no view). */
+export function currentItem(view) {
+  return view === 'overview' ? 'a.wpcpm-frame__item.is-current[aria-current="page"]:not([href*="wpcpm_view="])' : `a.wpcpm-frame__item.is-current[aria-current="page"][href*="wpcpm_view=${view}"]`;
+}
+const INSTITUTION_PAGE = '/institution-dashboard/';
+/** A view's address on the Institution Dashboard; an Administrator's carries the school. */
+function institutionPath(view, school = false) {
+  const q = [];
+  if (view !== 'overview') q.push(`wpcpm_view=${view}`);
+  if (school) q.push('wpcpm_institution_view={DESIGN_RECORD}');
+  return INSTITUTION_PAGE + (q.length ? '?' + q.join('&') : '');
+}
 const mid = (more = []) => ({ widths: [...new Set([...more, ...MID_WIDTHS])].sort((a, b) => a - b) });
+
+// Gate B (the Institution Dashboard on the shared parts): every open state of the gate's list, by its key, with the view it
+// is drawn on. The readers beyond B2's are the representatives of the schools the seed leaves in each agreement state and
+// the long-word school, and an Administrator viewing each; a reader signs in as its account or names its school.
+export const GATE_B_STATES = {
+  'student-drew': 'students', 'student-sky': 'students', 'student-card': 'students', 'student-card-invited': 'students',
+  'student-report-card': 'students', 'student-correct': 'students',
+  'details-correct-now': 'institution', 'details-ask-checked': 'institution', 'details-correct-checked': 'institution', 'details-tracks': 'institution', 'details-assignment': 'institution',
+  'reports-index': 'reports', 'reports-read': 'reports', 'reports-editor': 'reports', 'report-revisions': 'reports',
+  'invite-refused': 'institution', 'tutor-add-refused': 'institution', 'details-refused': 'institution', 'student-correct-refused': 'students',
+  'agreement-none': 'agreement', 'agreement-generated': 'agreement', 'agreement-submitted': 'agreement', 'agreement-returned': 'agreement',
+  'agreement-revoked': 'agreement', 'agreement-accepted': 'agreement', 'agreement-newer-copy': 'agreement',
+  'enroll-check-13': 'enroll', 'enroll-file-chosen': 'enroll', 'agreement-file-chosen': 'agreement',
+  'viewing-as': 'overview', 'long-words-overview': 'overview', 'long-words-students': 'students', 'long-words-institution': 'institution',
+  'overview-contact': 'overview', 'overview-good-to-know': 'overview',
+};
+// Each reader of a Gate B scene: the account it signs in as, or the school an Administrator names.
+export const GATE_B_READERS = {
+  'representative': { login: '{DESIGN_LOGIN}' }, 'tutor': { login: '{DESIGN_TUTOR_LOGIN}' }, 'admin-viewing-school': { school: '{DESIGN_RECORD}' },
+  'representative-no-agreement': { login: '{NOAGREEMENT_LOGIN}' }, 'admin-viewing-no-agreement': { school: '{NOAGREEMENT_RECORD}' },
+  'representative-generated': { login: '{GENERATED_LOGIN}' }, 'admin-viewing-generated': { school: '{GENERATED_RECORD}' },
+  'representative-agreement-in-review': { login: '{UNIVERSITY_LOGIN}' }, 'admin-viewing-in-review': { school: '{UNIVERSITY_RECORD}' },
+  'representative-returned': { login: '{RETURNED_LOGIN}' }, 'admin-viewing-returned': { school: '{RETURNED_RECORD}' },
+  'representative-revoked': { login: '{REVOKED_LOGIN}' }, 'admin-viewing-revoked': { school: '{REVOKED_RECORD}' },
+  'representative-newer-copy': { login: '{INSTITUTE_LOGIN}' }, 'admin-viewing-newer-copy': { school: '{INSTITUTE_RECORD}' },
+  'representative-long-words': { login: '{LONG_LOGIN}' }, 'admin-viewing-long-words': { school: '{LONG_RECORD}' },
+};
+// The B2 scenes that are a Gate B state already, by reader and view: each reader's report index. (The agreement states and
+// the compact Viewing as are scenes of their own, each expecting its own words or control, fix round 1.)
+const B2_STATES = {
+  'representative reports': 'reports-index', 'tutor reports': 'reports-index', 'admin-viewing-school reports': 'reports-index',
+};
+/** A Gate B scene's address: the view (none for the Overview), its own arguments, then the school an Administrator names. */
+function gatePath(view, reader, args = {}) {
+  const q = [];
+  if (view !== 'overview') q.push(`wpcpm_view=${view}`);
+  for (const [k, v] of Object.entries(args)) q.push(`${k}=${v}`);
+  const school = (GATE_B_READERS[reader] || {}).school;
+  if (school) q.push(`wpcpm_institution_view=${school}`);
+  return '/institution-dashboard/' + (q.length ? '?' + q.join('&') : '');
+}
+// The design school's two students with accounts (states.php's accounts): Drew Example signed in, Sky Example invited.
+const STUDENT = { wpcpm_institution_student: '{DESIGN_STUDENT}' };
+// A small list for the file box: chosen, never posted.
+const CSV = { name: 'students-example.csv', mimeType: 'text/csv', text: 'name,email\nAsh Example,ash.example@example.org\n' };
+const PDF = { name: 'agreement-example.pdf', mimeType: 'application/pdf', text: '%PDF-1.4\n%%EOF\n' };
+const R3 = ['representative', 'tutor', 'admin-viewing-school'];
+const RA = ['representative', 'admin-viewing-school'];
+const both = s => ['representative-' + s, 'admin-viewing-' + s];
+// Each agreement state's readers, and the words that prove it: the tag (WPCPM_UI::tag(), class-wpcpm-ui.php:242-244) and the
+// sentence after it, as class-wpcpm-institution-panel.php prints them (none :935; generated :1528; submitted :2407; returned
+// :2414 and :1550; revoked :2414 and :1553; accepted :2707-2709; a newer copy :2664). Each is [element, words it holds].
+const AGREEMENT_STATES = {
+  'agreement-none': { readers: both('no-agreement'), words: [['#wpcpm-agreement', 'The program has no Collaboration Agreement recorded for your institution.']] },
+  'agreement-generated': { readers: both('generated'), words: [['#wpcpm-agreement', "You generated the program's agreement on"], ['#wpcpm-agreement', 'It is not signed and uploaded yet.']] },
+  'agreement-submitted': { readers: ['representative-agreement-in-review', 'admin-viewing-in-review'], words: [['#wpcpm-agreement .wpcpm-status--amber', 'Waiting for review']] },
+  'agreement-returned': { readers: both('returned'), words: [['#wpcpm-agreement .wpcpm-status--red', 'Returned'], ['#wpcpm-agreement', 'An Administrator returned your agreement, with this note:']] },
+  'agreement-revoked': { readers: both('revoked'), words: [['#wpcpm-agreement .wpcpm-status--red', 'Revoked'], ['#wpcpm-agreement', "The program revoked this institution's agreement."]] },
+  'agreement-accepted': { readers: RA, words: [['#wpcpm-agreement .wpcpm-status--green', 'Accepted']] },
+  'agreement-newer-copy': { readers: both('newer-copy'), words: [['#wpcpm-agreement .wpcpm-status--green', 'Accepted'], ['#wpcpm-agreement', 'A newer signed agreement is waiting for review.']] },
+};
+// The compact Viewing as: the head's first row (WPCPM_UI::head_row(), class-wpcpm-ui.php:1493), its GET form
+// (viewing_open(), :1503) and the select by the name the switcher posts (WPCPM_Institution_Roster::ARG_VIEW,
+// class-wpcpm-institutions-dashboard.php:2326); with no script, its Show (viewing_show(), :1517).
+export const VIEWING = '.wpcpm-head .wpcpm-ui-head-row form.wpcpm-ui-viewing select[name="wpcpm_institution_view"]';
+const VIEWING_SHOW = '.wpcpm-head form.wpcpm-ui-viewing .wpcpm-ui-viewing__show button';
+// The long words, the seed's own (seed.mjs), each found on the page as the reader reads it.
+const word40 = v => String(v || '').split(/\s+/).find(w => w.length === 40) || '';
+// The refusals: each its form, the boxes it types with a value its handler refuses, and exactly the problem under that box
+// (WPCPM_Form_Errors::problem(), class-wpcpm-form-errors.php:236, the box's id and `-problem`) and the box marked invalid (:213).
+// The student form's End date box is `wpcpm-student-` and the key of "students|End Date" (control_id(), key(): an f and the
+// md5's first twelve, class-wpcpm-institution-student-form.php:249-251 and :1667).
+const END_DATE = 'wpcpm-student-f154fd4923bc1';
+export const REFUSALS = {
+  // An address with no dot in its domain: the browser takes it, sanitize_email() drops it, is_email() refuses it (invite-bad-email).
+  'invite-refused': { form: '#wpcpm-people-invite form', fill: [['input[name="email"]', 'malformed.example@example']], problem: '#wpcpm-people-invite[open] p.wpcpm-field__problem[id^="wpcpm-invite-email-"][id$="-problem"]', invalid: '#wpcpm-people-invite[open] input[name="email"][aria-invalid="true"]' },
+  // The same rule for a tutor's address (wpcpm_tutor_email, class-wpcpm-institution-tutors.php:203).
+  'tutor-add-refused': { form: '#wpcpm-tutors-add form', fill: [['input[name="name"]', 'Refused Example'], ['input[name="email"]', 'refused.example@example']], problem: '#wpcpm-tutors-add[open] p.wpcpm-field__problem[id^="wpcpm-tutor-email-"][id$="-problem"]', invalid: '#wpcpm-tutors-add[open] input[name="email"][aria-invalid="true"]' },
+  // An emptied required answer: Contact Person is required (class-wpcpm-institution-application.php:779), refused-now.
+  'details-refused': { form: '#wpcpm-details-now form', fill: [['input[name="wpcpm_details_contact_person"]', '']], problem: '#wpcpm-details-now[open] p.wpcpm-field__problem#wpcpm-details-contact_person-problem', invalid: '#wpcpm-details-now[open] #wpcpm-details-contact_person[aria-invalid="true"]' },
+  // An end date before its start date (the design school's students start 2026-02-02): both dates refused (student-form.php:1161-1166).
+  'student-correct-refused': { form: '#wpcpm-student-form form', fill: [['#' + END_DATE, '2026-01-05']], problem: `#wpcpm-student-form[open] p.wpcpm-field__problem#${END_DATE}-problem`, invalid: `#wpcpm-student-form[open] #${END_DATE}[aria-invalid="true"]` },
+};
+/**
+ * The Gate B scenes that B2 does not take already: each a state, its readers, how it is reached and what proves it.
+ * `opens` is the selector that must be open (or drawn) once the act is done; every scene also proves its view.
+ */
+function gateScenes() {
+  const out = [];
+  const add = (key, readers, how) => { for (const who of readers) out.push({ key, who, ...(typeof how === 'function' ? how(who) : how) }); };
+  const fold = (text, scope, opens, args = {}) => ({ args, state: 'open', act: { openFold: { text, scope } }, opens: [opens] });
+  // The roster's student rows (the inner fold titled by the name; a name with an account is a link, never pressed).
+  add('student-drew', R3, fold('Drew Example', '#wpcpm-roster', '#wpcpm-roster details.wpcpm-ui-fold--inner[open]'));
+  add('student-sky', R3, fold('Sky Example', '#wpcpm-roster', '#wpcpm-roster details.wpcpm-ui-fold--inner[open]'));
+  // The student's card (class-wpcpm-institution-student-view.php): the item header, the Student Report Card fold.
+  add('student-card', R3, { args: STUDENT, state: 'as-loaded', opens: ['.wpcpm-ui-item__head', '[data-wpcpm-report]'] });
+  // The invited student who has not signed in: the line with Send the invitation again (#wpcpm-student-invite), which a tutor is not drawn.
+  add('student-card-invited', R3, who => ({ args: { wpcpm_institution_student: '{DESIGN_STUDENT_INVITED}' }, state: 'as-loaded', opens: ['.wpcpm-ui-item__head', ...(who === 'tutor' ? [] : ['#wpcpm-student-invite'])] }));
+  add('student-report-card', R3, fold('Student Report Card', 'main', 'details[data-wpcpm-report][open]', STUDENT));
+  add('student-correct', RA, fold("Correct this student.s details", 'main', '#wpcpm-student-form[open]', STUDENT));
+  // Your institution's details (class-wpcpm-institution-details-card.php): each group's fold by its id, Tracks and the Assigned Administrator.
+  add('details-correct-now', RA, fold('Correct these', '#wpcpm-details-now', '#wpcpm-details-now[open]'));
+  add('details-ask-checked', ['representative'], fold('Ask to correct these', '#wpcpm-details-checked', '#wpcpm-details-checked[open]'));
+  add('details-correct-checked', ['admin-viewing-school'], fold('Correct these', '#wpcpm-details-checked', '#wpcpm-details-checked[open]'));
+  add('details-tracks', ['admin-viewing-school'], fold('Change the tracks', '#wpcpm-details', '#wpcpm-details-tracks[open]'));
+  add('details-assignment', ['admin-viewing-school'], fold('Change who follows it up', '#wpcpm-details', '#wpcpm-details-assignment[open]'));
+  // Semester reports (class-wpcpm-semester-report-screen.php): the approved report read, the draft in the editor, its earlier versions.
+  add('reports-read', R3, { args: { wpcpm_report: '2025-H2' }, state: 'as-loaded', opens: ['#wpcpm-report'] });
+  add('reports-editor', ['admin-viewing-school'], { args: { wpcpm_report: '2026-H1' }, state: 'as-loaded', opens: ['#wpcpm-report form textarea'] });
+  add('report-revisions', ['admin-viewing-school'], fold('Earlier versions of this report', '#wpcpm-report', '#wpcpm-report details.wpcpm-ui-fold--inner[open]', { wpcpm_report: '2026-H1' }));
+  // Refused forms with their typing kept (WPCPM_Flash::keep): the scene posts the form itself at each width, as its reader,
+  // and the picture is the page the refusal lands on, the problem under the box it refused (WPCPM_Form_Errors::problem()).
+  const refused = (key, args = {}) => ({ args, state: 'refused', act: { refuse: { form: REFUSALS[key].form, fill: REFUSALS[key].fill } }, opens: [REFUSALS[key].problem, REFUSALS[key].invalid] });
+  // An address the browser takes (type=email allows a host with no dot) and is_email() refuses: "invite-bad-email".
+  add('invite-refused', RA, refused('invite-refused'));
+  add('tutor-add-refused', RA, refused('tutor-add-refused'));
+  // The contact's name emptied: the application's own rule refuses a required answer ("refused-now").
+  add('details-refused', RA, refused('details-refused'));
+  // An end date before the start date: the form's own rule refuses both dates ("Check this date against the start date").
+  add('student-correct-refused', RA, refused('student-correct-refused', STUDENT));
+  // The agreement in each state, for the school's representative and an Administrator viewing it: the Agreement view, and the
+  // Overview of the four schools the seed adds for it (their waiting rows are new). The settled school's, the one in review's and
+  // the one with none are B2's own Agreement scenes, but for an Administrator viewing the two that are not settled.
+  // Each scene is skipped, not saved under the wrong name, when the seed did not reach its state: lookups() answers the
+  // school's login and record only while the summary is in it (seed.mjs, inState()).
+  for (const [key, { readers, words }] of Object.entries(AGREEMENT_STATES)) {
+    add(key, readers, { state: 'as-loaded', act: { open: 'main' }, opens: [], texts: words });
+  }
+  // The compact Viewing as in the head's first row, on an Administrator's Overview as it loads.
+  add('viewing-as', ['admin-viewing-school'], { state: 'as-loaded', opens: [VIEWING] });
+  // The file box after a file is chosen (WPCPM_UI::file()): its name shown, nothing posted.
+  add('enroll-file-chosen', RA, { state: 'chosen', act: { choose: { input: '#wpcpm-import-file', ...CSV } }, opens: ['#wpcpm-import .wpcpm-ui-file__name:not([hidden])'] });
+  add('agreement-file-chosen', both('no-agreement'), { state: 'chosen', act: { choose: { input: 'input[name="wpcpm_agreement_file"]', ...PDF } }, opens: ['.wpcpm-ui-file__name:not([hidden])'] });
+  // The enrollment check: the long-word school's list of thirteen lines, checked and waiting (Create these student records).
+  add('enroll-check-13', both('long-words'), { args: { wpcpm_batch: '{LONG_BATCH}' }, state: 'as-loaded', opens: ['#wpcpm-import table.wpcpm-ui-table tbody tr:nth-child(13)'] });
+  // The long words: the school's name in the head and the menu, the student's on the roster, the tutor's name and address.
+  add('long-words-overview', both('long-words'), { state: 'as-loaded', opens: [], texts: [['.wpcpm-head', LONGWORD.name]] });
+  add('long-words-students', both('long-words'), { state: 'all-open', act: { open: 'main' }, opens: [], texts: [['#wpcpm-roster', word40(LONG_STUDENT.name)]] });
+  add('long-words-institution', both('long-words'), { state: 'all-open', act: { open: 'main' }, opens: [], texts: [['body', word40(LONG_TUTOR.name)], ['body', LONG_TUTOR.email]] });
+  // The Overview's contact card, once an Administrator follows the school up, and "Good to know" with the decided request.
+  add('overview-contact', R3, { state: 'as-loaded', opens: ['.wpcpm-institution__contact'] });
+  // A tutor is not given the row "Your request was decided" (1.123.96: its card is not drawn for a tutor): the tutor's scene
+  // expects it absent.
+  add('overview-good-to-know', ['representative', 'tutor'], who => (who === 'tutor' ? { state: 'as-loaded', opens: [], absent: ['.wpcpm-institution__news a[href*="wpcpm_view=institution"]'] } : { state: 'as-loaded', opens: ['.wpcpm-institution__news a[href*="wpcpm_view=institution"]'] }));
+  return out;
+}
 
 const DASH = '/administrator-dashboard/';
 const ADMIN = (page, tab = '') => '/wp-admin/admin.php?page=' + page + (tab ? '&tab=' + tab : '');
@@ -144,6 +382,76 @@ export function scenes({ graduation = false } = {}) {
   add('institution-dashboard', 'admin-viewing-school', 'report-draft-open', '/institution-dashboard/?wpcpm_report=2026-H1&wpcpm_institution_view={DESIGN_RECORD}', { act: { open: 'main' }, note: 'the January to June 2026 draft open for editing' });
   add('institution-dashboard', 'representative', 'all-open', '/institution-dashboard/', { login: '{DESIGN_LOGIN}', act: { open: 'main' }, note: "the school's own representative" });
   add('institution-dashboard', 'representative-agreement-in-review', 'all-open', '/institution-dashboard/', { login: '{UNIVERSITY_LOGIN}', act: { open: 'main' }, note: 'Example University, its signed agreement waiting for review' });
+
+  // B2. The Institution Dashboard's every view for every kind of reader, all open, at the seventeen widths; each
+  // Overview also as it loads. The four scenes above keep their names (the comparison needs them), so the Overview
+  // all open is named by its view here.
+  for (const [reader, { login, views }] of Object.entries(INSTITUTION_READERS)) {
+    const school = reader === 'admin-viewing-school';
+    for (const view of views) {
+      const how = { reader, view, onlyWidths: INSTITUTION_WIDTHS, act: { open: 'main' } };
+      if (login) how.login = login;
+      // Gate B: the compact Viewing as is an Administrator's Overview as it loads; a B2 view that is a Gate B state is named for it.
+      if (view === 'overview') add('institution-dashboard', `${reader}-overview`, 'closed', institutionPath(view, school), { ...how, act: undefined, note: 'the Overview as it loads, nothing opened' });
+      const gateB = B2_STATES[`${reader} ${view}`];
+      add('institution-dashboard', `${reader}-${view}`, 'all-open', institutionPath(view, school), { ...how, ...(gateB ? { gateB, who: reader } : {}), note: `${reader}: the ${view} view, every fold and panel open` });
+    }
+  }
+  // An Administrator whose address names no school: the choice, on the Overview and on a view that must be kept.
+  add('institution-dashboard', 'admin-no-school-choose-an-institution', 'all-open', institutionPath('overview'), { reader: 'admin-no-school', view: 'overview', choice: true, onlyWidths: INSTITUTION_WIDTHS, act: { open: 'main' }, note: 'no school named: "Choose an institution"' });
+  add('institution-dashboard', 'admin-no-school-choice-keeps-students', 'all-open', institutionPath('students'), { reader: 'admin-no-school', view: 'students', choice: true, onlyWidths: INSTITUTION_WIDTHS, act: { open: 'main' }, note: 'no school named, on ?wpcpm_view=students: the choice keeps the view' });
+  // The old addresses, each of which must land on its view (the snapper asserts `expect`).
+  add('institution-dashboard', 'students-card', 'old-address', INSTITUTION_PAGE + '?wpcpm_institution_student={DESIGN_STUDENT}', { login: '{DESIGN_LOGIN}', expect: { selectors: [currentItem('students'), '.wpcpm-ui-item__head', '[data-wpcpm-report]'] }, act: { open: 'main' }, note: "a student's card by the address before the frame (the design school's first student, an account since Gate B): it is drawn on Students (the address is not rewritten)" });
+  add('institution-dashboard', 'reports-draft', 'old-address', INSTITUTION_PAGE + '?wpcpm_report=2026-H1&wpcpm_institution_view={DESIGN_RECORD}', { expect: { selectors: [currentItem('reports'), '#wpcpm-report'] }, act: { open: 'main' }, note: 'the January to June 2026 draft by the address before the frame (an Administrator viewing the school); it is drawn on Semester reports (the address is not rewritten)' });
+  add('institution-dashboard', 'enroll-hash', 'old-address', INSTITUTION_PAGE + '#wpcpm-import', { login: '{DESIGN_LOGIN}', expect: { address: 'wpcpm_view=enroll', selector: '#wpcpm-import', wait: true }, act: { open: 'main' }, note: 'the bare page with #wpcpm-import: the script moves it to Enroll students, the scene waits for the address' });
+  // A batch by the address before the frame (the design school's newest enrollment list): drawn on Enroll students.
+  add('institution-dashboard', 'batch-enroll', 'old-address', INSTITUTION_PAGE + '?wpcpm_batch={DESIGN_BATCH}', { login: '{DESIGN_LOGIN}', expect: { selectors: [currentItem('enroll'), '#wpcpm-import'] }, act: { open: 'main' }, note: "a batch by the address before the frame; it is drawn on Enroll students (the address is not rewritten)" });
+  // A view the reader may not open, asked for by its address: the Overview is drawn instead.
+  add('institution-dashboard', 'locked-asks-students', 'refused-view', INSTITUTION_PAGE + '?wpcpm_view=students', { login: '{UNIVERSITY_LOGIN}', expect: { selectors: [currentItem('overview')] }, act: { open: 'main' }, note: 'a locked school (its copy in review) asks for Students: the Overview is drawn' });
+  add('institution-dashboard', 'tutor-asks-enroll', 'refused-view', INSTITUTION_PAGE + '?wpcpm_view=enroll', { login: '{DESIGN_TUTOR_LOGIN}', expect: { selectors: [currentItem('overview')] }, act: { open: 'main' }, note: 'a tutor asks for Enroll students: the Overview is drawn' });
+  // The Institution guide and one update, for a representative and for an Administrator viewing the school. The
+  // guide is some 40,000px tall: its first 2,400px.
+  for (const [who, login, school] of [['representative', '{DESIGN_LOGIN}', ''], ['administrator-viewing', '', '?wpcpm_institution_view={DESIGN_RECORD}']]) {
+    const how = { onlyWidths: INSTITUTION_WIDTHS, ...(login ? { login } : {}) };
+    add('institution-pages', `guide-${who}`, 'as-loaded', '/institution-guide/' + school, { ...how, viewportOnly: true, firstPx: 2400, note: 'the Institution guide in the frame (its first 2400px)' });
+    // The Administrator's address is the update's own with the school named: a whole path of its own ({..._VIEWING_PATH}).
+    add('institution-pages', `update-${who}`, 'as-loaded', login ? '{INSTITUTION_UPDATES_PATH}' : '{INSTITUTION_UPDATES_VIEWING_PATH}', { ...how, note: 'the newest update institutions read, in the frame' });
+  }
+
+  // C2. Gate B: every open state of the gate's list B2 does not take already, for each reader who can see it, at the
+  // seventeen widths, each proving its view and its state (`expect`), and taken on the new build only.
+  for (const g of gateScenes()) {
+    const view = GATE_B_STATES[g.key];
+    const r = GATE_B_READERS[g.who];
+    add('institution-dashboard', `${g.who}-${g.key}`, g.state, gatePath(view, g.who, g.args), {
+      gateB: g.key, who: g.who, ...(r.login ? { login: r.login } : {}), ...(g.act ? { act: g.act } : {}), onlyWidths: INSTITUTION_WIDTHS, panelBuild: 'after',
+      expect: { selectors: [currentItem(view), ...g.opens], ...(g.texts ? { texts: g.texts } : {}), ...(g.absent ? { absent: g.absent } : {}) }, note: `Gate B, ${g.key}: ${g.who}`,
+    });
+  }
+
+  // C3. Gate B, no script (fix round 1): a browser context with JavaScript off (`noScript`, snap.mjs), at 390, 768 and 1280.
+  // Each view of the representative and of an Administrator viewing the school as it loads (nothing can be pressed: the
+  // picture is what a reader without script gets, every fold as the server draws it); the Viewing as select with its Show;
+  // and one refusal of each form kind, posted with no script through the same act.refuse (the form posts as a browser
+  // with no script posts it, and the refusal's page is the picture).
+  for (const reader of ['representative', 'admin-viewing-school']) {
+    const { login, views } = INSTITUTION_READERS[reader];
+    for (const view of views) {
+      add('institution-dashboard', `noscript-${reader}-${view}`, 'as-loaded', institutionPath(view, reader === 'admin-viewing-school'), { noScript: true, who: reader, view, ...(login ? { login } : {}), onlyWidths: NOSCRIPT_WIDTHS, note: `${reader}: the ${view} view as it loads with JavaScript off` });
+    }
+  }
+  add('institution-dashboard', 'noscript-admin-viewing-school-viewing-as', 'as-loaded', gatePath('overview', 'admin-viewing-school'), { noScript: true, gateB: 'viewing-as', who: 'admin-viewing-school', onlyWidths: NOSCRIPT_WIDTHS, panelBuild: 'after', expect: { selectors: [currentItem('overview'), VIEWING, VIEWING_SHOW] }, note: 'the Viewing as select and its Show, with JavaScript off' });
+  for (const key of Object.keys(REFUSALS)) {
+    const view = GATE_B_STATES[key];
+    const r = REFUSALS[key];
+    add('institution-dashboard', `noscript-representative-${key}`, 'refused', gatePath(view, 'representative', key === 'student-correct-refused' ? STUDENT : {}), { noScript: true, gateB: key, who: 'representative', login: GATE_B_READERS.representative.login, act: { refuse: { form: r.form, fill: r.fill } }, onlyWidths: NOSCRIPT_WIDTHS, panelBuild: 'after', expect: { selectors: [currentItem(view), r.problem, r.invalid] }, note: `${key}, posted with JavaScript off` });
+  }
+
+  // Every Institution Dashboard scene of the seventeen widths (each reader's views all open, the choice, the guide and the
+  // update, Gate B's states) again at 1110 and 1200 with the menu folded, as Collapse menu leaves it.
+  for (const s of list.filter(x => (x.reader || x.gateB || x.area === 'institution-pages') && x.state !== 'closed' && x.onlyWidths === INSTITUTION_WIDTHS)) {
+    list.push({ ...s, state: s.state + '-menu-folded', onlyWidths: FOLDED_WIDTHS, folded: true, note: s.note + '; the side menu folded (Collapse menu)' });
+  }
 
   // C. Every Sponsor Dashboard view, as the copy holds it (the first sponsor, names replaced).
   for (const [v, label] of [['', 'overview'], ['sponsorship', 'your-sponsorship'], ['offers', 'offers'], ['reached', 'students-reached'], ['mentors', 'mentors-to-sponsor'], ['company', 'your-company'], ['agreement', 'agreement']]) {
@@ -310,6 +618,50 @@ export function overflowLines(file, facts) {
   return lines;
 }
 
+/**
+ * What Gate B measures, from what measure.mjs collects on a page (its `raw`): the parts' buttons (`.wpcpm-btn`,
+ * WPCPM_UI::button(), class-wpcpm-ui.php:166) all of one height; the card fold heads 56px (the shell's card fold,
+ * `.wpcpm-ui-fold-card > .wpcpm-ui-fold > .wpcpm-ui-fold__head`, class-wpcpm-dashboard-card.php:668-680) and the inner fold
+ * heads 44px (`.wpcpm-ui-fold--inner > summary.wpcpm-ui-fold__head`, class-wpcpm-ui.php:1081-1082); the parts' boxes
+ * (`.wpcpm-ui-field__control`, field() and the combo's select, class-wpcpm-ui.php:508) all of one height, a text area
+ * aside; and no row action (`.wpcpm-ui-list__act`, class-wpcpm-ui.php:1474) drawn with a border.
+ */
+export function gateMeasures(r) {
+  const nums = a => [...new Set(a)].sort((x, y) => x - y);
+  const buttonHeights = nums((r.buttons || []).filter(b => b.parts).map(b => b.h));
+  const cards = (r.heads || []).filter(h => h.kind === 'card');
+  const cardHeads = nums(cards.map(h => h.h));
+  const inner = (r.heads || []).filter(h => h.kind === 'inner');
+  const innerHeads = nums(inner.map(h => h.h));
+  const fieldHeights = nums((r.fields || []).filter(f => f.parts && f.tag !== 'textarea').map(f => f.h));
+  // The Overview's rows carry the one secondary button the design gives them (design 5): that one is not a bordered row
+  // action. Any other bordered one is, a second one on such a row too (Gate B's fix round).
+  const rowActionBorders = (r.rowActions || []).filter(a => a.border > 0 && !(a.overview && a.secondary && a.alone)).length;
+  return {
+    buttonHeights, oneButtonHeight: buttonHeights.length <= 1,
+    // A card head is 56px; under 800px of main area its stacked form is 70px (Gate B's fix round: the parts' narrow form),
+    // and a head of one line, with no phrase and no tag, stays 56px there (round 2, F8; `words` false).
+    cardHeads, cardHeads56: cards.every(h => h.h === (h.narrow && h.words !== false ? 70 : 56)),
+    // An inner fold head of words is 44px in the one-row form, its second piece on the title's line (round 2, F1): under
+    // the title there only when the line has no room for both. Otherwise, and in the stacked form, it is its text
+    // column's lines and the head's padding (66px with a second piece stacked). A head that holds a photo is the photo
+    // and the head's own padding, the same above and below its content, and nothing touches the edge (Gate B, B3,
+    // ruled): 68px, or its stacked lines.
+    innerHeads, innerHeads44: inner.every(h => {
+      if (h.photo) return h.photo.above === h.photo.below && h.photo.above >= 8;
+      if (h.lead === undefined) return h.h === 44;
+      if (h.second && h.second.under && h.second.fits && !h.stacked) return false;
+      // The parts' padding, 12px above and below (round 3, R1: the box model makes any head its lead plus its padding),
+      // and a lead that is its lines: 20px each, and 2px between the title and a second piece drawn under it.
+      const lines = h.lines === undefined ? Math.round((h.lead - (h.second && h.second.under ? 2 : 0)) / 20) : h.lines;
+      const lead = 20 * lines + (h.second && h.second.under ? 2 : 0);
+      return 24 === h.pad && h.lead === lead && Math.round(h.h) === h.lead + h.pad;
+    }),
+    fieldHeights, oneFieldHeight: fieldHeights.length <= 1,
+    rowActionBorders, rowActionsBorder0: 0 === rowActionBorders,
+  };
+}
+
 /** A scene's file name at a size, without the extension. */
 export function fileName(scene, size) {
   return `${scene.area}-${scene.screen}-${scene.state}-${size.width}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-');
@@ -380,6 +732,17 @@ export async function still(context, now) {
   }, STILL_CSS);
 }
 
+/**
+ * Press a fold's head. A head whose middle is a link (a student's name on the roster, which opens the student's card) is
+ * pressed on its chevron, in the page, and never on the link; any other head is clicked where it is, as before.
+ */
+async function pressHead(h) {
+  await h.scrollIntoViewIfNeeded().catch(() => {});
+  const onLink = await h.evaluate(s => { const r = s.getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); const a = e && e.closest('a'); return !!(a && s.contains(a)); });
+  if (onLink) return h.evaluate(s => { const c = s.querySelector('.wpcpm-ui-fold__chev') || s.querySelector('.wpcpm-ui-fold__end') || s; c.click(); });
+  return h.click({ timeout: 3000 });
+}
+
 /** Press every closed fold's head inside the scope, outermost first, until none is closed. */
 export async function openAll(page, scope = 'body') {
   for (let round = 0; round < 6; round++) {
@@ -387,11 +750,41 @@ export async function openAll(page, scope = 'body') {
     let pressed = 0;
     for (const h of heads) {
       const ok = await h.evaluate(s => { const r = s.getBoundingClientRect(); return r.width > 0 && r.height > 0 && !s.parentElement.open && !s.parentElement.closest('.wpcpm-frame__account'); });
-      if (ok) { await h.click({ timeout: 3000 }).catch(() => {}); pressed++; await page.waitForTimeout(80); }
+      if (ok) { await pressHead(h).catch(() => {}); pressed++; await page.waitForTimeout(80); }
     }
     if (!pressed) return;
     await settle(page);
   }
+}
+
+/** Open, outermost first, every closed fold around an element (a fold inside a closed one, a form inside a closed fold). */
+async function openAround(page, selector) {
+  if (!(await page.locator(selector).count())) throw new Error(`${selector} is not on the page`);
+  // Five seconds at most: a box that is missing fails its scene at once, never after the default thirty.
+  const heads = await page.locator(selector).first().evaluate(e => { const out = []; for (let d = e.parentElement && e.parentElement.closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) out.unshift(d); return out.filter(d => !d.open).length; }, null, { timeout: 5000 });
+  for (let i = 0; i < heads; i++) {
+    // The outermost closed fold around the element, pressed on its head; then the next.
+    const head = await page.locator(selector).first().evaluateHandle(e => { let top = null; for (let d = e.parentElement && e.parentElement.closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) if (!d.open) top = d; return top ? top.querySelector(':scope > summary') : null; }, null, { timeout: 5000 });
+    const el = head.asElement();
+    if (!el) break;
+    await pressHead(el);
+    await settle(page);
+  }
+}
+
+/**
+ * Post a form to be refused, as the scene's reader: its folds opened, its boxes filled, its first submit pressed, the page it
+ * lands on waited for. Only a refusal scene does this (its expect names the problem under a box, so a post that was taken is
+ * never saved as a picture); WPCPM_Flash::keep() hands the typing back to the one drawing that follows, which is this one.
+ */
+async function refuse(page, { form, fill = [], submit = '[type="submit"]' }) {
+  if (!(await page.locator(form).count())) throw new Error(`no form ${form} to post`);
+  await openAround(page, form);
+  const f = page.locator(form).first();
+  for (const [sel, value] of fill) await f.locator(sel).first().fill(value);
+  page.once('dialog', d => d.accept());
+  await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }), f.locator(submit).first().click()]);
+  await settle(page);
 }
 
 async function press(page, { scope, text, nth = 0, item = '', ifShown = false }) {
@@ -476,10 +869,17 @@ export async function stage(page, scene, base) {
     const s = page.locator(`${act.openFirst} details:not([open]) > summary`).first();
     if (await s.count()) { await s.scrollIntoViewIfNeeded(); await s.click(); await settle(page); }
   }
+  if (act.refuse) { await refuse(page, act.refuse); how.push('posted the form to be refused'); }
+  if (act.choose) { if (!(await page.locator(act.choose.input).count())) throw new Error(`no file box ${act.choose.input} on the page`); await openAround(page, act.choose.input); await page.locator(act.choose.input).first().setInputFiles({ name: act.choose.name, mimeType: act.choose.mimeType, buffer: Buffer.from(act.choose.text || '') }, { timeout: 5000 }); await page.waitForTimeout(250); how.push('chose a file, posted nothing'); }
   if (act.openFold) {
     const s = page.locator(`${act.openFold.scope} summary`, { hasText: new RegExp(act.openFold.text, 'i') }).first();
     if (!(await s.count())) throw new Error(`no fold reading "${act.openFold.text}" in ${act.openFold.scope}`);
-    if (!(await s.evaluate(e => e.parentElement.open))) { await s.click(); await settle(page); }
+    // A fold inside a closed one (a student's row inside its group) has the folds around it opened first.
+    const css = `${act.openFold.scope} summary`;
+    await s.evaluate(e => { e.dataset.uiRigTarget = '1'; });
+    await openAround(page, `${css}[data-ui-rig-target]`);
+    await s.evaluate(e => { delete e.dataset.uiRigTarget; });
+    if (!(await s.evaluate(e => e.parentElement.open))) { await pressHead(s); await settle(page); }
   }
   if (scene.press) { const said = await press(page, scene.press); if (said) how.push(said); }
   // A page that sent the browser to sign in is never a picture of the screen (a sign-in lost, for example to

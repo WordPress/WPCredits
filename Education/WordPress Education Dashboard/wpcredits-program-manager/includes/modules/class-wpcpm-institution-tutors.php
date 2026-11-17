@@ -69,10 +69,19 @@ class WPCPM_Institution_Tutors {
 	 */
 	const ANCHOR = 'wpcpm-tutors';
 
+	/** Add a tutor's fold, where Add's refusal is drawn and its way back lands (Gate B round 2, F3). */
+	const ADD_ID = 'wpcpm-tutors-add';
+
 	/**
 	 * The longest name kept, in characters.
 	 */
 	const NAME_MAX = 100;
+
+	/**
+	 * What a refused Add keeps of its form, one entry per school, as `WPCPM_Flash::keep()` names a form:
+	 * `tutor-add:<institution record>` (Stage B, Task 20).
+	 */
+	const KEPT_ADD = 'tutor-add:';
 
 	/**
 	 * The tutors a school lists, by name.
@@ -403,103 +412,67 @@ class WPCPM_Institution_Tutors {
 		$can_change = ! empty( $manage['allowed'] );
 		$tutors     = self::list_for( $record_id );
 
-		printf( '<div class="wpcpm-tutors" id="%s">', esc_attr( self::ANCHOR ) );
-		printf( '<h4 class="wpcpm-people__subtitle">%s</h4>', esc_html__( 'Tutors', 'wpcredits-program-manager' ) );
-
-		self::render_message( $record_id );
-
-		if ( empty( $tutors ) ) {
-			printf( '<p class="wpcpm-institution__empty wpcpm-people__empty">%s</p>', esc_html__( 'No tutors are listed yet.', 'wpcredits-program-manager' ) );
-		} else {
-			echo '<ul class="wpcpm-people__list wpcpm-tutors__list">';
-
-			foreach ( $tutors as $tutor ) {
-				echo '<li class="wpcpm-people__member">';
-				printf( '<span class="wpcpm-people__name">%s</span>', esc_html( $tutor['name'] ) );
-				printf( ' <span class="wpcpm-people__email">%s</span>', esc_html( $tutor['email'] ) );
-
-				if ( $can_change ) {
-					self::render_remove_form( $record_id, $tutor );
-				}
-
-				echo '</li>';
-			}
-
-			echo '</ul>';
-		}
-
-		if ( $can_change ) {
-			self::render_add_form( $record_id );
-		}
-
-		echo '</div>';
-	}
-
-	/**
-	 * One tutor's Remove.
-	 *
-	 * @param string $record_id The institution's record ID.
-	 * @param array  $tutor     The tutor as listed: `name`, `email`.
-	 */
-	private static function render_remove_form( $record_id, array $tutor ) {
-		echo '<form class="wpcpm-people__form" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
-		wp_nonce_field( self::ACTION_REMOVE . '_' . $record_id );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_REMOVE ) );
-		printf( '<input type="hidden" name="record" value="%s" />', esc_attr( $record_id ) );
-		printf( '<input type="hidden" name="email" value="%s" />', esc_attr( $tutor['email'] ) );
-		printf(
-			'<button type="submit" class="wpcpm-people__remove" data-wpcpm-confirm="%1$s">%2$s</button>',
-			esc_attr(
-				sprintf(
-					/* translators: %s: the tutor's name. */
-					__( 'Remove %s from the tutors? Their account, if they have one, stays until you remove it above.', 'wpcredits-program-manager' ),
-					$tutor['name']
-				)
-			),
-			esc_html__( 'Remove', 'wpcredits-program-manager' )
-		);
-		echo '</form>';
-	}
-
-	/**
-	 * The form that adds a tutor: a name, an address and Add.
-	 *
-	 * @param string $record_id The institution's record ID.
-	 */
-	private static function render_add_form( $record_id ) {
-		printf( '<h5 class="wpcpm-people__subtitle wpcpm-tutors__add-title">%s</h5>', esc_html__( 'Add a tutor', 'wpcredits-program-manager' ) );
-		echo '<form class="wpcpm-people__form wpcpm-people__form--tutor" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
-		wp_nonce_field( self::ACTION_ADD . '_' . $record_id );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_ADD ) );
-		printf( '<input type="hidden" name="record" value="%s" />', esc_attr( $record_id ) );
-		printf(
-			'<label for="wpcpm-tutor-name-%1$s">%2$s</label><input type="text" id="wpcpm-tutor-name-%1$s" name="name" maxlength="%3$d" required />',
-			esc_attr( $record_id ),
-			esc_html__( 'Name', 'wpcredits-program-manager' ),
-			(int) self::NAME_MAX
-		);
-		printf(
-			'<label for="wpcpm-tutor-email-%1$s">%2$s</label><input type="email" id="wpcpm-tutor-email-%1$s" name="email" required />',
-			esc_attr( $record_id ),
-			esc_html__( 'Email', 'wpcredits-program-manager' )
-		);
-		printf( '<button type="submit" class="button button-primary">%s</button>', esc_html__( 'Add', 'wpcredits-program-manager' ) );
-		echo '</form>';
+		// The Institution Dashboard on the shared parts (Stage B, Task 20): the same reader, the same list, read above.
+		self::render_parts( $record_id, $tutors, $can_change );
 	}
 
 	/**
 	 * The outcome of the last press, on the card of the institution it was about.
 	 *
 	 * @param string $record_id The institution being drawn.
+	 * @param bool   $in_form   Whether Add a tutor is drawn, so Add's own refusals are said there.
 	 */
-	private static function render_message( $record_id ) {
+	private static function render_message( $record_id, $in_form = false ) {
+		$said = self::message_for( $record_id );
+
+		if ( null === $said ) {
+			return;
+		}
+
+		// On the shared parts the shell's outcome (Stage B, Task 20), under Tutors over the rows it is about; Add's own
+		// refusals are said in Add a tutor, before its form (Gate B, B7), unless that form is not drawn for this reader.
+		if ( self::refuses_add( $said['status'] ) && $in_form ) {
+			return;
+		}
+
+		echo self::outcome_parts( $record_id, $said ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Dashboard_Card::message() escapes what it prints.
+	}
+
+	/**
+	 * The list's outcome as the shell's message on the parts: a refusal of the name or the address is a link to the box
+	 * it refused.
+	 *
+	 * @param string $record_id The institution's record ID.
+	 * @param array  $said      What `message_for()` returned.
+	 * @return string Escaped markup.
+	 */
+	private static function outcome_parts( $record_id, array $said ) {
+		$field = self::refused_field( $said['status'] );
+
+		return WPCPM_Dashboard_Card::message( $said['tone'], $said['text'], 'wpcpm-people__message', '' !== $field ? self::field_id( $record_id, $field ) : '' );
+	}
+
+	/*
+	 * The rules both drawings ask (Stage B, Task 20: one helper per rule, the old branch and the parts' both calling it)
+	 * --------------------------------------------------------------------
+	 */
+
+	/**
+	 * The list's outcome, taken from the flash once and kept for the request: its status, its tone and its sentence. Null
+	 * when there is none for this institution (routing, not authorization: which card prints a sentence, never who may
+	 * read one).
+	 *
+	 * @param string $record_id The institution being drawn.
+	 * @return array{status: string, tone: string, text: string}|null
+	 */
+	private static function message_for( $record_id ) {
 		$flash  = WPCPM_Flash::take( self::FLASH );
 		$status = is_array( $flash ) && isset( $flash['status'] ) ? sanitize_key( (string) $flash['status'] ) : '';
 		$about  = is_array( $flash ) && isset( $flash['record'] ) ? trim( (string) $flash['record'] ) : '';
 
 		// Routing, not authorization: which card prints a sentence, never who may read one.
 		if ( $record_id !== $about ) {
-			return;
+			return null;
 		}
 
 		$messages = array(
@@ -514,14 +487,231 @@ class WPCPM_Institution_Tutors {
 		);
 
 		if ( ! isset( $messages[ $status ] ) ) {
-			return;
+			return null;
 		}
 
-		printf(
-			'<p class="wpcpm-people__message is-%1$s" role="status">%2$s</p>',
-			esc_attr( $messages[ $status ][0] ),
-			esc_html( $messages[ $status ][1] )
+		return array(
+			'status' => $status,
+			'tone'   => $messages[ $status ][0],
+			'text'   => $messages[ $status ][1],
 		);
+	}
+
+	/**
+	 * The words of an empty list.
+	 *
+	 * @return string
+	 */
+	private static function empty_words() {
+		return __( 'No tutors are listed yet.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The hidden fields a tutor's Remove posts after its nonce: the action, the institution and the address.
+	 *
+	 * @param string $record_id The institution's record ID.
+	 * @param array  $tutor     The tutor as listed: `name`, `email`.
+	 * @return array<string, string> Name to value, in the order posted.
+	 */
+	private static function remove_fields( $record_id, array $tutor ) {
+		return array(
+			'action' => self::ACTION_REMOVE,
+			'record' => (string) $record_id,
+			'email'  => (string) $tutor['email'],
+		);
+	}
+
+	/**
+	 * What the browser asks before a tutor's Remove.
+	 *
+	 * @param array $tutor The tutor as listed: `name`, `email`.
+	 * @return string
+	 */
+	private static function remove_question( array $tutor ) {
+		return sprintf(
+			/* translators: %s: the tutor's name. */
+			__( 'Remove %s from the tutors? Their account, if they have one, stays until you remove it above.', 'wpcredits-program-manager' ),
+			$tutor['name']
+		);
+	}
+
+	/**
+	 * The hidden fields Add posts after its nonce: the action and the institution.
+	 *
+	 * @param string $record_id The institution's record ID.
+	 * @return array<string, string> Name to value, in the order posted.
+	 */
+	private static function add_fields( $record_id ) {
+		return array(
+			'action' => self::ACTION_ADD,
+			'record' => (string) $record_id,
+		);
+	}
+
+	/**
+	 * The box an outcome refused, on the parts: the name or the address Add was refused for, none for every other outcome.
+	 *
+	 * @param string $status The outcome.
+	 * @return string `name`, `email` or ''.
+	 */
+	private static function refused_field( $status ) {
+		return in_array( $status, array( 'name', 'email' ), true ) ? $status : '';
+	}
+
+	/**
+	 * Whether an outcome is Add's own refusal, so the form is drawn open on the parts: a name or an address refused, or a
+	 * tutor the site could not keep. "Busy" is either form's, so it opens nothing.
+	 *
+	 * @param string $status The outcome.
+	 * @return bool
+	 */
+	private static function refuses_add( $status ) {
+		return in_array( $status, array( 'name', 'email', 'error' ), true );
+	}
+
+	/**
+	 * The id of Add's box on the parts, today's id: the name's or the address's, by the institution.
+	 *
+	 * @param string $record_id The institution's record ID.
+	 * @param string $field     `name` or `email`.
+	 * @return string
+	 */
+	private static function field_id( $record_id, $field ) {
+		return 'wpcpm-tutor-' . $field . '-' . $record_id;
+	}
+
+	/*
+	 * The list on the shared parts (Stage B, Task 20)
+	 * --------------------------------------------------------------------
+	 */
+
+	/**
+	 * The Tutors section of the card on the parts: an in-card heading on today's anchor, its outcome under it, a row per
+	 * tutor (the name, the address under it) with Remove (quiet red, today's question) for a reader
+	 * who may change the list, or today's empty line; then Add a tutor, the parts' inner fold, closed, and open on a
+	 * refusal of Add with the problem under the box it refused.
+	 *
+	 * @param string  $record_id  The institution's record ID.
+	 * @param array[] $tutors     The list, as `list_for()` gives it.
+	 * @param bool    $can_change Whether the reader may change the list.
+	 */
+	private static function render_parts( $record_id, array $tutors, $can_change ) {
+		echo WPCPM_UI::heading( __( 'Tutors', 'wpcredits-program-manager' ), 'h4', self::ANCHOR ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the part.
+
+		self::render_message( $record_id, $can_change );
+
+		if ( empty( $tutors ) ) {
+			echo WPCPM_UI::list_empty( self::empty_words() ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the part.
+		} else {
+			$list = WPCPM_UI::list_open( array( 'facts' => 'under' ) );
+
+			foreach ( $tutors as $tutor ) {
+				$list .= WPCPM_UI::row(
+					array(
+						'name'    => (string) $tutor['name'],
+						'facts'   => array( (string) $tutor['email'] ),
+						'actions' => $can_change ? array( self::remove_form_parts( $record_id, $tutor ) ) : array(),
+					)
+				);
+			}
+
+			echo $list . WPCPM_UI::list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::row() and remove_form_parts().
+		}
+
+		if ( $can_change ) {
+			self::render_add_form_parts( $record_id );
+		}
+	}
+
+	/**
+	 * A tutor's Remove on the parts: the quiet red button with today's question, posting what today's form posts (its
+	 * nonce without an id, its referer), the tutor named for a screen reader.
+	 *
+	 * @param string $record_id The institution's record ID.
+	 * @param array  $tutor     The tutor as listed: `name`, `email`.
+	 * @return string Escaped markup.
+	 */
+	private static function remove_form_parts( $record_id, array $tutor ) {
+		return '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">'
+			. WPCPM_UI::nonce( self::ACTION_REMOVE . '_' . $record_id )
+			. WPCPM_Institution_People::hidden_html( self::remove_fields( $record_id, $tutor ) )
+			. WPCPM_UI::button(
+				array(
+					'label'   => __( 'Remove', 'wpcredits-program-manager' ),
+					'kind'    => 'quiet-danger',
+					'confirm' => self::remove_question( $tutor ),
+					'context' => (string) $tutor['name'],
+					'side'    => 'front',
+				)
+			)
+			. '</form>';
+	}
+
+	/**
+	 * Add a tutor on the parts: the inner fold, Name (Required, at most 100 characters) and Email (Required), Add the one
+	 * primary. A refused form is drawn open with what was typed (`keep_add()`, read once here) and the problem under the box
+	 * it refused.
+	 *
+	 * @param string $record_id The institution's record ID.
+	 */
+	private static function render_add_form_parts( $record_id ) {
+		$said    = self::message_for( $record_id );
+		$status  = null !== $said ? $said['status'] : '';
+		$refused = self::refused_field( $status );
+		$kept    = WPCPM_Flash::kept( self::KEPT_ADD . $record_id );
+		$typed   = static function ( $field ) use ( $kept ) {
+			return isset( $kept['values'][ $field ] ) && is_scalar( $kept['values'][ $field ] ) ? (string) $kept['values'][ $field ] : '';
+		};
+
+		$out = WPCPM_UI::inner_open(
+			array(
+				'title' => __( 'Add a tutor', 'wpcredits-program-manager' ),
+				'open'  => self::refuses_add( $status ),
+				'id'    => self::ADD_ID,
+			)
+		);
+
+		$out .= null !== $said && self::refuses_add( $status ) ? self::outcome_parts( $record_id, $said ) : '';
+		$out .= '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		$out .= WPCPM_UI::nonce( self::ACTION_ADD . '_' . $record_id ) . WPCPM_Institution_People::hidden_html( self::add_fields( $record_id ) );
+
+		$out .= WPCPM_UI::field(
+			array(
+				'type'    => 'text',
+				'id'      => self::field_id( $record_id, 'name' ),
+				'name'    => 'name',
+				'label'   => __( 'Name', 'wpcredits-program-manager' ),
+				'need'    => 'required',
+				'value'   => $typed( 'name' ),
+				'attrs'   => array( 'maxlength' => (string) (int) self::NAME_MAX ),
+				'problem' => 'name' === $refused ? $said['text'] : '',
+			)
+		);
+
+		$out .= WPCPM_UI::field(
+			array(
+				'type'    => 'email',
+				'id'      => self::field_id( $record_id, 'email' ),
+				'name'    => 'email',
+				'label'   => __( 'Email', 'wpcredits-program-manager' ),
+				'value'   => $typed( 'email' ),
+				'need'    => 'required',
+				'problem' => 'email' === $refused ? $said['text'] : '',
+			)
+		);
+
+		$out .= WPCPM_UI::actions(
+			array(
+				WPCPM_UI::button(
+					array(
+						'label' => __( 'Add', 'wpcredits-program-manager' ),
+						'side'  => 'front',
+					)
+				),
+			)
+		) . '</form>' . WPCPM_UI::inner_close();
+
+		echo $out; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts and in hidden_html(); the address escaped here.
 	}
 
 	/**
@@ -547,17 +737,26 @@ class WPCPM_Institution_Tutors {
 			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
 		}
 
+		// What an earlier refusal kept is stale once the form is posted again, as every handler that keeps does first.
+		WPCPM_Flash::forget( self::KEPT_ADD . $record );
+
 		$added = self::add( $record, WPCPM_Request::posted_text( 'name' ), WPCPM_Request::posted_text( 'email' ), get_current_user_id(), $decision['ground'] );
 
 		if ( is_wp_error( $added ) ) {
-			$codes = array(
+			$codes  = array(
 				'wpcpm_tutor_name'  => 'name',
 				'wpcpm_tutor_email' => 'email',
 				'wpcpm_tutor_busy'  => 'busy',
 			);
-			$code  = $added->get_error_code();
+			$code   = $added->get_error_code();
+			$status = isset( $codes[ $code ] ) ? $codes[ $code ] : 'error';
 
-			self::finish( isset( $codes[ $code ] ) ? $codes[ $code ] : 'error', $record );
+			// The typing comes back on the form a refusal opens (Stage B, Task 20): not on "busy", which opens nothing.
+			if ( self::refuses_add( $status ) ) {
+				self::keep_add( $record );
+			}
+
+			self::finish( $status, $record );
 		}
 
 		self::finish( $added ? 'added' : 'already', $record );
@@ -602,6 +801,22 @@ class WPCPM_Institution_Tutors {
 	}
 
 	/**
+	 * Keep what a refused Add was typed with, for the one drawing of the form that follows: the name cut where `add()`
+	 * bounds it (`NAME_MAX`), the address whole, as posted.
+	 *
+	 * @param string $record The institution the form is for.
+	 */
+	private static function keep_add( $record ) {
+		WPCPM_Flash::keep(
+			self::KEPT_ADD . $record,
+			array(
+				'name'  => mb_substr( WPCPM_Request::posted_raw( 'name' ), 0, self::NAME_MAX ),
+				'email' => WPCPM_Request::posted_raw( 'email' ),
+			)
+		);
+	}
+
+	/**
 	 * Flash the outcome and send the person back to the card.
 	 *
 	 * @param string $status The outcome, a key of `render_message()`.
@@ -616,7 +831,9 @@ class WPCPM_Institution_Tutors {
 			)
 		);
 
-		wp_safe_redirect( WPCPM_Institution_People::card_url( $record ) . '#' . self::ANCHOR );
+		// Add's own refusal lands on its fold, where it is drawn, so the page opens at the form with no script (Gate B
+		// round 2, F3); every other outcome on Tutors.
+		wp_safe_redirect( WPCPM_Institution_People::card_url( $record ) . '#' . ( self::refuses_add( (string) $status ) ? self::ADD_ID : self::ANCHOR ) );
 		exit;
 	}
 }

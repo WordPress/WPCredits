@@ -4550,7 +4550,8 @@ $rules = array(
 $remove_then_leave = array(
 	'on_inactive'             => array( array( 'revoke', 'Remove the Mentor role' ), array( 'keep', 'Leave the role in place' ) ),
 	'student_on_inactive'     => array( array( 'revoke', 'Remove the Student role, so they lose access to Student-level content' ), array( 'keep', 'Leave the role in place' ) ),
-	'institution_on_inactive' => array( array( 'revoke', 'Remove its people, so they lose access to its students' ), array( 'keep', 'Leave its people in place, able to open only its agreement' ) ),
+	// Task 25, fix round 2: the sentence says what a school with no settled agreement shows its people now.
+	'institution_on_inactive' => array( array( 'revoke', 'Remove its people, so they lose access to its students' ), array( 'keep', 'Leave its people in place, its representatives seeing only the Overview and the Agreement' ) ),
 	'sponsor_on_inactive'     => array( array( 'revoke', 'Remove its accounts from the sponsor, so they lose access to its Sponsor Dashboard' ), array( 'keep', 'Leave their access in place' ) ),
 );
 
@@ -4621,8 +4622,9 @@ $adv_html  = html_entity_decode( draw_settings( 'advanced' ), ENT_QUOTES );
 
 ck( 'the Its people row\'s help says either choice stops the agreement counting, in one short sentence',
     array(
-        false !== strpos( $inst_html, '<p class="description">Either way its agreement stops counting as recorded, and people left in place can open only the agreement until it is back at an active stage.</p>' ),
-        strlen( 'Either way its agreement stops counting as recorded, and people left in place can open only the agreement until it is back at an active stage.' ) <= 160,
+        // Task 25, fix round 2: the sentence says what a school with no settled agreement shows its people now.
+        false !== strpos( $inst_html, '<p class="description">Either way its agreement stops counting as recorded, and until it is back at an active stage its representatives see only the Overview and the Agreement.</p>' ),
+        strlen( 'Either way its agreement stops counting as recorded, and until it is back at an active stage its representatives see only the Overview and the Agreement.' ) <= 160,
     ),
     array( true, true ) );
 ck( 'and its Details fold says an institution with no stage has not left',

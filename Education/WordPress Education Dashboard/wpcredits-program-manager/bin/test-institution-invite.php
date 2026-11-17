@@ -295,9 +295,17 @@ if ( ! class_exists( 'WPCPM_Institutions' ) ) {
 		}
 	}
 }
+require_once __DIR__ . '/stubs/institution-card-url.php';
 if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
 	class WPCPM_Institutions_Dashboard {
 		public static function page_url() { return 'https://example.test/institution-dashboard/'; }
+		// The page's addresses, as the real class builds them (bin/stubs/institution-card-url.php, checked against it
+		// in bin/test-institution-ways-back.php).
+		public static function view_url( $view = 'overview', $record = '', array $args = array() ) { return wpcpm_test_institution_view_url( self::page_url(), $view, $record, $args ); }
+		public static function view_of( $card ) { return wpcpm_test_institution_view_of( $card ); }
+		public static function card_url( $card, $record = '', $item = '', array $args = array() ) { return wpcpm_test_institution_card_url( self::page_url(), $card, $record, $item, $args ); }
+		public static function requested_record() { return wpcpm_test_institution_requested_record(); }
+		public static function way_back( $card ) { return wpcpm_test_institution_way_back( self::page_url(), $card ); }
 	}
 }
 if ( ! class_exists( 'WPCPM_Mail' ) ) {
@@ -358,6 +366,11 @@ class WPCPM_Institution_Record {
 }
 $GLOBALS['kept'] = array();
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-tutors.php';
+// The parts every card of this page is drawn with (Institution Dashboard, Task 23: the old markup is gone).
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
 
 $fail = 0;
 function ck( $label, $actual, $expected ) {
@@ -547,7 +560,7 @@ echo "=== A member invites a colleague ===\n";
 $end = invite_as( 7, $A, 'Colleague@Example.test' );
 $one = newest_invite();
 
-ck( 'the member is sent back to the People card', $end, 'redirect:https://example.test/institution-dashboard/#wpcpm-people' );
+ck( 'the member is sent back to the People card', $end, 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution#wpcpm-people' );
 ck( 'and told the invitation is on its way', flash_status( 7 ), 'invite-sent' );
 ck( 'the nonce was keyed to the institution', end( $GLOBALS['referer'] ), 'wpcpm_invite_member_' . $A );
 ck( 'one invitation exists, pending, for this institution', array(
@@ -761,11 +774,16 @@ ck( 'and the invitation is untouched by either', array(
 	get_user_by( 'email', 'newcomer@example.test' ) instanceof WP_User,
 ), array( 'pending', false ) );
 
-$end = accept_as( 0, $token );
+// Task 28, W1: an accepted invitation lands on Your institution's people card, which says the welcome, for a reader the
+// welcome is stored for (signed in). Fix round 2, X5: a signed-out visitor, who has no welcome stored, lands on the bare
+// page as before.
+$joined_back = 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution#wpcpm-people';
+$bare_back   = 'redirect:https://example.test/institution-dashboard/';
+$end         = accept_as( 0, $token );
 
 $created = get_user_by( 'email', 'newcomer@example.test' );
 
-ck( 'a signed-out visitor lands on the dashboard', $end, 'redirect:https://example.test/institution-dashboard/' );
+ck( 'a signed-out visitor, for whom no welcome is stored, lands on the dashboard\'s bare page, as before', $end, $bare_back );
 ck( 'an account was made for the address', $created instanceof WP_User, true );
 ck( 'it holds the Institution role', $created->roles, array( 'wpcpm_institution' ) );
 ck( 'and it was sent the set-your-password message', in_array( (int) $created->ID, $GLOBALS['queued'], true ), true );
@@ -965,21 +983,23 @@ $GLOBALS['uid'] = 1;
 $_POST          = array( 'record' => $A, 'email' => 'viewed@example.test' ) + $posted;
 $_GET           = $posted;
 
-ck( 'an administrator inviting someone comes back to the institution the invitation is for', run( 'handle_invite' ), 'redirect:https://example.test/institution-dashboard/?' . $VIEW . '=' . $A . '#wpcpm-people' );
+ck( 'an administrator inviting someone comes back to the institution the invitation is for', run( 'handle_invite' ), 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution&' . $VIEW . '=' . $A . '#wpcpm-people' );
 ck( 'having sent it', flash_status( 1 ), 'invite-sent' );
 
 $_POST = array( 'record' => $A, 'email' => 'not an address' ) + $posted;
-ck( 'and so does the refusal', run( 'handle_invite' ), 'redirect:https://example.test/institution-dashboard/?' . $VIEW . '=' . $A . '#wpcpm-people' );
+// Gate B round 2, F3: a refusal of the form lands on Invite a colleague, where it is drawn, so the page opens at the
+// form with no script; a success keeps the card.
+ck( 'and so does the refusal, on the Invite a colleague fold, where the refusal is drawn', run( 'handle_invite' ), 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution&' . $VIEW . '=' . $A . '#wpcpm-people-invite' );
 
 $viewed = newest_invite();
 $_POST  = array( 'invite' => $viewed ) + $posted;
-ck( 'Resend comes back to the invitation\'s own institution', run( 'handle_resend' ), 'redirect:https://example.test/institution-dashboard/?' . $VIEW . '=' . $A . '#wpcpm-people' );
+ck( 'Resend comes back to the invitation\'s own institution', run( 'handle_resend' ), 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution&' . $VIEW . '=' . $A . '#wpcpm-people' );
 
 $_POST = array( 'invite' => $viewed ) + $posted;
-ck( 'and Cancel', run( 'handle_cancel' ), 'redirect:https://example.test/institution-dashboard/?' . $VIEW . '=' . $A . '#wpcpm-people' );
+ck( 'and Cancel', run( 'handle_cancel' ), 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution&' . $VIEW . '=' . $A . '#wpcpm-people' );
 
 $_POST = array( 'invite' => $viewed ) + $posted;
-ck( 'and the press that finds the invitation gone', run( 'handle_cancel' ), 'redirect:https://example.test/institution-dashboard/?' . $VIEW . '=' . $A . '#wpcpm-people' );
+ck( 'and the press that finds the invitation gone', run( 'handle_cancel' ), 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution&' . $VIEW . '=' . $A . '#wpcpm-people' );
 ck( 'saying so', flash_status( 1 ), 'invite-gone' );
 
 // A member's address is what it always was, whatever they post.
@@ -989,15 +1009,34 @@ $GLOBALS['uid'] = 7;
 $_POST          = array( 'record' => $A, 'email' => 'sidekick@example.test' ) + $posted;
 $_GET           = $posted;
 
-ck( 'a member inviting someone comes back to the card, with no switcher argument', run( 'handle_invite' ), 'redirect:https://example.test/institution-dashboard/#wpcpm-people' );
+ck( 'a member inviting someone comes back to the card, with no switcher argument', run( 'handle_invite' ), 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution#wpcpm-people' );
 ck( 'having sent it', flash_status( 7 ), 'invite-sent' );
 
 $mine  = newest_invite();
 $_POST = array( 'invite' => $mine ) + $posted;
-ck( 'and so do Resend', run( 'handle_resend' ), 'redirect:https://example.test/institution-dashboard/#wpcpm-people' );
+ck( 'and so do Resend', run( 'handle_resend' ), 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution#wpcpm-people' );
 
 $_POST = array( 'invite' => $mine ) + $posted;
-ck( 'and Cancel', run( 'handle_cancel' ), 'redirect:https://example.test/institution-dashboard/#wpcpm-people' );
+ck( 'and Cancel', run( 'handle_cancel' ), 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution#wpcpm-people' );
+
+// Task 28, W2: Resend's two refusals (the day's sends spent, a mail the site could not hand over) are a row's outcome, said
+// over the rows: the press lands on the card, not on Invite a colleague, and the flash says a row's press left it.
+$_POST  = array( 'record' => $A, 'email' => 'resend-refused@example.test' ) + $posted;
+run( 'handle_invite' );
+$w2_row = newest_invite();
+$_POST  = array( 'invite' => $w2_row ) + $posted;
+$GLOBALS['mail_ok'] = false;
+$w2_unsent = run( 'handle_resend' );
+$GLOBALS['mail_ok'] = true;
+$w2_unsent_flash = flash( 7 );
+for ( $w2 = 0; $w2 < 6; $w2++ ) {
+	WPCPM_Ceiling::claim( 'invite:' . $A . ':7', 5, DAY_IN_SECONDS );
+}
+$_POST = array( 'invite' => $w2_row ) + $posted;
+$w2_ceiling = run( 'handle_resend' );
+$w2_ceiling_flash = flash( 7 );
+ck( 'Resend refused, by a mail not handed over and by the day\'s sends, lands on the card, not on the invite form', array( $w2_unsent, $w2_ceiling ), array_fill( 0, 2, 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution#wpcpm-people' ) );
+ck( 'and each flash says a row\'s press left it', array( $w2_unsent_flash['status'] ?? '', $w2_unsent_flash['from'] ?? '', $w2_ceiling_flash['status'] ?? '', $w2_ceiling_flash['from'] ?? '' ), array( 'invite-unsent', 'row', 'invite-ceiling', 'row' ) );
 
 $_POST = array();
 $_GET  = array();
@@ -1187,7 +1226,7 @@ $admin_end = accept_as( 0, token_from_mail() );
 ck( 'an invitation from an Administrator is still accepted', array(
 	$admin_end,
 	WPCPM_Institution_Members::institution_of( get_user_by( 'email', 'byadmin@example.test' ) ),
-), array( 'redirect:https://example.test/institution-dashboard/', $A ) );
+), array( $bare_back, $A ) );
 
 // An Administrator who has since lost the program's capability vouches for nobody either.
 invite_as( 1, $A, 'formeradmin@example.test' );
@@ -1217,7 +1256,7 @@ ck( 'Send again on an invitation whose sender no longer vouches sends nothing an
 	$resent_end,
 	flash_status( 7 ),
 	count( $GLOBALS['sent'] ),
-), array( 'redirect:https://example.test/institution-dashboard/#wpcpm-people', 'invite-gone', 0 ) );
+), array( 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution#wpcpm-people', 'invite-gone', 0 ) );
 ck( 'and the invitation is cancelled, its token forgotten, as the site\'s own act', array(
 	pmeta( $unvouched, '_wpcpm_inv_state' ),
 	pmeta( $unvouched, '_wpcpm_inv_token' ),
@@ -1275,16 +1314,11 @@ ck( 'and one on the manager screen', has( render_form_as( 1, $A, 'admin' ), 'nam
 ck( 'a member of another institution is drawn nothing at all', render_form_as( 9, $A ), '' );
 ck( 'and a record that is not one draws nothing', render_form_as( 7, 'not-a-record' ), '' );
 
-// 1.123.58, INS-14: the label is shown, and a refused address comes back as it was typed. The next
-// request is a fresh account holding the same meta, since the real flash reads a channel once per
-// account and request.
-ck( 'the name and address labels are visible', array( has( $form, '<label for="wpcpm-invite-email-' . $A . '">Their email address</label>' ), has( $form, 'screen-reader-text' ), has( $form, 'placeholder="Their email address"' ) ), array( true, false, true ) );
 invite_as( 7, $A, 'anna at example' );
 $refused_invite      = flash_status( 7 );
 $GLOBALS['users'][30] = new WP_User( 30, 'Anna Kowalska', 'anna@example.test', array( 'subscriber' ) );
 $GLOBALS['umeta'][30] = $GLOBALS['umeta'][7];
 $again                = render_form_as( 30, $A );
-ck( 'a refused address keeps the typed name and address', array( $refused_invite, has( $again, 'name="email" value="anna at example"' ) ), array( 'invite-bad-email', true ) );
 $GLOBALS['users'][31] = new WP_User( 31, 'Anna Kowalska', 'anna@example.test', array( 'subscriber' ) );
 $GLOBALS['umeta'][31] = $GLOBALS['umeta'][30];
 ck( 'once: the next drawing is the empty form', has( render_form_as( 31, $A ), 'value="anna at example"' ), false );
@@ -1319,12 +1353,10 @@ $list = render_pending_as( 7, $A );
 $long = static function ( $t ) { return gmdate( 'F j, Y', $t ); };
 $iso  = static function ( $t ) { return gmdate( 'Y-m-d', $t ); };
 
-ck( 'a waiting invitation says who sent it and the two dates in the site\'s format',
-	has( $list, 'Invited by Anna Kowalska on ' . $long( $sent ) . ', good until ' . $long( $sent + ( 14 * DAY_IN_SECONDS ) ) . '.' ), true );
 ck( 'and prints neither as year-month-day', array( has( $list, $iso( $sent ) ), has( $list, $iso( $sent + ( 14 * DAY_IN_SECONDS ) ) ) ), array( false, false ) );
 
 $GLOBALS['opts']['date_format'] = 'd/m/Y';
-ck( 'a site with another format reads its own', has( render_pending_as( 7, $A ), ' on ' . gmdate( 'd/m/Y', $sent ) . ', good until ' . gmdate( 'd/m/Y', $sent + ( 14 * DAY_IN_SECONDS ) ) . '.' ), true );
+ck( 'a site with another format reads its own', has( strip_tags( render_pending_as( 7, $A ) ), ' on ' . gmdate( 'd/m/Y', $sent ) . ', good until ' . gmdate( 'd/m/Y', $sent + ( 14 * DAY_IN_SECONDS ) ) . '.' ), true );
 $GLOBALS['opts']['date_format'] = 'F j, Y';
 
 echo "\n=== The outcome is printed on the card it happened to ===\n";
@@ -1352,16 +1384,6 @@ reset_world();
 $GLOBALS['umeta'][7][ WPCPM_Flash::META ] = array();
 $form = render_form_as( 7, $A );
 
-ck( 'the form draws a fieldset Level with the two choices', array( has( $form, '<fieldset class="wpcpm-people__level"><legend>Level</legend>' ), substr_count( $form, 'type="radio" id="wpcpm-invite-level-' . $A . '-' ), has( $form, 'name="level" value="representative" checked="checked"' ), has( $form, 'name="level" value="tutor"' ), has( $form, 'name="level" value="tutor" checked' ) ), array( true, 2, true, true, false ) );
-ck( 'Representative says what it may do, and Tutor what it may not', array(
-	has( $form, ' Representative</label> <span class="description" id="wpcpm-invite-level-' . $A . '-representative-hint">Adds and changes students, invites colleagues, corrects the details.</span>' ),
-	has( $form, ' Tutor</label> <span class="description" id="wpcpm-invite-level-' . $A . '-tutor-hint">Sees the students, their Student Report Cards and the semester reports, and changes nothing.</span>' ),
-), array( true, true ) );
-ck( 'each hint has an id and its radio points at it', array(
-	has( $form, 'name="level" value="representative" checked="checked" aria-describedby="wpcpm-invite-level-' . $A . '-representative-hint"' ),
-	has( $form, 'name="level" value="tutor" aria-describedby="wpcpm-invite-level-' . $A . '-tutor-hint"' ),
-	has( $form, '<span class="description" id="wpcpm-invite-level-' . $A . '-tutor-hint">Sees the students' ),
-), array( true, true, true ) );
 ck( 'the radios sit before the button, so the choice is made before the press', before( $form, 'name="level" value="tutor"', 'Send invitation' ), true );
 
 function invite_level_as( $uid, $record, $email, $level ) {
@@ -1376,12 +1398,10 @@ invite_level_as( 7, $A, 'not an address', 'tutor' );
 $GLOBALS['users'][43] = new WP_User( 43, 'Anna Kowalska', 'anna@example.test', array( 'subscriber' ) );
 $GLOBALS['umeta'][43] = $GLOBALS['umeta'][7];
 $redrawn = render_form_as( 43, $A );
-ck( 'a tutor invitation refused for its address is drawn again with Tutor ticked and the address as typed', array( flash_status( 7 ), has( $redrawn, 'name="level" value="tutor" checked="checked"' ), has( $redrawn, 'name="level" value="representative" checked' ), has( $redrawn, 'value="not an address"' ) ), array( 'invite-bad-email', true, false, true ) );
 invite_level_as( 7, $A, 'not an address', 'owner' );
 $GLOBALS['users'][44] = new WP_User( 44, 'Anna Kowalska', 'anna@example.test', array( 'subscriber' ) );
 $GLOBALS['umeta'][44] = $GLOBALS['umeta'][7];
 $again = render_form_as( 44, $A );
-ck( 'a refused made-up level leaves Representative ticked', array( has( $again, 'name="level" value="representative" checked="checked"' ), has( $again, 'value="tutor" checked' ) ), array( true, false ) );
 unset( $GLOBALS['users'][43], $GLOBALS['users'][44], $GLOBALS['umeta'][43], $GLOBALS['umeta'][44] );
 unset( $GLOBALS['umeta'][7][ WPCPM_Flash::META ] );
 
@@ -1427,7 +1447,7 @@ ck( 'a resent tutor invitation keeps its level, and with nobody to name it is th
 echo "\n=== Accepting attaches at the invitation's level ===\n";
 
 $GLOBALS['users'][ 40 ] = new WP_User( 40, 'Tess Tutor', 'tutor@example.test', array( 'subscriber' ) );
-ck( 'the tutor presses Accept', accept_as( 40, $tutor_token ), 'redirect:https://example.test/institution-dashboard/' );
+ck( 'the tutor presses Accept', accept_as( 40, $tutor_token ), $joined_back );
 ck( 'and is attached at the tutor level, to the invitation\'s institution', array( WPCPM_Institution_Members::institution_of( 40 ), WPCPM_Institution_Members::level_of( 40 ) ), array( $A, 'tutor' ) );
 ck( 'accepting a Tutor invitation lists the account\'s address under its display name', WPCPM_Institution_Tutors::list_for( $A ), array( array( 'name' => 'Tess Tutor', 'email' => 'tutor@example.test' ) ) );
 $added = array_values( array_filter( WPCPM_Institution_Audit::entries_for( $A ), function ( $e ) { return 'member_added' === $e['kind'] && '40' === (string) $e['subject']; } ) );
@@ -1439,10 +1459,10 @@ $legacy_token = token_from_mail();
 unset( $GLOBALS['pmeta'][ $legacy ]['_wpcpm_inv_level'] );
 $GLOBALS['users'][41] = new WP_User( 41, 'Ora Old', 'old-invite@example.test', array( 'subscriber' ) );
 ck( 'an invitation stored before this release has no level meta', pmeta( $legacy, '_wpcpm_inv_level' ), null );
-ck( 'and attaches as a representative, as every invitation did', array( accept_as( 41, $legacy_token ), WPCPM_Institution_Members::institution_of( 41 ), WPCPM_Institution_Members::level_of( 41 ) ), array( 'redirect:https://example.test/institution-dashboard/', $A, 'representative' ) );
+ck( 'and attaches as a representative, as every invitation did', array( accept_as( 41, $legacy_token ), WPCPM_Institution_Members::institution_of( 41 ), WPCPM_Institution_Members::level_of( 41 ) ), array( $joined_back, $A, 'representative' ) );
 
 $GLOBALS['users'][42] = new WP_User( 42, 'Ria Rep', 'rep@example.test', array( 'subscriber' ) );
-ck( 'a representative invitation attaches a representative', array( accept_as( 42, $rep_token ), WPCPM_Institution_Members::level_of( 42 ) ), array( 'redirect:https://example.test/institution-dashboard/', 'representative' ) );
+ck( 'a representative invitation attaches a representative', array( accept_as( 42, $rep_token ), WPCPM_Institution_Members::level_of( 42 ) ), array( $joined_back, 'representative' ) );
 ck( 'and neither a representative\'s acceptance nor an invitation from before the levels adds anybody to the tutors', WPCPM_Institution_Tutors::names( $A ), array( 'Tess Tutor' ) );
 ck( 'the tutor\'s add is one row of history, on the system ground', array_map( function ( $e ) { return array( $e['kind'], $e['ground'], $e['data']['email'] ); }, array_values( array_filter( WPCPM_Institution_Audit::entries_for( $A ), function ( $e ) { return 'tutor_added' === $e['kind']; } ) ) ), array( array( 'tutor_added', 'system', 'tutor@example.test' ) ) );
 
@@ -1554,6 +1574,143 @@ ck( 'nothing on the accept path reads an institution off the request', preg_matc
 ), 0 );
 ck( 'no institution ID is compared with === in the class', preg_match( '/wpcpm_(student_)?institution(_record_id)?[^;]*===/', $src ), 0 );
 ck( 'the refusal on the accept path is written once', substr_count( $src, 'That invitation cannot be used' ), 1 );
+
+/* ---- Stage B, Task 20: the invite form and the waiting list on the shared parts ---------------------------------- */
+
+echo "\n=== Stage B (Task 20): the invite form and the waiting list on the shared parts ===\n";
+
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
+function wp_referer_field( $display = true ) { return ''; }
+function sanitize_html_class( $c, $f = '' ) { $c = preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); return '' === $c ? (string) $f : $c; }
+
+/** A new request: what the flash read in the last one is forgotten, as a page load forgets it. */
+function t20i_new_request() {
+	$taken = new ReflectionProperty( 'WPCPM_Flash', 'taken' );
+	if ( PHP_VERSION_ID < 80100 ) {
+		$taken->setAccessible( true );
+	}
+	$taken->setValue( null, array() );
+}
+/** One drawing by one reader, on the parts (the Institution Dashboard on) or under a named surface, a live list or none. */
+function t20i_draw( callable $draw, $parts, $surface = null, $live = null ) {
+	t20i_new_request();
+	WPCPM_UI::set_live( $parts ? array( 'administrator', 'institution' ) : $live );
+	if ( $parts || null !== $surface ) {
+		WPCPM_UI::enter( $parts ? 'institution' : (string) $surface );
+	}
+	$html = (string) $draw();
+	if ( $parts || null !== $surface ) {
+		WPCPM_UI::leave();
+	}
+	WPCPM_UI::set_live( null );
+	return $html;
+}
+/** What each form posts: its action, each hidden and ticked name=value, and the question its submit asks. */
+function t20i_posts( $html ) {
+	$out = array();
+	preg_match_all( '#<form\b[^>]*\baction="([^"]*)"[^>]*>(.*?)</form>#s', (string) $html, $forms, PREG_SET_ORDER );
+	foreach ( $forms as $form ) {
+		preg_match_all( '#<input type="(?:hidden|email|radio)"[^>]*>#', $form[2], $inputs );
+		$fields = array();
+		foreach ( $inputs[0] as $input ) {
+			if ( false !== strpos( $input, 'type="radio"' ) && false === strpos( $input, ' checked' ) ) {
+				continue;
+			}
+			preg_match( '/name="([^"]*)"/', $input, $n );
+			preg_match( '/value="([^"]*)"/', $input, $v );
+			$fields[] = ( $n[1] ?? '' ) . '=' . ( $v[1] ?? '' );
+		}
+		preg_match( '/data-wpcpm-confirm="([^"]*)"/', $form[2], $q );
+		$out[] = array( $form[1], $fields, $q[1] ?? '' );
+	}
+	return $out;
+}
+
+reset_world();
+t20i_new_request();
+invite_as( 7, $A, 't20-first@example.test' );
+$t20i_sent = flash_status( 7 );
+unset( $GLOBALS['umeta'][7][ WPCPM_Flash::META ] );
+$t20i_form_new    = t20i_draw( static function () use ( $A ) { return render_form_as( 7, $A ); }, true );
+$t20i_pending_new = t20i_draw( static function () use ( $A ) { return render_pending_as( 7, $A ); }, true );
+// What the old form and list posted, read from the class at db850661 (the last commit that drew them) before they were
+// deleted (Task 23); the invitation's ID is the one this run seeded (`newest_invite()`), not one read off the drawing.
+$t20i_invite   = (string) newest_invite();
+$t20i_form_old = array( array( 'https://example.test/wp-admin/admin-post.php', array( '_wpnonce=nonce-wpcpm_invite_member_' . $A, 'action=wpcpm_invite_member', 'record=' . $A, 'email=', 'level=representative' ), '' ) );
+$t20i_pending_old = array(
+	array( 'https://example.test/wp-admin/admin-post.php', array( '_wpnonce=nonce-wpcpm_resend_invite_' . $t20i_invite, 'action=wpcpm_resend_invite', 'invite=' . $t20i_invite ), '' ),
+	array( 'https://example.test/wp-admin/admin-post.php', array( '_wpnonce=nonce-wpcpm_cancel_invite_' . $t20i_invite, 'action=wpcpm_cancel_invite', 'invite=' . $t20i_invite ), 'Cancel the invitation to t20-first@example.test? The link in their email stops working straight away.' ),
+);
+
+ck( 'the invite form posts what today\'s posts on the parts: the action, the institution, the address and the level ticked, no origin flag on the dashboard', array( $t20i_sent, t20i_posts( $t20i_form_new ), t20i_posts( $t20i_form_new ) === $t20i_form_old ), array( 'invite-sent', array( array( 'https://example.test/wp-admin/admin-post.php', array( '_wpnonce=nonce-wpcpm_invite_member_' . $A, 'action=wpcpm_invite_member', 'record=' . $A, 'email=', 'level=representative' ), '' ) ), true ) );
+ck( 'in the parts\' inner fold "Invite a colleague", Email address Required with no placeholder, the paragraph under the button its intro, Send invitation the primary', array(
+	has( $t20i_form_new, '<span class="wpcpm-ui-fold__title">Invite a colleague</span>' ),
+	has( $t20i_form_new, '>Email address <span class="wpcpm-ui-field__need">Required</span></label>' ),
+	has( $t20i_form_new, 'placeholder' ),
+	before( $t20i_form_new, '<p class="wpcpm-ui-intro">They get one email', 'name="email"' ),
+	has( $t20i_form_new, '<button type="submit" class="wpcpm-btn">Send invitation</button>' ),
+), array( true, true, false, true, true ) );
+ck( 'the waiting list posts what today\'s posts, Resend and Cancel invitation with today\'s question', array(
+	t20i_posts( $t20i_pending_new ) === $t20i_pending_old,
+	'' !== $t20i_invite,
+	count( t20i_posts( $t20i_pending_new ) ),
+	has( $t20i_pending_new, '>Cancel invitation<span class="screen-reader-text"> t20-first@example.test</span></button>' ),
+	has( $t20i_pending_new, 'data-wpcpm-confirm="Cancel the invitation to t20-first@example.test? The link in their email stops working straight away."' ),
+), array( true, true, 2, true, true ) );
+
+// A refused address: its typing kept and its sentence under its box, on the parts as on today's form.
+reset_world();
+t20i_new_request();
+unset( $GLOBALS['umeta'][7][ WPCPM_Flash::META ] );
+invite_as( 7, $A, 'anna at example' );
+$t20i_kept = $GLOBALS['umeta'][7][ WPCPM_Flash::META ] ?? array();
+$t20i_refused_old = t20i_draw( static function () use ( $A ) { ob_start(); WPCPM_Institution_Invite::render_message( $A ); WPCPM_Institution_Invite::render_form( $A ); return ob_get_clean(); }, false );
+$GLOBALS['umeta'][7][ WPCPM_Flash::META ] = $t20i_kept;
+$t20i_refused_new = t20i_draw( static function () use ( $A ) { ob_start(); WPCPM_Institution_Invite::render_message( $A ); WPCPM_Institution_Invite::render_form( $A ); return ob_get_clean(); }, true );
+ck( 'a refused invitation keeps its typing on both branches; on the parts the fold is open, the sentence is under Email address and tied to it, and the outcome is the shell\'s, a link to the box', array(
+	has( $t20i_refused_old, 'value="anna at example"' ),
+	has( $t20i_refused_new, 'value="anna at example"' ),
+	has( $t20i_refused_new, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id="wpcpm-people-invite">' ),
+	has( $t20i_refused_new, 'aria-describedby="wpcpm-invite-email-' . $A . '-problem"' ),
+	has( $t20i_refused_new, 'data-wpcpm-card-message><a href="#wpcpm-invite-email-' . $A . '">Nothing was sent. That is not an address an invitation can go to.</a></p>' ),
+	has( $t20i_refused_old, '<p class="wpcpm-people__message is-error" role="status">Nothing was sent. That is not an address an invitation can go to.</p>' ),
+), array( true, true, true, true, true, true ) );
+
+// Task 22b: an address and a sender's name are plain words the sheet breaks, no `<wbr>` (`breakable()` is for a data
+// table's cell).
+reset_world();
+t20i_new_request();
+$t22b_address = 'abcdefgh1234@example.org';
+$t22b_sender  = 'Exampleunbrokenpersonnamewithfortychars1';
+$GLOBALS['users'][7]->display_name = $t22b_sender;
+seed_invite( $A, $t22b_address, 7, time() - DAY_IN_SECONDS );
+$t22b_pending = t20i_draw( static function () use ( $A ) { return render_pending_as( 7, $A ); }, true );
+ck(
+	'Task 22b: the waiting list prints a 24-character address and a 40-character sender whole, no `<wbr>`',
+	array( strlen( $t22b_address ), strlen( $t22b_sender ), has( $t22b_pending, '>' . $t22b_address . '<' ), has( $t22b_pending, 'Invited by ' . $t22b_sender . ' on ' ), substr_count( $t22b_pending, '<wbr>' ) ),
+	array( 24, 40, true, true, 0 )
+);
+$GLOBALS['users'][7]->display_name = 'Anna Kowalska';
+
+// Fix round 1: the parts' forms pass the caller's origin on, as today's do; the card's own forms carry none.
+$t20i_origin = static function () use ( $A ) {
+	$GLOBALS['uid'] = 1;
+	ob_start();
+	WPCPM_Institution_Invite::render_form( $A, 'admin' );
+	WPCPM_Institution_Invite::render_pending( $A, 'admin' );
+	return (string) ob_get_clean();
+};
+$t20i_from = static function ( $html ) {
+	return array_map( static function ( $form ) { return count( preg_grep( '/^wpcpm_from=admin$/', $form[1] ) ); }, t20i_posts( $html ) );
+};
+ck( 'a caller with an origin gets wpcpm_from in every form on both branches (the form, Resend, Cancel invitation); with none, no form carries it', array(
+	$t20i_from( t20i_draw( $t20i_origin, false ) ),
+	$t20i_from( t20i_draw( $t20i_origin, true ) ),
+	$t20i_from( t20i_draw( static function () use ( $A ) { return render_form_as( 1, $A ) . render_pending_as( 1, $A ); }, true ) ),
+), array( array( 1, 1, 1 ), array( 1, 1, 1 ), array( 0, 0, 0 ) ) );
 
 $dashes = array();
 

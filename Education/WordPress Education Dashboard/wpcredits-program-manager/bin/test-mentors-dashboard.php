@@ -360,7 +360,7 @@ ck( 'under the real switch the Mentor Report Card is its off drawing, byte for b
 	$card_real === $card_off,
 	false !== strpos( $card_real, '<div class="wpcpm-dashboard">' ),
 	preg_match( '/wpcpm-ui-/', $card_real ),
-), array( array( 'administrator' ), true, true, 0 ) );
+), array( array( 'administrator', 'institution' ), true, true, 0 ) );
 
 echo "\n--- The count the card shows, read on its own (the abilities read it too) ---\n";
 

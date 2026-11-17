@@ -73,5 +73,4 @@ Your page is drawn for whoever is signed in, so the same address shows each pers
 page, and no change to a link shows anybody else's. The
 program's Administrators are the one exception: to help, they can open anyone's page, through a
 switcher only they are shown. A company's people share one Sponsor Dashboard, and an
-institution's people share one Institution Dashboard: everyone attached to the company or the
-institution sees the same page.
+institution's people share one Institution Dashboard, though a tutor sees less of it.

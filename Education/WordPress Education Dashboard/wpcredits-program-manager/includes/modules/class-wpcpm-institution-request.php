@@ -2273,7 +2273,7 @@ class WPCPM_Institution_Request {
 	 * redirects and exits, so nothing after the call runs. The outcome is on the details' own
 	 * channel (`FLASH_DETAILS`), so no other card takes it; the words are in
 	 * `school_messages()`. The destination is the page that was posted from, which `wp_safe_redirect()`
-	 * keeps on this site, and the Institution Dashboard when there is none. A press that names the
+	 * keeps on this site, and the Institution Dashboard's details card when there is none. A press that names the
 	 * details card (`RETURN_FIELD`) lands on it, as the dashboard's other forms land on their cards, so a
 	 * withdrawal is read where it was made and not at the top of the page; the card's anchor is the one
 	 * place followed, and any fragment the page already carried gives way to it.
@@ -2380,7 +2380,8 @@ class WPCPM_Institution_Request {
 	}
 
 	/**
-	 * The institution dashboard, or the front page while it does not exist.
+	 * The details card on the institution dashboard, or the front page while the page does not exist: Your
+	 * institution, the view that draws the card (`card_url()`), with the school an Administrator's request names.
 	 *
 	 * Reached as an array callable so this file loads and its tests run whether or not the
 	 * dashboard shell has landed, the way the People card reaches it.
@@ -2388,8 +2389,9 @@ class WPCPM_Institution_Request {
 	 * @return string
 	 */
 	private static function dashboard_url() {
-		if ( class_exists( 'WPCPM_Institutions_Dashboard' ) && method_exists( 'WPCPM_Institutions_Dashboard', 'page_url' ) ) {
-			$url = (string) call_user_func( array( 'WPCPM_Institutions_Dashboard', 'page_url' ) );
+		if ( class_exists( 'WPCPM_Institutions_Dashboard' ) && method_exists( 'WPCPM_Institutions_Dashboard', 'card_url' ) ) {
+			$record = (string) call_user_func( array( 'WPCPM_Institutions_Dashboard', 'requested_record' ) );
+			$url    = (string) call_user_func( array( 'WPCPM_Institutions_Dashboard', 'card_url' ), 'details', $record );
 
 			if ( '' !== $url ) {
 				return $url;

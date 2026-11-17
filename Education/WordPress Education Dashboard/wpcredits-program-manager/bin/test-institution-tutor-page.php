@@ -74,6 +74,8 @@ function wp_nonce_url( $u, $a = -1 ) { return $u; }
 function esc_textarea( $s ) { return esc_html( $s ); }
 function selected( $a, $b = true, $e = true ) { return ''; }
 function checked( $a, $b = true, $e = true ) { return ''; }
+function is_admin() { return false; }
+function wp_strip_all_tags( $s ) { return trim( strip_tags( (string) $s ) ); }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 
@@ -89,6 +91,9 @@ class WPCPM_Settings {
 	public static function get_value( $k ) { return 'import_enabled' === $k; }
 }
 
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
@@ -135,7 +140,7 @@ ck( 'a representative of it is allowed all three', array( $P::decide( $P::ACT_VI
 echo "\n=== What the real cards draw for a tutor ===\n";
 $tutor_roster = drawn( 'WPCPM_Institution_Roster_View', $A, 10 );
 $rep_roster   = drawn( 'WPCPM_Institution_Roster_View', $A, 2 );
-ck( 'the roster is drawn, and is not the refused viewer\'s empty line', array( '' !== $tutor_roster, false !== strpos( $tutor_roster, 'There are no students to show here yet.' ) && false === strpos( $tutor_roster, 'wpcpm-roster__filters' ) ), array( true, false ) );
+ck( 'the roster is drawn, and is not the refused viewer\'s empty line', array( '' !== $tutor_roster, false !== strpos( $tutor_roster, 'There are no students to show here yet.' ) && false === strpos( $tutor_roster, 'wpcpm-roster__bar' ) ), array( true, false ) );
 ck( 'the same page a representative of the school is drawn', $tutor_roster, $rep_roster );
 ck( 'no Enroll students section: the import form draws nothing', drawn( 'WPCPM_Institution_Import_Form', $A, 10 ), '' );
 $GLOBALS['settled'] = array();

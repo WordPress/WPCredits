@@ -276,15 +276,20 @@ class WPCPM_Institution_Assignment {
 
 	/**
 	 * Where an Administrator opens an institution: its page on the Institution Dashboard, at the details
-	 * card.
+	 * card on the Your institution view (`card_url()`), or the front page while the page has no address.
+	 * Not escaped: the assignment mail's link.
 	 *
 	 * @param string $record_id The institution's record ID.
 	 * @return string An address.
 	 */
 	public static function page_url( $record_id ) {
-		$url = (string) WPCPM_Institutions_Dashboard::page_url();
-		$url = '' !== $url ? $url : home_url( '/' );
-		$url = add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, trim( (string) $record_id ), $url );
+		$url = WPCPM_Institutions_Dashboard::card_url( 'details', trim( (string) $record_id ), WPCPM_Institution_Details_Card::ANCHOR );
+
+		if ( '' !== $url ) {
+			return $url;
+		}
+
+		$url = add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, trim( (string) $record_id ), home_url( '/' ) );
 
 		return $url . '#' . WPCPM_Institution_Details_Card::ANCHOR;
 	}
@@ -350,58 +355,157 @@ class WPCPM_Institution_Assignment {
 			return;
 		}
 
-		printf( '<h4 class="wpcpm-details__subtitle">%s</h4>', esc_html__( 'Assigned Administrator', 'wpcredits-program-manager' ) );
+		// Drawn with the shared parts, as the card that draws this section is (Stage B, Task 19).
+		self::render_parts( $record, $message );
+	}
 
-		// The outcome line takes the focus after a post (`assets/js/forms.js`), as the tracks section's does.
-		if ( is_array( $message ) ) {
-			printf(
-				'<p class="wpcpm-details__message is-%1$s" role="status" tabindex="-1" id="%3$s" data-wpcpm-card-message>%2$s</p>',
-				esc_attr( $message[0] ),
-				esc_html( $message[1] ),
-				esc_attr( self::OUTCOME_ID )
-			);
+	/**
+	 * Who the field offers: Nobody first, then every Administrator; one that lost the capability is not offered again.
+	 *
+	 * @return array<int, string>
+	 */
+	private static function options() {
+		return array( 0 => __( 'Nobody', 'wpcredits-program-manager' ) ) + self::choices();
+	}
+
+	/**
+	 * The option chosen in the field: the stored Administrator while they are offered, Nobody otherwise.
+	 *
+	 * @param int   $stored  The stored ID.
+	 * @param array $options What `options()` offers.
+	 * @return int
+	 */
+	private static function chosen( $stored, array $options ) {
+		return isset( $options[ $stored ] ) ? (int) $stored : 0;
+	}
+
+	/**
+	 * The words read while nobody is assigned.
+	 *
+	 * @return string
+	 */
+	private static function nobody_yet() {
+		return __( 'Nobody yet', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The field's placeholder.
+	 *
+	 * @return string
+	 */
+	private static function find_words() {
+		return __( 'Type to find an Administrator', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * What the field's list says when no name matches.
+	 *
+	 * @return string
+	 */
+	private static function none_words() {
+		return __( 'No Administrator has that name.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The hidden fields the form posts after its nonce: its action and the institution.
+	 *
+	 * @param string $record The institution's record ID.
+	 * @return array<string, string>
+	 */
+	private static function form_fields( $record ) {
+		return array(
+			'action' => self::ACTION_SAVE,
+			'record' => (string) $record,
+		);
+	}
+
+	/**
+	 * The Assigned Administrator section on the shared parts (design 6.4), for an Administrator alone: an in-card heading,
+	 * the outcome of the last post under it, where its way back lands (its id on a wrapper, since the shell's message
+	 * takes none), a key and value row naming the stored Administrator (its words as they are, the sheet breaking a long one, or "Nobody yet" of the empty
+	 * kind), and the inner fold Change who follows it up: the one combobox and one primary.
+	 *
+	 * @param string     $record  The institution's record ID.
+	 * @param array|null $message The outcome of the last post as type and text, or null.
+	 */
+	private static function render_parts( $record, $message ) {
+		$heading = 'wpcpm-details-assignment-heading';
+
+		echo WPCPM_UI::heading( __( 'Assigned Administrator', 'wpcredits-program-manager' ), 'h4', $heading ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the part.
+
+		// The outcome under the heading, where its way back lands; a refusal in the open fold, directly over the form it
+		// refused, its way back landing there with it (Gate B round 2, F2).
+		$outcome = is_array( $message ) ? sprintf( '<div id="%1$s">%2$s</div>', esc_attr( self::OUTCOME_ID ), WPCPM_Dashboard_Card::message( $message[0], $message[1], 'wpcpm-details__message' ) ) : '';
+		$refusal = is_array( $message ) && 'error' === $message[0];
+
+		if ( ! $refusal ) {
+			echo $outcome; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Dashboard_Card::message() escapes what it prints.
 		}
 
 		$stored = self::stored_of( $record );
 		$name   = self::label( $stored );
-
-		printf(
-			'<dl class="wpcpm-details__list"><div class="wpcpm-details__row"><dt>%1$s</dt><dd>%2$s</dd></div></dl>',
-			esc_html__( 'Administrator', 'wpcredits-program-manager' ),
-			esc_html( '' !== $name ? $name : __( 'Nobody yet', 'wpcredits-program-manager' ) )
+		$label  = array(
+			'key'    => 'label',
+			'label'  => '',
+			'kind'   => 'text',
+			'header' => true,
+		);
+		$text   = array(
+			'key'   => 'value',
+			'label' => '',
+			'kind'  => 'text',
 		);
 
-		// Nobody first, then every Administrator; one that lost the capability is not offered again.
-		$options = array( 0 => __( 'Nobody', 'wpcredits-program-manager' ) ) + self::choices();
-
-		printf(
-			'<details class="wpcpm-details__more" id="wpcpm-details-assignment"%1$s><summary class="wpcpm-details__toggle">%2$s</summary>',
-			is_array( $message ) ? ' open' : '',
-			esc_html__( 'Change who follows it up', 'wpcredits-program-manager' )
-		);
-		printf(
-			'<form class="wpcpm-details__form" method="post" action="%1$s" novalidate data-wpcpm-once data-wpcpm-busy="%2$s">',
-			esc_url( admin_url( 'admin-post.php' ) ),
-			esc_attr__( 'Saving', 'wpcredits-program-manager' )
-		);
-		wp_nonce_field( self::ACTION_SAVE . '_' . $record );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
-		printf( '<input type="hidden" name="record" value="%s" />', esc_attr( $record ) );
-
-		WPCPM_Dashboards::render_combo(
+		$table = WPCPM_UI::table_open(
+			array( $label, $text ),
 			array(
-				'id'      => 'wpcpm-details-assigned',
-				'name'    => self::FIELD,
-				'options' => $options,
-				'current' => isset( $options[ $stored ] ) ? $stored : 0,
-				'label'   => __( 'Administrator', 'wpcredits-program-manager' ),
-				'find'    => __( 'Type to find an Administrator', 'wpcredits-program-manager' ),
-				'none'    => __( 'No Administrator has that name.', 'wpcredits-program-manager' ),
+				'keyvalue'   => true,
+				'labelledby' => $heading,
+			)
+		)
+			. WPCPM_UI::row_open()
+			. WPCPM_UI::cell( $label, esc_html__( 'Administrator', 'wpcredits-program-manager' ) )
+			. WPCPM_UI::cell( $text, esc_html( '' !== $name ? $name : self::nobody_yet() ), '' !== $name ? '' : 'empty' )
+			. WPCPM_UI::row_close() . WPCPM_UI::table_close();
+
+		echo $table; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts.
+
+		$options = self::options();
+		$fold    = WPCPM_UI::inner_open(
+			array(
+				'title' => __( 'Change who follows it up', 'wpcredits-program-manager' ),
+				'open'  => is_array( $message ),
+				'id'    => 'wpcpm-details-assignment',
 			)
 		);
 
-		printf( '<p class="wpcpm-details__actions"><button type="submit" class="wpcpm-button">%s</button></p>', esc_html__( 'Save', 'wpcredits-program-manager' ) );
-		echo '</form></details>';
+		echo $fold . ( $refusal ? $outcome : '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts and in WPCPM_Dashboard_Card::message().
+		printf(
+			'<form method="post" action="%1$s" novalidate data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Saving', 'wpcredits-program-manager' )
+		);
+		echo WPCPM_UI::nonce( self::ACTION_SAVE . '_' . $record ) . WPCPM_Institution_Details_Card::hidden_html( self::form_fields( $record ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the part and in hidden_html().
+		$field  = WPCPM_UI::field(
+			array(
+				'type'    => 'combo',
+				'id'      => 'wpcpm-details-assigned',
+				'name'    => self::FIELD,
+				'label'   => __( 'Administrator', 'wpcredits-program-manager' ),
+				'value'   => self::chosen( $stored, $options ),
+				'options' => $options,
+				'find'    => self::find_words(),
+				'none'    => self::none_words(),
+			)
+		);
+		$button = WPCPM_UI::button(
+			array(
+				'label' => __( 'Save', 'wpcredits-program-manager' ),
+				'side'  => 'front',
+			)
+		);
+
+		echo $field . WPCPM_UI::actions( array( $button ) ) . '</form>' . WPCPM_UI::inner_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts.
 	}
 
 	/**

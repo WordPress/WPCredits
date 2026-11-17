@@ -1,5 +1,6 @@
 /**
- * The parts' script (design 3.2, job 1): the note panels of a Decide area and the row forms of a list.
+ * The parts' script (design 3.2, jobs 1 and 3): the note panels of a Decide area and the row forms of a list,
+ * and the file box; and the pick that loads a page (Task 14).
  *
  * The server prints a page that works with no script: in a Decide area (`.wpcpm-ui-decide`) every note
  * panel is printed open with its form, and the openers in the action row and the Cancel buttons in the
@@ -24,19 +25,41 @@
  *   submit and the two `aria-expanded` values; the panel stays open and what was typed stays. A post the
  *   browser makes with the hidden submit (Enter in a one-line box) is made again with the shown one.
  *
+ * The file box (`.wpcpm-ui-file`, `WPCPM_UI::file()`) is printed with the browser's own file control shown and
+ * its button and the name beside it `hidden`. Once the page is parsed each whole box (a control,
+ * a button and a name) has its button and name revealed and its control clipped by a class (never `display:
+ * none`, so the label, `required`, the browser's refusal and the upload stay the control's). The control stays the
+ * field's one tab stop and the button takes `tabindex="-1"`: the browser focuses the control when it refuses a
+ * missing file, and the sheet draws the ring on the button while the control has the focus. The button opens the
+ * control (its `click()`, the focus put on the control first); the name follows the choice on `change` and on
+ * `cancel`, and when the control is empty it reads the words the server printed in it, so the script holds
+ * no words. A box missing a part is left as printed. Listeners are added to the boxes only: a
+ * page with none gains none.
+ *
+ * A form marked `data-wpcpm-pick-submits` (the Institution Dashboard's compact Viewing as institution) is sent
+ * when a name is picked in its field: switcher.js announces a pick as a `wpcpm:picked` event on the form, and this
+ * listens on each marked form and sends it once a pick (`requestSubmit()` where the browser has it, else
+ * `submit()`), never for the name the page is about already, and never twice within a few seconds. Once it listens,
+ * and only once switcher.js has shown the field, it hides the form's Show (`data-wpcpm-noscript`), so a page where
+ * either script did not load keeps Show, and Show works. An unmarked form is never sent from here.
+ *
  * A panel is only an element carrying `data-wpcpm-panel` or the class `wpcpm-ui-list__form`; an opener is
  * a control outside every panel, with `aria-expanded`, whose `aria-controls` names a panel of its own area.
  * So nothing is ever done across two areas, and a widget inside a panel (the type-and-pick box) or a toggle
  * of another script is left alone. One area that fails is left as printed and the others still fold. A
  * page with none of the parts is not changed. Included twice, it runs once; `window.wpcpmParts` is the one
- * name it adds, the function that folds every area not yet folded. It never posts, fetches, stores or
- * writes markup, and it animates nothing.
+ * name it adds, the function that folds every area not yet folded. It never fetches, stores or writes markup, sends
+ * a form only as said above, and it animates nothing.
  */
 ( function () {
 	'use strict';
 
 	var AREA = '.wpcpm-ui-decide, .wpcpm-ui-list';
 	var PANEL = '[data-wpcpm-panel], .wpcpm-ui-list__form';
+	var FILE = '.wpcpm-ui-file';
+	var PICKS = 'form[data-wpcpm-pick-submits]';
+	// How long after a pick a further pick sends nothing, in ms: longer than a double press, shorter than a reader's wait.
+	var PICK_AGAIN = 4000;
 	// The submit this script is posting itself, so its own submit event is let through.
 	var passing = null;
 
@@ -303,8 +326,134 @@
 		} );
 	}
 
+	/**
+	 * Draw one file box as the design does: reveal its button and its name, clip its control, and tie the
+	 * button and the name to the control. A box missing its control, its button or its name is left as printed.
+	 *
+	 * @param {Element} box A `.wpcpm-ui-file`.
+	 */
+	function fileBox( box ) {
+		var input = box.querySelector( '.wpcpm-ui-file__input' );
+		var choose = box.querySelector( '.wpcpm-ui-file__choose' );
+		var name = box.querySelector( '.wpcpm-ui-file__name' );
+		var empty;
+
+		if ( ! input || ! choose || ! name || 'file' !== String( input.type ).toLowerCase() ) {
+			return;
+		}
+
+		box.wpcpmPartsFile = true;
+		// The words the server printed for no file, translated there.
+		empty = name.textContent;
+
+		function follow() {
+			name.textContent = input.files && input.files.length ? input.files[ 0 ].name : empty;
+		}
+
+		choose.addEventListener( 'click', function () {
+			input.focus();
+			input.click();
+		} );
+		input.addEventListener( 'change', follow );
+		// A chooser closed with no new choice: a browser that clears the choice sends change, one that keeps it
+		// sends cancel; either way the name says what the control holds.
+		input.addEventListener( 'cancel', follow );
+
+		// A page brought back with a file still chosen names it.
+		follow();
+		input.classList.add( 'wpcpm-ui-file__input--hidden' );
+		choose.setAttribute( 'tabindex', '-1' );
+		choose.hidden = false;
+		name.hidden = false;
+	}
+
+	/**
+	 * Whether a marked form's field is really there: switcher.js shows the field's block (the combobox's parent,
+	 * printed `hidden`) as the last step of wiring it, and only a browser with CustomEvent can announce a pick.
+	 *
+	 * @param {Element} form A form marked `data-wpcpm-pick-submits`.
+	 * @return {boolean}
+	 */
+	function fieldWired( form ) {
+		var input = form.querySelector( '[role="combobox"]' );
+
+		return !! input && !! input.parentNode && ! input.parentNode.hidden && ! input.hidden && 'function' === typeof window.CustomEvent;
+	}
+
+	/**
+	 * Send a marked form once a name is picked in its field, and hide its Show once the field is really there.
+	 *
+	 * A pick sends the form once. A second pick within a few seconds sends nothing, so Enter and a click on one pick,
+	 * or two quick picks, never send it twice; after them, a pick sends it again, so a reader who stopped the page
+	 * from loading is not left with a field that does nothing. A page brought back from the back-forward cache is a
+	 * page to pick on again at once.
+	 *
+	 * Show is hidden only while the field is there (`fieldWired()`): asked when this job starts, and, when the field is
+	 * not there yet, asked again at the window's load, which comes after every DOMContentLoaded listener has run, so
+	 * after switcher.js has wired the field whichever of the two scripts the page loaded first. A field that is not
+	 * there then never will be: Show stays, and sends the form as today's switcher does.
+	 *
+	 * @param {Element} form A form marked `data-wpcpm-pick-submits`.
+	 */
+	function pickSubmits( form ) {
+		var sent = false;
+		var again = null;
+
+		form.wpcpmPartsPick = true;
+
+		form.addEventListener( 'wpcpm:picked', function ( event ) {
+			var detail = event.detail || {};
+
+			// Once a pick, a name and not the empty choice, and never the name the page is about already.
+			if ( sent || ! detail.value || detail.value === detail.own ) {
+				return;
+			}
+
+			sent = true;
+			again = window.setTimeout( function () {
+				sent = false;
+			}, PICK_AGAIN );
+
+			if ( 'function' === typeof form.requestSubmit ) {
+				form.requestSubmit();
+			} else {
+				form.submit();
+			}
+		} );
+
+		window.addEventListener( 'pageshow', function ( event ) {
+			if ( event.persisted ) {
+				window.clearTimeout( again );
+				sent = false;
+			}
+		} );
+
+		function hideShow() {
+			if ( ! fieldWired( form ) ) {
+				return false;
+			}
+
+			each( form.querySelectorAll( '[data-wpcpm-noscript]' ), function ( show ) {
+				show.hidden = true;
+			} );
+
+			return true;
+		}
+
+		if ( ! hideShow() ) {
+			window.addEventListener( 'load', hideShow );
+		}
+	}
+
+	// Report an error and go on: one part that fails does not stop the others.
+	function report( error ) {
+		if ( window.console && 'function' === typeof window.console.error ) {
+			window.console.error( error );
+		}
+	}
+
 	// One area that fails does not stop the others; it is marked folded only once its work is done, so a
-	// later call can try it again.
+	// later call can try it again. A file box is drawn once.
 	function start() {
 		each( document.querySelectorAll( AREA ), function ( area ) {
 			if ( area.wpcpmPartsFolded ) {
@@ -315,9 +464,31 @@
 				foldArea( area );
 				area.wpcpmPartsFolded = true;
 			} catch ( error ) {
-				if ( window.console && 'function' === typeof window.console.error ) {
-					window.console.error( error );
-				}
+				report( error );
+			}
+		} );
+
+		each( document.querySelectorAll( FILE ), function ( box ) {
+			if ( box.wpcpmPartsFile ) {
+				return;
+			}
+
+			try {
+				fileBox( box );
+			} catch ( error ) {
+				report( error );
+			}
+		} );
+
+		each( document.querySelectorAll( PICKS ), function ( form ) {
+			if ( form.wpcpmPartsPick ) {
+				return;
+			}
+
+			try {
+				pickSubmits( form );
+			} catch ( error ) {
+				report( error );
 			}
 		} );
 	}

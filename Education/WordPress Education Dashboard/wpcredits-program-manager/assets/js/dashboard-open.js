@@ -88,8 +88,73 @@
 		return disclosure;
 	}
 
+	// An argument of the address that names a view: `wpcpm_view`, with a value or none.
+	var VIEW_NAMED = /[?&]wpcpm_view(?:[=&]|$)/;
+
+	// An old link to the Institution Dashboard names only an anchor on the bare page, `#wpcpm-import`, and the
+	// bare page is now the Overview, which holds no card. The Overview prints a map, data and never run, from each
+	// anchor of the reader's views to the view's address: when the fragment names no element on the page and the
+	// map holds it as its own key, the address is replaced with the view's, the anchor kept. A page with no map
+	// (every other view, the other two dashboards), a map that does not parse, an address that already names a view
+	// (a view that falls back to the Overview) and a map that names the page's own address move nothing, so a move
+	// can never loop. Answers whether the address was replaced.
+	function moveToView( location ) {
+		var id = String( location.hash || '' ).slice( 1 );
+		var script;
+		var map;
+		var target;
+
+		if ( ! id ) {
+			return false;
+		}
+
+		try {
+			id = decodeURIComponent( id );
+		} catch ( error ) {
+			return false;
+		}
+
+		if ( document.getElementById( id ) ) {
+			return false;
+		}
+
+		try {
+			script = document.querySelector( 'script.wpcpm-anchor-views' );
+			map = script ? JSON.parse( script.textContent ) : null;
+		} catch ( error ) {
+			return false;
+		}
+
+		if ( ! map || 'object' !== typeof map || ! Object.prototype.hasOwnProperty.call( map, id ) ) {
+			return false;
+		}
+
+		target = map[ id ];
+
+		if (
+			'string' !== typeof target ||
+			VIEW_NAMED.test( String( location.search ) ) ||
+			String( location.href ).split( '#' )[ 0 ] === target ||
+			'' === target
+		) {
+			return false;
+		}
+
+		window.location.replace( target + '#' + id );
+
+		return true;
+	}
+
 	function openTarget() {
 		openFragment( window.location.hash );
+	}
+
+	// Once the page is parsed: an old link moves to the view that holds its card, and otherwise the card the
+	// fragment names opens.
+	function openLoaded() {
+		if ( ! moveToView( window.location ) ) {
+			openTarget();
+		}
 	}
 
 	// A disclosure's own summary: its title, and the first thing a keyboard reaches in it.
@@ -158,7 +223,7 @@
 		}
 	}
 
-	ready( openTarget );
+	ready( openLoaded );
 	window.addEventListener( 'hashchange', openTarget );
 	document.addEventListener( 'click', openClicked );
 }() );

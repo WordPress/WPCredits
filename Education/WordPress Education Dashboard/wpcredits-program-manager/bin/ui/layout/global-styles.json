@@ -1,0 +1,29 @@
+{
+	"made_by": "WPCPM_THEME_DIR=<theme folder> node bin/ui/layout/refresh-global-styles.mjs",
+	"theme_json_sha256": "f37bd6dac8b48587975b9f8dd3f92ecf1f83476208c12320709eeace4b055555",
+	"theme_version": "1.32.28",
+	"wordpress": "7.1.3",
+	"gutenberg": "24.0.0",
+	"blocks": [
+		"core/template-part",
+		"core/group",
+		"core/post-content"
+	],
+	"block_nodes": [],
+	"block_library": [
+		{
+			"handle": "wp-block-group",
+			"file": "wp-content/plugins/gutenberg/build/styles/block-library/group/style.min.css"
+		},
+		{
+			"handle": "wp-block-post-content",
+			"file": "wp-content/plugins/gutenberg/build/styles/block-library/post-content/style.min.css"
+		},
+		{
+			"handle": "wp-block-library",
+			"file": "wp-content/plugins/gutenberg/build/styles/block-library/common.min.css"
+		}
+	],
+	"custom_css_bytes": 0,
+	"made": "2026-11-16"
+}

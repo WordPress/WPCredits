@@ -82,7 +82,8 @@ function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_html__( $s, $d = null ) { return esc_html( $s ); }
 function esc_attr( $s ) { return esc_html( $s ); }
 function esc_attr__( $s, $d = null ) { return esc_html( $s ); }
-function esc_url( $s ) { return str_replace( '&', '&#038;', (string) $s ); }
+// Core's character filter (fix round 2, the hostile-input checks): a quote or an angle bracket never reaches an attribute.
+function esc_url( $s ) { return str_replace( '&', '&#038;', (string) preg_replace( '|[^a-z0-9-~+_.?#=!&;,/:%@$\|*\'()\[\]\x80-\xff]|i', '', (string) $s ) ); }
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function wp_unslash( $v ) { return $v; }
@@ -96,6 +97,10 @@ function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['o
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
 function get_user_by( $field, $value ) { return false; }
 function get_queried_object_id() { return 12; }
+// The parts (Task 15): the front end, and the dates as the mentor card formats them, read back as the raw day so the
+// parts' dates read what the formatter stub above prints.
+function is_admin() { return false; }
+function date_i18n( $f, $t = false ) { return gmdate( 'Y-m-d', (int) $t ); }
 // Core's own output, single quotes and all, so the markup asserted here is the markup a
 // browser gets rather than a tidier version of it.
 function selected( $a, $b, $echo = true ) { return (string) $a === (string) $b ? " selected='selected'" : ''; }
@@ -179,7 +184,8 @@ class WPCPM_Institution_Policy {
 			'allowed'     => $allowed,
 			'ground'      => $allowed ? 'member' : '',
 			'institution' => $allowed ? (string) $subject['id'] : '',
-			'fields'      => $allowed ? null : array(),
+			// A decision that names its fields scopes the columns (Task 15: a reader with a narrower set).
+			'fields'      => $allowed ? ( $GLOBALS['fields'] ?? null ) : array(),
 			'why'         => '',
 		);
 	}
@@ -290,10 +296,14 @@ class WPCPM_Institution_Roster {
 
 // Declares add_filter(), apply_filters() and add_action(): the program map is made of filters.
 require_once __DIR__ . '/stubs/compiled-seeds.php';
+require_once __DIR__ . '/stubs/view-faults.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php';
 
 // The program map is the compiled tracks' (bin/stubs/compiled-seeds.php).
@@ -318,15 +328,15 @@ function ck( $label, $actual, $expected ) {
 
 function has( $html, $needle ) { return false !== strpos( $html, $needle ); }
 
-/** The number in the count badge beside a heading. */
+/** The number in a group's phrase, beside its title in the fold's head ("13 students"). */
 function group_count( $html, $label ) {
-	$pattern = '/' . preg_quote( $label, '/' ) . ' <span class="wpcpm-group__count">(\d+)<\/span>/';
+	$pattern = '/<h3 class="wpcpm-ui-fold__title">' . preg_quote( $label, '/' ) . '<\/h3><span class="wpcpm-ui-fold__phrase">(\d+) students?<\/span>/';
 	return preg_match( $pattern, $html, $m ) ? (int) $m[1] : null;
 }
 
 /** One select's options, in the order they are printed. */
 function options( $html, $name ) {
-	if ( ! preg_match( '/<select name="' . preg_quote( $name, '/' ) . '"[^>]*>(.*?)<\/select>/s', $html, $m ) ) { return null; }
+	if ( ! preg_match( '/<select[^>]* name="' . preg_quote( $name, '/' ) . '"[^>]*>(.*?)<\/select>/s', $html, $m ) ) { return null; }
 	preg_match_all( '/<option value="([^"]*)"[^>]*>(.*?)<\/option>/s', $m[1], $all, PREG_SET_ORDER );
 	$out = array();
 	foreach ( $all as $option ) { $out[] = $option[2]; }
@@ -335,18 +345,18 @@ function options( $html, $name ) {
 
 /** Which of one select's options is marked selected. */
 function chosen( $html, $name ) {
-	if ( ! preg_match( '/<select name="' . preg_quote( $name, '/' ) . '"[^>]*>(.*?)<\/select>/s', $html, $m ) ) { return null; }
-	return preg_match( "/<option value=\"([^\"]*)\" selected='selected'/", $m[1], $s ) ? $s[1] : '';
+	if ( ! preg_match( '/<select[^>]* name="' . preg_quote( $name, '/' ) . '"[^>]*>(.*?)<\/select>/s', $html, $m ) ) { return null; }
+	return preg_match( "/<option value=\"([^\"]*)\"(?: selected='selected'| selected)/", $m[1], $s ) ? $s[1] : '';
 }
 
-/** The actions paragraph of the filter bar: the Show button and whatever sits beside it. */
+/** The filter bar's row of actions: the Show button and whatever sits beside it. */
 function actions( $html ) {
-	return preg_match( '/<p class="wpcpm-roster__actions">(.*?)<\/p>/s', $html, $m ) ? $m[1] : '';
+	return preg_match( '/<form class="wpcpm-roster__bar.*?<div class="wpcpm-ui-actions">(.*?)<\/div><\/form>/s', $html, $m ) ? $m[1] : '';
 }
 
 /** The export link's address with its entities decoded, or '' when there is no export link. */
 function export_href( $html ) {
-	if ( ! preg_match( '/<a class="wpcpm-roster__export" href="([^"]*)"/', $html, $m ) ) { return ''; }
+	if ( ! preg_match( '/<a class="wpcpm-btn wpcpm-btn--quiet" href="([^"]*)">Download this cohort \(CSV\)<\/a>/', $html, $m ) ) { return ''; }
 	return html_entity_decode( $m[1], ENT_QUOTES, 'UTF-8' );
 }
 
@@ -356,10 +366,25 @@ function export_args( $html ) {
 	return $args;
 }
 
-/** Every table row of one group, as plain markup. */
+/** One group's fold, its students and their tables, as plain markup. */
 function group_rows( $html, $key ) {
-	if ( ! preg_match( '/wpcpm-roster__group--' . preg_quote( $key, '/' ) . '">(.*?)<\/section>/s', $html, $m ) ) { return ''; }
+	if ( ! preg_match( '/wpcpm-roster__group--' . preg_quote( $key, '/' ) . '" id="wpcpm-roster-' . preg_quote( $key, '/' ) . '">(.*?)<\/section>/s', $html, $m ) ) { return ''; }
 	return $m[1];
+}
+
+/** The students' inner folds of one group, each from its head to the end of its table. */
+function group_cards( $html, $key ) {
+	return array_slice( explode( '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner', group_rows( $html, $key ) ), 1 );
+}
+
+/** One key and value row's value, by the row's column class, as markup. */
+function row_value( $card, $slug ) {
+	return preg_match( '/wpcpm-roster__row--' . preg_quote( $slug, '/' ) . '"><th[^>]*>.*?<\/th><td class="[^"]*" role="cell">(.*?)<\/td>/s', $card, $m ) ? $m[1] : null;
+}
+
+/** Whether an inner fold's head names this student, the break opportunities taken out. */
+function card_names( $card, $name ) {
+	return false !== strpos( str_replace( '<wbr>', '', substr( $card, 0, (int) strpos( $card, '</summary>' ) ) ), '>' . $name . '<' );
 }
 
 /**
@@ -566,10 +591,10 @@ ck( 'Cy is waiting with no mentor at all', has( group_rows( $html, 'waiting' ), 
 // nothing else while the card inside named the mentor. A past status is spelled the same in
 // both tables, so it is badged off the Students row, and the mentor's name the join lent the
 // row is the one the opened card prints.
-ck( 'a finished student with no account still wears the badge of their past status',
-	has( card_summary( $html, 'finished', 'Dee Example' ), 'wpcpm-badge' ) && has( card_summary( $html, 'finished', 'Dee Example' ), '>Graduated</span>' ), true );
+ck( 'a finished student with no account still wears the tag of their past status',
+	has( card_summary( $html, 'finished', 'Dee Example' ), '<span class="wpcpm-status">Graduated</span>' ), true );
 ck( 'and the mentor the row already names is in the preview line', has( card_summary( $html, 'finished', 'Dee Example' ), 'Mo Mentor' ), true );
-ck( 'but a current student with no account gets no badge off the pipeline status', has( card_summary( $html, 'current', 'Bo Example' ), 'wpcpm-badge' ), false );
+ck( 'but a current student with no account gets no tag off the pipeline status', has( card_summary( $html, 'current', 'Bo Example' ), 'wpcpm-status' ), false );
 ck( 'and no mentor name the row does not carry', has( card_summary( $html, 'current', 'Bo Example' ), ' · ' ), false );
 // The two notes state the rule the groups are built on, both signals named: a report record
 // with no mentor link left on the Students row is still Current, so "with a mentor assigned"
@@ -580,12 +605,12 @@ ck( 'neither note names a report record', has( $html, 'report record' ), false )
 // The last group holds whoever is not on the program now: students who have not started yet,
 // applicants who never began and students who stopped partway. Its heading and its note say all
 // of that, and neither "Did not start" nor "Not continuing" does.
-ck( 'the last group is headed Not on the program now', has( $html, 'Not on the program now <span class="wpcpm-group__count">' ), true );
+ck( 'the last group is headed Not on the program now', has( $html, '<h3 class="wpcpm-ui-fold__title">Not on the program now</h3>' ), true );
 ck( 'its note names the students who have not started, the ones who never began and the ones who stopped',
 	has( $html, 'Students who have not started yet, never began the program, or stopped before finishing it.' ), true );
 ck( 'and the earlier headings and notes are gone', array(
 	has( $html, 'Did not start' ),
-	has( $html, 'Not continuing <span class="wpcpm-group__count">' ),
+	has( $html, '<h3 class="wpcpm-ui-fold__title">Not continuing</h3>' ),
 	has( $html, 'Applicants who never began the program' ),
 ), array( false, false, false ) );
 ck( 'the group filter offers the same four headings, in the same order',
@@ -593,13 +618,12 @@ ck( 'the group filter offers the same four headings, in the same order',
 ck( 'while the group keys are the same four', array_keys( WPCPM_Institution_Roster_View::group_labels() ), array( 'current', 'waiting', 'finished', 'not_started' ) );
 // Every group is a disclosure, so the same chevron is on every row of the page. The two a
 // school works from start open; the two it reads rarely start closed. The group, not its
-// students: since the roster became the Mentor Report Card's component every student is a
-// disclosure of its own, so the assertions name the group's own tag.
-ck( 'all four groups are disclosures', substr_count( $html, '<details class="wpcpm-group__disclosure"' ), 4 );
-ck( 'Current starts open', has( group_rows( $html, 'current' ), '<details class="wpcpm-group__disclosure" open>' ), true );
-ck( 'so does Waiting', has( group_rows( $html, 'waiting' ), '<details class="wpcpm-group__disclosure" open>' ), true );
-ck( 'Finished starts closed', has( group_rows( $html, 'finished' ), '<details class="wpcpm-group__disclosure">' ), true );
-ck( 'and so does Not on the program now', has( group_rows( $html, 'not_started' ), '<details class="wpcpm-group__disclosure">' ), true );
+// students: every student is an inner fold of its own, so the assertions name the group's own tag.
+ck( 'all four groups are disclosures', substr_count( $html, '<details class="wpcpm-ui-fold">' ) + substr_count( $html, '<details class="wpcpm-ui-fold" open>' ), 4 );
+ck( 'Current starts open', 0 === strpos( group_rows( $html, 'current' ), '<details class="wpcpm-ui-fold" open>' ), true );
+ck( 'so does Waiting', 0 === strpos( group_rows( $html, 'waiting' ), '<details class="wpcpm-ui-fold" open>' ), true );
+ck( 'Finished starts closed', 0 === strpos( group_rows( $html, 'finished' ), '<details class="wpcpm-ui-fold">' ), true );
+ck( 'and so does Not on the program now', 0 === strpos( group_rows( $html, 'not_started' ), '<details class="wpcpm-ui-fold">' ), true );
 
 // ...until it is long. One institution has forty-two students on the program at once, and an
 // open list of forty-two buries the groups, the people and the agreement under it. Past
@@ -633,21 +657,14 @@ $long = render();
 
 // Named for the Current group, not "somewhere on the page": Finished and Not on the program now are
 // disclosures whatever their length, so counting them would pass with the ceiling deleted.
-ck( 'a group longer than the ceiling starts closed', has( group_rows( $long, 'current' ), '<details class="wpcpm-group__disclosure">' ), true );
-ck( 'and not open', has( group_rows( $long, 'current' ), '<details class="wpcpm-group__disclosure" open>' ), false );
-ck( 'and says how many are inside it without being opened', has( $long, '>' . ( WPCPM_Institution_Roster_View::OPEN_MAX + 1 ) . '<' ), true );
+ck( 'a group longer than the ceiling starts closed', 0 === strpos( group_rows( $long, 'current' ), '<details class="wpcpm-ui-fold">' ), true );
+ck( 'and not open', has( group_rows( $long, 'current' ), '<details class="wpcpm-ui-fold" open>' ), false );
+ck( 'and says how many are inside it without being opened', group_count( $long, 'Current' ), WPCPM_Institution_Roster_View::OPEN_MAX + 1 );
 ck( 'the students are still there, one card each, for search and for the browser to find',
-    substr_count( $long, 'wpcpm-mentee__disclosure' ), WPCPM_Institution_Roster_View::OPEN_MAX + 1 );
+    count( group_cards( $long, 'current' ) ), WPCPM_Institution_Roster_View::OPEN_MAX + 1 );
 
 $GLOBALS['index']['recINSTAAA0000001'] = $seeded;
-ck( 'though each of its students is a card that opens', substr_count( group_rows( $html, 'current' ), 'wpcpm-mentee__disclosure' ), 2 );
-ck( 'drawn with the mentor card\'s own classes, so the two pages cannot drift apart',
-    array(
-		has( group_rows( $html, 'current' ), 'wpcpm-mentee__summary' ),
-		has( group_rows( $html, 'current' ), 'wpcpm-mentee__table' ),
-		has( group_rows( $html, 'current' ), 'wpcpm-mentee__value' ),
-	),
-    array( true, true, true ) );
+ck( 'though each of its students is a card that opens', count( group_cards( $html, 'current' ) ), 2 );
 // The roster used to scroll sideways inside its own box, which is the thing this replaced.
 ck( 'and nothing on the page scrolls sideways any more', has( $html, 'wpcpm-roster__scroll' ), false );
 
@@ -672,22 +689,21 @@ echo "\n=== One student's row ===\n";
 
 $ada = group_rows( $html, 'current' );
 
-// The avatar sits before the name, the same shape the mentor page draws it in - one
-// student, one face, on both pages (consistency pass, 1.94.7).
+// The avatar sits before the name, the same 44px photo the mentor page draws (consistency pass, 1.94.7).
 ck( 'a student row carries the same 44px avatar as the mentor page, before the name',
-	preg_match( '#<summary class="wpcpm-mentee__summary"><img class="wpcpm-avatar" src="[^"]*adaexample[^"]*" srcset="[^"]*" width="44" height="44" alt="[^"]*" title="[^"]*" loading="lazy" decoding="async" /><div class="wpcpm-mentee__identity">#', $html ) === 1, true );
-ck( 'a row with neither a username nor an account email prints no avatar',
-	preg_match( '#<summary class="wpcpm-mentee__summary"><div class="wpcpm-mentee__identity"><h4 class="wpcpm-mentee__name">Bo Example#', $html ) === 1, true );
+	preg_match( '#<summary class="wpcpm-ui-fold__head"><span class="wpcpm-ui-fold__portrait"><img class="wpcpm-avatar" src="[^"]*adaexample[^"]*" srcset="[^"]*" width="44" height="44" alt="" title="[^"]*" loading="lazy" decoding="async" /></span><span class="wpcpm-ui-fold__lead"><span class="wpcpm-ui-fold__title"><a [^>]*>Ada Example#', $html ) === 1, true );
+ck( 'a row with neither a username nor an account email prints no avatar, the name\'s first letter in its place',
+	preg_match( '#<summary class="wpcpm-ui-fold__head"><span class="wpcpm-ui-fold__portrait"><span class="wpcpm-ui-fold__initials" aria-hidden="true">B</span></span><span class="wpcpm-ui-fold__lead"><span class="wpcpm-ui-fold__title">Bo Example#', $html ) === 1, true );
 // Lu has an account email and no username: the case the old fallback used to draw a Gravatar
 // for, keyed on the address the Institution Dashboard otherwise never shows a member.
 ck( 'a row with an account email but no username prints no avatar either',
-	preg_match( '#<summary class="wpcpm-mentee__summary"><div class="wpcpm-mentee__identity"><h4 class="wpcpm-mentee__name">Lu Example#', $html ) === 1, true );
+	preg_match( '#<summary class="wpcpm-ui-fold__head"><span class="wpcpm-ui-fold__portrait"><span class="wpcpm-ui-fold__initials" aria-hidden="true">L</span></span><span class="wpcpm-ui-fold__lead"><span class="wpcpm-ui-fold__title">Lu Example#', $html ) === 1, true );
 ck( 'so nothing on the page is a Gravatar URL a member could read as a lookup key',
 	has( $html, 'gravatar' ), false );
 
-ck( 'the program is the name people use, with its badge',
-	has( $ada, '<span class="wpcpm-badge wpcpm-badge--sensei">WordPress Credits Program 150h</span>' ), true );
-ck( 'the dates come from the mentor card formatter', has( $ada, '2026-02-16 to 2026-09-30' ), true );
+ck( 'the program is the name people use, with its tag',
+	has( $ada, '<span class="wpcpm-status wpcpm-status--green">WordPress Credits Program 150h</span>' ), true );
+ck( 'the dates are the mentor card formatter\'s words, each date whole', has( $ada, '<span class="wpcpm-ui-whole">2026-02-16</span> to <span class="wpcpm-ui-whole">2026-09-30</span>' ), true );
 ck( 'the days left are counted from today', has( $ada, '28 days left' ), true );
 ck( 'the mentor is named from the cached card', has( $ada, 'Mo Mentor' ), true );
 ck( 'and the mentor address is not printed here', has( $ada, 'mo@example.com' ), false );
@@ -711,10 +727,10 @@ echo "\n=== A status is printed in a school's words and read in the base's ===\n
  * @return string|null The cell's text, or null when the card has no Program row.
  */
 function program_text( $html, $group, $name ) {
-	foreach ( explode( '<details class="wpcpm-mentee__disclosure', group_rows( $html, $group ) ) as $card ) {
-		if ( false === strpos( $card, '>' . $name . '<' ) ) { continue; }
-		if ( preg_match( '/wpcpm-roster__row--students-status">.*?<td class="wpcpm-mentee__value"[^>]*>(.*?)<\/td>/s', $card, $m ) ) {
-			return trim( html_entity_decode( wp_strip_all_tags( $m[1] ), ENT_QUOTES, 'UTF-8' ) );
+	foreach ( group_cards( $html, $group ) as $card ) {
+		if ( ! card_names( $card, $name ) ) { continue; }
+		if ( null !== row_value( $card, 'students-status' ) ) {
+			return trim( html_entity_decode( wp_strip_all_tags( row_value( $card, 'students-status' ) ), ENT_QUOTES, 'UTF-8' ) );
 		}
 	}
 
@@ -762,9 +778,8 @@ ck( 'Graduate is Graduated', program_text( $words, 'finished', 'Eli Example' ), 
 // went through the label that passes `Graduate` untouched while the cell of a student without an
 // account said Graduated.
 ck( 'an account-holding graduate\'s Program cell says Graduated too', program_text( $words, 'finished', 'Kay Example' ), 'Graduated' );
-$graduate_badge = 'wpcpm-badge' . ( '' !== WPCPM_Program::badge( 'Graduate' ) ? ' wpcpm-badge--' . WPCPM_Program::badge( 'Graduate' ) : '' );
-ck( 'and so does their closed row\'s badge, in the raw status\'s colour', has( card_summary( $words, 'finished', 'Kay Example' ), '<span class="' . $graduate_badge . '">Graduated</span>' ), true );
-ck( 'as does the badge of one without an account', has( card_summary( $words, 'finished', 'Eli Example' ), '<span class="' . $graduate_badge . '">Graduated</span>' ), true );
+ck( 'and so does their closed row\'s tag, neutral as every state is', has( card_summary( $words, 'finished', 'Kay Example' ), '<span class="wpcpm-status">Graduated</span>' ), true );
+ck( 'as does the tag of one without an account', has( card_summary( $words, 'finished', 'Eli Example' ), '<span class="wpcpm-status">Graduated</span>' ), true );
 ck( 'a status with no plain word keeps its badge\'s words', has( card_summary( $words, 'finished', 'Ivy Example' ), '>Dropped out</span>' ), true );
 ck( 'and nothing on the page says Graduate on its own', has( $words, '>Graduate<' ), false );
 ck( 'a status that names a compiled track prints the track\'s name', array(
@@ -847,8 +862,8 @@ echo "\n=== Hours ===\n";
  */
 /** One student's closed row: the summary of the card that names them, or ''. */
 function card_summary( $html, $group, $name ) {
-	foreach ( explode( '<details class="wpcpm-mentee__disclosure', group_rows( $html, $group ) ) as $card ) {
-		if ( false !== strpos( $card, '>' . $name . '<' ) ) {
+	foreach ( group_cards( $html, $group ) as $card ) {
+		if ( card_names( $card, $name ) ) {
 			return substr( $card, 0, (int) strpos( $card, '</summary>' ) );
 		}
 	}
@@ -861,16 +876,16 @@ function hours_of( $html, $group = 'current', $name = '' ) {
 	// One student's card, when asked for by name, rather than whichever card comes first.
 	if ( '' !== $name ) {
 		$rows = '';
-		foreach ( explode( '<details class="wpcpm-mentee__disclosure', group_rows( $html, $group ) ) as $card ) {
-			if ( false !== strpos( $card, '>' . $name . '<' ) ) { $rows = $card; }
+		foreach ( group_cards( $html, $group ) as $card ) {
+			if ( card_names( $card, $name ) ) { $rows = $card; }
 		}
 	}
 
-	if ( ! preg_match( '/wpcpm-roster__row--reports-hours">.*?<td class="wpcpm-mentee__value"[^>]*>(.*?)<\/td>/s', $rows, $m ) ) {
+	if ( null === row_value( $rows, 'reports-hours' ) ) {
 		return null;
 	}
 
-	return trim( html_entity_decode( wp_strip_all_tags( $m[1] ), ENT_QUOTES, 'UTF-8' ) );
+	return trim( html_entity_decode( wp_strip_all_tags( row_value( $rows, 'reports-hours' ) ), ENT_QUOTES, 'UTF-8' ) );
 }
 
 /**
@@ -899,7 +914,7 @@ function ada_program( array $changes = array() ) {
 // other empty cell on this card does, and not as a zero: "0 of 150" about a student nobody has
 // logged for is the page inventing a fact about them.
 ck( 'a student with no hours anywhere reads as a gap', hours_of( render() ), 'Not recorded' );
-ck( 'and the heading is printed even so', has( group_rows( render(), 'current' ), '>Hours</span>' ), true );
+ck( 'and the heading is printed even so', has( group_rows( render(), 'current' ), '>Hours</th>' ), true );
 
 // The index, for the students who have never signed in here - which is most of a school's
 // roster. Bo has no account at all, so the cached block cannot be the source, and the track the
@@ -1059,7 +1074,7 @@ ck( 'and that institution has never been read, which its footer says',
 
 echo "\n=== The comparison strip ===\n";
 
-ck( 'the chosen semester is named', has( $html, '<h3 class="wpcpm-roster__strip-title">January to June 2026</h3>' ), true );
+ck( 'the chosen semester is named', has( $html, '<section class="wpcpm-roster__summary wpcpm-ui-block"><h3 class="wpcpm-ui-h">January to June 2026</h3>' ), true );
 ck( 'its two numbers: signed up', has( $html, '5 students signed up.' ), true );
 ck( 'its two numbers: graduated', has( $html, '1 has graduated.' ), true );
 ck( 'the lead is not counted as somebody who signed up',
@@ -1146,8 +1161,8 @@ ck( 'and a member searching by name still finds her', has( render( array( 'wpcpm
 // promised "email" to an institution's member, whose search never reads an address, so a member
 // typing one found nobody and was told nothing. Each hint is written from the same list the search
 // reads, so the two cannot part again.
-ck( 'a member\'s search box lists what a member\'s search reads, with no email in it', has( render( array() ), 'placeholder="Name, WordPress.org username, tutor, field of study"' ), true );
-ck( 'and a manager\'s lists the address too, which theirs reads', has( $as_manager, 'placeholder="Name, email, WordPress.org username, tutor, field of study, Students record ID"' ), true );
+ck( 'a member\'s search box lists what a member\'s search reads, with no email in it', has( render( array() ), '<p class="wpcpm-ui-field__hint" id="wpcpm-roster-search-hint">Name, WordPress.org username, tutor, field of study</p>' ), true );
+ck( 'and a manager\'s lists the address too, which theirs reads', has( $as_manager, '<p class="wpcpm-ui-field__hint" id="wpcpm-roster-search-hint">Name, email, WordPress.org username, tutor, field of study, Students record ID</p>' ), true );
 // An Administrator puts a name to the Students record ID Claude gave (1.123.48). A student with no
 // account has no row on the Student accounts list, so the roster of the institution is where the ID
 // is searched: exactly, as the base spells it, and for a manager only.
@@ -1177,7 +1192,7 @@ ck( 'an institution\'s member searching the same ID finds nobody: it is not one 
 	group_count( $member_by_record, 'Waiting for a mentor' ),
 ), array( false, 0 ) );
 ck( 'the manager\'s box names it in its hint, and the member\'s does not', array(
-	has( $as_manager, 'placeholder="Name, email, WordPress.org username, tutor, field of study, Students record ID"' ),
+	has( $as_manager, '<p class="wpcpm-ui-field__hint" id="wpcpm-roster-search-hint">Name, email, WordPress.org username, tutor, field of study, Students record ID</p>' ),
 	has( render( array() ), 'Students record ID' ),
 ), array( true, false ) );
 ck( 'a name search is as it was for both readers', array(
@@ -1208,7 +1223,7 @@ ck( 'a search narrows the groups before they are drawn', group_count( $search, '
 ck( 'to the matching student', has( group_rows( $search, 'current' ), 'Ada Example' ), true );
 ck( 'and empties the ones with no match', group_count( $search, 'Waiting for a mentor' ), 0 );
 ck( 'which say why they are empty', has( $search, 'No students in this group match the filters.' ), true );
-ck( 'the term survives in the field', has( $search, 'name="wpcpm_roster_search" value="ada"' ), true );
+ck( 'the term survives in the field', 1 === preg_match( '/name="wpcpm_roster_search"[^>]* value="ada"/', $search ), true );
 
 $by_tutor = render( array( 'wpcpm_roster_search' => 'tutor example' ) );
 
@@ -1261,12 +1276,12 @@ $exporting = render();
 // leave a link whose only destination is that handler's refusal page.
 ck( 'the control asks the fence for its own action, on this institution',
 	$GLOBALS['decisions'], array( array( 'view_roster', $A ), array( 'export', $A ) ) );
-ck( 'and draws the link when the answer is yes', has( $exporting, 'class="wpcpm-roster__export"' ), true );
+ck( 'and draws the link when the answer is yes', '' !== export_href( $exporting ), true );
 
 // Beside Show, in the paragraph the spec puts the roster's actions in, rather than adrift
 // above the groups where it would read as a heading.
 ck( 'it sits in the actions paragraph beside Show',
-	array( has( actions( $exporting ), '>Show</button>' ), has( actions( $exporting ), 'wpcpm-roster__export' ) ),
+	array( has( actions( $exporting ), '>Show</button>' ), has( actions( $exporting ), '>Download this cohort (CSV)</a>' ) ),
 	array( true, true ) );
 
 // The export is a GET. A second submit button inside this form would post the filter bar's own
@@ -1385,9 +1400,9 @@ echo "\n=== A student waiting to graduate keeps their course ===\n";
  * @return string|null
  */
 function program_of( $html, $group, $name ) {
-	foreach ( explode( '<details class="wpcpm-mentee__disclosure', group_rows( $html, $group ) ) as $card ) {
-		if ( false !== strpos( $card, '>' . $name . '<' ) && preg_match( '/wpcpm-roster__row--students-status">.*?<td class="wpcpm-mentee__value"[^>]*>(.*?)<\/td>/s', $card, $m ) ) {
-			return trim( $m[1] );
+	foreach ( group_cards( $html, $group ) as $card ) {
+		if ( card_names( $card, $name ) && null !== row_value( $card, 'students-status' ) ) {
+			return trim( row_value( $card, 'students-status' ) );
 		}
 	}
 
@@ -1400,31 +1415,506 @@ function program_of( $html, $group, $name ) {
 ada_program( array( 'program' => 'Pending graduation', 'hours' => '12' ) );
 $GLOBALS['umeta'][21]['wpcpm_student_course'] = 'In Sensei 50h';
 
-$pending  = '<span class="wpcpm-badge wpcpm-badge--pending">Pending graduation</span>';
-$fifty    = '<span class="wpcpm-badge wpcpm-badge--50h">' . WPCPM_Program::label( 'In Sensei 50h' ) . '</span>';
+$pending  = '<span class="wpcpm-status wpcpm-status--amber">Pending graduation</span>';
+$fifty    = '<span class="wpcpm-status wpcpm-status--green">' . WPCPM_Program::label( 'In Sensei 50h' ) . '</span>';
 $kept     = render();
 
-ck( 'a pending student\'s Program cell names their course as a current student\'s does, with the Pending graduation badge beside it',
-	program_of( $kept, 'current', 'Ada Example' ), $fifty . ' ' . $pending );
+// Gate B, B9: the head carries the status as its tag, so the cell says it in words beside the course's tag.
+ck( 'a pending student\'s Program cell names their course as a current student\'s does, with Pending graduation beside it in words (the head carries its tag)',
+	program_of( $kept, 'current', 'Ada Example' ), $fifty . ' Pending graduation' );
 ck( 'and the hours are read against that course\'s target', hours_of( $kept, 'current', 'Ada Example' ), '12 of 50' );
-ck( 'while the card still wears the Pending graduation badge beside the name', has( card_summary( $kept, 'current', 'Ada Example' ), $pending ), true );
+ck( 'while the card still wears the Pending graduation tag at the end of its head', has( card_summary( $kept, 'current', 'Ada Example' ), '<span class="wpcpm-ui-fold__end">' . $pending . '</span>' ), true );
 
 // No course known: the cell keeps what it always said, the status alone, and no target.
 $GLOBALS['umeta'][21]['wpcpm_student_course'] = '';
 $unknown = render();
 
-ck( 'a pending student with no known course shows Pending graduation alone',
+ck( 'a pending student with no known course shows Pending graduation alone, in words',
 	array( program_of( $unknown, 'current', 'Ada Example' ), hours_of( $unknown, 'current', 'Ada Example' ) ),
-	array( $pending, '12 h' ) );
+	array( 'Pending graduation', '12 h' ) );
 
 // Paused keeps no course, whatever the account remembers.
 ada_program( array( 'program' => 'Paused', 'hours' => '12' ) );
 $GLOBALS['umeta'][21]['wpcpm_student_course'] = 'In Sensei 50h';
 
-ck( 'a paused student\'s cell says Paused, with no course', program_of( render(), 'current', 'Ada Example' ), '<span class="wpcpm-badge wpcpm-badge--paused">Paused</span>' );
+ck( 'a paused student\'s cell says Paused, in words, with no course', program_of( render(), 'current', 'Ada Example' ), 'Paused' );
 
 unset( $GLOBALS['umeta'][21]['wpcpm_student_course'] );
 ada_program();
+
+echo "\n=== The cohort the Students view opens on, asked by the Overview (Task 6) ===\n";
+
+// The Overview's figures count the cohort the Students view opens on, so the two read one answer: this semester
+// while the school has students in it, otherwise the newest cohort it has.
+$opening = static function ( $record ) {
+	return method_exists( 'WPCPM_Institution_Roster_View', 'opening_cohort' ) ? WPCPM_Institution_Roster_View::opening_cohort( $record ) : 'no opening_cohort()';
+};
+ck( 'with nobody this semester, the newest cohort the school has', $opening( $A ), '2026-H1' );
+$GLOBALS['today'] = '2025-10-01';
+ck( 'this semester while it has students', $opening( $A ), '2025-H2' );
+ck( 'and a school whose only cohort is a later one opens on that one', $opening( $B ), '2026-H1' );
+ck( 'with no rows at all, this semester', $opening( 'recINSTZZZ0000001' ), '2025-H2' );
+$GLOBALS['today'] = '2026-09-02';
+// The roster opens on the cohort `opening_cohort()` names: with no cohort asked for, what it draws is that cohort's page.
+$asked_h2 = render( array( 'wpcpm_cohort' => '2025-H2' ) );
+$GLOBALS['today'] = '2025-10-01';
+ck( 'on the semester it opens on by itself, the roster draws that cohort, as if it had been asked for', render(), $asked_h2 );
+$GLOBALS['today'] = '2026-09-02';
+
+echo "\n=== The Students view on the parts (Institution Dashboard, Task 15) ===\n";
+
+/** The roster drawn while the Institution Dashboard's surface is on the parts. */
+function parts( array $get = array(), $record = 'recINSTAAA0000001', array $context = array() ) {
+	WPCPM_UI::set_live( array( 'administrator', 'institution' ) );
+	WPCPM_UI::enter( 'institution' );
+	try {
+		return render( $get, $record, $context );
+	} finally {
+		WPCPM_UI::leave();
+		WPCPM_UI::set_live( null );
+	}
+}
+
+/** The filter form's fields as name => value: hidden inputs, each select's chosen option, the search box. */
+function form_pairs( $html ) {
+	if ( ! preg_match( '/<form[^>]*method="get"[^>]*>(.*?)<\/form>/s', $html, $f ) ) { return null; }
+	$pairs = array();
+	preg_match_all( '/<input type="hidden" name="([^"]*)" value="([^"]*)"/', $f[1], $hidden, PREG_SET_ORDER );
+	foreach ( $hidden as $h ) { $pairs[ $h[1] ] = $h[2]; }
+	preg_match_all( '/<select[^>]*name="([^"]*)"[^>]*>(.*?)<\/select>/s', $f[1], $selects, PREG_SET_ORDER );
+	foreach ( $selects as $s ) {
+		$pairs[ $s[1] ] = preg_match( '/<option value="([^"]*)"(?: selected=\'selected\'| selected)/', $s[2], $o ) ? $o[1] : '';
+	}
+	if ( preg_match( '/<input type="search"[^>]*name="([^"]*)"[^>]*value="([^"]*)"/', $f[1], $q ) ) { $pairs[ $q[1] ] = $q[2]; }
+	ksort( $pairs );
+	return $pairs;
+}
+
+/** One parts group's section, by its key. */
+function parts_group( $html, $key ) {
+	return preg_match( '/<section class="wpcpm-ui-fold-card wpcpm-roster__group wpcpm-roster__group--' . preg_quote( $key, '/' ) . '" id="wpcpm-roster-' . preg_quote( $key, '/' ) . '">(.*?)<\/section>/s', $html, $m ) ? $m[1] : '';
+}
+
+/** Whether a parts group's disclosure is printed open: true, false, or null when the group is not drawn. */
+function parts_open( $html, $key ) {
+	$group = parts_group( $html, $key );
+	if ( '' === $group ) { return null; }
+	return 0 === strpos( $group, '<details class="wpcpm-ui-fold" open>' ) ? true : ( 0 === strpos( $group, '<details class="wpcpm-ui-fold">' ) ? false : null );
+}
+
+/** A parts group's phrase, the count in words. */
+function parts_phrase( $html, $key ) {
+	return preg_match( '/<span class="wpcpm-ui-fold__phrase">([^<]*)<\/span>/', parts_group( $html, $key ), $m ) ? $m[1] : null;
+}
+
+/** The students' names a roster draws, in order, the break opportunities taken out. */
+function names_drawn( $html ) {
+	$new = preg_match_all( '/<span class="wpcpm-ui-fold__title">(?:<a [^>]*>)?(.*?)(?:<\/a>)?<\/span>/', $html, $n ) ? $n[1] : array();
+	return array_map( static function ( $name ) { return str_replace( '<wbr>', '', $name ); }, $new );
+}
+
+/** The column headings a roster draws in its students' tables, once each. */
+function columns_drawn( $html ) {
+	$new = preg_match_all( '/<th scope="row" role="rowheader" class="wpcpm-ui-cell--text">(.*?)<\/th>/', $html, $n ) ? $n[1] : array();
+	return array_values( array_unique( $new ) );
+}
+
+/** The names of the enrollment-not-recorded list's rows on the parts, the break opportunities taken out. */
+function names_of_unlinked( $html ) {
+	return preg_match_all( '/<span class="wpcpm-ui-list__name">(.*?)<\/span>/', $html, $m ) ? array_map( static function ( $name ) { return str_replace( '<wbr>', '', $name ); }, $m[1] ) : array();
+}
+
+/** A parts group's whole section, by its key, for the layout harness. */
+function parts_section( $html, $key ) {
+	return preg_match( '/<section class="wpcpm-ui-fold-card wpcpm-roster__group wpcpm-roster__group--' . preg_quote( $key, '/' ) . '".*?<\/section>/s', $html, $m ) ? $m[0] : '';
+}
+
+/** One student's inner fold on the parts, by the name its head shows. */
+function parts_student( $html, $name ) {
+	foreach ( explode( '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner', $html ) as $i => $card ) {
+		if ( $i > 0 && false !== strpos( str_replace( '<wbr>', '', substr( $card, 0, (int) strpos( $card, '</summary>' ) ) ), $name ) ) {
+			return substr( $card, 0, (int) strpos( $card, '</details>' ) );
+		}
+	}
+	return '';
+}
+
+$on = parts();
+
+// What the old branch's filter form posted and offered, read from the class at db850661 (the last commit that drew it)
+// before it was deleted (Task 23): the parts are held to it.
+$old_pairs   = array( 'wpcpm_cohort' => '2026-H1', 'wpcpm_roster_search' => '', 'wpcpm_roster_status' => '' );
+$old_manager = array( 'wpcpm_cohort' => '2026-H1', 'wpcpm_institution_view' => 'recINSTAAA0000001', 'wpcpm_roster_search' => 'ada', 'wpcpm_roster_status' => 'current' );
+$old_plain   = array( 'page_id' => '12', 'wpcpm_cohort' => '2026-H1', 'wpcpm_roster_search' => '', 'wpcpm_roster_status' => '' );
+$old_cohorts = array( 'January to June 2026 (5)', 'July to December 2025 (2)', 'January to June 2025 (1)', 'No start date (1)' );
+$old_groups  = array( 'All students', 'Current', 'Waiting for a mentor', 'Finished', 'Not on the program now' );
+$old_export  = 'https://example.test/wp-admin/admin-post.php?action=wpcpm_export_roster&wpcpm_cohort=2026-H1&_wpnonce=nonce-wpcpm_export_roster';
+
+// Rulings 3 and 2: no inset of its own, one name per page, and the anchor the view's card is linked by.
+ck( 'on the parts the roster wraps itself in no inset class, and carries the anchor its view is linked by', array(
+	has( $on, '<section class="wpcpm-roster">' ),
+	0 === strpos( $on, '<section class="wpcpm-roster__view" id="wpcpm-roster">' ),
+), array( false, true ) );
+$on_titled = parts( array(), $A, array( 'module_titled' => true ) );
+ck( 'in a titled view nothing under the view\'s head repeats "Students" as a title', array(
+	preg_match( '/<h[1-6][^>]*>Students<\/h[1-6]>/', $on_titled ),
+	has( $on_titled, 'Read from the program records' ),
+), array( 0, false ) );
+
+// The filter bar: today's GET form, today's names, now the view it belongs to.
+ck( 'the filter form posts today\'s names and values, and now the view', form_pairs( $on ), array_merge( $old_pairs, array( 'wpcpm_view' => 'students' ) ) );
+ck( 'and they are the cohort, the group and the search', form_pairs( $on ), array( 'wpcpm_cohort' => '2026-H1', 'wpcpm_roster_search' => '', 'wpcpm_roster_status' => '', 'wpcpm_view' => 'students' ) );
+$on_manager  = parts( array( 'wpcpm_institution_view' => $A, 'wpcpm_roster_status' => 'current', 'wpcpm_roster_search' => 'ada' ), $A, array( 'can_manage' => true ) );
+$GLOBALS['opts']['permalink_structure'] = '';
+$on_plain = parts();
+$GLOBALS['opts']['permalink_structure'] = '/%postname%/';
+ck( 'an Administrator\'s form keeps the school viewed, and a page without pretty addresses its page_id', array(
+	form_pairs( $on_manager ),
+	form_pairs( $on_plain ),
+), array(
+	array_merge( $old_manager, array( 'wpcpm_view' => 'students' ) ),
+	array_merge( $old_plain, array( 'wpcpm_view' => 'students' ) ),
+) );
+ck( 'with the hidden inputs in today\'s order, the view last', preg_match_all( '/<input type="hidden" name="([^"]*)"/', $on_manager, $hm ) ? $hm[1] : array(), array( 'wpcpm_institution_view', 'wpcpm_view' ) );
+ck( 'the three fields are the parts\' fields, each label above its box, in one row of fields', array(
+	has( $on, '<div class="wpcpm-ui-fields"><div class="wpcpm-ui-field"><label class="wpcpm-ui-field__label" for="wpcpm-roster-cohort">Cohort</label><select class="wpcpm-ui-field__control wpcpm-ui-field__control--select" id="wpcpm-roster-cohort" name="wpcpm_cohort">' ),
+	has( $on, '<div class="wpcpm-ui-field"><label class="wpcpm-ui-field__label" for="wpcpm-roster-status">Group</label><select class="wpcpm-ui-field__control wpcpm-ui-field__control--select" id="wpcpm-roster-status" name="wpcpm_roster_status">' ),
+	has( $on, '<div class="wpcpm-ui-field"><label class="wpcpm-ui-field__label" for="wpcpm-roster-search">Search</label><input type="search" class="wpcpm-ui-field__control" id="wpcpm-roster-search" name="wpcpm_roster_search" aria-describedby="wpcpm-roster-search-hint" value=""><p class="wpcpm-ui-field__hint" id="wpcpm-roster-search-hint">Name, WordPress.org username, tutor, field of study</p></div></div>' ),
+	has( $on, 'placeholder=' ),
+), array( true, true, true, false ) );
+ck( 'the options are today\'s, in today\'s order', array(
+	preg_match_all( '/<option value="[^"]*"(?: selected)?>([^<]*)<\/option>/', (string) strstr( (string) strstr( $on, 'id="wpcpm-roster-cohort"' ), '</select>', true ), $co ) ? $co[1] : array(),
+	preg_match_all( '/<option value="[^"]*"(?: selected)?>([^<]*)<\/option>/', (string) strstr( (string) strstr( $on, 'id="wpcpm-roster-status"' ), '</select>', true ), $go ) ? $go[1] : array(),
+), array( $old_cohorts, $old_groups ) );
+ck( 'Show is the secondary button; with no filter set nothing offers to clear one', array(
+	has( $on, '<button type="submit" class="wpcpm-btn wpcpm-btn--secondary">Show</button>' ),
+	has( $on, 'Clear the filters' ),
+), array( true, false ) );
+$on_waiting = parts( array( 'wpcpm_cohort' => '2026-H1', 'wpcpm_roster_status' => 'waiting' ) );
+ck( 'with a filter set, Clear the filters is a quiet link to today\'s address', has( $on_waiting, '<a class="wpcpm-btn wpcpm-btn--quiet" href="/institution-dashboard/?wpcpm_cohort=2026-H1">Clear the filters</a>' ), true );
+ck( 'the export is a quiet link to today\'s address, asked of its own fence', array(
+	has( $on, '<a class="wpcpm-btn wpcpm-btn--quiet" href="' . esc_url( $old_export ) . '">Download this cohort (CSV)</a>' ),
+	$GLOBALS['decisions'],
+), array( true, array( array( 'view_roster', $A ), array( 'export', $A ) ) ) );
+$GLOBALS['refuse'] = array( 'export' );
+$on_no_export      = parts();
+$GLOBALS['refuse'] = array();
+ck( 'and absent when the fence refuses the export', has( $on_no_export, 'Download this cohort (CSV)' ), false );
+ck( 'the Administrator\'s search box names what an Administrator\'s search reads, as today', has( $on_manager, '<p class="wpcpm-ui-field__hint" id="wpcpm-roster-search-hint">Name, email, WordPress.org username, tutor, field of study, Students record ID</p>' ), true );
+
+// The cohort summary: the cohort's name and today's two sentences, no colored edge.
+ck( 'the cohort summary is a plain block: the cohort\'s name, then today\'s two sentences', has( $on, '<section class="wpcpm-roster__summary wpcpm-ui-block"><h3 class="wpcpm-ui-h">January to June 2026</h3><p class="wpcpm-ui-intro">5 students signed up. 1 has graduated.</p><p class="wpcpm-ui-intro">Compared with July to December 2025: 2 signed up, 1 graduated.</p></section>' ), true );
+ck( 'and the old strip is not drawn', has( $on, 'wpcpm-roster__strip' ), false );
+
+// Ruling 1: today's open rule, through the parts' fold; the count in words.
+$C = 'recINSTCCC0000001';
+$GLOBALS['index'][ $C ] = array( 'read' => 1788336000, 'rows' => array() );
+foreach ( array( 'Ca', 'Cb', 'Cc' ) as $i => $n ) {
+	$GLOBALS['index'][ $C ]['rows'][ 'recSTC0000000000' . $i ] = row( 'recSTC0000000000' . $i, $n . ' Example', 'In Sensei', '2026-02-16', array( 'has_mentor' => true ) );
+}
+foreach ( array( 'Wa', 'Wb' ) as $i => $n ) {
+	$GLOBALS['index'][ $C ]['rows'][ 'recSTW0000000010' . $i ] = row( 'recSTW0000000010' . $i, $n . ' Example', 'In Sensei', '2026-02-16' );
+}
+$GLOBALS['index'][ $C ]['rows']['recSTF00000000001'] = row( 'recSTF00000000001', 'Fa Example', 'Graduate', '2026-02-16' );
+$ruling = parts( array(), $C );
+ck( 'ruling 1: with 3 current, 2 waiting, 1 finished and none not started, Current and Waiting open, the other two closed', array(
+	parts_open( $ruling, 'current' ), parts_open( $ruling, 'waiting' ), parts_open( $ruling, 'finished' ), parts_open( $ruling, 'not_started' ),
+), array( true, true, false, false ) );
+ck( 'each group\'s count is a phrase in words, never a bare number in a badge', array(
+	parts_phrase( $ruling, 'current' ), parts_phrase( $ruling, 'waiting' ), parts_phrase( $ruling, 'finished' ), parts_phrase( $ruling, 'not_started' ),
+	has( $ruling, 'wpcpm-group__count' ), has( $ruling, 'wpcpm-ui-count' ),
+), array( '3 students', '2 students', '1 student', '0 students', false, false ) );
+ck( 'a group\'s head is the card fold\'s, its title the group\'s name', has( parts_group( $ruling, 'current' ), '<summary class="wpcpm-ui-fold__head"><h3 class="wpcpm-ui-fold__title">Current</h3><span class="wpcpm-ui-fold__phrase">3 students</span>' ), true );
+ck( 'its body opens with the group\'s sentence; an empty group says so in today\'s words', array(
+	has( parts_group( $ruling, 'current' ), '<div class="wpcpm-ui-fold__body"><p class="wpcpm-ui-intro wpcpm-ui-intro--muted">On the program now, with a mentor assigned or a progress record already started.</p>' ),
+	has( parts_group( $ruling, 'not_started' ), '<p class="wpcpm-ui-list__empty">No students in this group.</p>' ),
+	has( parts_group( parts( array( 'wpcpm_roster_search' => 'nobody at all' ), $C ), 'current' ), '<p class="wpcpm-ui-list__empty">No students in this group match the filters.</p>' ),
+), array( true, true, true ) );
+
+// The long fixture: thirteen current students, a 40-character word in a name, a mentor's name, a username, a tutor
+// and a website; and an enrollment not recorded yet with a long name and a long address.
+$D        = 'recINSTDDD0000001';
+$long_stu = 'Exampleunbrokenstudentnamewithfortychars';
+$long_men = 'Exampleunbrokenmentornamewithfortycharss';
+$long_tut = 'Exampleunbrokentutornamewithfortycharsss';
+$long_usr = 'exampleunbrokenusernamewithfortycharacte';
+$long_web = 'https://averyveryveryverylongsubdomainnameofthe.example.org/a/long/path/to/the/page';
+$GLOBALS['index'][ $D ] = array( 'read' => 1788336000, 'rows' => array() );
+for ( $i = 1; $i <= 13; $i++ ) {
+	$key = 'recSTD' . str_pad( (string) $i, 11, '0', STR_PAD_LEFT );
+	$GLOBALS['index'][ $D ]['rows'][ $key ] = row( $key, 1 === $i ? 'Ama ' . $long_stu : 'Student' . $i . ' Example', 'In Sensei', '2026-02-16', array(
+		'end'            => '2026-09-30',
+		'has_mentor'     => true,
+		'reports'        => array( 'recREPD' . str_pad( (string) $i, 10, '0', STR_PAD_LEFT ) ),
+		'username'       => 2 === $i ? '' : ( 1 === $i ? $long_usr : 'student' . $i ),
+		'tutor'          => 1 === $i ? 'Tia ' . $long_tut : 'Tutor Example',
+		'field_of_study' => 'Technology & Engineering',
+		'mentor_name'    => 1 === $i ? 'Mia ' . $long_men : 'Mentor Example',
+		'website'        => 1 === $i ? $long_web : '',
+		'user_id'        => 1 === $i ? 701 : 0,
+	) );
+}
+$GLOBALS['umeta'][701] = array(
+	'wpcpm_student_program' => array( 'name' => 'Ama ' . $long_stu, 'program' => 'In Sensei', 'team' => 'Documentation Team', 'website' => $long_web, 'hours' => '12' ),
+	'wpcpm_student_mentor'  => array( 'name' => 'Mia ' . $long_men, 'email' => 'mia@example.org' ),
+);
+$GLOBALS['unlinked'][ $D ] = array(
+	801 => row( '', 'Una ' . $long_stu, 'In Sensei', '2026-02-16', array( 'user_id' => 801, 'record_id' => '', 'email' => 'averyveryveryverylongmailboxname1234@example.org' ) ),
+	802 => row( '', 'Ula Example', 'Graduate', '2026-02-16', array( 'user_id' => 802, 'record_id' => '', 'email' => 'ula@example.org' ) ),
+);
+$long_on  = parts( array(), $D );
+ck( 'ruling 1: thirteen current students start their group closed, the count in words', array( parts_open( $long_on, 'current' ), parts_phrase( $long_on, 'current' ) ), array( false, '13 students' ) );
+// Task 28, W6: a group's students are a list again, as on the live page: one list, an item per student, each item the
+// student's fold and nothing else, so a screen reader hears "list, 13 items" and moves from student to student.
+$w6_group = parts_group( $long_on, 'current' );
+ck( 'a group\'s students are one list whose items are their folds, after the group\'s sentence and nothing after it', array(
+	substr_count( $w6_group, '<ul class="wpcpm-ui-folds" role="list">' ),
+	substr_count( $w6_group, '<li class="wpcpm-ui-folds__item"><details class="wpcpm-ui-fold wpcpm-ui-fold--inner' ),
+	substr_count( $w6_group, '</details></li>' ),
+	1 === preg_match( '#<div class="wpcpm-ui-fold__body"><p class="wpcpm-ui-intro wpcpm-ui-intro--muted">[^<]+</p><ul class="wpcpm-ui-folds" role="list"><li class="wpcpm-ui-folds__item">.*</details></li></ul></div></details>$#s', $w6_group ),
+), array( 1, 13, 13, true ) );
+ck( 'every student is an inner fold with the photo or the initials as its media, closed in a group of thirteen', array(
+	substr_count( $long_on, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner wpcpm-ui-fold--portrait"><summary class="wpcpm-ui-fold__head"><span class="wpcpm-ui-fold__portrait">' ),
+	has( parts_student( $long_on, 'Student2 Example' ), '<span class="wpcpm-ui-fold__portrait"><span class="wpcpm-ui-fold__initials" aria-hidden="true">S</span></span>' ),
+	1 === preg_match( '#<span class="wpcpm-ui-fold__portrait"><img class="wpcpm-avatar" src="[^"]*student3[^"]*" srcset="[^"]*" width="44" height="44" alt="[^"]*" title="[^"]*" loading="lazy" decoding="async" /></span>#', parts_student( $long_on, 'Student3 Example' ) ),
+), array( 13, true, true ) );
+$ama = parts_student( $long_on, 'Ama ' . $long_stu );
+ck( 'the name links to the student\'s card as plain words (the sheet breaks them, no `<wbr>`, Task 22b), the dates whole and the mentor its second piece, the program a green tag', array(
+	has( $ama, '<span class="wpcpm-ui-fold__lead"><span class="wpcpm-ui-fold__title"><a href="/institution-dashboard/?wpcpm_institution_student=701">Ama ' . $long_stu . '</a></span><span class="wpcpm-ui-fold__second"><span class="wpcpm-ui-whole">2026-02-16</span> to <span class="wpcpm-ui-whole">2026-09-30</span> · Mia ' . $long_men . '</span></span>' ),
+	has( $ama, '<span class="wpcpm-ui-fold__end"><span class="wpcpm-status wpcpm-status--green">WordPress Credits Program 150h</span></span><span class="wpcpm-ui-fold__chev" aria-hidden="true">' ),
+	substr_count( $ama, '<wbr>' ),
+), array( true, true, 0 ) );
+ck( 'its body is a key and value table of the permitted columns, the name not repeated', array(
+	has( $ama, '<div class="wpcpm-ui-fold__body"><table class="wpcpm-ui-table wpcpm-ui-table--keyvalue" role="table"><caption class="screen-reader-text">Program details for Ama ' . $long_stu . '</caption><tbody role="rowgroup">' ),
+	columns_drawn( $ama ),
+), array( true, array( 'Program', 'Dates', 'Days left', 'Mentor', 'WordPress.org', 'Team', 'Website', 'Field of study', 'Tutor', 'Hours' ) ) );
+ck( 'the WordPress.org and Website cells are token cells, the dates whole, the names plain words the key and value table breaks (Task 22b)', array(
+	1 === preg_match( '#<td class="wpcpm-ui-cell--token" role="cell"><a href="https://profiles.wordpress.org/' . $long_usr . '/" target="_blank" rel="noopener noreferrer">' . preg_quote( $long_usr, '#' ) . '</a></td>#', $ama ),
+	has( $ama, '<td class="wpcpm-ui-cell--token" role="cell"><a href="' . $long_web . '" target="_blank" rel="noopener noreferrer">averyveryveryverylongsubdomainnameofthe.example.org/a/long/path/to/the/page</a></td>' ),
+	has( $ama, '<td class="wpcpm-ui-cell--text" role="cell"><span class="wpcpm-ui-whole">2026-02-16</span> to <span class="wpcpm-ui-whole">2026-09-30</span></td>' ),
+	has( $ama, '<td class="wpcpm-ui-cell--text" role="cell">Mia ' . $long_men . '</td>' ),
+	has( $ama, '<td class="wpcpm-ui-cell--text" role="cell">Tia ' . $long_tut . '</td>' ),
+	has( $ama, '<td class="wpcpm-ui-cell--text" role="cell">12 of 150</td>' ),
+), array( true, true, true, true, true, true ) );
+ck( 'an empty value says "Not recorded" with the empty kind', array(
+	has( parts_student( $long_on, 'Student2 Example' ), '<td class="wpcpm-ui-cell--text wpcpm-ui-cell--empty" role="cell">Not recorded</td>' ),
+	has( $on, 'class="wpcpm-ui-cell--text wpcpm-ui-cell--empty" role="cell">Not recorded</td>' ),
+), array( true, true ) );
+ck( 'a student is open when the group holds one, as today', array(
+	has( parts_group( $ruling, 'finished' ), '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner wpcpm-ui-fold--portrait" open>' ),
+	has( parts_group( $ruling, 'current' ), '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner wpcpm-ui-fold--portrait" open>' ),
+), array( true, false ) );
+ck( 'a mentor who is not named yet is today\'s sentence with the empty kind; a pipeline status is plain words', array(
+	has( parts_student( $on, 'Bo Example' ), 'class="wpcpm-ui-cell--text wpcpm-ui-cell--empty" role="cell">A mentor is assigned. Their name shows here once the student&#039;s progress record reaches this page.</td>' ),
+	has( parts_student( $on, 'Cy Example' ), 'class="wpcpm-ui-cell--text wpcpm-ui-cell--empty" role="cell">No mentor yet.</td>' ),
+	has( parts_student( $on, 'Eve Example' ), '<td class="wpcpm-ui-cell--text" role="cell">Not continuing</td>' ),
+	has( $on, 'wpcpm-badge' ),
+), array( true, true, true, false ) );
+ck( 'a finished student with no account still wears the tag of their past status, neutral', has( parts_student( $on, 'Dee Example' ), '<span class="wpcpm-ui-fold__end"><span class="wpcpm-status">Graduated</span></span>' ), true );
+ck( 'the accessibility disclosure appears nowhere on the parts either', array( has( $on, 'Screen reader user' ), has( $on, 'Accessibility' ) ), array( false, false ) );
+
+// The enrollment not recorded yet: a card fold like a group, the count in words, today's sentence, a list of rows.
+$unl_member  = parts( array(), $D );
+$unl_manager = parts( array(), $D, array( 'can_manage' => true ) );
+ck( 'enrollment not recorded yet is a card fold like a group, open, its count in words, today\'s sentence first', array(
+	has( $unl_member, '<section class="wpcpm-ui-fold-card wpcpm-roster__group wpcpm-roster__group--unlinked" id="wpcpm-roster-unlinked"><details class="wpcpm-ui-fold" open><summary class="wpcpm-ui-fold__head"><h3 class="wpcpm-ui-fold__title">Enrollment not recorded yet</h3><span class="wpcpm-ui-fold__phrase">2 students</span>' ),
+	has( parts_group( $unl_member, 'unlinked' ), '<div class="wpcpm-ui-fold__body"><p class="wpcpm-ui-intro wpcpm-ui-intro--muted">These students are reporting their progress, but the program records hold no enrollment for them yet, so they are not counted in the groups above. An Administrator needs to complete the record.</p><ul class="wpcpm-ui-list">' ),
+), array( true, true ) );
+ck( 'each a row: the name and the status tag; an Administrator sees the address as a fact, a member never', array(
+	has( $unl_member, '<li class="wpcpm-ui-list__row"><div class="wpcpm-ui-list__line"><span class="wpcpm-ui-list__name">Ula Example</span><span class="wpcpm-status">Graduated</span><span class="wpcpm-ui-list__facts"></span></div></li>' ),
+	has( $unl_member, '@example.org' ),
+	has( $unl_manager, '<span class="wpcpm-ui-list__name">Ula Example</span><span class="wpcpm-status">Graduated</span><span class="wpcpm-ui-list__facts"><span class="wpcpm-ui-item__fact">ula@example.org</span></span>' ),
+	has( $unl_manager, '<span class="wpcpm-ui-item__fact">averyveryveryverylongmailboxname1234@example.org</span>' ),
+	substr_count( $unl_manager, '<wbr>' ),
+), array( true, false, true, true, 0 ) );
+ck( 'and the same people as today, the search narrowing it as today', array(
+	names_of_unlinked( $unl_manager ),
+	names_of_unlinked( parts( array( 'wpcpm_roster_search' => 'ula@' ), $D, array( 'can_manage' => true ) ) ),
+	names_of_unlinked( parts( array( 'wpcpm_roster_search' => 'ula@' ), $D ) ),
+	has( parts( array( 'wpcpm_roster_status' => 'current' ), $D ), 'wpcpm-roster__group--unlinked' ),
+), array( array( 'Una ' . $long_stu, 'Ula Example' ), array( 'Ula Example' ), array(), false ) );
+
+// Ruling 2: the same queries, the same policy calls, the same columns and students for each reader as the old branch
+// drew: digests of what the old branch drew for each, read from the class at db850661 before it was deleted (Task 23).
+$old_readers = array(
+	'representative'                    => '8952613a32234aa7945a6ee4c227f276',
+	'tutor (no export, a narrower set)' => '719cb6fb9868021f95c1e42cc34467b8',
+	'Administrator viewing a school'    => '8952613a32234aa7945a6ee4c227f276',
+);
+$readers = array(
+	'representative'                 => array( array(), array(), null, array() ),
+	'tutor (no export, a narrower set)' => array( array(), array(), array( 'students|Full Name', 'students|Status', 'students|Start Date', 'students|Mentor', 'reports|Hours' ), array( 'export', 'add_student' ) ),
+	'Administrator viewing a school' => array( array( 'wpcpm_institution_view' => $A ), array( 'can_manage' => true ), null, array() ),
+);
+foreach ( $readers as $reader => $setup ) {
+	$GLOBALS['fields'] = $setup[2];
+	$GLOBALS['refuse'] = $setup[3];
+	$drawn             = array();
+	foreach ( array( array(), array( 'wpcpm_cohort' => '2025-H2' ), array( 'wpcpm_roster_search' => 'example' ), array( 'wpcpm_roster_status' => 'finished' ) ) as $get ) {
+		$html    = parts( $get + $setup[0], $A, $setup[1] );
+		$drawn[] = array( names_drawn( $html ), columns_drawn( $html ), $GLOBALS['decisions'], has( $html, 'Download this cohort (CSV)' ) );
+	}
+	ck( 'ruling 2, ' . $reader . ': the same students, the same columns, the same fence questions and the same export as the old branch drew', md5( serialize( $drawn ) ), $old_readers[ $reader ] );
+}
+$GLOBALS['fields'] = array( 'students|Full Name', 'students|Status', 'students|Start Date', 'students|Mentor', 'reports|Hours' );
+$GLOBALS['refuse'] = array( 'export', 'add_student' );
+ck( 'the narrower set is narrower: the four columns it names after the name', columns_drawn( parts() ), array( 'Program', 'Dates', 'Mentor', 'Hours' ) );
+$tutor_on          = parts( array(), $D );
+$GLOBALS['fields'] = null;
+$GLOBALS['refuse'] = array();
+
+// The whole view on the real roster (Task 23, fix round 1): each reader's roster, as the page asks for it (titled by
+// the view), for each query above and for the long school, and the not-recorded list, under the Students view's own head.
+$t23_views = array();
+foreach ( $readers as $reader => $setup ) {
+	$GLOBALS['fields'] = $setup[2];
+	$GLOBALS['refuse'] = $setup[3];
+	foreach ( array( 'all' => array(), 'a cohort' => array( 'wpcpm_cohort' => '2025-H2' ), 'a search' => array( 'wpcpm_roster_search' => 'example' ), 'finished' => array( 'wpcpm_roster_status' => 'finished' ), 'nothing found' => array( 'wpcpm_roster_search' => 'zzz-nobody' ) ) as $query => $get ) {
+		$t23_views[ $reader . ', ' . $query ] = parts( $get + $setup[0], $A, $setup[1] + array( 'module_titled' => true ) );
+		$t23_views[ $reader . ', ' . $query . ', the long school' ] = parts( $get + $setup[0], $D, $setup[1] + array( 'module_titled' => true ) );
+	}
+}
+$GLOBALS['fields'] = null;
+$GLOBALS['refuse'] = array();
+// Each student on their own line (Task 23, fix round 1, S5): a representative's roster of this school, each
+// student's fold read whole (its head and its facts), the days left masked as they move with the clock. Read off the
+// fixture by hand: Ada Example is the one with a mentor's name, a tutor and a profile; Bo Example's mentor is assigned
+// but not yet named; Dee Example graduated; Eve Example is not continuing; Fi and Lu Example are interested.
+$t23_students = array();
+foreach ( explode( '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner', $t23_views['representative, all'] ) as $t23_i => $t23_card ) {
+	if ( $t23_i > 0 ) {
+		$t23_card       = substr( $t23_card, (int) strpos( $t23_card, '>' ) + 1, (int) strpos( $t23_card, '</details>' ) - (int) strpos( $t23_card, '>' ) - 1 );
+		$t23_text       = trim( (string) preg_replace( '/\s+/', ' ', html_entity_decode( strip_tags( str_replace( '<', ' <', (string) preg_replace( '#<span class="screen-reader-text">.*?</span>#s', '', $t23_card ) ) ), ENT_QUOTES ) ) );
+		$t23_students[] = (string) preg_replace( '/Days left \d+ days? left/', 'Days left {n} days left', $t23_text );
+	}
+}
+ck( 'each student reads their own program, dates, mentor and facts on their own line', $t23_students, array(
+	'Ada Example 2026-02-16 to 2026-09-30 · Mo Mentor WordPress Credits Program 150h Program details for Ada Example Program WordPress Credits Program 150h Dates 2026-02-16 to 2026-09-30 Days left {n} days left Mentor Mo Mentor WordPress.org adaexample Team Documentation Team Website ada.example.com Field of study Technology & Engineering Tutor Tutor Example Hours Not recorded',
+	'B Bo Example From 2026-02-16 Program details for Bo Example Program WordPress Credits Program 150h Dates From 2026-02-16 Days left Not recorded Mentor A mentor is assigned. Their name shows here once the student\'s progress record reaches this page. WordPress.org Not recorded Team Not recorded Website Not recorded Field of study Not recorded Tutor Not recorded Hours Not recorded',
+	'C Cy Example From 2026-03-01 Program details for Cy Example Program WordPress Credits Program 50h Dates From 2026-03-01 Days left Not recorded Mentor No mentor yet. WordPress.org Not recorded Team Not recorded Website Not recorded Field of study Not recorded Tutor Not recorded Hours Not recorded',
+	'D Dee Example From 2026-01-20 · Mo Mentor Graduated Program details for Dee Example Program Graduated Dates From 2026-01-20 Days left Not recorded Mentor Mo Mentor WordPress.org Not recorded Team Not recorded Website Not recorded Field of study Not recorded Tutor Not recorded Hours Not recorded',
+	'E Eve Example From 2026-02-16 Program details for Eve Example Program Not continuing Dates From 2026-02-16 Days left Not recorded Mentor No mentor yet. WordPress.org Not recorded Team Not recorded Website Not recorded Field of study Not recorded Tutor Not recorded Hours Not recorded',
+	'F Fi Example From 2026-02-16 Program details for Fi Example Program Interested Dates From 2026-02-16 Days left Not recorded Mentor No mentor yet. WordPress.org Not recorded Team Not recorded Website Not recorded Field of study Not recorded Tutor Not recorded Hours Not recorded',
+	'L Lu Example From 2026-02-16 Program details for Lu Example Program Interested Dates From 2026-02-16 Days left Not recorded Mentor No mentor yet. WordPress.org Not recorded Team Not recorded Website Not recorded Field of study Not recorded Tutor Not recorded Hours Not recorded',
+) );
+ck( 'the whole Students view on the real roster, every reader and query: one H1, the headings in order, no id twice, the lede once, no title again', array( wpcpm_view_faults_of( 'Students', $t23_views ), count( array_filter( array_map( 'trim', $t23_views ) ) ) ), array( array(), 30 ) );
+
+// Fix round 2. The rules that decide what a reader may see are written once: the filter form's hidden fields (only an
+// Administrator's form carries the school viewed) and the not-recorded list's names (a member never sees an address).
+// Read from the source, so a second copy cannot come back unnoticed.
+$src = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php' );
+$body_of = static function ( $name ) use ( $src ) {
+	$at = strpos( $src, 'private static function ' . $name . '(' );
+	return false === $at ? '' : substr( $src, $at, strpos( $src, "\n\t}", $at ) - $at );
+};
+ck( 'fix round 2: the filter form prints its hidden fields through one helper, and the list names a person through one', array(
+	substr_count( $body_of( 'render_filters_parts' ), 'self::hidden_fields(' ),
+	substr_count( $src, 'self::ARG_VIEW ),' ),
+	substr_count( $body_of( 'render_unlinked_parts' ), 'self::unlinked_label(' ),
+	substr_count( $src, "'A student whose name is not recorded yet'" ),
+), array( 1, 1, 1, 1 ) );
+ck( 'the not-recorded names are plain words the sheet breaks, like every other long name (no `<wbr>`, Task 22b)', has( $unl_member, '<span class="wpcpm-ui-list__name">Una ' . $long_stu . '</span>' ), true );
+ck( 'the portrait is decoration beside the name: an empty alt', 1 === preg_match( '#<span class="wpcpm-ui-fold__portrait"><img class="wpcpm-avatar" src="[^"]*student3[^"]*" [^>]*alt="" #', parts_student( $long_on, 'Student3 Example' ) ), true );
+
+// Hostile input, with no surface named and on the Institution Dashboard: a name and a mentor's name holding a script and a double quote, a website and a
+// username holding a quote and an angle bracket. Nothing unescaped reaches the page, and no attribute is broken.
+$E = 'recINSTEEE0000001';
+$GLOBALS['index'][ $E ] = array( 'read' => 1788336000, 'rows' => array(
+	'recSTE00000000001' => row( 'recSTE00000000001', 'Ann <script>alert(1)</script> "Q" Example', 'In Sensei', '2026-02-16', array( 'has_mentor' => true, 'reports' => array( 'recREPE0000000001' ), 'username' => 'us"er<x>', 'user_id' => 951 ) ),
+	'recSTE00000000002' => row( 'recSTE00000000002', "E\u{0301}va Example", 'In Sensei', '2026-02-16', array( 'has_mentor' => true, 'mentor_name' => '<script>alert(1)</script> "M" Mentor' ) ),
+) );
+$GLOBALS['umeta'][951] = array(
+	'wpcpm_student_program' => array( 'name' => 'Ann', 'program' => 'In Sensei', 'website' => 'https://ex.example.org/"><b>x</b>', 'team' => '<i>Team</i>' ),
+	'wpcpm_student_mentor'  => array( 'name' => '<script>alert(1)</script> "M" Mentor' ),
+);
+$GLOBALS['unlinked'][ $E ] = array( 961 => row( '', 'Uli <script>alert(1)</script> "U"', 'In Sensei', '2026-02-16', array( 'user_id' => 961, 'record_id' => '', 'email' => 'u"<b>@example.org' ) ) );
+foreach ( array( 'no surface named' => render( array(), $E, array( 'can_manage' => true ) ), 'the Institution Dashboard' => parts( array(), $E, array( 'can_manage' => true ) ) ) as $branch => $hostile ) {
+	$tags = preg_match_all( '/<([a-z0-9]+)[\s>\/]/i', $hostile, $tm ) ? array_values( array_unique( array_map( static function ( $t ) { return strtolower( $t ); }, $tm[1] ) ) ) : array();
+	sort( $tags );
+	ck( 'hostile input, ' . $branch . ': no script, no bold or italic from the data, no raw quote in a word, no broken attribute', array(
+		has( $hostile, '<script' ),
+		has( $hostile, '<b>' ) || has( $hostile, '<i>' ) || has( $hostile, '<x>' ),
+		has( $hostile, '"Q"' ) || has( $hostile, '"M"' ) || has( $hostile, '"U"' ),
+		has( $hostile, '&lt;script&gt;alert(1)&lt;/script&gt;' ),
+		// Every attribute is name="value", with no quote left over inside a tag.
+		preg_match( '/<[a-z][^<>]*"[^<>"=]*"[^<>=]*>/i', (string) preg_replace( '/\s[a-z-]+="[^"]*"/i', '', $hostile ) ),
+		array_values( array_diff( $tags, array( 'a', 'br', 'button', 'caption', 'details', 'div', 'form', 'h2', 'h3', 'h4', 'img', 'input', 'label', 'li', 'option', 'p', 'path', 'section', 'select', 'span', 'summary', 'svg', 'table', 'tbody', 'td', 'th', 'tr', 'ul', 'wbr' ) ) ),
+	), array( false, false, false, true, 0, array() ) );
+}
+$hostile_on = parts( array(), $E );
+ck( 'initials are the first character a reader sees: a letter and its combining mark together', has( $hostile_on, '<span class="wpcpm-ui-fold__initials" aria-hidden="true">' . "E\u{0301}" . '</span>' ), true );
+
+// A group is drawn by the parts alone and stands as the Administrator Dashboard's cards do, 10px apart (parts.css): no
+// rule of the page's sheet names a group (Task 28, W11: the old markup's gap matched nothing), nor the old switcher, which
+// this page's root no longer prints, and the read line is dressed by one rule.
+$inst_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/institution.css' );
+ck( 'institution.css: no rule for a group or for the old switcher, and one for the read line', array(
+	// The group's own class: a modifier such as the unlinked group's (X12's people rows) is not the old gap's rule.
+	preg_match_all( '/wpcpm-roster__group(?![\w-])/', $inst_css ),
+	preg_match_all( '/wpcpm-dashboard__switcher\b/', $inst_css ),
+	preg_match_all( '/^\.wpcpm-institution__read\s*\{/m', $inst_css ),
+), array( 0, 0, 1 ) );
+
+// Institution Dashboard, Task 16, fix round 3: the roster and the student's card say the same thing about the same student.
+// One map from a program status to a tag tone (`WPCPM_Program::tone()`), used by both: a track green, Pending graduation
+// amber, Paused and every other status neutral. The student's card asks the same map (bin/test-institution-student-view.php).
+$tone_table = array(
+	'In Sensei'          => 'green',
+	'In Sensei 50h'      => 'green',
+	'Developer Track'    => 'green',
+	'Paused'             => '',
+	'Pending graduation' => 'amber',
+	'Graduate'           => '',
+	'Dropped out'        => '',
+);
+$roster_tones = array();
+$saved_ama    = $GLOBALS['umeta'][701]['wpcpm_student_program'];
+foreach ( array_keys( $tone_table ) as $st ) {
+	$GLOBALS['umeta'][701]['wpcpm_student_program']['program'] = $st;
+	$ama_tone = parts_student( parts( array( 'wpcpm_roster_status' => '' ), $D ), 'Ama ' . $long_stu );
+	preg_match( '#<span class="wpcpm-ui-fold__end"><span class="wpcpm-status( wpcpm-status--([a-z]+))?">#', $ama_tone, $tm );
+	$roster_tones[ $st ] = '' === $ama_tone ? 'not drawn' : ( $tm[2] ?? '' );
+}
+$GLOBALS['umeta'][701]['wpcpm_student_program'] = $saved_ama;
+ck( 'the roster\'s tag tone, status by status, is the one map\'s, and the map is the student\'s card\'s table', array( $roster_tones, array_map( static function ( $st ) { return method_exists( 'WPCPM_Program', 'tone' ) ? WPCPM_Program::tone( $st ) : 'no map'; }, array_combine( array_keys( $tone_table ), array_keys( $tone_table ) ) ) ), array( $tone_table, $tone_table ) );
+ck( 'and the roster writes no tone of its own: its students and its not-recorded rows ask the map', array( substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php' ), "'green'" ), substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php' ), 'WPCPM_Program::tone(' ) ), array( 0, 2 ) );
+
+// The layout harness's cases (bin/ui/layout): the whole view with thirteen students and the long words, the
+// Administrator's filter bar, the enrollment not recorded yet, and a tutor's narrower view.
+if ( function_exists( 'wpcpm_layout_keep' ) ) {
+	wpcpm_layout_keep( 'Students view, parts: 13 students, 40-character words', parts( array(), $D, array( 'module_titled' => true ) ) );
+	$GLOBALS['opts']['permalink_structure'] = '';
+	wpcpm_layout_keep( 'Students view, parts: an Administrator\'s filter bar, a filter set', parts( array( 'wpcpm_institution_view' => $D, 'wpcpm_roster_search' => 'Example', 'wpcpm_roster_status' => 'current' ), $D, array( 'can_manage' => true, 'module_titled' => true ) ) );
+	$GLOBALS['opts']['permalink_structure'] = '/%postname%/';
+	wpcpm_layout_keep( 'Students view, parts: enrollment not recorded yet, an Administrator', parts_section( $unl_manager, 'unlinked' ) );
+	wpcpm_layout_keep( 'Students view, parts: a tutor\'s narrower view', $tutor_on );
+}
+
+// Gate B, B9: a student's program is a status tag once, in the row's head; the open row's Program row says it in words,
+// as a student's card does, and keeps a course status that differs from it as its own tag.
+$b9_html = parts( array(), $D, array( 'module_titled' => true ) );
+$b9_bad  = array();
+if ( preg_match_all( '#<details class="wpcpm-ui-fold wpcpm-ui-fold--inner wpcpm-ui-fold--portrait".*?</details>#s', $b9_html, $b9_rows ) ) {
+	foreach ( $b9_rows[0] as $b9_row ) {
+		$b9_head = substr( $b9_row, 0, (int) strpos( $b9_row, '</summary>' ) );
+		$b9_cell = preg_match( '#<tr[^>]*wpcpm-roster__row--students-status.*?</tr>#s', $b9_row, $b9_m ) ? $b9_m[0] : '';
+		preg_match_all( '#<span class="wpcpm-status[^"]*">([^<]*)</span>#', $b9_head, $b9_h );
+		preg_match_all( '#<span class="wpcpm-status[^"]*">([^<]*)</span>#', $b9_cell, $b9_c );
+		if ( array_intersect( $b9_h[1], $b9_c[1] ) ) {
+			$b9_bad[] = implode( ', ', $b9_h[1] );
+		}
+	}
+}
+ck( 'no student\'s row prints its head\'s program tag again in its Program row', array( isset( $b9_rows[0] ) && count( $b9_rows[0] ) > 1, $b9_bad ), array( true, array() ) );
+
+// Gate B, B6: the read line in words for one student, on a student's card; the roster's own words otherwise.
+ob_start();
+WPCPM_Institution_Roster_View::read_line( 0, 'wpcpm-dashboard__updated', true );
+$b6_one = ob_get_clean();
+ob_start();
+WPCPM_Institution_Roster_View::read_line( 0, 'wpcpm-dashboard__updated' );
+$b6_many = ob_get_clean();
+ck( 'the read line for one student says "This student", and for the roster "These students"', array( $b6_one, $b6_many ), array( '<p class="wpcpm-dashboard__updated">This student has not been read from the program records yet.</p>', '<p class="wpcpm-dashboard__updated">These students have not been read from the program records yet.</p>' ) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

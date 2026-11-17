@@ -54,8 +54,8 @@ ck( 'forms.js exists and defines the guard, as a handler of the submit event and
         false !== strpos( $js, "querySelectorAll( 'form[data-wpcpm-once]' )" ),
     ),
     array( true, false, false, false ) );
-ck( 'and wires it, with the confirm reader in the one submit listener, after the focus on a refused form\'s summary or a card\'s outcome (1.123.58) and the press tracker, and with the bfcache release, the code-selector, the kind switch and the required-with switch and the registration form\'s track question, once the DOM is ready',
-    (bool) preg_match( '/ready\( function \(\) \{\s*focusOutcome\(\);\s*watchPressed\(\);\s*watchSubmits\(\);\s*releaseOnRestore\(\);\s*selectOnClick\(\);\s*showForKind\(\);\s*requireWith\(\);\s*trackQuestion\(\);\s*\} \);/', $js ) );
+ck( 'and wires it, with the confirm reader in the one submit listener, after the focus on a refused form\'s summary or a card\'s outcome (1.123.58), taken again after the browser follows the address\'s fragment (Gate B, B1), and the press tracker, and with the bfcache release, the code-selector, the kind switch and the required-with switch and the registration form\'s track question, once the DOM is ready',
+    (bool) preg_match( '/ready\( function \(\) \{\s*focusOutcome\(\);\s*focusAfterFragment\(\);\s*watchPressed\(\);\s*watchSubmits\(\);\s*releaseOnRestore\(\);\s*selectOnClick\(\);\s*showForKind\(\);\s*requireWith\(\);\s*trackQuestion\(\);\s*\} \);/', $js ) );
 
 // The deep check of 1.109.1, SESSIONS-6: "Cancel the session" and "Leave the session" carried a
 // `data-wpcpm-confirm` sentence that no script read, so one press canceled a session for everybody.
@@ -429,8 +429,9 @@ function prints_confirm_mark( $src ) {
 }
 
 /**
- * Whether PHP source calls `WPCPM_UI::button(` with a `'confirm'` key in the argument array: a caller of
- * the shared button prints no `data-wpcpm-confirm` text of its own, the helper does, so the literal alone
+ * Whether PHP source calls `WPCPM_UI::button(` or `WPCPM_UI::decide(` (whose decisions are buttons) with a
+ * `'confirm'` key in the argument array: a caller of the shared button prints no `data-wpcpm-confirm` text
+ * of its own, the helper does, so the literal alone
  * would miss it. The call's argument list is read to its closing parenthesis, and a `'confirm'` string
  * followed by `=>` anywhere in it counts, a nested array included.
  *
@@ -450,7 +451,7 @@ function calls_button_with_confirm( $src ) {
 	$count  = count( $tokens );
 
 	for ( $i = 0; $i + 3 < $count; $i++ ) {
-		if ( ! ( is_array( $tokens[ $i ] ) && 'WPCPM_UI' === ltrim( $tokens[ $i ][1], '\\' ) && T_DOUBLE_COLON === $tokens[ $i + 1 ][0] && is_array( $tokens[ $i + 2 ] ) && 'button' === $tokens[ $i + 2 ][1] && '(' === $tokens[ $i + 3 ] ) ) {
+		if ( ! ( is_array( $tokens[ $i ] ) && 'WPCPM_UI' === ltrim( $tokens[ $i ][1], '\\' ) && T_DOUBLE_COLON === $tokens[ $i + 1 ][0] && is_array( $tokens[ $i + 2 ] ) && in_array( $tokens[ $i + 2 ][1], array( 'button', 'decide' ), true ) && '(' === $tokens[ $i + 3 ] ) ) {
 			continue;
 		}
 
@@ -470,6 +471,40 @@ function calls_button_with_confirm( $src ) {
 	}
 
 	return false;
+}
+
+/**
+ * Whether PHP source draws a Decide row (`WPCPM_UI::decide(`) and builds a decision with a `'confirm'` key anywhere
+ * in it: a Decide row's decisions are buttons, and they are usually built in a list before the call (Finishing this
+ * placement, Institution Dashboard Task 16), which the button reader above cannot see. Comments do not count.
+ *
+ * It reads the whole file, not the arrays handed to the call: any `'confirm' =>` key in a file that draws a Decide
+ * row counts, a plain button's or a helper's included. So it errs toward asking for a row (a file it finds needs a
+ * surface row in the table), and the second check, that every row names a file that still prints one, can be held by
+ * an unrelated key after a Decide row's question goes. Tightening it to the keys of the arrays passed as
+ * `'decisions'` was weighed and not done (Task 23, fix round 1).
+ *
+ * @param string $src A PHP file.
+ * @return bool
+ */
+function builds_decision_with_confirm( $src ) {
+	$tokens = array_values( array_filter( token_get_all( $src ), static function ( $token ) {
+		return ! is_array( $token ) || ! in_array( $token[0], array( T_WHITESPACE, T_COMMENT, T_DOC_COMMENT ), true );
+	} ) );
+	$count  = count( $tokens );
+	$decide = false;
+	$key    = false;
+
+	for ( $i = 0; $i + 3 < $count; $i++ ) {
+		if ( is_array( $tokens[ $i ] ) && 'WPCPM_UI' === ltrim( $tokens[ $i ][1], '\\' ) && T_DOUBLE_COLON === $tokens[ $i + 1 ][0] && is_array( $tokens[ $i + 2 ] ) && 'decide' === $tokens[ $i + 2 ][1] && '(' === $tokens[ $i + 3 ] ) {
+			$decide = true;
+		}
+		if ( is_array( $tokens[ $i ] ) && T_CONSTANT_ENCAPSED_STRING === $tokens[ $i ][0] && in_array( $tokens[ $i ][1], array( "'confirm'", '"confirm"' ), true ) && is_array( $tokens[ $i + 1 ] ) && T_DOUBLE_ARROW === $tokens[ $i + 1 ][0] ) {
+			$key = true;
+		}
+	}
+
+	return $decide && $key;
 }
 
 /**
@@ -681,6 +716,9 @@ $surfaces = array(
 	// Cancel the event is drawn by the tier card's planner on the Sponsor Dashboard. The Administrator
 	// Dashboard's Events card draws the planner's rows through render_fields(), which asks nothing.
 	'includes/modules/class-wpcpm-sponsor-event-planner.php'             => array( 'sponsor-dashboard' ),
+	// The event queue's Decide row, whose decisions ask their questions, is drawn on the Administrator Dashboard's
+	// Events card; found by the Decide-row reader (Institution Dashboard, Task 23).
+	'includes/modules/class-wpcpm-sponsor-event-queue.php'               => array( 'administrator-dashboard' ),
 	'includes/modules/class-wpcpm-sponsor-logo.php'                      => array( 'sponsor-dashboard' ),
 	'includes/modules/class-wpcpm-sponsor-offers.php'                    => array( 'sponsor-dashboard' ),
 	// The report editor's Remove the PDF, Mark final and Regenerate, and Not a renewal's form, are drawn on
@@ -703,14 +741,14 @@ $printers = array();
 
 foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $root . '/includes', FilesystemIterator::SKIP_DOTS ) ) as $source ) {
 	$code = 'php' === $source->getExtension() ? (string) file_get_contents( $source->getPathname() ) : '';
-	if ( '' !== $code && ( prints_confirm_mark( $code ) || calls_button_with_confirm( $code ) ) ) {
+	if ( '' !== $code && ( prints_confirm_mark( $code ) || calls_button_with_confirm( $code ) || builds_decision_with_confirm( $code ) ) ) {
 		$printers[] = substr( $source->getPathname(), strlen( $root ) + 1 );
 	}
 }
 
 sort( $printers );
 
-ck( 'the reader of a button call with a confirm key finds one, in a nested array too, and not a comment, another key, another call or another class',
+ck( 'the reader of a button call with a confirm key finds one, in a nested array too, and in a Decide row\'s decisions, and not a comment, another key, another call or another class',
     array(
         calls_button_with_confirm( "<?php\necho WPCPM_UI::button( array( 'label' => 'x', 'confirm' => 'Sure?' ) );" ),
         calls_button_with_confirm( "<?php\n\$a[] = \\WPCPM_UI::button( array(\n'label' => 'x',\n'confirm' => __( 'Sure?' ) ) );" ),
@@ -718,9 +756,18 @@ ck( 'the reader of a button call with a confirm key finds one, in a nested array
         calls_button_with_confirm( "<?php\nWPCPM_UI::button( array( 'label' => 'x' ) );\n\$b = array( 'confirm' => 'y' );" ),
         calls_button_with_confirm( "<?php\n// WPCPM_UI::button( array( 'confirm' => 'x' ) )\n\$x = 1;" ),
         calls_button_with_confirm( "<?php\nWPCPM_Other::button( array( 'confirm' => 'x' ) );" ),
+        calls_button_with_confirm( "<?php\necho WPCPM_UI::decide( array( 'decisions' => array( array( 'label' => 'x', 'confirm' => 'Sure?' ) ) ) );" ),
     ),
-    array( true, true, false, false, false, false ) );
-ck( 'every file under includes/ that prints a data-wpcpm-confirm mark, or calls WPCPM_UI::button() with a confirm key, has a row in the surface table, so a new screen has to say where its script comes from',
+    array( true, true, false, false, false, false, true ) );
+ck( 'the reader of a Decide row finds a decision with a confirm key built before the call, and not a confirm key with no Decide row, nor a Decide row with none',
+    array(
+        builds_decision_with_confirm( "<?php\n\$d[] = array( 'label' => 'x', 'confirm' => 'Sure?' );\necho WPCPM_UI::decide( array( 'decisions' => \$d ) );" ),
+        builds_decision_with_confirm( "<?php\n\$d[] = array( 'label' => 'x', 'confirm' => 'Sure?' );\necho WPCPM_UI::button( \$d[0] );" ),
+        builds_decision_with_confirm( "<?php\n\$d[] = array( 'label' => 'x' );\necho WPCPM_UI::decide( array( 'decisions' => \$d ) );" ),
+        builds_decision_with_confirm( "<?php\n// 'confirm' => 'x'\necho WPCPM_UI::decide( array() );" ),
+    ),
+    array( true, false, false, false ) );
+ck( 'every file under includes/ that prints a data-wpcpm-confirm mark, or calls WPCPM_UI::button() with a confirm key, or builds a Decide row\'s, has a row in the surface table, so a new screen has to say where its script comes from',
     array_values( array_diff( $printers, array_keys( $surfaces ) ) ), array() );
 ck( 'and every row names a file that still prints one or still asks for one, so a row does not outlive its file',
     array_values( array_diff( array_keys( $surfaces ), $printers ) ), array() );

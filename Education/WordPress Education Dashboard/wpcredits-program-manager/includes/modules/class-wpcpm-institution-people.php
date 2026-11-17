@@ -134,93 +134,415 @@ class WPCPM_Institution_People {
 		$contact_shown = ( '' !== $contact || '' !== $contact_name )
 			&& ! self::holds_address( $members, $contact );
 
-		// The card's box, heading, read line and empty line are the shell's shared classes, so
-		// four cards written in four commits cannot end up four slightly different boxes; the
-		// `wpcpm-people` hooks style only what is this card's own.
-		printf( '<section class="wpcpm-institution__card wpcpm-people" id="%s">', esc_attr( self::ANCHOR ) );
+		// What the card draws besides its rows, decided once for both drawings (Stage B, Task 20, fix round 1).
+		$shows = self::shows( $members, $contact_shown, $can_manage );
 
-		// The same disclosure the roster's groups and the enrollment form are drawn in, open by
-		// default: a short list of colleagues is not something to hide, but a page on which
-		// every other panel folds and this one does not hands the reader a chevron that works
-		// on one row and is missing on the next. Same classes on purpose, so the theme's one
-		// set of rules for the fold, the chevron and the inset applies here without a copy.
-		printf(
-			'<details class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count wpcpm-people__count">%2$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body">',
-			esc_html__( 'Representatives and tutors', 'wpcredits-program-manager' ),
-			esc_html( number_format_i18n( count( $members ) + ( $contact_shown ? 1 : 0 ) ) )
-		);
+		// The Institution Dashboard on the shared parts (Stage B, Task 20): the same reader, the same data, read above.
+		self::render_parts( $record_id, $context, $members, $name, $contact, $viewer, $can_change, $can_manage, $contact_name, $contact_shown, $read, $shows, '' );
+	}
 
-		// A tutor reads the list and changes nothing, so the sentence about removing is left out for them.
-		printf(
-			'<p class="wpcpm-people__intro">%s</p>',
-			esc_html(
-				$can_change || $can_manage
-					? sprintf(
-						/* translators: %s: institution name. */
-						__( 'Everyone here with an account can see %s\'s students on this site. Representatives can remove anyone, including themselves, and tutors change nothing. A removal keeps the account and tells the people who are left.', 'wpcredits-program-manager' ),
-						$name
-					)
-					: sprintf(
-						/* translators: %s: institution name. */
-						__( 'Everyone here with an account can see %s\'s students on this site.', 'wpcredits-program-manager' ),
-						$name
-					)
+	/*
+	 * The rules both drawings ask (Stage B, Task 20: one helper per rule, the old branch and the parts' both calling it)
+	 * --------------------------------------------------------------------
+	 */
+
+	/**
+	 * Whether the card is drawn on the shared parts: on the Institution Dashboard's surface, which is live. Every other
+	 * surface (Manage members on the Institutions screen draws `render_member()` under its own) draws today's card. The
+	 * invitations ask the same through their own `parts()`; the tutor list is drawn inside this card's parts and asks
+	 * nothing.
+	 *
+	 * @return bool
+	 */
+	public static function parts() {
+		return class_exists( 'WPCPM_UI', false ) && WPCPM_UI::on() && 'institution' === WPCPM_UI::surface();
+	}
+
+	/**
+	 * How many people the card names: the live members, and the contact the program records name when no member holds
+	 * that address.
+	 *
+	 * @param WP_User[] $members       Every live member.
+	 * @param bool      $contact_shown Whether the contact's own row is drawn.
+	 * @return int
+	 */
+	private static function head_count( array $members, $contact_shown ) {
+		return count( $members ) + ( $contact_shown ? 1 : 0 );
+	}
+
+	/**
+	 * The card's first sentence: who sees the school's students, and, for a reader who may change the list, who may
+	 * remove whom. A tutor reads the list and changes nothing, so the sentence about removing is left out for them.
+	 *
+	 * @param string $name       Institution name, as printed.
+	 * @param bool   $can_change Whether the reader may remove anybody.
+	 * @param bool   $can_manage Whether the reader is an Administrator.
+	 * @return string
+	 */
+	private static function intro_sentence( $name, $can_change, $can_manage ) {
+		return $can_change || $can_manage
+			? sprintf(
+				/* translators: %s: institution name. */
+				__( 'Everyone here with an account can see %s\'s students on this site. Representatives can remove anyone, including themselves, and tutors change nothing. A removal keeps the account and tells the people who are left.', 'wpcredits-program-manager' ),
+				$name
 			)
+			: sprintf(
+				/* translators: %s: institution name. */
+				__( 'Everyone here with an account can see %s\'s students on this site.', 'wpcredits-program-manager' ),
+				$name
+			);
+	}
+
+	/**
+	 * The name a member's row and confirm give them: the display name, or the login when there is none.
+	 *
+	 * @param WP_User $member The account.
+	 * @return string
+	 */
+	private static function member_name( WP_User $member ) {
+		return '' !== trim( (string) $member->display_name ) ? (string) $member->display_name : (string) $member->user_login;
+	}
+
+	/**
+	 * Whether a member's row holds the institution's contact address.
+	 *
+	 * @param WP_User $member  The account.
+	 * @param string  $contact The program's contact address, lowercased, or ''.
+	 * @return bool
+	 */
+	private static function is_contact( WP_User $member, $contact ) {
+		return '' !== $contact && strtolower( trim( (string) $member->user_email ) ) === $contact;
+	}
+
+	/**
+	 * What the contact's mark says, and its tooltip: on a member's row about the address, on the contact's own row
+	 * about the person.
+	 *
+	 * @param bool $account Whether the row is a member's (an account) and not the contact's own.
+	 * @return array{words: string, title: string}
+	 */
+	private static function mark_words( $account ) {
+		return array(
+			'words' => __( 'the institution\'s contact', 'wpcredits-program-manager' ),
+			'title' => $account
+				? __( 'The program writes to this address about the institution.', 'wpcredits-program-manager' )
+				: __( 'The program writes to this person about the institution.', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
+	 * The hidden fields Remove and Leave post after their nonce: the action, the account, and the Institutions screen's
+	 * flag when the press is made there.
+	 *
+	 * @param WP_User $member The account the control acts on.
+	 * @param string  $origin `RETURN_ADMIN` from the manager screen, '' from the dashboard.
+	 * @return array<string, string> Name to value, in the order posted.
+	 */
+	private static function remove_fields( WP_User $member, $origin ) {
+		$fields = array(
+			'action' => self::ACTION_REMOVE_MEMBER,
+			'member' => (string) (int) $member->ID,
 		);
 
-		self::render_message( $record_id );
-
-		if ( $members || $contact_shown ) {
-			echo '<ul class="wpcpm-people__list">';
-
-			foreach ( $members as $member ) {
-				self::render_member( $member, $members, $name, $contact, $viewer, $can_change, '' );
-			}
-
-			// After the accounts, because the accounts are the rows that can be acted on.
-			if ( $contact_shown ) {
-				self::render_contact_row( $contact_name, self::contact_email_raw( $record_id ) );
-			}
-
-			echo '</ul>';
+		if ( self::RETURN_ADMIN === $origin ) {
+			$fields['wpcpm_from'] = self::RETURN_ADMIN;
 		}
 
-		// Still said whenever no account exists, contact row or not: the row names who the
-		// program writes to, and this line answers the different question of who can open
-		// this page. An institution can have the first and not the second, and today most do.
-		if ( empty( $members ) ) {
-			printf(
-				'<p class="wpcpm-institution__empty wpcpm-people__empty">%s</p>',
-				esc_html__( 'Nobody can act for this institution on this site right now.', 'wpcredits-program-manager' )
+		return $fields;
+	}
+
+	/**
+	 * Hidden fields as today's forms print them, one input to a name. Public: the invitations and the tutor list print
+	 * theirs through it.
+	 *
+	 * @param array<string, string> $fields Name to value.
+	 * @return string Escaped markup.
+	 */
+	public static function hidden_html( array $fields ) {
+		$out = '';
+
+		foreach ( $fields as $name => $value ) {
+			$out .= sprintf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( (string) $name ), esc_attr( (string) $value ) );
+		}
+
+		return $out;
+	}
+
+	/**
+	 * How a member came by their access and since when, in its pieces: the sentence's format, the way, and the day ('' when
+	 * no date was recorded, and the format then has no place for one).
+	 *
+	 * @param WP_User $member The account.
+	 * @return array{format: string, how: string, day: string}
+	 */
+	private static function facts_parts( WP_User $member ) {
+		$facts = get_user_meta( $member->ID, WPCPM_Institution_Members::META_MEMBERSHIP, true );
+		$how   = is_array( $facts ) && isset( $facts['how'] ) ? (string) $facts['how'] : '';
+		$since = is_array( $facts ) && isset( $facts['since'] ) ? (int) $facts['since'] : 0;
+
+		if ( ! $since ) {
+			return array(
+				/* translators: %s: how the membership came about. */
+				'format' => __( '%s; the date was not recorded.', 'wpcredits-program-manager' ),
+				'how'    => self::how_label( $how ),
+				'day'    => '',
 			);
 		}
 
-		// The invite flow shipped with the module's handlers and suite but was never drawn here;
-		// the card said a later release would. This is that release (1.94.7). Each renderer
-		// decides for itself through the policy, so a viewer who may not manage members sees
-		// nothing of it.
+		return array(
+			/* translators: 1: how the membership came about, 2: date. */
+			'format' => __( '%1$s, %2$s.', 'wpcredits-program-manager' ),
+			'how'    => self::how_label( $how ),
+			'day'    => WPCPM_Dates::day( $since ),
+		);
+	}
+
+	/**
+	 * The card's outcome, taken from the flash once and kept for the request: its status, its tone, its sentence and
+	 * what it adds. Null when there is none for this institution, and for a flash about another one (routing, not
+	 * authorization: which card prints a sentence, never who may read one). Both drawings print what this answers.
+	 *
+	 * @param string $record_id The institution whose card is being drawn.
+	 * @return array{status: string, tone: string, text: string, detail: string}|null
+	 */
+	private static function message_for( $record_id ) {
+		$flash  = WPCPM_Flash::take( self::FLASH );
+		$status = is_array( $flash ) && isset( $flash['status'] ) ? sanitize_key( (string) $flash['status'] ) : sanitize_key( (string) $flash );
+		$detail = is_array( $flash ) && isset( $flash['detail'] ) ? (string) $flash['detail'] : '';
+		$about  = is_array( $flash ) && isset( $flash['record'] ) ? trim( (string) $flash['record'] ) : '';
+
+		// Routing, not authorization: which card prints a sentence, never who may read one.
+		// Every fence in this module is the policy's, and this comparison decides nothing
+		// about access.
+		if ( trim( (string) $record_id ) !== $about ) {
+			return null;
+		}
+
+		$messages = self::messages();
+
+		if ( ! isset( $messages[ $status ] ) ) {
+			return null;
+		}
+
+		return array(
+			'status' => $status,
+			'tone'   => $messages[ $status ][0],
+			'text'   => $messages[ $status ][1],
+			'detail' => $detail,
+		);
+	}
+
+	/*
+	 * The card on the shared parts (Stage B, Task 20)
+	 * --------------------------------------------------------------------
+	 */
+
+	/**
+	 * The card on the parts (design 6.4): the shell's card fold, open, on today's anchor, its head the card's name and how
+	 * many people it names in words; today's intro sentence (the view's lede says what the view holds, this sentence who
+	 * sees the students and who may remove whom, which the lede does not); the people as rows with their facts under the
+	 * name; the invitations, the invite form and the tutor list, each drawn by its own class; for an Administrator the way
+	 * to Manage members as a quiet link; the read line. Every outcome through the shell's message.
+	 *
+	 * @param string    $record_id     Airtable institution record ID.
+	 * @param array     $context       The dashboard's context, handed to the tutor list.
+	 * @param WP_User[] $members       Every live member.
+	 * @param string    $name          Institution name, as printed.
+	 * @param string    $contact       The program's contact address, lowercased, or ''.
+	 * @param int       $viewer        Who is looking.
+	 * @param bool      $can_change    Whether the viewer may remove anybody.
+	 * @param bool      $can_manage    Whether the viewer is an Administrator.
+	 * @param string    $contact_name  The contact's name as the program records hold it, or ''.
+	 * @param bool      $contact_shown Whether the contact's own row is drawn.
+	 * @param int       $read          When the pipeline index was read, or 0.
+	 * @param array     $shows         What `shows()` decided: the list, the empty line, the Administrator's link.
+	 * @param string    $origin        `RETURN_ADMIN` from the manager screen, '' from the dashboard, for the rows' forms.
+	 */
+	private static function render_parts( $record_id, array $context, array $members, $name, $contact, $viewer, $can_change, $can_manage, $contact_name, $contact_shown, $read, array $shows, $origin ) {
+		$count = self::head_count( $members, $contact_shown );
+
+		WPCPM_Dashboard_Card::open(
+			array(
+				'key'           => 'people',
+				'title'         => __( 'Representatives and tutors', 'wpcredits-program-manager' ),
+				/* translators: %s: how many people act for the institution. */
+				'state'         => sprintf( _n( '%s person', '%s people', $count, 'wpcredits-program-manager' ), number_format_i18n( $count ) ),
+				'open'          => true,
+				'prefix'        => 'wpcpm-',
+				'id_on'         => 'section',
+				'section_class' => '',
+			)
+		);
+
+		echo WPCPM_UI::intro( self::intro_sentence( $name, $can_change, $can_manage ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the part.
+
+		self::render_message( $record_id );
+
+		if ( $shows['list'] ) {
+			$list = WPCPM_UI::list_open( array( 'facts' => 'under' ) );
+
+			foreach ( $members as $member ) {
+				$list .= self::member_row_parts( $member, $members, $name, $contact, $viewer, $can_change, $origin );
+			}
+
+			if ( $contact_shown ) {
+				$list .= self::contact_row_parts( $contact_name, self::contact_email_raw( $record_id ) );
+			}
+
+			echo $list . WPCPM_UI::list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::row() and the row builders.
+		}
+
+		if ( $shows['empty'] ) {
+			echo WPCPM_UI::list_empty( __( 'Nobody can act for this institution on this site right now.', 'wpcredits-program-manager' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the part.
+		}
+
 		WPCPM_Institution_Invite::render_message( $record_id );
 		WPCPM_Institution_Invite::render_pending( $record_id );
 		WPCPM_Institution_Invite::render_form( $record_id );
 
-		// The school's own tutor list, after the members: a tutor on it need hold no account, so it is a list of its
-		// own and not a row of the one above. It decides for itself through the policy, as the three renderers do.
 		WPCPM_Institution_Tutors::render( $record_id, $context );
 
-		// To this institution's own view on the Institutions screen, where its accounts are
-		// added and its former members wait with a Re-add, rather than to the screen's front door.
-		if ( $can_manage ) {
-			printf(
-				'<p class="wpcpm-people__note"><a href="%1$s">%2$s</a></p>',
-				esc_url( self::manager_url( $record_id ) ),
-				esc_html__( 'Add or re-add an account on the Institutions screen', 'wpcredits-program-manager' )
-			);
+		// The way to this school's Manage members, a quiet link in a line of its own as the student card's export link is
+		// (Task 16): its words wrap on a phone, where a button's would not.
+		if ( $shows['link'] ) {
+			echo WPCPM_UI::intro( '', '', '', sprintf( '<a href="%1$s">%2$s</a>', esc_url( self::manager_url( $record_id ) ), esc_html__( 'Add or re-add an account on the Institutions screen', 'wpcredits-program-manager' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro(); the address and the words escaped here.
 		}
 
 		self::render_read_line( $read );
 
-		echo '</div></details>';
-		echo '</section>';
+		WPCPM_Dashboard_Card::close();
+	}
+
+	/**
+	 * One member's row on the parts (parts design 2.8, people rows): the name as it is, the contact's neutral
+	 * tag with today's tooltip on the row that holds its address, the facts under the name (the address, Representative
+	 * or Tutor, how and since when, the day whole), and Remove or Leave (quiet red) for a reader who may change the list.
+	 *
+	 * @param WP_User   $member     The account being drawn.
+	 * @param WP_User[] $members    Every live member, for the count the confirm names.
+	 * @param string    $name       Institution name, as printed.
+	 * @param string    $contact    The program's contact address, lowercased, or ''.
+	 * @param int       $viewer     Who is looking, so their own row offers Leave.
+	 * @param bool      $can_change Whether the viewer may remove anybody at all.
+	 * @param string    $origin     `RETURN_ADMIN` from the manager screen, '' from the dashboard.
+	 * @return string Escaped markup.
+	 */
+	private static function member_row_parts( WP_User $member, array $members, $name, $contact, $viewer, $can_change, $origin ) {
+		$is_contact = self::is_contact( $member, $contact );
+		$is_self    = self::is_self( $viewer, $member );
+		$facts      = self::facts_parts( $member );
+		$mark       = self::mark_words( true );
+
+		return WPCPM_UI::row(
+			array(
+				'name'    => self::member_name( $member ),
+				'tag'     => $is_contact ? array(
+					'words' => $mark['words'],
+					'tone'  => '',
+					'title' => $mark['title'],
+				) : null,
+				'facts'   => array(
+					(string) $member->user_email,
+					self::level_label( WPCPM_Institution_Members::level_of( $member ) ),
+					array( 'html' => sprintf( esc_html( $facts['format'] ), esc_html( $facts['how'] ), '' !== $facts['day'] ? WPCPM_UI::whole( $facts['day'] ) : '' ) ),
+				),
+				'actions' => $can_change ? array( self::remove_form_parts( $member, $members, $name, $is_self, $is_contact, $origin ) ) : array(),
+			)
+		);
+	}
+
+	/**
+	 * The contact the program records name, who holds no account here, as a row on the parts: the name (or "Name not
+	 * recorded"), the contact's tag with today's tooltip, the address as its fact, today's sentence as its note, and no
+	 * control, since there is nothing here to remove (`render_contact_row()` says why).
+	 *
+	 * @param string $name  The contact's name as the program records hold it, or ''.
+	 * @param string $email The contact's address as the program records hold it, or ''.
+	 * @return string Escaped markup.
+	 */
+	private static function contact_row_parts( $name, $email ) {
+		$name  = trim( (string) $name );
+		$email = trim( (string) $email );
+		$mark  = self::mark_words( false );
+
+		return WPCPM_UI::row(
+			array(
+				'name'  => '' !== $name ? $name : __( 'Name not recorded', 'wpcredits-program-manager' ),
+				'tag'   => array(
+					'words' => $mark['words'],
+					'tone'  => '',
+					'title' => $mark['title'],
+				),
+				'facts' => '' !== $email ? array( $email ) : array(),
+				'note'  => __( 'Named in the program records, with no account on this site yet. An Administrator can add one so they can see this page.', 'wpcredits-program-manager' ),
+			)
+		);
+	}
+
+	/**
+	 * Remove, or Leave on the reader's own row, on the parts: the quiet red button with today's question, posting what
+	 * today's form posts (its nonce without an id, its referer), the person named for a screen reader.
+	 *
+	 * @param WP_User   $member     The account the control acts on.
+	 * @param WP_User[] $members    Every live member, for the count the confirm names.
+	 * @param string    $name       Institution name, as printed.
+	 * @param bool      $is_self    Whether the viewer is removing themselves.
+	 * @param bool      $is_contact Whether this row holds the institution's contact address.
+	 * @param string    $origin     `RETURN_ADMIN` from the manager screen, '' from the dashboard.
+	 * @return string Escaped markup.
+	 */
+	private static function remove_form_parts( WP_User $member, array $members, $name, $is_self, $is_contact, $origin ) {
+		return '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">'
+			. WPCPM_UI::nonce( self::ACTION_REMOVE_MEMBER . '_' . (int) $member->ID )
+			. self::hidden_html( self::remove_fields( $member, $origin ) )
+			. WPCPM_UI::button(
+				array(
+					'label'   => self::remove_label( $is_self ),
+					'kind'    => 'quiet-danger',
+					'confirm' => self::confirm_text( $member, $name, $is_self, $is_contact, max( 0, count( $members ) - 1 ) ),
+					'context' => self::member_name( $member ),
+					'side'    => 'front',
+				)
+			)
+			. '</form>';
+	}
+
+	/**
+	 * The words of a member's control: Leave on the reader's own row, Remove on every other.
+	 *
+	 * @param bool $is_self Whether the row is the reader's own.
+	 * @return string
+	 */
+	private static function remove_label( $is_self ) {
+		return $is_self ? __( 'Leave', 'wpcredits-program-manager' ) : __( 'Remove', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * Whether a row is the reader's own, so it offers Leave and its confirm speaks to the reader.
+	 *
+	 * @param int     $viewer Who is looking.
+	 * @param WP_User $member The row's account.
+	 * @return bool
+	 */
+	private static function is_self( $viewer, WP_User $member ) {
+		return (int) $viewer === (int) $member->ID;
+	}
+
+	/**
+	 * What the card draws besides its rows: the list (members, or the contact's own row), the line saying nobody can act
+	 * for the school (whenever no account does, contact row or not), and for an Administrator the way to Manage members.
+	 *
+	 * @param WP_User[] $members       Every live member.
+	 * @param bool      $contact_shown Whether the contact's own row is drawn.
+	 * @param bool      $can_manage    Whether the reader is an Administrator.
+	 * @return array{list: bool, empty: bool, link: bool}
+	 */
+	private static function shows( array $members, $contact_shown, $can_manage ) {
+		return array(
+			'list'  => $members || $contact_shown,
+			'empty' => empty( $members ),
+			'link'  => (bool) $can_manage,
+		);
 	}
 
 	/**
@@ -243,23 +565,25 @@ class WPCPM_Institution_People {
 	 * @param string    $origin     `RETURN_ADMIN` from the manager screen, '' from the dashboard.
 	 */
 	private static function render_member( WP_User $member, array $members, $name, $contact, $viewer, $can_change, $origin ) {
-		$is_contact = ( '' !== $contact && strtolower( trim( (string) $member->user_email ) ) === $contact );
-		$is_self    = ( (int) $viewer === (int) $member->ID );
+		$is_contact = self::is_contact( $member, $contact );
+		$is_self    = self::is_self( $viewer, $member );
 
 		echo '<li class="wpcpm-people__member">';
 
 		printf(
 			'<span class="wpcpm-people__name">%s</span>',
-			esc_html( '' !== trim( (string) $member->display_name ) ? $member->display_name : $member->user_login )
+			esc_html( self::member_name( $member ) )
 		);
 
 		printf( ' <span class="wpcpm-people__email">%s</span>', esc_html( $member->user_email ) );
 
 		if ( $is_contact ) {
+			$mark = self::mark_words( true );
+
 			printf(
 				' <span class="wpcpm-people__mark" title="%1$s">%2$s</span>',
-				esc_attr__( 'The program writes to this address about the institution.', 'wpcredits-program-manager' ),
-				esc_html__( 'the institution\'s contact', 'wpcredits-program-manager' )
+				esc_attr( $mark['title'] ),
+				esc_html( $mark['words'] )
 			);
 		}
 
@@ -314,10 +638,12 @@ class WPCPM_Institution_People {
 			printf( ' <span class="wpcpm-people__email">%s</span>', esc_html( $email ) );
 		}
 
+		$mark = self::mark_words( false );
+
 		printf(
 			' <span class="wpcpm-people__mark" title="%1$s">%2$s</span>',
-			esc_attr__( 'The program writes to this person about the institution.', 'wpcredits-program-manager' ),
-			esc_html__( 'the institution\'s contact', 'wpcredits-program-manager' )
+			esc_attr( $mark['title'] ),
+			esc_html( $mark['words'] )
 		);
 
 		printf(
@@ -347,12 +673,7 @@ class WPCPM_Institution_People {
 
 		echo '<form class="wpcpm-people__form" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		wp_nonce_field( self::ACTION_REMOVE_MEMBER . '_' . (int) $member->ID );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_REMOVE_MEMBER ) );
-		printf( '<input type="hidden" name="member" value="%d" />', (int) $member->ID );
-
-		if ( self::RETURN_ADMIN === $origin ) {
-			self::render_return_field();
-		}
+		echo self::hidden_html( self::remove_fields( $member, $origin ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in hidden_html().
 
 		// In wp-admin only core's button classes dress a button, as they do Re-add and Add account
 		// there; on the dashboard the card's own class is the one its stylesheet dresses.
@@ -360,11 +681,7 @@ class WPCPM_Institution_People {
 			'<button type="submit" class="%1$s" data-wpcpm-confirm="%2$s">%3$s</button>',
 			esc_attr( self::RETURN_ADMIN === $origin ? 'button button-secondary wpcpm-people__remove' : 'wpcpm-people__remove' ),
 			esc_attr( self::confirm_text( $member, $name, $is_self, $is_contact, $others ) ),
-			esc_html(
-				$is_self
-					? __( 'Leave', 'wpcredits-program-manager' )
-					: __( 'Remove', 'wpcredits-program-manager' )
-			)
+			esc_html( self::remove_label( $is_self ) )
 		);
 
 		echo '</form>';
@@ -467,25 +784,9 @@ class WPCPM_Institution_People {
 	 * @return string
 	 */
 	private static function facts_line( WP_User $member ) {
-		$facts = get_user_meta( $member->ID, WPCPM_Institution_Members::META_MEMBERSHIP, true );
-		$how   = is_array( $facts ) && isset( $facts['how'] ) ? (string) $facts['how'] : '';
-		$since = is_array( $facts ) && isset( $facts['since'] ) ? (int) $facts['since'] : 0;
-		$label = self::how_label( $how );
+		$facts = self::facts_parts( $member );
 
-		if ( ! $since ) {
-			return sprintf(
-				/* translators: %s: how the membership came about. */
-				__( '%s; the date was not recorded.', 'wpcredits-program-manager' ),
-				$label
-			);
-		}
-
-		return sprintf(
-			/* translators: 1: how the membership came about, 2: date. */
-			__( '%1$s, %2$s.', 'wpcredits-program-manager' ),
-			$label,
-			WPCPM_Dates::day( $since )
-		);
+		return '' === $facts['day'] ? sprintf( $facts['format'], $facts['how'] ) : sprintf( $facts['format'], $facts['how'], $facts['day'] );
 	}
 
 	/**
@@ -1240,6 +1541,27 @@ class WPCPM_Institution_People {
 	private static function render_read_line( $read ) {
 		$read = (int) $read;
 
+		// On the shared parts the line is a muted intro, its moment whole (Stage B, Task 20); the words are today's.
+		if ( self::parts() ) {
+			$line = WPCPM_UI::intro(
+				'',
+				'muted',
+				'',
+				$read
+					? sprintf(
+						/* translators: 1: date and time, 2: human-readable time difference. */
+						esc_html__( 'The institution\'s details were read on %1$s (%2$s ago). The people above are as they are right now.', 'wpcredits-program-manager' ),
+						WPCPM_UI::whole( WPCPM_Dates::moment( $read ) ),
+						esc_html( human_time_diff( $read, time() ) )
+					)
+					: esc_html__( 'The institution\'s details have not been read from the program records yet. The people above are as they are right now.', 'wpcredits-program-manager' )
+			);
+
+			echo $line; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the part; the html is built of escaped pieces.
+
+			return;
+		}
+
 		if ( ! $read ) {
 			printf(
 				'<p class="wpcpm-institution__read wpcpm-people__read">%s</p>',
@@ -1287,19 +1609,49 @@ class WPCPM_Institution_People {
 	 * @param string $record_id The institution whose card is being drawn.
 	 */
 	private static function render_message( $record_id ) {
-		$flash  = WPCPM_Flash::take( self::FLASH );
-		$status = is_array( $flash ) && isset( $flash['status'] ) ? sanitize_key( (string) $flash['status'] ) : sanitize_key( (string) $flash );
-		$detail = is_array( $flash ) && isset( $flash['detail'] ) ? (string) $flash['detail'] : '';
-		$about  = is_array( $flash ) && isset( $flash['record'] ) ? trim( (string) $flash['record'] ) : '';
+		$said = self::message_for( $record_id );
 
-		// Routing, not authorization: which card prints a sentence, never who may read one.
-		// Every fence in this module is the policy's, and this comparison decides nothing
-		// about access.
-		if ( trim( (string) $record_id ) !== $about ) {
+		if ( null === $said ) {
 			return;
 		}
 
-		$messages = array(
+		// The conflict names the account inside its sentence (1.123.58, INS-14): linked to its
+		// profile for an Administrator, its name alone for anybody else.
+		$conflict = 'conflict' === $said['status'];
+
+		// On the shared parts the shell's outcome, its tone the message's own (Stage B, Task 20): the conflict's account as
+		// its name and its address, raw, which the shell escapes and places; every other sentence as text with what it adds.
+		if ( self::parts() ) {
+			echo WPCPM_Dashboard_Card::message( $said['tone'], $conflict ? $said['text'] : $said['text'] . ( '' === $said['detail'] ? '' : ' ' . $said['detail'] ), 'wpcpm-people__message', '', $conflict ? self::account_parts( $said['detail'] ) : array() ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Dashboard_Card::message() escapes what it prints.
+
+			return;
+		}
+
+		if ( $conflict ) {
+			printf(
+				'<p class="wpcpm-people__message is-%1$s" role="status">%2$s</p>',
+				esc_attr( $said['tone'] ),
+				sprintf( esc_html( $said['text'] ), self::account_named( $said['detail'] ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The sentence is escaped here, and account_named() escapes what it returns.
+			);
+
+			return;
+		}
+
+		printf(
+			'<p class="wpcpm-people__message is-%1$s" role="status">%2$s%3$s</p>',
+			esc_attr( $said['tone'] ),
+			esc_html( $said['text'] ),
+			'' === $said['detail'] ? '' : ' ' . esc_html( $said['detail'] )
+		);
+	}
+
+	/**
+	 * The card's outcomes: each status a handler of this class leaves, its tone and its sentence.
+	 *
+	 * @return array<string, array{0: string, 1: string}> Status to tone and sentence.
+	 */
+	private static function messages() {
+		return array(
 			'removed'        => array( 'success', __( 'That person no longer has access to this institution. Their account is kept.', 'wpcredits-program-manager' ) ),
 			'left'           => array( 'success', __( 'You have left this institution. You no longer see its students, and your account is kept.', 'wpcredits-program-manager' ) ),
 			'ended'          => array( 'info', __( 'Nothing to remove: that person\'s access had already ended.', 'wpcredits-program-manager' ) ),
@@ -1321,29 +1673,6 @@ class WPCPM_Institution_People {
 			'not-former'     => array( 'error', __( 'That account is not a former member of this institution, so there is nothing to put back.', 'wpcredits-program-manager' ) ),
 			'error'          => array( 'error', __( 'That could not be done.', 'wpcredits-program-manager' ) ),
 		);
-
-		if ( ! isset( $messages[ $status ] ) ) {
-			return;
-		}
-
-		// The conflict names the account inside its sentence (1.123.58, INS-14): linked to its
-		// profile for an Administrator, its name alone for anybody else.
-		if ( 'conflict' === $status ) {
-			printf(
-				'<p class="wpcpm-people__message is-%1$s" role="status">%2$s</p>',
-				esc_attr( $messages[ $status ][0] ),
-				sprintf( esc_html( $messages[ $status ][1] ), self::account_named( $detail ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The sentence is escaped here, and account_named() escapes what it returns.
-			);
-
-			return;
-		}
-
-		printf(
-			'<p class="wpcpm-people__message is-%1$s" role="status">%2$s%3$s</p>',
-			esc_attr( $messages[ $status ][0] ),
-			esc_html( $messages[ $status ][1] ),
-			'' === $detail ? '' : ' ' . esc_html( $detail )
-		);
 	}
 
 	/**
@@ -1354,16 +1683,33 @@ class WPCPM_Institution_People {
 	 * @return string Escaped HTML.
 	 */
 	private static function account_named( $login ) {
+		$named = self::account_parts( $login );
+
+		return '' === $named['url'] ? esc_html( $named['words'] ) : sprintf( '<a href="%1$s">%2$s</a>', esc_url( $named['url'] ), esc_html( $named['words'] ) );
+	}
+
+	/**
+	 * The account a refusal is about, in its two parts, plain: its name (its login when the account is gone or has no name)
+	 * and the address of its profile, '' for a reader who may not edit it. `account_named()` builds today's markup from
+	 * them; the shared parts hand them to the shell's message, which escapes them (Stage B, Task 20).
+	 *
+	 * @param string $login The account's login, as the refusal recorded it.
+	 * @return array{words: string, url: string}
+	 */
+	private static function account_parts( $login ) {
 		$user = get_user_by( 'login', (string) $login );
 
 		if ( ! $user instanceof WP_User ) {
-			return esc_html( (string) $login );
+			return array(
+				'words' => (string) $login,
+				'url'   => '',
+			);
 		}
 
-		$name = '' !== trim( (string) $user->display_name ) ? (string) $user->display_name : (string) $user->user_login;
-		$link = (string) get_edit_user_link( (int) $user->ID );
-
-		return '' === $link ? esc_html( $name ) : sprintf( '<a href="%1$s">%2$s</a>', esc_url( $link ), esc_html( $name ) );
+		return array(
+			'words' => '' !== trim( (string) $user->display_name ) ? (string) $user->display_name : (string) $user->user_login,
+			'url'   => (string) get_edit_user_link( (int) $user->ID ),
+		);
 	}
 
 	/**
@@ -1440,8 +1786,8 @@ class WPCPM_Institution_People {
 	}
 
 	/**
-	 * The institution dashboard a press made on the card comes back to: the reader's own, or for an
-	 * Administrator the institution they were viewing.
+	 * The institution dashboard a press made on the card comes back to, at the Your institution view: the
+	 * reader's own, or for an Administrator the institution they were viewing.
 	 *
 	 * Public, because the tutor list's two handlers (`WPCPM_Institution_Tutors`) land on the same card.
 	 *
@@ -1449,9 +1795,20 @@ class WPCPM_Institution_People {
 	 * @return string The address, with no anchor.
 	 */
 	public static function card_url( $record ) {
+		$manage = WPCPM_Mentors_Sync::is_record_id( $record ) && current_user_can( WPCPM_Roles::CAP_MANAGE );
+
+		// Your institution, the view that draws the card and the tutor list (`view_url()`); the callers add the anchor.
+		if ( class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
+			$url = WPCPM_Institutions_Dashboard::view_url( 'institution', $manage ? trim( (string) $record ) : '' );
+
+			if ( '' !== $url ) {
+				return $url;
+			}
+		}
+
 		$url = self::dashboard_url();
 
-		if ( WPCPM_Mentors_Sync::is_record_id( $record ) && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+		if ( $manage ) {
 			$url = add_query_arg( array( WPCPM_Institution_Roster::ARG_VIEW => trim( (string) $record ) ), $url );
 		}
 

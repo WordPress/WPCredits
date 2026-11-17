@@ -491,103 +491,145 @@ final class WPCPM_Institution_Students {
 			$outcomes[] = $verdict['outcome'];
 		}
 
-		printf( '<section class="wpcpm-institution__card wpcpm-institution__status" id="%s">', esc_attr( self::ANCHOR ) );
+		// Everything above is asked once: who may see the controls, the status they are decided from and which states are
+		// offered. The card is drawn with the shared parts.
+		self::render_card_parts( $record, $offered, $outcomes, $status, $name );
+	}
 
-		printf(
-			'<h3 class="wpcpm-institution__heading">%s</h3>',
-			esc_html__( 'Finishing this placement', 'wpcredits-program-manager' )
+	/**
+	 * The card on the shared parts (Institution Dashboard, design 6.1): its own card fold, "Finishing this placement", under
+	 * today's anchor, then the outcome of the last press in today's markup, and either today's sentence saying why nothing is
+	 * offered or the lede, one Decide row and the way back to the program contact. In the row, Mark as graduated is primary
+	 * (only while `graduation_offered()` says so) and Mark as dropped out is danger, each its own form that posts at once
+	 * with today's browser question, the same fields and the same nonce (`nonce_action()`, `render_hidden()`).
+	 *
+	 * @param string   $record   The student's Students record ID.
+	 * @param string[] $offered  The states offered, as `render_form()` worked them out.
+	 * @param string[] $outcomes What `check()` answered for each state.
+	 * @param string   $status   What the roster row says.
+	 * @param string   $name     The student's name, for the browser question.
+	 */
+	private static function render_card_parts( $record, array $offered, array $outcomes, $status, $name ) {
+		WPCPM_Dashboard_Card::open(
+			array(
+				'key'           => 'student-status',
+				'title'         => __( 'Finishing this placement', 'wpcredits-program-manager' ),
+				'prefix'        => 'wpcpm-',
+				'id_on'         => 'section',
+				'section_class' => '',
+				'open'          => true,
+			)
 		);
 
 		self::render_message( $record );
 
 		if ( empty( $offered ) ) {
-			// The reason is printed before a press rather than only after one. Open question 4
-			// settles that for the paused case in as many words: an institution cannot graduate a
-			// paused student, and the roster says so on the row rather than failing silently.
-			self::render_note( self::blocked_by( $outcomes, $status ), $status );
+			$note = self::note_text( self::blocked_by( $outcomes, $status ), $status );
 
-			echo '</section>';
+			if ( '' !== $note ) {
+				echo WPCPM_UI::intro( $note ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
+			}
+
+			WPCPM_Dashboard_Card::close();
 
 			return;
 		}
 
-		// One sentence for one control, so the card never speaks of two while it draws one: while
-		// graduating is not offered, one is all a card can draw.
-		printf(
-			'<p class="wpcpm-institution__status-lede">%s</p>',
-			1 === count( $offered )
-				? esc_html__( 'This one is yours to record when a placement ends. It sends the student a letter from the program records straight away, and it cannot be undone from here.', 'wpcredits-program-manager' )
-				: esc_html__( 'These two are yours to record when a placement ends. Both send the student a letter from the program records straight away, and neither can be undone from here.', 'wpcredits-program-manager' )
-		);
+		$labels    = self::labels();
+		$decisions = array();
 
 		foreach ( $offered as $state ) {
-			self::render_button( $record, $state, $name );
+			$decisions[] = array(
+				'key'        => $state,
+				'label'      => isset( $labels[ $state ] ) ? $labels[ $state ] : $state,
+				'kind'       => self::STATE_GRADUATED === $state ? 'primary' : 'danger',
+				'form_attrs' => array(
+					'method'          => 'post',
+					'action'          => admin_url( 'admin-post.php' ),
+					'data-wpcpm-once' => true,
+					'data-wpcpm-busy' => __( 'Saving...', 'wpcredits-program-manager' ),
+				),
+				'hidden'     => static function () use ( $record, $state ) {
+					echo WPCPM_UI::nonce( self::nonce_action( $record, $state ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::nonce().
+					self::render_hidden( $record, $state );
+				},
+				'confirm'    => self::confirm( $state, $name ),
+			);
 		}
 
-		printf(
-			'<p class="wpcpm-institution__status-note">%s</p>',
-			esc_html__( 'Recorded the wrong one? Nothing on this screen puts it back. Tell your program contact, who changes it in the program records.', 'wpcredits-program-manager' )
+		echo WPCPM_UI::intro( self::lede( count( $offered ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
+		$html = WPCPM_UI::decide(
+			array(
+				'id'        => 'wpcpm-decide-student-' . $record,
+				'decisions' => $decisions,
+			)
 		);
 
-		echo '</section>';
+		echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::decide(); the hidden inputs in render_hidden().
+		echo WPCPM_UI::intro( self::way_back_sentence(), 'muted' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
+
+		WPCPM_Dashboard_Card::close();
 	}
 
 	/**
-	 * One control: its own form, its own nonce, its own confirm.
+	 * The card's lede: one sentence for one control, so the card never speaks of two while it draws one; while graduating is
+	 * not offered, one is all a card can draw. Both branches print it.
 	 *
-	 * A form per state rather than one form with two submit buttons, because the value of a
-	 * submit button is not posted by every browser when the form is sent another way, and a
-	 * handler that read an empty state would be a handler one guard short.
+	 * @param int $offered How many controls the card draws.
+	 * @return string
+	 */
+	private static function lede( $offered ) {
+		return 1 === (int) $offered
+			? __( 'This one is yours to record when a placement ends. It sends the student a letter from the program records straight away, and it cannot be undone from here.', 'wpcredits-program-manager' )
+			: __( 'These two are yours to record when a placement ends. Both send the student a letter from the program records straight away, and neither can be undone from here.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The sentence under the controls: nothing here puts a press back, and who does. Both branches print it.
 	 *
-	 * The nonce is keyed to the record and the state together, so a token for graduating one
-	 * student is neither a token for withdrawing them nor a token for anybody else.
+	 * @return string
+	 */
+	private static function way_back_sentence() {
+		return __( 'Recorded the wrong one? Nothing on this screen puts it back. Tell your program contact, who changes it in the program records.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * One control's nonce action: keyed to the record and the state together, so a token
+	 * for graduating one student is neither a token for withdrawing them nor a token for anybody else.
 	 *
 	 * @param string $record The student's Students record ID.
 	 * @param string $state  One of `states()`' keys.
-	 * @param string $name   The student's name, for the confirm dialog.
+	 * @return string
 	 */
-	private static function render_button( $record, $state, $name ) {
-		$labels = self::labels();
-
-		printf(
-			'<form class="wpcpm-institution__status-form" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
-			esc_url( admin_url( 'admin-post.php' ) ),
-			esc_attr__( 'Saving...', 'wpcredits-program-manager' )
-		);
-
-		wp_nonce_field( self::ACTION_CHANGE . '_' . $record . '_' . $state );
-
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CHANGE ) );
-		printf( '<input type="hidden" name="record" value="%s" />', esc_attr( $record ) );
-		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::FIELD_STATE ), esc_attr( $state ) );
-
-		printf(
-			'<button type="submit" class="wpcpm-button" data-wpcpm-confirm="%1$s">%2$s</button>',
-			esc_attr( self::confirm( $state, $name ) ),
-			esc_html( isset( $labels[ $state ] ) ? $labels[ $state ] : $state )
-		);
-
-		echo '</form>';
+	private static function nonce_action( $record, $state ) {
+		return self::ACTION_CHANGE . '_' . $record . '_' . $state;
 	}
 
 	/**
-	 * Why no control is drawn, in one sentence on the card.
+	 * One control's hidden fields after its nonce: the action, the record and the state. The Decide row prints the nonce
+	 * with core's name and value and no id (`WPCPM_UI::nonce()`), since its forms share a page.
+	 *
+	 * @param string $record The student's Students record ID.
+	 * @param string $state  One of `states()`' keys.
+	 */
+	private static function render_hidden( $record, $state ) {
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CHANGE ) );
+		printf( '<input type="hidden" name="record" value="%s" />', esc_attr( $record ) );
+		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::FIELD_STATE ), esc_attr( $state ) );
+	}
+
+	/**
+	 * Why no control is drawn, as the sentence the card prints: the outcome's note, then what the records say where it
+	 * quotes them; '' for an outcome with no note.
 	 *
 	 * @param string $outcome One of the OUT_* slugs.
 	 * @param string $status  What the roster row says.
+	 * @return string
 	 */
-	private static function render_note( $outcome, $status ) {
+	private static function note_text( $outcome, $status ) {
 		$notes = self::notes();
 
-		if ( ! isset( $notes[ $outcome ] ) ) {
-			return;
-		}
-
-		printf(
-			'<p class="wpcpm-institution__status-note">%1$s%2$s</p>',
-			esc_html( $notes[ $outcome ] ),
-			esc_html( self::says( $outcome, $status ) )
-		);
+		return isset( $notes[ $outcome ] ) ? $notes[ $outcome ] . self::says( $outcome, $status ) : '';
 	}
 
 	/**
@@ -659,7 +701,9 @@ final class WPCPM_Institution_Students {
 	}
 
 	/**
-	 * The outcome of the last press, on the card it happened on.
+	 * The outcome of the last press, on the card it happened on: the dashboards' shared outcome (`WPCPM_Dashboard_Card::message()`) in today's class: a success
+	 * is heard politely, a refusal alerts, and either is the focus target assets/js/forms.js moves to on load, as the
+	 * Administrator Dashboard draws its outcomes.
 	 *
 	 * @param string $record The Students record this card is about.
 	 */
@@ -680,12 +724,7 @@ final class WPCPM_Institution_Students {
 			return;
 		}
 
-		printf(
-			'<p class="wpcpm-institution__status-message is-%1$s" role="status">%2$s%3$s</p>',
-			esc_attr( $messages[ $outcome ][0] ),
-			esc_html( $messages[ $outcome ][1] ),
-			esc_html( self::says( $outcome, $detail ) )
-		);
+		echo WPCPM_Dashboard_Card::message( $messages[ $outcome ][0], $messages[ $outcome ][1] . self::says( $outcome, $detail ), 'wpcpm-institution__status-message' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Dashboard_Card::message().
 	}
 
 	/*
@@ -1002,7 +1041,9 @@ final class WPCPM_Institution_Students {
 			)
 		);
 
-		wp_safe_redirect( WPCPM_Request::back( WPCPM_Institutions_Dashboard::page_url(), home_url( '/' ) ) . '#' . self::ANCHOR );
+		// Back where the press was made, the student's card on the Students view; with no referer, that view
+		// (`way_back()`), with the school an Administrator's request names, and then the card's anchor as before.
+		wp_safe_redirect( WPCPM_Request::back( WPCPM_Institutions_Dashboard::way_back( substr( self::ANCHOR, strlen( 'wpcpm-' ) ) ), home_url( '/' ) ) . '#' . self::ANCHOR );
 		exit;
 	}
 }

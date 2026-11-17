@@ -82,7 +82,27 @@ function add_query_arg( $k, $v = null, $url = '' ) {
 	foreach ( $pairs as $key => $value ) { $bits[] = rawurlencode( $key ) . '=' . rawurlencode( (string) $value ); }
 	return $url . $join . implode( '&', $bits );
 }
-function wp_nonce_field( $action ) { $GLOBALS['calls'][] = array( 'nonce_field', $action ); echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $action ) . '" />'; }
+// Core's shape (Institution Dashboard, Task 17): the token under its id and name, then the page the form is drawn on, so
+// a drawn form is asserted with the referer field it posts, on both branches.
+function wp_referer_field( $display = true ) {
+	$field = '<input type="hidden" name="_wp_http_referer" value="/institution-dashboard/?wpcpm_view=enroll" />';
+	if ( $display ) { echo $field; }
+	return $field;
+}
+function wp_nonce_field( $action = -1, $name = '_wpnonce', $referer = true, $display = true ) {
+	$GLOBALS['calls'][] = array( 'nonce_field', $action );
+	$field              = '<input type="hidden" id="' . esc_attr( $name ) . '" name="' . esc_attr( $name ) . '" value="nonce-' . esc_attr( $action ) . '" />' . ( $referer ? wp_referer_field( false ) : '' );
+	if ( $display ) { echo $field; }
+	return $field;
+}
+function wp_create_nonce( $action = -1 ) { $GLOBALS['calls'][] = array( 'nonce_field', $action ); return 'nonce-' . $action; }
+function is_admin() { return false; }
+function wp_style_is( $handle, $list = 'enqueued' ) { return false; }
+function wp_register_style( $handle, $src, $deps = array(), $ver = false ) {}
+function wp_script_is( $handle, $list = 'enqueued' ) { return false; }
+function wp_register_script( $handle, $src, $deps = array(), $ver = false, $footer = false ) {}
+function wp_enqueue_script( $handle ) {}
+function _doing_it_wrong( $function_name, $message, $version ) {}
 function check_admin_referer( $action = -1, $q = '_wpnonce' ) { $GLOBALS['referer'][] = $action; return true; }
 function wp_safe_redirect( $url ) { $GLOBALS['redirect'] = $url; }
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
@@ -217,6 +237,11 @@ class WPCPM_Flash {
 }
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
+// The shared parts (Institution Dashboard, Task 17): the card's parts' branch draws with them, and only while the
+// Institution Dashboard's surface is on.
+define( 'WPCPM_PLUGIN_URL', 'https://example.test/wp-content/plugins/wpcredits-program-manager/' );
+define( 'WPCPM_VERSION', 'test' );
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
 class WPCPM_Request {
 	public static function text( $n, $f = '' ) { return isset( $_GET[ $n ] ) ? (string) $_GET[ $n ] : $f; }
 	// **These two clean differently, and that difference is the point.** The suite used to
@@ -245,7 +270,19 @@ class WPCPM_Institution_Roster {
 	const ARG_VIEW = 'wpcpm_institution_view';
 	public static function resolve_institution( $viewer, $can_manage ) { $GLOBALS['calls'][] = array( 'resolve' ); return (string) $GLOBALS['resolved']; }
 }
-class WPCPM_Institutions_Dashboard { public static function page_url() { return 'https://example.test/institution-dashboard/'; } }
+require_once __DIR__ . '/stubs/institution-card-url.php';
+require_once __DIR__ . '/stubs/view-faults.php';
+class WPCPM_Institutions_Dashboard {
+	const VIEW_ARG = 'wpcpm_view';
+	public static function page_url() { return 'https://example.test/institution-dashboard/'; }
+	// The page's addresses, as the real class builds them (bin/stubs/institution-card-url.php, checked against it
+	// in bin/test-institution-ways-back.php).
+	public static function view_url( $view = 'overview', $record = '', array $args = array() ) { return wpcpm_test_institution_view_url( self::page_url(), $view, $record, $args ); }
+	public static function view_of( $card ) { return wpcpm_test_institution_view_of( $card ); }
+	public static function card_url( $card, $record = '', $item = '', array $args = array() ) { return wpcpm_test_institution_card_url( self::page_url(), $card, $record, $item, $args ); }
+	public static function requested_record() { return wpcpm_test_institution_requested_record(); }
+	public static function way_back( $card ) { return wpcpm_test_institution_way_back( self::page_url(), $card ); }
+}
 /** The pipeline index, as far as the form asks it: whether it holds a record. */
 class WPCPM_Institutions_Index {
 	public static function has( $record_id ) { return in_array( (string) $record_id, $GLOBALS['indexed'], true ); }
@@ -514,18 +551,18 @@ ck( 'the form asks for no profile', false !== strpos( $form, 'name="profile"' ),
 
 // A single-select in Airtable, and create_records() sends no typecast, so a value spelled any
 // other way is a 422 for the whole record: a text box here is one a school can only get wrong.
-ck( 'the field of study is a picker', false !== strpos( $form, '<select id="wpcpm-import-field_of_study"' ), true );
+ck( 'the field of study is a picker', 1 === preg_match( '#<select [^>]*id="wpcpm-import-field_of_study"#', $form ), true );
 ck( 'holding the base\'s own nine', substr_count( $form, '<option value="Technology &amp; Engineering"' ), 1 );
 // Neither field is required, and a picker that opens on the first real answer files half a
 // cohort under it.
-ck( 'opening on a blank answer', false !== strpos( $form, '<option value="">Not recorded</option>' ), true );
+ck( 'opening on a blank answer', false !== strpos( $form, '<option value="" selected>Not recorded</option>' ), true );
 
 // Tutors are a table in the base, and a free-text box invites a name that matches nothing in
 // it, which is how that column filled with spellings. So it is a picker even when this
 // institution has nobody in the table yet, with a sentence saying who to ask rather than a box
 // implying the site will take whatever is typed.
-ck( 'the tutor is a picker even with none recorded', false !== strpos( $form, '<select id="wpcpm-import-tutor"' ), true );
-ck( 'and says where to add them instead of pretending otherwise', false !== strpos( $form, 'No tutors are listed for your institution yet. Add them in the Tutors section of the People card, and they will appear here.' ), true );
+ck( 'the tutor is a picker even with none recorded', 1 === preg_match( '#<select [^>]*id="wpcpm-import-tutor"#', $form ), true );
+ck( 'and says where to add them instead of pretending otherwise', false !== strpos( $form, 'No tutors are listed for your institution yet. Add them under Tutors on Your institution, and they will appear here.' ), true );
 ck( 'the old sentence, which sent the school to an Administrator, is gone', false !== strpos( $form, 'Ask an Administrator to add them' ), false );
 ck( 'no field is left as a free-text box that the base has options for', substr_count( $form, 'id="wpcpm-import-tutor" name="tutor" /' ), 0 );
 
@@ -751,16 +788,9 @@ fresh_world();
 $GLOBALS['sample_calls'] = array();
 $closed                  = draw_section( $HERE );
 
-// The same disclosure the roster's own buckets use, so it opens with the control the reader
-// has already met four times above it rather than with a fifth kind of thing.
-ck( 'the section is a disclosure', false !== strpos( $closed, '<details class="wpcpm-group wpcpm-group__disclosure wpcpm-import__disclosure"' ), true );
-// The open state lives on the shared class: without it the chevron never turned, and nothing
-// on the row said whether the section was open or shut.
-ck( 'carrying the class the open state hangs off', false !== strpos( $closed, 'wpcpm-group__disclosure' ), true );
-// Enrolling is occasional and this form is the longest thing on the page; left open it pushes
-// the people and the agreement off the screen for every visit that came to read the roster.
-ck( 'and it is folded when there is nothing to answer', false !== strpos( $closed, 'wpcpm-import__disclosure" open' ), false );
-ck( 'its summary is the shared one, not a fifth kind of heading', false !== strpos( $closed, 'class="wpcpm-group__summary"' ), true );
+// The card is the Enroll students view's content, drawn on the parts (Institution Dashboard, Task 17): no fold, the
+// view's head names it, and its block carries the anchor every link and way back lands on.
+ck( 'the card is a block under its anchor, with no fold and no head of its own', array( 0 === strpos( $closed, '<section class="wpcpm-ui-block" id="wpcpm-import">' ), false !== strpos( $closed, '<details' ), false !== strpos( $closed, '<h2' ) ), array( true, false, false ) );
 
 echo "\n=== The sample list's example row is refused in words ===\n";
 
@@ -770,9 +800,9 @@ echo "\n=== The sample list's example row is refused in words ===\n";
 fresh_world();
 post_check( batch_fields( array( 'paste' => "name,email,field_of_study,tutor\nAna Example,ana@example.test,Technology & Engineering,Tutor Example\nBartek Zielinski,bartek@institution-3.example,,\n" ) ) );
 $sample_preview = html_entity_decode( draw_section( $HERE ), ENT_QUOTES );
-ck( 'the example row is told it is the sample list\'s, and what to do', false !== strpos( $sample_preview, '<span class="wpcpm-import__verdict">This is the sample list\'s example student. Replace it with one of your students, or delete the row.</span>' ), true );
+ck( 'the example row is told it is the sample list\'s, and what to do', false !== strpos( $sample_preview, '<td class="wpcpm-ui-cell--text" role="cell" data-label="What happens">This is the sample list\'s example student. Replace it with one of your students, or delete the row.</td>' ), true );
 ck( 'and the sentence is drawn once, for that row only', substr_count( $sample_preview, 'This is the sample list\'s example student.' ), 1 );
-ck( 'the student beside it is ready to create', false !== strpos( $sample_preview, '<span class="wpcpm-import__verdict">Ready to create.</span>' ), true );
+ck( 'the student beside it is ready to create', false !== strpos( $sample_preview, '<td class="wpcpm-ui-cell--text" role="cell" data-label="What happens">Ready to create.</td>' ), true );
 ck( 'one of the two rows can be created', false !== strpos( $sample_preview, '1 of 2 rows can be created.' ), true );
 ck( 'and the sentence is not the one for an address that is not one', false !== strpos( $sample_preview, 'That is not an email address.' ), false );
 
@@ -782,7 +812,7 @@ fresh_world();
 post_check( batch_fields( array( 'paste' => "name,email,field_of_study,tutor\nAna Example,ana@example.test,Technology & Engineering,Tutor Example\n" ) ) );
 $sample_alone = html_entity_decode( draw_section( $HERE ), ENT_QUOTES );
 ck( 'the unchanged sample on its own is read, and none of its rows can be created', false !== strpos( $sample_alone, '0 of 1 rows can be created.' ), true );
-ck( 'its row is the sample list\'s, with what to do', false !== strpos( $sample_alone, '<span class="wpcpm-import__verdict">This is the sample list\'s example student. Replace it with one of your students, or delete the row.</span>' ), true );
+ck( 'its row is the sample list\'s, with what to do', false !== strpos( $sample_alone, '<td class="wpcpm-ui-cell--text" role="cell" data-label="What happens">This is the sample list\'s example student. Replace it with one of your students, or delete the row.</td>' ), true );
 ck( 'and no create control is printed, so it creates nobody', array( false !== strpos( $sample_alone, 'Create these student records' ), false !== strpos( $sample_alone, 'wpcpm_import_confirm' ) ), array( false, false ) );
 ck( 'while the list can still be thrown away', false !== strpos( $sample_alone, 'Throw this list away' ), true );
 
@@ -790,11 +820,11 @@ echo "\n=== Required fields say so ===\n";
 
 // The form itself is drawn into $closed above: nothing is staged and fresh_world() left no
 // flash, so render() takes the render_form() branch rather than the preview or the outcome.
-ck( 'the start date label carries the mark, and the input keeps the attribute', false !== strpos( $closed, '<label for="wpcpm-import-start">Start date <span class="wpcpm-field__required">Required</span></label><input type="date" id="wpcpm-import-start" name="start" required' ), true );
+ck( 'the start date label carries the mark, and the input keeps the attribute', false !== strpos( $closed, '<label class="wpcpm-ui-field__label" for="wpcpm-import-start">Start date <span class="wpcpm-ui-field__need">Required</span></label><input type="date" class="wpcpm-ui-field__control wpcpm-ui-field__control--date" id="wpcpm-import-start" name="start" required' ), true );
 // The sentence and the mark share a `<span>` so the flex label sets them as one text run rather
 // than as two columns; asserted here because the wrapper is the whole of that fix.
-ck( 'so does the notified confirmation, right after its sentence and inside its own run', false !== strpos( $closed, 'for the WordPress Credits Program. <span class="wpcpm-field__required">Required</span></span></label>' ), true );
-ck( 'and every other field is left alone: the program picker is not marked', false !== strpos( $closed, '<label for="wpcpm-import-program">Program</label>' ), true );
+ck( 'so does the notified confirmation, right after its sentence and inside its own run', false !== strpos( $closed, 'for the WordPress Credits Program. <span class="wpcpm-ui-field__need">Required</span></span></span></label>' ), true );
+ck( 'and every other field is left alone: the program picker is not marked', false !== strpos( $closed, '<label class="wpcpm-ui-field__label" for="wpcpm-import-program">Program</label>' ), true );
 
 echo "\n=== A sample list is one link away ===\n";
 
@@ -804,10 +834,10 @@ echo "\n=== A sample list is one link away ===\n";
 $sample_href = 'https://example.test/wp-admin/admin-post.php?action=wpcpm_import_sample&_wpnonce=nonce-wpcpm_import_sample_' . $HERE;
 
 ck( 'the file box\'s hint is followed by "Download a sample list", linking the nonced handler',
-	false !== strpos( $closed, 'The file is read and never stored.</span><a class="wpcpm-import__sample" href="' . $sample_href . '">Download a sample list</a></p>' ), true );
+	false !== strpos( $closed, 'The file is read and never stored.</p></div><p class="wpcpm-ui-intro"><a href="' . $sample_href . '">Download a sample list</a></p>' ), true );
 ck( 'it is drawn once', substr_count( $closed, 'Download a sample list' ), 1 );
 ck( 'and it is the file box\'s own: after the file input, before the paste box',
-	1 === preg_match( '#name="list" accept="\.csv,text/csv"[^>]*/>.*Download a sample list.*<label for="wpcpm-import-paste">#s', $closed ), true );
+	1 === preg_match( '#name="list" accept="\.csv,text/csv"[^>]*>.*Download a sample list.*<label class="wpcpm-ui-field__label" for="wpcpm-import-paste">#s', $closed ), true );
 ck( 'the link is made for the institution the form is for and for no other', $GLOBALS['sample_calls'], array( $HERE ) );
 
 // A staged list, or an outcome, replaces the form; the link belongs to the form alone.
@@ -820,34 +850,26 @@ fresh_world();
 // A list waiting to be looked at is the page asking the reader for something.
 post_check( batch_fields() );
 $with_batch = draw_section( $HERE );
-ck( 'a waiting list opens it', false !== strpos( $with_batch, 'wpcpm-import__disclosure" open' ), true );
+ck( 'a waiting list is drawn in the card\'s block, in place of the form', array( 0 === strpos( $with_batch, '<section class="wpcpm-ui-block" id="wpcpm-import">' ), false !== strpos( $with_batch, 'Check the list</button>' ) ), array( true, false ) );
 
 // So is a message from the last attempt, which folded away unread before this.
 fresh_world();
 post_check( batch_fields( array( 'notified' => '' ) ) );
 $with_message = draw_section( $HERE );
-ck( 'and so does something left to say', false !== strpos( $with_message, 'wpcpm-import__disclosure" open' ), true );
-// Read twice in one request: once to decide whether to open, once to print. `take()` is
-// memoized for exactly that, and without it the message would be shown inside a folded section.
-ck( 'the message still prints after being read to make that decision', false !== strpos( $with_message, 'Confirm that these students have been notified' ), true );
+// The message is taken once, when the card renders.
+ck( 'something left to say prints', false !== strpos( $with_message, 'Confirm that these students have been notified' ), true );
 
 fresh_world();
 $GLOBALS['settings'] = array( 'import_enabled' => false );
 ck( 'and none of it is drawn while the setting is off', draw_section( $HERE ), '' );
 $GLOBALS['settings'] = array( 'import_enabled' => true );
 
-// Every class the form prints has a rule of its own in the page's stylesheet. `.wpcpm-field`
-// is defined in the application form's, which is not loaded here, so the fields came out as
-// the browser's own on the day this shipped.
+// The one class of its own the form prints on the parts, its outcome's, has a rule in the page's stylesheet. The
+// old form's fields (`.wpcpm-field--check`, `.wpcpm-field__hint`) and its section's rule above it
+// (`.wpcpm-roster, .wpcpm-import, .wpcpm-people, .wpcpm-details`) went with the old form and its rules: the
+// fields are the parts', and the view's block is the parts' (Task 23, fix round 1).
 $css = file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/institution.css' );
-
-foreach ( array( 'wpcpm-import__body', 'wpcpm-import__batch', 'wpcpm-import__subtitle', 'wpcpm-import__row', 'wpcpm-import__verdict', 'wpcpm-import__message', 'wpcpm-import__sample', 'wpcpm-field--check', 'wpcpm-field__hint' ) as $class ) {
-	ck( sprintf( '.%s is styled on this page', $class ), false !== strpos( $css, '.' . $class ), true );
-}
-
-// It carries a rule above it and the page's rhythm, like the two sections it sits between. The school's
-// details card (Institutions release 2) joins the same rule after them.
-ck( 'the section joins the two that already carry a rule', false !== strpos( $css, ".wpcpm-roster,\n.wpcpm-import,\n.wpcpm-people,\n.wpcpm-details {" ), true );
+ck( '.wpcpm-import__message is styled on this page, and no rule is left for the old form\'s section', array( false !== strpos( $css, '.wpcpm-import__message' ), 1 === preg_match( '/^\.wpcpm-import\b/m', $css ) ), array( true, false ) );
 
 echo "\n=== The file is read, never stored ===\n";
 
@@ -983,7 +1005,7 @@ function said_now() {
 }
 
 /**
- * The address a press leaves to: the dashboard, the batch to open when there is one, the
+ * The address a press leaves to: the dashboard's Enroll students view, the batch to open when there is one, the
  * institution when the reader is to come back to one, and the card.
  *
  * @param string $record Institutions record ID the address names, or ''.
@@ -991,7 +1013,8 @@ function said_now() {
  * @return string
  */
 function went_to( $record = '', $batch = 0 ) {
-	$args = array();
+	// The Enroll students view, which holds the form (Task 9).
+	$args = array( WPCPM_Institutions_Dashboard::VIEW_ARG . '=enroll' );
 
 	if ( $batch > 0 ) {
 		$args[] = WPCPM_Institution_Import_Form::ARG_BATCH . '=' . $batch;
@@ -1026,7 +1049,7 @@ foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $m
 	$went = press_to( 'handle_check', batch_fields() + $other_view, $other_view );
 
 	ck( $who . ': a second list is refused while one is waiting', said_now(), 'already-staged' );
-	ck( $who . ': and the refusal ' . ( $manager ? 'comes back to the same institution' : 'is the dashboard as it always was' ), $went, went_to( $named ) );
+	ck( $who . ': and the refusal ' . ( $manager ? 'comes back to the same institution' : 'is the Enroll students view, with no school' ), $went, went_to( $named ) );
 
 	// Every control on a staged list reads its institution off the batch, whoever is resolved.
 	$GLOBALS['resolved'] = $OTHER;
@@ -1037,17 +1060,17 @@ foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $m
 	$went = press_to( 'handle_confirm', array( 'batch' => (string) $batch_id ) + $other_view, $other_view );
 
 	ck( $who . ': confirming creates the list', said_now(), 'created' );
-	ck( $who . ': and the address ' . ( $manager ? 'is the batch\'s own institution, never the posted one' : 'is the dashboard as it always was' ), $went, went_to( $named ) );
+	ck( $who . ': and the address ' . ( $manager ? 'is the batch\'s own institution, never the posted one' : 'is the Enroll students view, with no school' ), $went, went_to( $named ) );
 
 	$went = press_to( 'handle_confirm', array( 'batch' => (string) $batch_id ) + $other_view, $other_view );
 
 	ck( $who . ': confirming twice is refused', said_now(), 'not-staged-now' );
-	ck( $who . ': and the refusal ' . ( $manager ? 'comes back to the same institution' : 'is the dashboard as it always was' ), $went, went_to( $named ) );
+	ck( $who . ': and the refusal ' . ( $manager ? 'comes back to the same institution' : 'is the Enroll students view, with no school' ), $went, went_to( $named ) );
 
 	$went = press_to( 'handle_continue', array( 'batch' => (string) $batch_id ) + $other_view, $other_view );
 
 	ck( $who . ': carrying on with a list that is not running is refused', said_now(), 'not-creating-now' );
-	ck( $who . ': and the refusal ' . ( $manager ? 'comes back to the batch\'s institution' : 'is the dashboard as it always was' ), $went, went_to( $named ) );
+	ck( $who . ': and the refusal ' . ( $manager ? 'comes back to the batch\'s institution' : 'is the Enroll students view, with no school' ), $went, went_to( $named ) );
 
 	// A list that is part way through is carried on from the batch too.
 	fresh_world();
@@ -1061,7 +1084,7 @@ foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $m
 	$went = press_to( 'handle_continue', array( 'batch' => (string) $running ) + $other_view, $other_view );
 
 	ck( $who . ': carrying on with a running list creates the rest', said_now(), 'created' );
-	ck( $who . ': and the address ' . ( $manager ? 'is the batch\'s own institution, never the posted one' : 'is the dashboard as it always was' ), $went, went_to( $named ) );
+	ck( $who . ': and the address ' . ( $manager ? 'is the batch\'s own institution, never the posted one' : 'is the Enroll students view, with no school' ), $went, went_to( $named ) );
 
 	// Throwing a list away.
 	fresh_world();
@@ -1073,14 +1096,14 @@ foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $m
 	$went = press_to( 'handle_cancel', array( 'batch' => (string) $staged_now ) + $other_view, $other_view );
 
 	ck( $who . ': throwing a list away says so', said_now(), 'cancelled' );
-	ck( $who . ': and the address ' . ( $manager ? 'is the batch\'s own institution, never the posted one' : 'is the dashboard as it always was' ), $went, went_to( $named ) );
+	ck( $who . ': and the address ' . ( $manager ? 'is the batch\'s own institution, never the posted one' : 'is the Enroll students view, with no school' ), $went, went_to( $named ) );
 
 	// A list that is already gone: the press acted on nothing, so an administrator comes back to
 	// the institution the form said they were viewing, and a member to the dashboard.
 	$went = press_to( 'handle_cancel', array( 'batch' => (string) $staged_now ) + $other_view, $other_view );
 
 	ck( $who . ': throwing away a list that is gone says so', said_now(), 'no-batch' );
-	ck( $who . ': and the address ' . ( $manager ? 'is the institution the switcher named' : 'is the dashboard as it always was, whatever they posted' ), $went, went_to( $manager ? $OTHER : '' ) );
+	ck( $who . ': and the address ' . ( $manager ? 'is the institution the switcher named' : 'is the Enroll students view, with no school, whatever they posted' ), $went, went_to( $manager ? $OTHER : '' ) );
 }
 
 $GLOBALS['manage']   = false;
@@ -1290,11 +1313,11 @@ foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $m
 
 	$went = press_to( 'handle_cancel', fields_of( $cancel ), query_of( $cancel ) );
 	ck( $who . ': throwing away a list that is gone says so', said_now(), 'no-batch' );
-	ck( $who . ': and comes back to ' . ( $manager ? 'the institution they were viewing' : 'the dashboard as it always did' ), $went, went_to( $manager ? $HERE : '' ) );
+	ck( $who . ': and comes back to ' . ( $manager ? 'the institution they were viewing' : 'the Enroll students view, with no school' ), $went, went_to( $manager ? $HERE : '' ) );
 
 	$went = press_to( 'handle_confirm', fields_of( $confirm ), query_of( $confirm ) );
 	ck( $who . ': confirming a list that is gone says so', said_now(), 'no-batch' );
-	ck( $who . ': and comes back to ' . ( $manager ? 'the institution they were viewing' : 'the dashboard as it always did' ), $went, went_to( $manager ? $HERE : '' ) );
+	ck( $who . ': and comes back to ' . ( $manager ? 'the institution they were viewing' : 'the Enroll students view, with no school' ), $went, went_to( $manager ? $HERE : '' ) );
 
 	// A list part way through: Continue.
 	fresh_world();
@@ -1312,7 +1335,7 @@ foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $m
 
 	$went = press_to( 'handle_continue', fields_of( $continue ), query_of( $continue ) );
 	ck( $who . ': carrying on with a list that is gone says so', said_now(), 'no-batch' );
-	ck( $who . ': and comes back to ' . ( $manager ? 'the institution they were viewing' : 'the dashboard as it always did' ), $went, went_to( $manager ? $HERE : '' ) );
+	ck( $who . ': and comes back to ' . ( $manager ? 'the institution they were viewing' : 'the Enroll students view, with no school' ), $went, went_to( $manager ? $HERE : '' ) );
 
 	// The forms are the same forms with the switcher on their address: a press that did act is
 	// still the batch's own institution, whatever the address says.
@@ -1323,7 +1346,7 @@ foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $m
 	$query   = $manager ? array( $VIEW => $OTHER ) : query_of( $cancel );
 	$went    = press_to( 'handle_cancel', fields_of( $cancel ), $query );
 	ck( $who . ': throwing a list away that is there says so', said_now(), 'cancelled' );
-	ck( $who . ': and comes back to ' . ( $manager ? 'the batch\'s institution, not the one the address named' : 'the dashboard as it always did' ), $went, went_to( $manager ? $HERE : '' ) );
+	ck( $who . ': and comes back to ' . ( $manager ? 'the batch\'s institution, not the one the address named' : 'the Enroll students view, with no school' ), $went, went_to( $manager ? $HERE : '' ) );
 }
 
 $GLOBALS['manage']   = false;
@@ -1365,21 +1388,22 @@ fresh_world();
 $posted = full_post();
 $status = post_check( $posted );
 $again  = draw_section( $HERE );
-$paste  = preg_match( '#<textarea id="wpcpm-import-paste"[^>]*>(.*?)</textarea>#s', $again, $box ) ? html_entity_decode( $box[1], ENT_QUOTES ) : '';
+// A browser drops the one line break the box's markup opens with.
+$paste  = preg_match( '#<textarea [^>]*id="wpcpm-import-paste"[^>]*>\n?(.*?)</textarea>#s', $again, $box ) ? html_entity_decode( $box[1], ENT_QUOTES ) : '';
 
 ck(
 	'a start date a year away keeps the program, the dates, the tick, a pasted list of 300 rows and the one-student fields, and marks the start date',
 	array(
 		$status,
-		false !== strpos( $again, '<option value="In Sensei" selected="selected">' ),
+		false !== strpos( $again, '<option value="In Sensei" selected>' ),
 		false !== strpos( control_of( $again, 'wpcpm-import-start' ), 'value="' . $posted['start'] . '"' ),
 		false !== strpos( control_of( $again, 'wpcpm-import-end' ), 'value="' . $posted['end'] . '"' ),
-		false !== strpos( control_of( $again, 'wpcpm-import-notified' ), 'checked="checked"' ),
+		1 === preg_match( '/\schecked\b/', control_of( $again, 'wpcpm-import-notified' ) ),
 		count( explode( "\n", $paste ) ),
 		$paste === $posted['paste'],
 		false !== strpos( control_of( $again, 'wpcpm-import-name' ), 'value="Dora Example"' ),
 		false !== strpos( control_of( $again, 'wpcpm-import-email' ), 'value="dora@institution-3.example"' ),
-		false !== strpos( $again, '<option value="Technology &amp; Engineering" selected="selected">' ),
+		false !== strpos( $again, '<option value="Technology &amp; Engineering" selected>' ),
 		false !== strpos( control_of( $again, 'wpcpm-import-start' ), 'aria-invalid="true"' ),
 		false !== strpos( $again, '<p class="wpcpm-field__problem" id="wpcpm-import-start-problem">That start date is more than a year away. Check the year.</p>' ),
 		false !== strpos( $again, 'One answer needs a change' ),
@@ -1387,9 +1411,9 @@ ck(
 	),
 	array( 'start-far', true, true, true, true, 301, true, true, true, true, true, true, true, false )
 );
-ck( 'the summary is inside the form, over its first field, linking the start date', 1 === preg_match( '#<form class="wpcpm-import__form".*<div class="wpcpm-errors" role="alert" tabindex="-1">.*<a href="\#wpcpm-import-start">Start date</a>.*<label for="wpcpm-import-program">#s', $again ), true );
+ck( 'the summary is inside the form, over its first field, linking the start date', 1 === preg_match( '#<form method="post" enctype="multipart/form-data".*<div class="wpcpm-errors" role="alert" tabindex="-1">.*<a href="\#wpcpm-import-start">Start date</a>.*<label class="wpcpm-ui-field__label" for="wpcpm-import-program">#s', $again ), true );
 ck( 'the refusal at the top is an error in its tone, as an alert, focusable', false !== strpos( $again, '<p class="wpcpm-import__message wpcpm-import__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>That start date is more than a year away. Check the year.</p>' ), true );
-ck( 'and what was kept is drawn once: the next drawing is the empty form', false !== strpos( control_of( draw_section( $HERE ), 'wpcpm-import-start' ), 'value=' ), false );
+ck( 'and what was kept is drawn once: the next drawing is the empty form', false !== strpos( control_of( draw_section( $HERE ), 'wpcpm-import-start' ), 'value=""' ), true );
 
 foreach ( array(
 	'an end date before the start is marked at the end date' => array( array( 'start' => gmdate( 'Y-m-d', time() + 30 * DAY_IN_SECONDS ), 'end' => '2020-01-01' ), 'bad-end', 'wpcpm-import-end' ),
@@ -1447,7 +1471,7 @@ for ( $i = 0; $i < 5; ++$i ) {
 }
 ck( 'five presses refused for a wrong date in one hour leave the sixth, correct press checked (not too_often)', array( $wrong, post_check( batch_fields() ) ), array( array_fill( 0, 5, 'start-far' ), 'checked' ) );
 
-ck( 'the file input\'s hint says the limit', false !== strpos( $closed, '<span class="wpcpm-field__hint" id="wpcpm-import-file-hint">A CSV file of 256 KB at most. A header row,' ), true );
+ck( 'the file input\'s hint says the limit', false !== strpos( $closed, '<p class="wpcpm-ui-field__hint" id="wpcpm-import-file-hint">A CSV file of 256 KB at most. A header row,' ), true );
 
 $lines = array( 'Name,Email' );
 for ( $i = 1; strlen( implode( "\n", $lines ) ) <= WPCPM_Flash::KEPT_MAX; ++$i ) {
@@ -1458,7 +1482,7 @@ fresh_world();
 $status = post_check( batch_fields( array( 'paste' => $long ) ) );
 $kept   = isset( $GLOBALS['flash'][ 'kept:import-batch:' . $HERE ] ) ? $GLOBALS['flash'][ 'kept:import-batch:' . $HERE ] : array();
 $again  = draw_section( $HERE );
-ck( 'a pasted list too long to keep is asked for again at the paste box', array( strlen( $long ), $status, array_key_exists( 'paste', isset( $kept['values'] ) ? $kept['values'] : array( 'paste' => 1 ) ), isset( $kept['problems']['wpcpm-import-paste'] ) ? $kept['problems']['wpcpm-import-paste'] : '', 1 === preg_match( '#<textarea id="wpcpm-import-paste"[^>]*></textarea>#', $again ) ), array( WPCPM_Flash::KEPT_MAX + 1, 'parse-too_many_rows', false, 'The pasted list was too long to keep here: paste it again.', true ) );
+ck( 'a pasted list too long to keep is asked for again at the paste box', array( strlen( $long ), $status, array_key_exists( 'paste', isset( $kept['values'] ) ? $kept['values'] : array( 'paste' => 1 ) ), isset( $kept['problems']['wpcpm-import-paste'] ) ? $kept['problems']['wpcpm-import-paste'] : '', 1 === preg_match( '#<textarea [^>]*id="wpcpm-import-paste"[^>]*>\n?</textarea>#', $again ) ), array( WPCPM_Flash::KEPT_MAX + 1, 'parse-too_many_rows', false, 'The pasted list was too long to keep here: paste it again.', true ) );
 
 // The four forms the card draws in its three states: the form, a waiting list, a list part way through.
 fresh_world();
@@ -1475,6 +1499,829 @@ foreach ( $tags[0] as $tag ) {
 	$busy[] = array( false !== strpos( $tag, ' data-wpcpm-once' ), preg_match( '#data-wpcpm-busy="([^"]*)"#', $tag, $word ) ? $word[1] : '' );
 }
 ck( 'the four import forms are guarded with their busy words', $busy, array( array( true, 'Checking the list' ), array( true, 'Creating the records' ), array( true, 'Canceling' ), array( true, 'Creating the records' ) ) );
+
+echo "\n=== The waiting list's sentence, one method for the card and the Overview ===\n";
+
+// Institution Dashboard frame, Task 4: `waiting_sentence()` is the sentence the card prints above a checked list
+// not yet created and above a creation in progress, and the Overview's waiting row reads it as its why: the card prints
+// that same sentence.
+$waiting_sentence = static function ( $batch_id, $record = null ) use ( $HERE ) {
+	return method_exists( 'WPCPM_Institution_Import_Form', 'waiting_sentence' ) ? WPCPM_Institution_Import_Form::waiting_sentence( (int) $batch_id, null === $record ? $HERE : $record ) : 'no waiting_sentence()';
+};
+$wait_fields = batch_fields( array( 'paste' => "Name,Email\nAnna Kowalska,anna@institution-3.example\nBartek Zielinski,bartek@institution-3.example\nAna Example,ana@example.test\n" ) );
+fresh_world();
+$wait_pages = array( 'form' => draw_section( $HERE ) );
+ck( 'waiting_sentence(): no list, nothing', $waiting_sentence( WPCPM_Institution_Import::active_for( $HERE ) ), '' );
+post_check( $wait_fields );
+$waiting             = WPCPM_Institution_Import::active_for( $HERE );
+$wait_pages['staged'] = draw_section( $HERE );
+ck( 'waiting_sentence(): a checked list says how many of its rows can be created', $waiting_sentence( $waiting ), '2 of 3 rows can be created.' );
+WPCPM_Institution_Create::claim( $waiting, 7, 'member' );
+update_post_meta( $waiting, WPCPM_Institution_Import::META_STATE, WPCPM_Institution_Import::STATE_CREATING );
+$wait_pages['creating'] = draw_section( $HERE );
+ck( 'waiting_sentence(): a creation in progress says how far it is', $waiting_sentence( $waiting ), '0 created so far. 2 still to create.' );
+ck( 'waiting_sentence(): a number that is no batch says nothing', $waiting_sentence( 999999 ), '' );
+// Fix round 1, Minor 4: the sentence answers only for the school the batch belongs to.
+ck( 'waiting_sentence(): another school\'s batch says nothing', array( $waiting_sentence( $waiting, $THERE ), $waiting_sentence( $waiting, '' ) ), array( '', '' ) );
+ck( 'and each sentence is in its card, escaped as the card escapes it', array(
+	false !== strpos( $wait_pages['staged'], '<p class="wpcpm-ui-intro">' . esc_html( '2 of 3 rows can be created.' ) . '</p>' ),
+	false !== strpos( $wait_pages['creating'], '<p class="wpcpm-ui-intro">' . esc_html( '0 created so far. 2 still to create.' ) . '</p>' ),
+), array( true, true ) );
+
+echo "\n=== Enroll students on the parts (Institution Dashboard, Task 17) ===\n";
+
+/** The long list of the layout fixture: thirteen rows, a 40-character word in a name, a 48-character address, five refused. */
+function long_list() {
+	return implode(
+		"\n",
+		array(
+			'Name,Email',
+			'Ama Exampleunbrokenstudentnamewithfortychars,averyveryveryverylongmailboxname1234@example.org',
+			'Ben Example,ben@example.org',
+			'Cara Example,cara@example.org',
+			'Dan Example,not-an-address',
+			'Eva Example,eva@example.org',
+			'Eva Example,eva@example.org',
+			',nobody@example.org',
+			'Ana Example,ana@example.test',
+			'Finn Example,finn@example.org',
+			'Gia Example,gia@example.org',
+			'Hugo Example,hugo@example.org',
+			'Ida Example,ida@example.org',
+			'Jon Example,jon@example.org',
+		)
+	) . "\n";
+}
+
+/** A world for one case: fresh, the batch numbers from the same start, nothing recorded yet. */
+function case_world() {
+	fresh_world();
+	$GLOBALS['next_id']      = 900;
+	$GLOBALS['manage']       = false;
+	$GLOBALS['allowed']      = true;
+	$GLOBALS['kept']         = array();
+	$GLOBALS['calls']        = array();
+	$GLOBALS['sample_calls'] = array();
+	WPCPM_Institutions::$gated = array();
+}
+
+/** Draw the card as it is set up, keeping the policy's calls, the nonces asked for and the sample link's. */
+function draw_case( $record, array &$calls ) {
+	$GLOBALS['calls']        = array();
+	$GLOBALS['sample_calls'] = array();
+	$html                    = draw_section( $record );
+	$calls                   = array( $GLOBALS['calls'], $GLOBALS['sample_calls'] );
+	return $html;
+}
+
+/**
+ * Every state the card draws, set up the same way each time it is asked for, drawn on whichever branch the switch says.
+ *
+ * @return array{html: string[], calls: array[]}
+ */
+function import_cases() {
+	global $HERE;
+	$html  = array();
+	$calls = array();
+	$one   = array();
+
+	case_world();
+	$html['form'] = draw_case( $HERE, $one );
+	$calls['form'] = $one;
+
+	case_world();
+	$GLOBALS['manage']   = true;
+	$html['form, an Administrator'] = draw_case( $HERE, $one );
+	$calls['form, an Administrator'] = $one;
+
+	case_world();
+	$GLOBALS['kept'][ $HERE ] = array( 'tutors' => array( array( 'name' => 'Tutor Exampleunbrokentutornamewithfortycharss', 'email' => 'tutor@example.org' ), array( 'name' => 'Ola Example', 'email' => 'ola@example.org' ) ) );
+	$html['form, tutors listed'] = draw_case( $HERE, $one );
+	$calls['form, tutors listed'] = $one;
+
+	case_world();
+	post_check( full_post( array( '__files' => array( 'list' => array( 'name' => 'class.csv', 'tmp_name' => '/tmp/not-an-upload', 'size' => 120, 'error' => UPLOAD_ERR_OK ) ) ), 3 ) );
+	$html['refused, typing kept'] = draw_case( $HERE, $one );
+	$calls['refused, typing kept'] = $one;
+
+	case_world();
+	post_check( full_post( array( 'start' => gmdate( 'Y-m-d', time() + 30 * DAY_IN_SECONDS ), 'end' => '', 'notified' => '' ), 3 ) );
+	$html['refused at the tick'] = draw_case( $HERE, $one );
+	$calls['refused at the tick'] = $one;
+
+	case_world();
+	post_check( full_post( array( 'start' => gmdate( 'Y-m-d', time() + 30 * DAY_IN_SECONDS ), 'end' => '', 'paste' => "Name\nAnna Kowalska" ), 0 ) );
+	$html['refused at the paste'] = draw_case( $HERE, $one );
+	$calls['refused at the paste'] = $one;
+
+	case_world();
+	post_check( full_post( array( 'start' => gmdate( 'Y-m-d', time() + 30 * DAY_IN_SECONDS ), 'end' => '2020-01-01' ), 3 ) );
+	$html['refused at the end'] = draw_case( $HERE, $one );
+	$calls['refused at the end'] = $one;
+
+	case_world();
+	post_check( batch_fields( array( 'paste' => long_list() ) ) );
+	$html['check, thirteen rows'] = draw_case( $HERE, $one );
+	$calls['check, thirteen rows'] = $one;
+
+	case_world();
+	$GLOBALS['manage'] = true;
+	post_check( batch_fields( array( 'paste' => "Name,Email,Phone\nBen Example,ben@example.org,123\nCara Example,cara@example.org,456\n" ) ) );
+	$html['check, ignored columns, an Administrator'] = draw_case( $HERE, $one );
+	$calls['check, ignored columns, an Administrator'] = $one;
+
+	case_world();
+	post_check( batch_fields( array( 'paste' => "name,email\nAna Example,ana@example.test\n" ) ) );
+	$html['check, nothing to create'] = draw_case( $HERE, $one );
+	$calls['check, nothing to create'] = $one;
+
+	case_world();
+	post_check( batch_fields( array( 'paste' => long_list() ) ) );
+	$running = WPCPM_Institution_Import::active_for( $HERE );
+	WPCPM_Institution_Create::claim( $running, 7, 'member' );
+	update_post_meta( $running, WPCPM_Institution_Import::META_STATE, WPCPM_Institution_Import::STATE_CREATING );
+	$GLOBALS['flash']['institution_import'] = array( 'status' => 'progress', 'detail' => array( 'batch' => $running, 'created' => 0, 'remaining' => 8 ) );
+	$html['progress'] = draw_case( $HERE, $one );
+	$calls['progress'] = $one;
+
+	case_world();
+	post_check( batch_fields( array( 'paste' => long_list() ) ) );
+	$done = WPCPM_Institution_Import::active_for( $HERE );
+	$rows = get_post_meta( $done, WPCPM_Institution_Import::META_ROWS, true );
+	$made = 0;
+	foreach ( $rows as $i => $row ) {
+		if ( WPCPM_Institution_Create::ROW_PENDING !== WPCPM_Institution_Create::state_of( $row ) ) {
+			continue;
+		}
+		if ( 0 === $made++ ) {
+			$rows[ $i ]['state'] = WPCPM_Institution_Create::ROW_FAILED;
+			$rows[ $i ]['error'] = 'INVALID_MULTIPLE_CHOICE_OPTIONS: Insufficient permissions to create new select option "Exampleunbrokenselectoptionwithfortychars"';
+			continue;
+		}
+		$rows[ $i ]['state']     = WPCPM_Institution_Create::ROW_CREATED;
+		$rows[ $i ]['record_id'] = sprintf( 'rec%014d', $i );
+	}
+	update_post_meta( $done, WPCPM_Institution_Import::META_ROWS, $rows );
+	update_post_meta( $done, WPCPM_Institution_Import::META_STATE, WPCPM_Institution_Import::STATE_DONE );
+	$GLOBALS['flash']['institution_import'] = array( 'status' => 'created', 'detail' => array( 'batch' => $done, 'created' => 7, 'blocked' => 5, 'failed' => 1, 'remaining' => 0 ) );
+	$html['outcome, with exceptions'] = draw_case( $HERE, $one );
+	$calls['outcome, with exceptions'] = $one;
+
+	// Fix round 1, Minor 1: hostile words in a row, as the base or a list may hold them: a tag, a double quote, an ampersand,
+	// put on the rows after the check, so the cleaning does not take them out first.
+	$hostile = array(
+		'name'  => 'Eve <script>alert(1)</script> "Q" & Co',
+		'email' => 'eve"><b>x</b>&@example.org',
+		'error' => 'Refused <i>"x"</i> & <script>y</script>',
+	);
+	case_world();
+	post_check( batch_fields( array( 'paste' => "Name,Email,<i>Col</i>\"&\nBen Example,ben@example.org,1\nCara Example,cara@example.org,2\n" ) ) );
+	$bad  = WPCPM_Institution_Import::active_for( $HERE );
+	$rows = get_post_meta( $bad, WPCPM_Institution_Import::META_ROWS, true );
+	$rows[0]['name']  = $hostile['name'];
+	$rows[0]['email'] = $hostile['email'];
+	update_post_meta( $bad, WPCPM_Institution_Import::META_ROWS, $rows );
+	$html['check, hostile words'] = draw_case( $HERE, $one );
+	$calls['check, hostile words'] = $one;
+	$rows[1]['state'] = WPCPM_Institution_Create::ROW_FAILED;
+	$rows[1]['error'] = $hostile['error'];
+	$rows[1]['name']  = $hostile['name'];
+	$rows[1]['email'] = $hostile['email'];
+	$rows[0]['verdict'] = WPCPM_Institution_Import::INVALID;
+	update_post_meta( $bad, WPCPM_Institution_Import::META_ROWS, $rows );
+	update_post_meta( $bad, WPCPM_Institution_Import::META_STATE, WPCPM_Institution_Import::STATE_DONE );
+	$GLOBALS['flash']['institution_import'] = array( 'status' => 'created', 'detail' => array( 'batch' => $bad, 'created' => 0, 'blocked' => 1, 'failed' => 1, 'remaining' => 0 ) );
+	$html['outcome, hostile words'] = draw_case( $HERE, $one );
+	$calls['outcome, hostile words'] = $one;
+
+	// Each sentence the card can say, over the form it says it on.
+	foreach ( array_keys( WPCPM_Institution_Import_Form::messages() ) as $key ) {
+		case_world();
+		$GLOBALS['flash']['institution_import'] = array( 'status' => $key, 'detail' => array( 'created' => 2, 'blocked' => 1, 'failed' => 0, 'remaining' => 3 ) );
+		$html[ 'message: ' . $key ] = draw_case( $HERE, $one );
+		$calls[ 'message: ' . $key ] = $one;
+	}
+
+	case_world();
+	$GLOBALS['allowed'] = false;
+	$html['a tutor'] = draw_case( $HERE, $one );
+	$calls['a tutor'] = $one;
+
+	case_world();
+	return array( 'html' => $html, 'calls' => $calls );
+}
+
+/** A case's digest, every date masked: the suite's lists start from the clock. */
+function case_digest( $html ) {
+	return md5( (string) preg_replace( '/\d{4}-\d{2}-\d{2}/', '{date}', (string) $html ) );
+}
+
+/** The digests of the cases that are not messages, by case, and one digest of every message's card in order. */
+function digests_of( array $html ) {
+	$out  = array();
+	$said = '';
+	foreach ( $html as $name => $page ) {
+		if ( 0 === strpos( $name, 'message: ' ) ) {
+			$said .= $page;
+			continue;
+		}
+		$out[ $name ] = case_digest( $page );
+	}
+	$out['every message'] = case_digest( $said );
+	return $out;
+}
+
+/**
+ * What each drawn form posts, as a browser posts it: its method, address and encoding, then every control that sends a
+ * value (a box, a ticked checkbox, a select by its selected option or its first, a text area by its words, a named
+ * button), sorted; the lock at its press and its words, and the question it asks first.
+ *
+ * @param string $html Drawn markup.
+ * @return array[]
+ */
+function posted_forms( $html ) {
+	$attr  = static function ( $tag, $name ) {
+		return preg_match( '/\s' . $name . '="([^"]*)"/', $tag, $m ) ? $m[1] : null;
+	};
+	$forms = array();
+	preg_match_all( '#<form\b([^>]*)>(.*?)</form>#s', (string) $html, $found, PREG_SET_ORDER );
+	foreach ( $found as $form ) {
+		$fields = array();
+		preg_match_all( '#<(input|button)\b([^>]*)>#', $form[2], $controls, PREG_SET_ORDER );
+		foreach ( $controls as $control ) {
+			if ( null === $attr( $control[2], 'name' ) || 1 === preg_match( '/\sdisabled\b/', $control[2] ) ) {
+				continue;
+			}
+			if ( 'checkbox' === $attr( $control[2], 'type' ) && 1 !== preg_match( '/\schecked\b/', $control[2] ) ) {
+				continue;
+			}
+			$fields[] = $attr( $control[2], 'name' ) . '=' . (string) $attr( $control[2], 'value' );
+		}
+		preg_match_all( '#<select\b([^>]*)>(.*?)</select>#s', $form[2], $selects, PREG_SET_ORDER );
+		foreach ( $selects as $select ) {
+			preg_match_all( '#<option\b([^>]*)>#', $select[2], $options, PREG_SET_ORDER );
+			$chosen = isset( $options[0] ) ? (string) $attr( $options[0][1], 'value' ) : '';
+			foreach ( $options as $option ) {
+				if ( 1 === preg_match( '/\sselected\b/', $option[1] ) ) {
+					$chosen = (string) $attr( $option[1], 'value' );
+					break;
+				}
+			}
+			$fields[] = $attr( $select[1], 'name' ) . '=' . $chosen;
+		}
+		preg_match_all( '#<textarea\b([^>]*)>(.*?)</textarea>#s', $form[2], $areas, PREG_SET_ORDER );
+		foreach ( $areas as $area ) {
+			// A browser drops the one line break that opens a text area's words.
+			$fields[] = $attr( $area[1], 'name' ) . '=' . (string) preg_replace( '/^\r?\n/', '', $area[2] );
+		}
+		sort( $fields );
+		$forms[] = array(
+			'method'  => (string) $attr( $form[1], 'method' ),
+			'action'  => (string) $attr( $form[1], 'action' ),
+			'enctype' => (string) $attr( $form[1], 'enctype' ),
+			'once'    => 1 === preg_match( '/\sdata-wpcpm-once\b/', $form[1] ),
+			'busy'    => (string) $attr( $form[1], 'data-wpcpm-busy' ),
+			'confirm' => (string) $attr( $form[1], 'data-wpcpm-confirm' ),
+			'fields'  => $fields,
+		);
+	}
+	return $forms;
+}
+
+/** Each refused control: whether it says so and names its sentence, the sentence, and whether the summary links to it. */
+function refused_controls( $html ) {
+	$out = array();
+	preg_match_all( '#<p class="wpcpm-field__problem" id="([^"]+)-problem">([^<]*)</p>#', (string) $html, $found, PREG_SET_ORDER );
+	foreach ( $found as $problem ) {
+		$out[ $problem[1] ] = array(
+			1 === preg_match( '#<(?:input|select|textarea)\b[^>]*\sid="' . preg_quote( $problem[1], '#' ) . '"[^>]*\saria-invalid="true"[^>]*\saria-describedby="' . preg_quote( $problem[1], '#' ) . '-problem[ "]#', (string) $html ),
+			$problem[2],
+			false !== strpos( (string) $html, 'href="#' . $problem[1] . '"' ),
+		);
+	}
+	ksort( $out );
+	return $out;
+}
+
+/** The rows a check shows on today's branch: line, name, address and verdict, read from its list. */
+function old_rows( $html ) {
+	preg_match_all( '#<li class="wpcpm-import__row[^"]*"><span class="wpcpm-import__line">Line (\d+)</span> <span class="wpcpm-import__name">([^<]*)</span> <span class="wpcpm-import__email">([^<]*)</span> <span class="wpcpm-import__verdict">([^<]*)</span></li>#', (string) $html, $found, PREG_SET_ORDER );
+	return array_map(
+		static function ( $m ) {
+			return array( $m[1], $m[2], $m[3], $m[4] );
+		},
+		$found
+	);
+}
+
+/** The rows a check shows on the parts: each table row's four cells, their words with the break points taken out. */
+function new_rows( $html ) {
+	$out = array();
+	preg_match_all( '#<tr role="row">(.*?)</tr>#s', (string) $html, $rows );
+	foreach ( $rows[1] as $row ) {
+		if ( false !== strpos( $row, '<th ' ) ) {
+			continue;
+		}
+		preg_match_all( '#<td\b[^>]*>(.*?)</td>#s', $row, $cells );
+		$out[] = array_map(
+			static function ( $cell ) {
+				return str_replace( '<wbr>', '', $cell );
+			},
+			$cells[1]
+		);
+	}
+	return $out;
+}
+
+/** The decisions asked of the policy and the nonces asked for, in order. */
+function asked( array $calls ) {
+	return array_values(
+		array_map(
+			static function ( $call ) {
+				return implode( ' ', array_map( 'strval', array_filter( $call, 'is_scalar' ) ) );
+			},
+			array_filter(
+				$calls[0],
+				static function ( $call ) {
+					return in_array( $call[0], array( 'decide', 'subject', 'nonce_field' ), true );
+				}
+			)
+		)
+	);
+}
+
+function has( $html, $needle ) {
+	return false !== strpos( (string) $html, (string) $needle );
+}
+
+/**
+ * A digest of what a drawing posts, asks or says, the run's dates and the confirmation's content hash masked: the
+ * suite's lists start thirty days from the clock, and the confirmation's nonce is keyed to what the question says.
+ */
+function t23_pin( $value ) {
+	return md5( (string) preg_replace( array( '/\d{4}-\d{2}-\d{2}/', '/_[0-9a-f]{32}/' ), array( '{date}', '_{hash}' ), serialize( $value ) ) );
+}
+
+// What the old card posted, asked, refused, listed and said, read from the class at db850661 (the last commit that drew
+// it) before it was deleted (Task 23), each as `t23_pin()` digests it. The parts are held to them.
+$t23_old = array(
+	'posts' => array(
+		'form' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'form, an Administrator' => 'c327c38ce7f1b48034a9d4b364fb502a',
+		'form, tutors listed' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'refused, typing kept' => '53daa316f3397f3c2b5718c810327df8',
+		'refused at the tick' => 'a6597a67570cf19e5d36a798b26d85e1',
+		'refused at the paste' => '4cc58f44533c5077c010156ffa5d0af5',
+		'refused at the end' => '53daa316f3397f3c2b5718c810327df8',
+		'check, thirteen rows' => '375a0baa6968134549d05c14478e5574',
+		'check, ignored columns, an Administrator' => '7a7e96e2a0e5e6d78e17219d0f58165e',
+		'check, nothing to create' => '3d6ad23bd96772ef2572e4f670a7f726',
+		'progress' => '0991dae17fa6e403db2e7551367b6689',
+		'outcome, with exceptions' => '40cd750bba9870f18aada2478b24840a',
+		'check, hostile words' => 'b2f0bea2a96a37654e06cf0fe7a51714',
+		'outcome, hostile words' => '40cd750bba9870f18aada2478b24840a',
+		'message: checked' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: created' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: progress' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: not-staged-now' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: not-creating-now' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: locked' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: wrong-state' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: agreement' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: not-allowed' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: no-actor' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: no-institution' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: cancelled' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: not-cancelled' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: off' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: refused' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: no-batch' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: already-staged' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: too_often' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: rows_today' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: bad-program' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: program-ungated' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: bad-start' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: start-far' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: bad-end' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: not-notified' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: nothing-sent' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: unreadable' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: not-staged' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: paste-too-long' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: parse-empty' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: parse-too_large' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: file-unreadable' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: parse-not_utf8' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: parse-no_header' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: parse-no_columns' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: parse-no_rows' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: parse-too_many_rows' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: parse-batch_mismatch' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'message: unknown' => '54b75d9e44c06bd0c885e4e6c0522dc4',
+		'a tutor' => '40cd750bba9870f18aada2478b24840a',
+	),
+	'calls' => array(
+		'form' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'form, an Administrator' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'form, tutors listed' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'refused, typing kept' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'refused at the tick' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'refused at the paste' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'refused at the end' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'check, thirteen rows' => '7d3d27c090b428a60d3d14699f98645c',
+		'check, ignored columns, an Administrator' => '7d3d27c090b428a60d3d14699f98645c',
+		'check, nothing to create' => '9a31b5d0739a0fc762460fd01d08b5f7',
+		'progress' => 'd152a84e61e8ef3250c0839d97738758',
+		'outcome, with exceptions' => 'f0bd55fb6faf07113dcca93ed55eab58',
+		'check, hostile words' => '7d3d27c090b428a60d3d14699f98645c',
+		'outcome, hostile words' => 'f0bd55fb6faf07113dcca93ed55eab58',
+		'message: checked' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: created' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: progress' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: not-staged-now' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: not-creating-now' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: locked' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: wrong-state' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: agreement' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: not-allowed' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: no-actor' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: no-institution' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: cancelled' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: not-cancelled' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: off' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: refused' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: no-batch' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: already-staged' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: too_often' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: rows_today' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: bad-program' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: program-ungated' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: bad-start' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: start-far' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: bad-end' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: not-notified' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: nothing-sent' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: unreadable' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: not-staged' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: paste-too-long' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: parse-empty' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: parse-too_large' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: file-unreadable' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: parse-not_utf8' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: parse-no_header' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: parse-no_columns' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: parse-no_rows' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: parse-too_many_rows' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: parse-batch_mismatch' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'message: unknown' => '24d64e0735c4d52fcfd93c9679d34ad0',
+		'a tutor' => 'f0bd55fb6faf07113dcca93ed55eab58',
+	),
+	'refused' => array(
+		'refused, typing kept' => 'b374ea85d46c71c1da6ea83009a11c39',
+		'refused at the tick' => '603158906a59a872aded8e42d4a2a16f',
+		'refused at the paste' => '2c5b0eb2837133bfa7baf5fe031ed7a6',
+		'refused at the end' => '6647455b21fde7185509b9e597e0503a',
+	),
+	'rows' => array(
+		'check, thirteen rows' => '6f4130bd4dfcafa67599ba550cd69424',
+		'progress' => '5f491185444f10f9f548fe2cd84030f6',
+		'outcome, with exceptions' => 'd4c6bdf49248e2201c989c01e2fc3bd1',
+		'check, hostile words' => 'e3fd8358dc09d9aedf7b794630bb0696',
+		'outcome, hostile words' => 'fc8bc717d561e99b058b8836f736f74b',
+	),
+	'messages' => array(
+		'checked' => 'c06c28711e09f96a248fca194618dbec',
+		'created' => '279b62c28eebd3f57a7b736dbd898b78',
+		'progress' => 'f59ce6f3cc0e87b99f7aa4297795e3f7',
+		'not-staged-now' => '2f013c762fd2db7c01674d306691e787',
+		'not-creating-now' => 'b0ef8d18e7ba0b98823c7fbc5d8ee5a0',
+		'locked' => 'b5a987bd31d4f0ef49686bdfe2b6672f',
+		'wrong-state' => '1073c1f09bbd9cd8a7bb41b282fc297c',
+		'agreement' => '4e6ffb0f5cfb27ee5d08dc3af359fd38',
+		'not-allowed' => '7d5e996fab0143a8a451cde71fa44b55',
+		'no-actor' => '4bc81a3c9554b410912b21fcd021983c',
+		'no-institution' => 'f13ea3ed7d73831baaf2846c64856cfb',
+		'cancelled' => 'dc5a463056a51cf7583260f365bb34ad',
+		'not-cancelled' => '88001a9c74a0c899a425bd1b47263415',
+		'off' => '3a299004f741bcdb06dccd3c7b38a984',
+		'refused' => 'dd8a2b1e63fab23ff438cb4bb3d78172',
+		'no-batch' => '12d3182839f498e3784d5132c2df0bb1',
+		'already-staged' => '65118f7396c604ce2318e6ea4b9a9dfa',
+		'too_often' => '894bfdea2b9a302e209211efb6e6f111',
+		'rows_today' => 'e51e6ddfe62418d6cde9b38154ef5723',
+		'bad-program' => 'c4dd7cf7758018c4132cdf2622de96f3',
+		'program-ungated' => 'ed6c2995e53d8c652f9a207196d4f40c',
+		'bad-start' => '106aedab4aaf236e03a8946113776877',
+		'start-far' => 'a6d1707d3bffd974e89a7854a559d1bf',
+		'bad-end' => '29c5c9a68492a0aaef3e335ae2d6b9ac',
+		'not-notified' => '889920302c95f7586fc913693f6d3094',
+		'nothing-sent' => '38f76229a6b3f1a2d9f1a900eb57461e',
+		'unreadable' => '50d7a70055f849c4f6061348124745c6',
+		'not-staged' => '51fba291bf12e9186db97e1e09f9c85f',
+		'paste-too-long' => 'e3ca6bb640e55ea58f3d9136033cf1b2',
+		'parse-empty' => 'f82014bc7c1046090491890606f122ca',
+		'parse-too_large' => 'bbe40a34f5baf533fe08b0b9636d7b63',
+		'file-unreadable' => '3774cd4292bccbb413ca8e27e537d1e2',
+		'parse-not_utf8' => '2609e14f3bf11c18ecb5ebd51560726a',
+		'parse-no_header' => '921c7d39eef0253220f495633373c3b0',
+		'parse-no_columns' => 'c1e8daa9f0ff1e286a2a2bec80ae5cff',
+		'parse-no_rows' => '3d55375ae63bcc3ad4dc913c60d0ea12',
+		'parse-too_many_rows' => 'c96c836f0ba97f4a0ae949cbe26ed8bb',
+		'parse-batch_mismatch' => '746dc852d5de3882602fd599a8940314',
+		'unknown' => 'f8c6becd066e3ae306736744fe528d88',
+	),
+);
+WPCPM_UI::set_live( array( 'administrator', 'institution' ) );
+WPCPM_UI::enter( 'institution' );
+$new = import_cases();
+WPCPM_UI::leave();
+$nh  = $new['html'];
+
+foreach ( $nh as $name => $page ) {
+	if ( 'a tutor' === $name ) {
+		continue;
+	}
+	if ( function_exists( 'wpcpm_layout_keep' ) && in_array( $name, array( 'form', 'refused, typing kept', 'refused at the tick', 'check, thirteen rows', 'check, ignored columns, an Administrator', 'check, hostile words', 'progress', 'outcome, with exceptions' ), true ) ) {
+		wpcpm_layout_keep( 'Enroll students: ' . $name, $page );
+	}
+}
+
+// The whole view on the real card (Task 23, fix round 1): every case the card draws on the parts, each reader's and
+// each state's, under the Enroll students view's own head (`bin/stubs/view-faults.php`).
+ck( 'the whole Enroll students view on the real card, every case: one H1, the headings in order, no id twice, the lede once, no title again', wpcpm_view_faults_of( 'Enroll students', $nh ), array() );
+
+$nf = $nh['form'];
+ck( 'on the parts: one block that starts at the view\'s edge, its anchor kept, no fold, no head saying the view\'s title again, no class of the old card', array(
+	0 === strpos( $nf, '<section class="wpcpm-ui-block" id="wpcpm-import">' ),
+	substr( $nf, -strlen( '</section>' ) ),
+	has( $nf, '<details' ),
+	has( $nf, '<summary' ),
+	has( $nf, 'Enroll students' ),
+	has( $nf, 'wpcpm-institution__card' ),
+	has( $nf, 'class="wpcpm-import' ),
+	has( $nf, 'wpcpm-button' ),
+	has( $nf, 'wpcpm-field"' ),
+), array( true, '</section>', false, false, false, false, false, false, false ) );
+ck( 'the lede\'s fact alone as the intro (the view\'s head says the rest), then the one form, posting the file', array(
+	has( $nf, '<section class="wpcpm-ui-block" id="wpcpm-import"><p class="wpcpm-ui-intro">Nothing is created until you have seen what the list was understood to say.</p><form method="post" enctype="multipart/form-data" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Checking the list">' ),
+	substr_count( $nf, '<form' ),
+), array( true, 1 ) );
+ck( 'Program a select of the parts, at most 320px, today\'s id, name and programs', array(
+	1 === preg_match( '#<div class="wpcpm-ui-field"><label class="wpcpm-ui-field__label" for="wpcpm-import-program">Program</label><select class="wpcpm-ui-field__control wpcpm-ui-field__control--select" id="wpcpm-import-program" name="program">(<option value="[^"]*">[^<]*</option>)+</select></div>#', $nf ),
+	preg_match_all( '#<option value="([^"]*)"#', (string) ( preg_match( '#<select[^>]*id="wpcpm-import-program".*?</select>#s', $nf, $m ) ? $m[0] : '' ) ),
+	count( WPCPM_Institutions::offered_programs() ),
+), array( true, count( WPCPM_Institutions::offered_programs() ), count( WPCPM_Institutions::offered_programs() ) ) );
+ck( 'Start date and End date 200px date boxes: Start Required with today\'s hint, End Optional with "If you know it." and today\'s hint', array(
+	has( $nf, '<div class="wpcpm-ui-field"><label class="wpcpm-ui-field__label" for="wpcpm-import-start">Start date <span class="wpcpm-ui-field__need">Required</span></label><input type="date" class="wpcpm-ui-field__control wpcpm-ui-field__control--date" id="wpcpm-import-start" name="start" required aria-describedby="wpcpm-import-start-hint" value=""><p class="wpcpm-ui-field__hint" id="wpcpm-import-start-hint">The term these students begin. A date more than a year either side of today is refused as a typo.</p></div>' ),
+	has( $nf, '<div class="wpcpm-ui-field"><label class="wpcpm-ui-field__label" for="wpcpm-import-end">End date <span class="wpcpm-ui-field__need">Optional</span></label><input type="date" class="wpcpm-ui-field__control wpcpm-ui-field__control--date" id="wpcpm-import-end" name="end" aria-describedby="wpcpm-import-end-hint" value=""><p class="wpcpm-ui-field__hint" id="wpcpm-import-end-hint">If you know it. After the start date, and at most a year after it.</p></div>' ),
+), array( true, true ) );
+ck( 'the notified tick is its own question, Required, today\'s words, id, name and value', has( $nf, '<div class="wpcpm-ui-choices wpcpm-ui-choices--alone"><label class="wpcpm-ui-choice" for="wpcpm-import-notified"><input type="checkbox" class="wpcpm-ui-choice__input" id="wpcpm-import-notified" name="notified" value="1" required><span class="wpcpm-ui-choice__text"><span class="wpcpm-ui-choice__words" id="wpcpm-import-notified-words">These students have been notified that their name and email address are shared with the WordPress Foundation for the WordPress Credits Program. <span class="wpcpm-ui-field__need">Required</span></span></span></label></div>' ), true );
+ck( 'One student a field set: Full name, Email address, Field of study (Not recorded first) and Tutor (a picker, saying where tutors are added when none is listed: under Tutors on Your institution, Task 20)', array(
+	1 === preg_match( '#<fieldset class="wpcpm-ui-choices wpcpm-ui-choices--set"><legend class="wpcpm-ui-h">One student</legend><div class="wpcpm-ui-field"><label class="wpcpm-ui-field__label" for="wpcpm-import-name">Full name</label><input type="text" class="wpcpm-ui-field__control" id="wpcpm-import-name" name="name" value=""></div><div class="wpcpm-ui-field"><label class="wpcpm-ui-field__label" for="wpcpm-import-email">Email address</label><input type="text" class="wpcpm-ui-field__control" id="wpcpm-import-email" name="email" value=""></div><div class="wpcpm-ui-field"><label class="wpcpm-ui-field__label" for="wpcpm-import-field_of_study">Field of study</label><select class="wpcpm-ui-field__control wpcpm-ui-field__control--select" id="wpcpm-import-field_of_study" name="field_of_study"><option value="" selected>Not recorded</option><option value="Technology &amp; Engineering">Technology &amp; Engineering</option></select></div><div class="wpcpm-ui-field"><label class="wpcpm-ui-field__label" for="wpcpm-import-tutor">Tutor</label><select class="wpcpm-ui-field__control wpcpm-ui-field__control--select" id="wpcpm-import-tutor" name="tutor" aria-describedby="wpcpm-import-tutor-hint"><option value="" selected>Not recorded</option></select><p class="wpcpm-ui-field__hint" id="wpcpm-import-tutor-hint">No tutors are listed for your institution yet. Add them under Tutors on Your institution, and they will appear here.</p></div></fieldset>#', $nf ),
+), array( true ) );
+ck( 'Or a list a field set: the file box with today\'s label, accept and hint, "Download a sample list" by it, then the paste box at the card\'s width', array(
+	has( $nf, '<fieldset class="wpcpm-ui-choices wpcpm-ui-choices--set"><legend class="wpcpm-ui-h">Or a list</legend><div class="wpcpm-ui-field wpcpm-ui-file"><label class="wpcpm-ui-field__label" for="wpcpm-import-file">A CSV file</label><input class="wpcpm-ui-file__input" type="file" id="wpcpm-import-file" name="list" accept=".csv,text/csv" aria-describedby="wpcpm-import-file-hint">' ),
+	has( $nf, '<p class="wpcpm-ui-field__hint" id="wpcpm-import-file-hint">A CSV file of 256 KB at most. A header row, then one student per line. Name and email are needed; field of study and tutor are read when they are there. Up to 300 students. The file is read and never stored.</p></div><p class="wpcpm-ui-intro"><a href="https://example.test/wp-admin/admin-post.php?action=wpcpm_import_sample&_wpnonce=nonce-wpcpm_import_sample_' . $HERE . '">Download a sample list</a></p>' ),
+	has( $nf, '<div class="wpcpm-ui-field"><label class="wpcpm-ui-field__label" for="wpcpm-import-paste">Or paste the same thing here</label><textarea class="wpcpm-ui-field__control wpcpm-ui-field__control--textarea" id="wpcpm-import-paste" name="paste" aria-describedby="wpcpm-import-paste-hint" rows="6">' . "\n" . '</textarea><p class="wpcpm-ui-field__hint" id="wpcpm-import-paste-hint">Useful when the list is in a spreadsheet you would rather not download.</p></div></fieldset>' ),
+	$new['calls']['form'][1],
+), array( true, true, true, array( $HERE ) ) );
+ck( 'Check the list, primary, ends the form', has( $nf, '<div class="wpcpm-ui-actions"><button type="submit" class="wpcpm-btn">Check the list</button></div></form></section>' ), true );
+ck( 'every id the old form carried is kept', array_map(
+	static function ( $id ) use ( $nf ) {
+		return substr_count( $nf, 'id="' . $id . '"' );
+	},
+	array( 'wpcpm-import', 'wpcpm-import-program', 'wpcpm-import-start', 'wpcpm-import-end', 'wpcpm-import-notified', 'wpcpm-import-file', 'wpcpm-import-paste' )
+), array( 1, 1, 1, 1, 1, 1, 1 ) );
+
+// Rule 2 of the dispatch: every form posts what it posted.
+$same_posts = array();
+foreach ( $nh as $name => $page ) {
+	$same_posts[ $name ] = t23_pin( posted_forms( $page ) );
+}
+ck( 'every state posts what the old card posted, form by form: method, address, encoding, every control\'s name and value, the nonce\'s action, the referer, the lock and its words, the question', $same_posts, $t23_old['posts'] );
+ck( 'and the forms are there to compare: the check, the confirmation and the throwing away, Continue', array(
+	count( posted_forms( $nh['form'] ) ),
+	count( posted_forms( $nh['check, thirteen rows'] ) ),
+	count( posted_forms( $nh['check, nothing to create'] ) ),
+	count( posted_forms( $nh['progress'] ) ),
+	count( posted_forms( $nh['outcome, with exceptions'] ) ),
+), array( 1, 2, 1, 1, 0 ) );
+$sorted = static function ( array $list ) {
+	sort( $list );
+	return $list;
+};
+$check_post = posted_forms( $nh['check, thirteen rows'] );
+ck( 'the check posts the action, the nonce keyed to the school, the referer and every answer', posted_forms( $nf )[0]['fields'], $sorted( array(
+	'_wp_http_referer=/institution-dashboard/?wpcpm_view=enroll',
+	'_wpnonce=nonce-wpcpm_import_check_' . $HERE,
+	'action=wpcpm_import_check',
+	'email=',
+	'end=',
+	'field_of_study=',
+	'list=',
+	'name=',
+	'paste=',
+	'program=' . array_keys( WPCPM_Institutions::offered_programs() )[0],
+	'start=',
+	'tutor=',
+) ) );
+// The confirmation's nonce is keyed to the batch and to what it says (`confirm_action()`), so it is read off the old form.
+ck( 'the confirmation and the throwing away post the batch, their nonces and the referer', array( $check_post[0]['fields'], 1 === preg_match( '/^_wpnonce=nonce-wpcpm_import_confirm_901_[0-9a-f]{32}$/', $check_post[0]['fields'][1] ), $check_post[1]['fields'] ), array(
+	$sorted( array( '_wp_http_referer=/institution-dashboard/?wpcpm_view=enroll', $check_post[0]['fields'][1], 'action=wpcpm_import_confirm', 'batch=901' ) ),
+	true,
+	$sorted( array( '_wp_http_referer=/institution-dashboard/?wpcpm_view=enroll', '_wpnonce=nonce-wpcpm_import_cancel_901', 'action=wpcpm_import_cancel', 'batch=901' ) ),
+) );
+$referers = array();
+foreach ( array( 'form', 'check, thirteen rows', 'progress' ) as $name ) {
+	$referers[ $name ] = array( substr_count( $nh[ $name ], '<form' ), substr_count( $nh[ $name ], 'name="_wp_http_referer"' ) );
+}
+ck( 'the referer is in the markup it draws, once a form, as the old card\'s was', $referers, array( 'form' => array( 1, 1 ), 'check, thirteen rows' => array( 2, 2 ), 'progress' => array( 1, 1 ) ) );
+ck( 'two forms side by side carry no repeated id', substr_count( $nh['check, thirteen rows'], 'id="_wpnonce"' ), 0 );
+ck( 'an Administrator\'s forms post to the school they view', array(
+	array_column( posted_forms( $nh['form, an Administrator'] ), 'action' ),
+	array_column( posted_forms( $nh['check, ignored columns, an Administrator'] ), 'action' ),
+), array(
+	array( 'https://example.test/wp-admin/admin-post.php?wpcpm_institution_view=' . $HERE ),
+	array( 'https://example.test/wp-admin/admin-post.php?wpcpm_institution_view=' . $HERE, 'https://example.test/wp-admin/admin-post.php?wpcpm_institution_view=' . $HERE ),
+) );
+
+// Rule 3: the same questions asked of the policy, the same nonces, the same sample link, in the same order, for every
+// reader and state, as the old card asked; a tutor is drawn nothing.
+$same_calls = array();
+foreach ( $new['calls'] as $name => $calls ) {
+	$same_calls[ $name ] = t23_pin( array( asked( $calls ), $calls[1] ) );
+}
+ck( 'every state asks the policy what the old card asked, in the same order, before it draws', $same_calls, $t23_old['calls'] );
+ck( 'a tutor is drawn no Enroll students', $nh['a tutor'], '' );
+
+// A refused check keeps the typing and ties each sentence to its box.
+$nr = $nh['refused, typing kept'];
+// Gate B round 2, F2: the refusal is said at the form it refused, after the form's own intro and directly over it.
+ck( 'a refused check: the refusal as the shared message, alerting, after the form\'s intro and directly over the form, the summary over the fields, each refusal under its box as the old card ties it', array(
+	1 === preg_match( '#<section class="wpcpm-ui-block" id="wpcpm-import"><p class="wpcpm-ui-intro">[^<]*</p><p class="wpcpm-import__message wpcpm-import__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>That start date is more than a year away\. Check the year\.</p><form #', $nr ),
+	1 === preg_match( '#<form [^>]*>.*<div class="wpcpm-errors" role="alert" tabindex="-1">.*<a href="\#wpcpm-import-start">Start date</a>.*<label class="wpcpm-ui-field__label" for="wpcpm-import-program">#s', $nr ),
+	t23_pin( refused_controls( $nr ) ),
+	array_keys( refused_controls( $nr ) ),
+), array( true, true, $t23_old['refused']['refused, typing kept'], array( 'wpcpm-import-file', 'wpcpm-import-start' ) ) );
+ck( 'and keeps what was typed: the program, the dates, the tick, the one student and the pasted list', array(
+	has( $nr, 'value="' . full_post()['start'] . '"' ),
+	has( $nr, 'value="' . full_post()['end'] . '"' ),
+	has( $nr, 'name="notified" value="1" checked required' ),
+	has( $nr, 'value="Dora Example"' ),
+	has( $nr, 'value="dora@institution-3.example"' ),
+	has( $nr, '<option value="Technology &amp; Engineering" selected>' ),
+	has( $nr, 'Student 3,student-3@institution-3.example</textarea>' ),
+), array( true, true, true, true, true, true, true ) );
+ck( 'the tick refused: its sentence under it, tied to it, and the summary links to it', array(
+	refused_controls( $nh['refused at the tick'] ),
+	t23_pin( refused_controls( $nh['refused at the tick'] ) ) === $t23_old['refused']['refused at the tick'],
+	has( $nh['refused at the tick'], '<input type="checkbox" class="wpcpm-ui-choice__input" id="wpcpm-import-notified" name="notified" value="1" required aria-invalid="true" aria-describedby="wpcpm-import-notified-problem">' ),
+), array( array( 'wpcpm-import-notified' => array( true, 'Confirm that these students have been notified of what is shared, before sending the list.', true ) ), true, true ) );
+ck( 'the paste refused: its sentence under it, tied to it', array( refused_controls( $nh['refused at the paste'] ), t23_pin( refused_controls( $nh['refused at the paste'] ) ) === $t23_old['refused']['refused at the paste'] ), array( array( 'wpcpm-import-paste' => array( true, 'That list needs a name column and an email column.', true ) ), true ) );
+ck( 'tutors listed: each name once, as the old picker offers them, and no sentence', array(
+	has( $nh['form, tutors listed'], '<option value="Ola Example">Ola Example</option><option value="Tutor Exampleunbrokentutornamewithfortycharss">Tutor Exampleunbrokentutornamewithfortycharss</option></select></div>' ),
+	has( $nh['form, tutors listed'], 'No tutors are listed' ),
+), array( true, false ) );
+
+// The check: the count sentence, the table, the question, then the two forms in one row.
+$nc = $nh['check, thirteen rows'];
+ck( 'the check: today\'s count sentence, then a table of four columns (headers, kinds), no wide table', array(
+	has( $nc, '<p class="wpcpm-ui-intro">8 of 13 rows can be created.</p><table class="wpcpm-ui-table wpcpm-ui-table--pairs-4" role="table">' ),
+	has( $nc, '<thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader" class="wpcpm-ui-cell--num">Line</th><th scope="col" role="columnheader" class="wpcpm-ui-cell--text">Name</th><th scope="col" role="columnheader" class="wpcpm-ui-cell--token">Email address</th><th scope="col" role="columnheader" class="wpcpm-ui-cell--text">What happens</th></tr></thead>' ),
+	has( $nc, 'wpcpm-ui-table--wide' ),
+), array( true, true, false ) );
+$cells = new_rows( $nc );
+ck( 'thirteen rows, each with its four cells named for the phone', array(
+	count( $cells ),
+	substr_count( $nc, '<td class="wpcpm-ui-cell--num" role="cell" data-label="Line">' ),
+	substr_count( $nc, ' role="cell" data-label="Name">' ),
+	substr_count( $nc, '<td class="wpcpm-ui-cell--token" role="cell" data-label="Email address">' ) + substr_count( $nc, '<td class="wpcpm-ui-cell--token wpcpm-ui-cell--blank" role="cell" data-label="Email address">' ),
+	substr_count( $nc, '<td class="wpcpm-ui-cell--text" role="cell" data-label="What happens">' ),
+), array( 13, 13, 13, 13, 13 ) );
+ck( 'the same rows as the old list, line for line: the line, the name, the address and what happens, in words', t23_pin( $cells ), $t23_old['rows']['check, thirteen rows'] );
+ck( 'the 40-character word in a name breaks inside its cell, the 48-character address is a token cell, a missing name is said in words', array(
+	has( $nc, '<td class="wpcpm-ui-cell--text" role="cell" data-label="Name">Ama Exampleunb<wbr>rokenstude<wbr>ntnamewith<wbr>fortychars</td><td class="wpcpm-ui-cell--token" role="cell" data-label="Email address">averyveryveryverylongmailboxname1234@example.org</td>' ),
+	has( $nc, '<td class="wpcpm-ui-cell--text wpcpm-ui-cell--empty" role="cell" data-label="Name">(no name)</td>' ),
+	count( $cells ),
+), array( true, true, 13 ) );
+$says = 'Create 8 student records on the ' . WPCPM_Program::label( 'In Sensei' ) . ' program, starting ' . batch_fields()['start'] . '. No email is sent now. The program emails each student when their place is set up, and they receive their login when their account is created. Do not send these students to the registration form; it would create a second record.';
+ck( 'then today\'s question as the intro, its date whole, and one row: Create these student records (primary, asking it first), Throw this list away (danger)', array(
+	has( $nc, '</table><p class="wpcpm-ui-intro">' . str_replace( batch_fields()['start'], '<span class="wpcpm-ui-whole">' . batch_fields()['start'] . '</span>', esc_html( $says ) ) . '</p><div class="wpcpm-ui-actions"><form method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-confirm="' . esc_attr( $says ) . '" data-wpcpm-once data-wpcpm-busy="Creating the records">' ),
+	has( $nc, '<button type="submit" class="wpcpm-btn">Create these student records</button></form><form method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Canceling">' ),
+	has( $nc, '<button type="submit" class="wpcpm-btn wpcpm-btn--danger">Throw this list away</button></form></div></section>' ),
+	html_entity_decode( (string) $check_post[0]['confirm'], ENT_QUOTES ) === $says,
+), array( true, true, true, true ) );
+ck( 'a check that can create nobody offers no Create, only the throwing away', array(
+	has( $nh['check, nothing to create'], 'Create these student records' ),
+	has( $nh['check, nothing to create'], '<p class="wpcpm-ui-intro">0 of 1 rows can be created.</p>' ),
+	has( $nh['check, nothing to create'], '</table><div class="wpcpm-ui-actions"><form ' ),
+), array( false, true, true ) );
+ck( 'the ignored columns are today\'s line, muted, under the count', has( $nh['check, ignored columns, an Administrator'], '<p class="wpcpm-ui-intro">2 of 2 rows can be created.</p><p class="wpcpm-ui-intro wpcpm-ui-intro--muted">Columns this import does not read, and ignored: Phone</p><table ' ), true );
+
+// The progress and the outcome: today's sentences, the rows that did not simply get created, Continue.
+$np = $nh['progress'];
+ck( 'the progress: the shared message, today\'s two sentences, the rows not created as the table, Continue (secondary)', array(
+	has( $np, '<section class="wpcpm-ui-block" id="wpcpm-import"><p class="wpcpm-import__message wpcpm-import__message--info is-info" role="status" tabindex="-1" data-wpcpm-card-message>' ),
+	has( $np, '<p class="wpcpm-ui-intro">0 created so far. 8 still to create.</p><p class="wpcpm-ui-intro wpcpm-ui-intro--muted">This import has already created records, so it cannot be thrown away. It carries on by itself, and Continue picks it up now.</p><table ' ),
+	t23_pin( new_rows( $np ) ) === $t23_old['rows']['progress'],
+	count( new_rows( $np ) ),
+	has( $np, '<div class="wpcpm-ui-actions"><button type="submit" class="wpcpm-btn wpcpm-btn--secondary">Continue</button></div></form></section>' ),
+), array( true, true, true, 5, true ) );
+$no = $nh['outcome, with exceptions'];
+ck( 'the outcome: the shared message, polite, today\'s tally, the rows not created, the refusal in the records\' own words', array(
+	has( $no, '<p class="wpcpm-import__message wpcpm-import__message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>Done: 7 students created, 5 blocked, 1 failed. Nobody has been emailed.</p><p class="wpcpm-ui-intro">7 created, 5 blocked, 1 failed.</p><table ' ),
+	t23_pin( new_rows( $no ) ) === $t23_old['rows']['outcome, with exceptions'],
+	count( new_rows( $no ) ),
+	has( $no, 'The program records refused this row: INVALID_MULTIPLE_CHOICE_OPTIONS' ),
+	has( $no, '<form' ),
+), array( true, true, 6, true, false ) );
+
+// Rule 6: every outcome is the shared message in the module's own class, its tone the class's own: a refusal alerts, the
+// rest is polite; and it is the paragraph the old card printed.
+$messages = array();
+foreach ( array_keys( WPCPM_Institution_Import_Form::messages() ) as $key ) {
+	$found_new = preg_match( '#<p class="wpcpm-import__message[^>]*>.*?</p>#', $nh[ 'message: ' . $key ], $mn ) ? $mn[0] : '';
+	// Gate B round 2, F2: a refusal drawn with the form is said at the form, after its intro and directly over it.
+	$at_form          = false !== strpos( $nh[ 'message: ' . $key ], 'role="alert"' ) && false !== strpos( $nh[ 'message: ' . $key ], '<form ' );
+	$place            = $at_form
+		? 1 === preg_match( '#<section class="wpcpm-ui-block" id="wpcpm-import"><p class="wpcpm-ui-intro">[^<]*</p>' . preg_quote( $found_new, '#' ) . '<form #', $nh[ 'message: ' . $key ] )
+		: 0 === strpos( $nh[ 'message: ' . $key ], '<section class="wpcpm-ui-block" id="wpcpm-import">' . $found_new );
+	$messages[ $key ] = array( '' !== $found_new && t23_pin( $found_new ) === $t23_old['messages'][ $key ], $place );
+}
+ck( 'every message is the old card\'s paragraph, first in the block, or, a refusal drawn with the form, directly over the form after its intro', $messages, array_fill_keys( array_keys( WPCPM_Institution_Import_Form::messages() ), array( true, true ) ) );
+ck( 'a refusal alerts and a success is polite', array(
+	has( $nh['message: bad-start'], 'is-error" role="alert" tabindex="-1" data-wpcpm-card-message>' ),
+	has( $nh['message: checked'], 'is-success" role="status" tabindex="-1" data-wpcpm-card-message>' ),
+	has( $nh['message: locked'], 'is-info" role="status" tabindex="-1" data-wpcpm-card-message>' ),
+), array( true, true, true ) );
+
+// Rule 4: a rule the card needs is written once.
+ck( 'the hidden fields of every form, the question before creating, the rows a list shows and the rows not created are written once', array(
+	substr_count( $source, 'WPCPM_UI::nonce( (string) $nonce )' ),
+	substr_count( $source, 'name="action" value="%s"' ),
+	substr_count( $source, 'name="batch" value="%d"' ),
+	substr_count( $source, 'Do not send these students to the registration form' ),
+	substr_count( $source, "__( '(no name)'" ),
+	substr_count( $source, 'ROW_FAILED, WPCPM_Institution_Create::ROW_BLOCKED' ),
+	substr_count( $source, 'WPCPM_Institutions::offered_programs()' ),
+	substr_count( $source, 'self::options_for(' ),
+), array( 1, 1, 1, 1, 1, 1, 3, 1 ) );
+
+echo "\n=== Fix round 1 (the review's Minors 1 to 5) ===\n";
+
+/** Whether markup holds hostile words only escaped: no raw tag of theirs, every tag well formed, nothing escaped twice. */
+function only_escaped( $html ) {
+	preg_match_all( '#<[^>]*>#', (string) $html, $tags );
+	$bad = array();
+	foreach ( $tags[0] as $tag ) {
+		if ( 1 !== preg_match( '#^</?[a-z0-9]+(?:\s+[a-z0-9-]+(?:="[^"<>]*")?)*\s*/?>$#i', $tag ) || 1 === preg_match( '#^</?(script|b|i)\b#i', $tag ) ) {
+			$bad[] = $tag;
+		}
+	}
+	return array(
+		'tags'          => $bad,
+		'double escape' => 1 === preg_match( '/&amp;(amp|lt|gt|quot|#0?39);/', (string) $html ),
+		'escaped'       => has( $html, '&lt;script&gt;' ),
+	);
+}
+$clean = array( 'tags' => array(), 'double escape' => false, 'escaped' => true );
+ck( 'hostile words in a row, the base\'s refusal and a column heading: only escaped, in the check (its table and count sentence) and the outcome', array(
+	'check'   => only_escaped( $nh['check, hostile words'] ),
+	'outcome' => only_escaped( $nh['outcome, hostile words'] ),
+), array( 'check' => $clean, 'outcome' => $clean ) );
+ck( 'and the parts show the same rows as the old list, the hostile one among them, with the count sentence before the table', array(
+	t23_pin( new_rows( $nh['check, hostile words'] ) ) === $t23_old['rows']['check, hostile words'],
+	t23_pin( new_rows( $nh['outcome, hostile words'] ) ) === $t23_old['rows']['outcome, hostile words'],
+	has( str_replace( '<wbr>', '', $nh['check, hostile words'] ), '<td class="wpcpm-ui-cell--text" role="cell" data-label="Name">Eve &lt;script&gt;alert(1)&lt;/script&gt; &quot;Q&quot; &amp; Co</td><td class="wpcpm-ui-cell--token" role="cell" data-label="Email address">eve&quot;&gt;&lt;b&gt;x&lt;/b&gt;&amp;@example.org</td>' ),
+	1 === preg_match( '#<p class="wpcpm-ui-intro">\d+ of 2 rows can be created\.</p>#', $nh['check, hostile words'] ),
+	has( $nh['outcome, hostile words'], 'The program records refused this row: Refused &lt;i&gt;&quot;x&quot;&lt;/i&gt; &amp; &lt;script&gt;y&lt;/script&gt;' ),
+), array( true, true, true, true, true ) );
+
+// Minor 2: the summary names the end date by its label on each branch, from one entry of one map, and links to its box.
+ck( 'a refused end date: the summary says "End date", as its label does, and still links to its box', array(
+	has( $nh['refused at the end'], '<li><a href="#wpcpm-import-end">End date</a>: ' ),
+	t23_pin( refused_controls( $nh['refused at the end'] ) ) === $t23_old['refused']['refused at the end'],
+	array_keys( refused_controls( $nh['refused at the end'] ) ),
+	substr_count( $source, 'self::FIELD_END      =>' ),
+), array( true, true, array( 'wpcpm-import-end' ), 1 ) );
+
+// Minor 3: the tutor sentence and the rule for when it is said are written once. Task 20: the sentence names where
+// tutors are added (no card on the page is called People); the old card's wording went with it (Task 23).
+ck( 'the tutor sentence and its rule are written once: one method, one wording', array(
+	substr_count( $source, 'No tutors are listed for your institution yet.' ),
+	substr_count( $source, "'tutor' === \$name && empty( \$options )" ),
+	substr_count( $source, 'self::tutor_hint(' ) > 0 && 1 === preg_match( '/function tutor_hint\([^)]*\) \{.*?No tutors are listed for your institution yet\. Add them under Tutors on Your institution, and they will appear here\..*?\n\t\}/s', $source ),
+	substr_count( $source, 'the Tutors section of the People card' ),
+), array( 1, 1, true, 0 ) );
+
+// Minor 4, as ruled in fix round 2: on the parts the form's first line is the lede's fact alone, the one the view's head
+// lacks; its first half repeats the head and is not printed.
+ck( 'the lede on the parts is its fact alone, once, first in the block', array(
+	substr_count( $nh['form'], 'Nothing is created until you have seen what the list was understood to say.' ),
+	has( $nh['form'], '<section class="wpcpm-ui-block" id="wpcpm-import"><p class="wpcpm-ui-intro">Nothing is created until you have seen what the list was understood to say.</p><form ' ),
+	has( $nh['form'], 'Add one student, or a list of them.' ),
+), array( 1, true, false ) );
 
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );

@@ -523,6 +523,25 @@ class WPCPM_Program {
 	}
 
 	/**
+	 * The tone a status is drawn in as a status tag on the shared parts (`WPCPM_UI::tag()`): the one map the Institution
+	 * Dashboard's roster and a student's card both ask, so the two say the same thing about the same student. It follows
+	 * the badge `badge()` paints today: a track, whatever its badge's hue, `green`; Pending graduation, today's amber
+	 * badge, `amber`; Paused, today's gray badge, and every status with no badge (Graduate, Dropped out), neutral ('').
+	 * Here, beside the status words and the badge, because this class owns what a status is called and how it is painted;
+	 * it returns a word and loads nothing of the parts.
+	 *
+	 * @param string $status Airtable status.
+	 * @return string `green`, `amber` or '' for neutral.
+	 */
+	public static function tone( $status ) {
+		if ( '' !== self::track( $status ) ) {
+			return 'green';
+		}
+
+		return 'pending' === self::badge( $status ) ? 'amber' : '';
+	}
+
+	/**
 	 * The two states on no track, with the chip each is painted.
 	 *
 	 * Paused and Pending graduation are still their mentor's students, so they are painted apart

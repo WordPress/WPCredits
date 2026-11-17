@@ -191,10 +191,18 @@ class WPCPM_Settings {
 	public static function get_value( $key, $fallback = null ) { return isset( self::$values[ $key ] ) ? self::$values[ $key ] : $fallback; }
 }
 
+require_once __DIR__ . '/stubs/institution-card-url.php';
 /** The Institution Dashboard's page, which the list names and a row's View page opens. */
 class WPCPM_Institutions_Dashboard {
 	public static $url = 'https://example.test/institution-dashboard/';
 	public static function page_url() { return self::$url; }
+	// The page's addresses, as the real class builds them (bin/stubs/institution-card-url.php, checked against it
+	// in bin/test-institution-ways-back.php).
+	public static function view_url( $view = 'overview', $record = '', array $args = array() ) { return wpcpm_test_institution_view_url( self::page_url(), $view, $record, $args ); }
+	public static function view_of( $card ) { return wpcpm_test_institution_view_of( $card ); }
+	public static function card_url( $card, $record = '', $item = '', array $args = array() ) { return wpcpm_test_institution_card_url( self::page_url(), $card, $record, $item, $args ); }
+	public static function requested_record() { return wpcpm_test_institution_requested_record(); }
+	public static function way_back( $card ) { return wpcpm_test_institution_way_back( self::page_url(), $card ); }
 	public static function init() {}
 	public static function ensure_page() {}
 }
@@ -1719,8 +1727,8 @@ ck( 'on the same site the gate counts 1, École, on the No account view, and the
 	array(
 		has( $gated, 'while 1 Confirmed institution on this view has no agreement recorded: École Example Charlie. <a' ),
 		has( $on_file_card, '<p>2 Confirmed institutions have no agreement recorded:</p>' ),
-		has( $on_file_card, '<li><a href="https://example.test/institution-dashboard/?wpcpm_institution_view=' . ALPHA . '#wpcpm-agreement">Alpha Example College</a> <code class="wpcpm-inst-record">' . ALPHA . '</code></li>' ),
-		has( $on_file_card, '<li><a href="https://example.test/institution-dashboard/?wpcpm_institution_view=' . ECOLE . '#wpcpm-agreement">École Example Charlie</a> <code class="wpcpm-inst-record">' . ECOLE . '</code></li>' ),
+		has( $on_file_card, '<li><a href="https://example.test/institution-dashboard/?wpcpm_view=agreement&#038;wpcpm_institution_view=' . ALPHA . '#wpcpm-agreement">Alpha Example College</a> <code class="wpcpm-inst-record">' . ALPHA . '</code></li>' ),
+		has( $on_file_card, '<li><a href="https://example.test/institution-dashboard/?wpcpm_view=agreement&#038;wpcpm_institution_view=' . ECOLE . '#wpcpm-agreement">École Example Charlie</a> <code class="wpcpm-inst-record">' . ECOLE . '</code></li>' ),
 		substr_count( $on_file_card, '<li>' ),
 		has( $on_file_card, '</ul><p class="description">Record each one from its own page, with the signed copy the program holds.</p>' ),
 		has( $on_file_card, '<button' ),
@@ -2137,6 +2145,12 @@ ck( 'the view draws, in place of the accounts locked today, the invitations card
 		$view_reads,
 	),
 	array( array( 'name', 'back', 'members', 'upload' ), false, false, false, false, array( ZETA ) ) );
+// Stage B, Task 20: the Institution Dashboard draws the members' rows on the shared parts, from the same class; this view,
+// under its own surface, still prints today's markup with that switch on as well.
+WPCPM_UI::set_live( array( 'administrator', 'institution' ) );
+$view_live = html_of( page_for( screen( array( 'wpcpm_institution' => ZETA ) ) ) );
+WPCPM_UI::set_live( null );
+ck( 'with the Institution Dashboard on the shared parts too, the view prints the same bytes: Manage members stays on today\'s markup, under the screen\'s own surface', array( $view_live === $view, has( $view_live, 'wpcpm-ui-' ), has( $view_live, '<li class="wpcpm-people__member">' ) ), array( true, false, true ) );
 ck( 'the way back is the list, on the Accounts tab', back_of( $view ), array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-institutions', 'tab' => 'accounts' ) ) );
 ck( 'every form on it comes back to it: Nora\'s and Ben\'s Remove, Re-add for Ada, who was a member, and Add an account each post the Institutions screen\'s flag under the nonce its handler checks, and the upload form names the institution',
 	array(

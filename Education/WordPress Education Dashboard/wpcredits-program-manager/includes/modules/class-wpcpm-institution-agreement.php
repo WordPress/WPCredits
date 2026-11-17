@@ -305,6 +305,17 @@ class WPCPM_Institution_Agreement {
 	const TYPED_RETURN = 'inst-agreement-return';
 
 	/**
+	 * The forms a refusal keeps their typing under for their one redraw (`WPCPM_Flash::keep()`), before the institution:
+	 * the upload keeps the kind chosen, the on-file record its three boxes (Institution Dashboard, Task 21, fix round 1).
+	 * Only the Institution Dashboard's parts read them back.
+	 */
+	const KEPT_UPLOAD  = 'agreement-upload:';
+	const KEPT_ON_FILE = 'agreement-on-file:';
+
+	/** How many characters of a posted date `date_or_empty()` reads, and a refused on-file record keeps (fix round 2). */
+	const DATE_LENGTH = 10;
+
+	/**
 	 * What a refused revoke keeps its note under, the return's twin: the Institutions screen's
 	 * Agreements tab draws a revoke form on every agreement in force, and a reason typed for one
 	 * comes back in that document's box and in no other.
@@ -866,7 +877,11 @@ class WPCPM_Institution_Agreement {
 			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
 		}
 
+		// What an earlier refusal kept is dropped, as every handler that keeps does first (`WPCPM_Flash::forget()`).
+		WPCPM_Flash::forget( self::KEPT_ON_FILE . $record );
+
 		if ( ! WPCPM_Institutions_Index::has( $record ) ) {
+			self::keep_on_file( $record );
 			self::bounce_on_file( 'agreement-unknown' );
 		}
 
@@ -879,13 +894,38 @@ class WPCPM_Institution_Agreement {
 		// link that is not a Drive link must not make an option row at all, not even one
 		// that is deleted on the next line.
 		if ( ! self::is_drive_link( $drive ) ) {
+			self::keep_on_file( $record );
 			self::bounce_on_file( 'agreement-link' );
 		}
 
 		$signed = self::date_or_empty( WPCPM_Request::posted_text( 'wpcpm_agreement_signed_on' ) );
 		$where  = trim( mb_substr( WPCPM_Request::posted_text( 'wpcpm_agreement_where' ), 0, self::MAX_LOCATION ) );
+		$status = self::record_on_file( $record, $drive, $signed, $where, $decision );
 
-		self::bounce_on_file( self::record_on_file( $record, $drive, $signed, $where, $decision ) );
+		// Recorded, or recorded and waiting for the next sync: the form is gone with the gate. Anything else is a refusal.
+		if ( ! in_array( $status, array( 'agreement-on-file', 'agreement-later' ), true ) ) {
+			self::keep_on_file( $record );
+		}
+
+		self::bounce_on_file( $status );
+	}
+
+	/**
+	 * Keep what a refused on-file record typed, as typed, for the form's one redraw (Task 21, fix round 1).
+	 *
+	 * @param string $record Institutions record ID the form posted.
+	 */
+	private static function keep_on_file( $record ) {
+		WPCPM_Flash::keep(
+			self::KEPT_ON_FILE . $record,
+			array(
+				// Each cut where the handler cuts it: the link is read whole, the date's first DATE_LENGTH characters, the
+				// location's first MAX_LOCATION.
+				'wpcpm_agreement_drive'     => WPCPM_Request::posted_raw( 'wpcpm_agreement_drive' ),
+				'wpcpm_agreement_signed_on' => mb_substr( WPCPM_Request::posted_raw( 'wpcpm_agreement_signed_on' ), 0, self::DATE_LENGTH ),
+				'wpcpm_agreement_where'     => mb_substr( WPCPM_Request::posted_raw( 'wpcpm_agreement_where' ), 0, self::MAX_LOCATION ),
+			)
+		);
 	}
 
 	/**
@@ -1114,22 +1154,25 @@ class WPCPM_Institution_Agreement {
 			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
 		}
 
+		// What an earlier refusal kept is dropped first; a refusal below keeps the kind chosen (`upload_refused()`).
+		WPCPM_Flash::forget( self::KEPT_UPLOAD . $record );
+
 		// Step 4, and it is above step 6 on purpose: see the docblock.
 		if ( ! WPCPM_Ceiling::claim( 'agreement-upload:' . $record, self::upload_limit(), DAY_IN_SECONDS ) ) {
-			self::bounce( 'agreement-busy' );
+			self::upload_refused( $record, 'agreement-busy' );
 		}
 
 		// The declaration is a hidden `0` and a checkbox `1`, so an unticked box posts `0`
 		// rather than nothing and "I forgot to tick it" and "my browser dropped the field"
 		// read the same to the person, which is what they are.
 		if ( '1' !== WPCPM_Request::posted_text( 'wpcpm_agreement_signed' ) ) {
-			self::bounce( 'agreement-declare' );
+			self::upload_refused( $record, 'agreement-declare' );
 		}
 
 		$kind = WPCPM_Request::posted_key( 'wpcpm_agreement_kind' );
 
 		if ( ! in_array( $kind, array( self::KIND_TEMPLATE, self::KIND_OWN ), true ) ) {
-			self::bounce( 'agreement-kind' );
+			self::upload_refused( $record, 'agreement-kind' );
 		}
 
 		// One in review at a time. Two documents waiting would make "the submitted post" mean
@@ -1142,14 +1185,14 @@ class WPCPM_Institution_Agreement {
 		// not see or withdraw. The lock is the one the other agreement handlers take, released
 		// on every exit below and left to its own timeout only if the request dies.
 		if ( ! self::lock( $record ) ) {
-			self::bounce( 'agreement-busy' );
+			self::upload_refused( $record, 'agreement-busy' );
 		}
 
 		$summary = self::summary( $record );
 
 		if ( ! empty( $summary['pending_id'] ) ) {
 			self::unlock( $record );
-			self::bounce( 'agreement-in-review' );
+			self::upload_refused( $record, 'agreement-in-review' );
 		}
 
 		$file    = self::uploaded_file();
@@ -1157,12 +1200,12 @@ class WPCPM_Institution_Agreement {
 
 		if ( UPLOAD_ERR_INI_SIZE === $file['error'] || UPLOAD_ERR_FORM_SIZE === $file['error'] || $file['size'] > $maximum ) {
 			self::unlock( $record );
-			self::bounce( 'agreement-too-big' );
+			self::upload_refused( $record, 'agreement-too-big' );
 		}
 
 		if ( UPLOAD_ERR_OK !== $file['error'] || $file['size'] < 1 || '' === $file['tmp_name'] || ! self::arrived_by_post( $file['tmp_name'] ) ) {
 			self::unlock( $record );
-			self::bounce( 'agreement-no-file' );
+			self::upload_refused( $record, 'agreement-no-file' );
 		}
 
 		// The size PHP reported and the size on disk are the same number on any request that
@@ -1170,7 +1213,7 @@ class WPCPM_Institution_Agreement {
 		// into this process's memory a few lines below.
 		if ( self::disk_size( $file['tmp_name'] ) > $maximum ) {
 			self::unlock( $record );
-			self::bounce( 'agreement-too-big' );
+			self::upload_refused( $record, 'agreement-too-big' );
 		}
 
 		// The extension and the declared type together, from WordPress's own map, then the
@@ -1178,7 +1221,7 @@ class WPCPM_Institution_Agreement {
 		// answer about the contents, which is what a renamed executable fails.
 		if ( ! WPCPM_Pdf_Check::named_pdf( $file['tmp_name'], $file['name'] ) ) {
 			self::unlock( $record );
-			self::bounce( 'agreement-not-pdf' );
+			self::upload_refused( $record, 'agreement-not-pdf' );
 		}
 
 		$bytes = self::file_bytes( $file['tmp_name'] );
@@ -1190,21 +1233,21 @@ class WPCPM_Institution_Agreement {
 		// agreement.
 		if ( ! WPCPM_Pdf_Check::has_magic( $bytes ) || ! WPCPM_Pdf_Check::mime_agrees( $mime ) ) {
 			self::unlock( $record );
-			self::bounce( 'agreement-not-pdf' );
+			self::upload_refused( $record, 'agreement-not-pdf' );
 		}
 
 		$scan = self::inspect_pdf( $bytes );
 
 		if ( empty( $scan['ok'] ) ) {
 			self::unlock( $record );
-			self::bounce( $scan['reason'] );
+			self::upload_refused( $record, $scan['reason'] );
 		}
 
 		$stored = WPCPM_Private_Files::store( $bytes, 'pdf' );
 
 		if ( is_wp_error( $stored ) ) {
 			self::unlock( $record );
-			self::bounce( 'agreement-file' );
+			self::upload_refused( $record, 'agreement-file' );
 		}
 
 		$post_id = wp_insert_post(
@@ -1226,7 +1269,7 @@ class WPCPM_Institution_Agreement {
 			// removed here rather than left as a file no route could ever reach again.
 			WPCPM_Private_Files::forget( $stored['path'] );
 			self::unlock( $record );
-			self::bounce( 'agreement-file' );
+			self::upload_refused( $record, 'agreement-file' );
 		}
 
 		$post_id = (int) $post_id;
@@ -1322,6 +1365,24 @@ class WPCPM_Institution_Agreement {
 		self::mail_landed( $record, $post_id );
 
 		self::bounce( 'agreement-uploaded' );
+	}
+
+	/**
+	 * Refuse an upload: keep the kind chosen, when it is one a form may declare, for the form's one redraw, then say why
+	 * and go back (Task 21, fix round 1). The signer's tick is not kept: a declaration is made again with each send, and
+	 * no browser hands a chosen file back.
+	 *
+	 * @param string $record Institutions record ID.
+	 * @param string $status Outcome slug.
+	 */
+	private static function upload_refused( $record, $status ) {
+		$kind = WPCPM_Request::posted_key( 'wpcpm_agreement_kind' );
+
+		if ( in_array( $kind, array( self::KIND_TEMPLATE, self::KIND_OWN ), true ) ) {
+			WPCPM_Flash::keep( self::KEPT_UPLOAD . $record, array( 'wpcpm_agreement_kind' => $kind ) );
+		}
+
+		self::bounce( $status );
 	}
 
 	/**
@@ -2884,7 +2945,7 @@ class WPCPM_Institution_Agreement {
 	 * @return string
 	 */
 	private static function date_or_empty( $value ) {
-		$value = substr( trim( (string) $value ), 0, 10 );
+		$value = substr( trim( (string) $value ), 0, self::DATE_LENGTH );
 
 		if ( ! preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $value, $m ) ) {
 			return '';

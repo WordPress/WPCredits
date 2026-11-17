@@ -212,9 +212,17 @@ class WPCPM_Administrators_Dashboard {
 class WPCPM_Mentors_Dashboard {
 	public static function page_url() { return 'https://example.test/mentor-report-card/'; }
 }
+require_once __DIR__ . '/stubs/institution-card-url.php';
 /** As above. */
 class WPCPM_Institutions_Dashboard {
 	public static function page_url() { return 'https://example.test/institution-dashboard/'; }
+	// The page's addresses, as the real class builds them (bin/stubs/institution-card-url.php, checked against it
+	// in bin/test-institution-ways-back.php).
+	public static function view_url( $view = 'overview', $record = '', array $args = array() ) { return wpcpm_test_institution_view_url( self::page_url(), $view, $record, $args ); }
+	public static function view_of( $card ) { return wpcpm_test_institution_view_of( $card ); }
+	public static function card_url( $card, $record = '', $item = '', array $args = array() ) { return wpcpm_test_institution_card_url( self::page_url(), $card, $record, $item, $args ); }
+	public static function requested_record() { return wpcpm_test_institution_requested_record(); }
+	public static function way_back( $card ) { return wpcpm_test_institution_way_back( self::page_url(), $card ); }
 }
 /** As above, its page unpublished in a check that says so. */
 require_once __DIR__ . '/stubs/sponsor-card-url.php';
@@ -1018,7 +1026,8 @@ foreach ( array( array( 'Pacific/Pago_Pago', 'Pacific/Kiritimati' ), array( 'Pac
 	$previews[ $who ] = array( html_entity_decode( $shown_returned[1] ?? '', ENT_QUOTES ), str_replace( "\r\n", "\n", html_entity_decode( $shown_returned[2] ?? '', ENT_QUOTES ) ) );
 	$wanted[ $who ]   = array(
 		'[WordPress Credits] Your signed agreement needs a change',
-		'Your signed Collaboration Agreement was sent back on ' . $sent_back_on . " by Cleo Marsh, with this note:\n\nPlease sign page 2 as well, and date it.\n\nUpload the corrected copy from the Collaboration Agreement card on your Institution Dashboard. Replying to this message reaches the Administrator who wrote the note.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nhttps://example.test/institution-dashboard/\nThis email comes from the WordPress Credits program.",
+		// Task 25, fix round 1, B1: the sentence says what a school with no settled agreement shows its people now.
+		'Your signed Collaboration Agreement was sent back on ' . $sent_back_on . " by Cleo Marsh, with this note:\n\nPlease sign page 2 as well, and date it.\n\nUpload the corrected copy under Agreement on your Institution Dashboard. Replying to this message reaches the Administrator who wrote the note.\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nhttps://example.test/institution-dashboard/\nThis email comes from the WordPress Credits program.",
 	);
 }
 $GLOBALS['opts']['timezone_string'] = $site_zone;

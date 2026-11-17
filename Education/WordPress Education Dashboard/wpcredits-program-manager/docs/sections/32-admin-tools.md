@@ -680,7 +680,7 @@ Step by step: [[Publish a new track]]; [[Change a track that is live]]; [[Take a
 
 A question box answered from the WordPress documentation, at `WPCredits Program > Tools > Need help?`. Below **Settings** come **How answers are produced** and **Try a question**, which shows exactly what a person would get.
 
-People ask from **Need help?** in the site header, and from **Resources** on the Mentor and Student Report Cards and the institution page, where **Who can ask** allows it and a provider is set.
+People ask from **Need help?** in the site header, and from **Resources** on the Mentor and Student Report Cards, where **Who can ask** allows it and a provider is set. Since 1.123.96 a school's people ask from the Ask box under **Help** in the Institution Dashboard's menu, on the same terms.
 
 Step by step: [[Set up Need help?]].
 

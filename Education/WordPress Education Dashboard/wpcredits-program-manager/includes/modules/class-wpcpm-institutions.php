@@ -5193,7 +5193,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * signed an institution that has signed nothing. Each name now opens that institution's
 	 * Institution Dashboard at its Collaboration Agreement panel, where an Administrator records one
 	 * agreement with the copy the program holds for it ("Record an agreement the program already
-	 * holds", `WPCPM_Institution_Panel::render_on_file_form()`). With the page missing there is
+	 * holds", `WPCPM_Institution_Panel::on_file_form_parts()`). With the page missing there is
 	 * nowhere to send the reader, and the names are printed plain.
 	 *
 	 * @param array $index The pipeline index, from `WPCPM_Institutions_Index::read()`.
@@ -5246,10 +5246,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			$plain = self::institution_name( $record_id );
 			$name  = esc_html( $plain );
 
+			// The Agreement view, at the panel (`card_url()`), on the school's page.
 			if ( '' !== $page ) {
 				$name = sprintf(
 					'<a href="%1$s">%2$s</a>',
-					esc_url( add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, $record_id, $page ) . '#' . WPCPM_Institution_Panel::ANCHOR ),
+					esc_url( WPCPM_Institutions_Dashboard::card_url( 'agreement', (string) $record_id, WPCPM_Institution_Panel::ANCHOR ) ),
 					$name
 				);
 			}
@@ -5557,7 +5558,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			esc_attr(
 				sprintf(
 					/* translators: %s: the institution's name. */
-					__( 'Revoke the agreement with %s? Its members keep their accounts but reach only the agreement panel, pending invitations are canceled, and every member receives your note by email.', 'wpcredits-program-manager' ),
+					__( 'Revoke the agreement with %s? Its members keep their accounts, its representatives see only the Overview and the Agreement, its tutors see no page, pending invitations are canceled, and every member receives your note by email.', 'wpcredits-program-manager' ),
 					$name
 				)
 			),

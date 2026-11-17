@@ -72,6 +72,14 @@ class WPCPM_Institution_Details_Card {
 	/** The card's anchor, so a post lands back on the card it was made on: the request class follows the same one for a withdrawal. */
 	const ANCHOR = WPCPM_Institution_Request::DETAILS_ANCHOR;
 
+	/**
+	 * The group whose typing a refusal of this request kept (`keep_typing()`), '' for none: its way back lands on that
+	 * group's fold, which is drawn open with the refusal in it (Gate B round 2, F2 and F3).
+	 *
+	 * @var string
+	 */
+	private static $kept_group = '';
+
 	/** The email the people the setting names are sent when details are saved. */
 	const MAIL_SAVED = 'institution-details-saved';
 
@@ -164,53 +172,8 @@ class WPCPM_Institution_Details_Card {
 		// The people who check the second group correct it themselves, and the form says so.
 		$checker = WPCPM_Institution_Policy::GROUND_MANAGER === $decision['ground'];
 
-		printf( '<section class="wpcpm-institution__card wpcpm-details" id="%s">', esc_attr( self::ANCHOR ) );
-
-		// The same disclosure the People card and the roster's groups are drawn in, open by default, so
-		// the theme's one set of rules for the fold, the chevron and the inset applies here too.
-		printf(
-			'<details class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body">',
-			esc_html__( 'Your institution\'s details', 'wpcredits-program-manager' )
-		);
-
-		printf( '<p class="wpcpm-details__lead">%s</p>', esc_html__( 'What the program has on record.', 'wpcredits-program-manager' ) );
-
-		// An outcome of the Tracks offered or the Assigned Administrator form is read under that section's heading.
-		if ( null !== $flash['message'] && ! in_array( $flash['section'], array( 'tracks', 'assignment' ), true ) ) {
-			printf(
-				'<p class="wpcpm-details__message is-%1$s" role="status">%2$s</p>',
-				esc_attr( $flash['message'][0] ),
-				esc_html( $flash['message'][1] )
-			);
-		}
-
-		foreach ( self::groups() as $group => $heading ) {
-			printf( '<h4 class="wpcpm-details__subtitle">%s</h4>', esc_html( $heading ) );
-
-			self::render_rows( $group, $current, $facts, $checker );
-
-			if ( WPCPM_Institution_Details::GROUP_CHECKED === $group && ! $open ) {
-				self::render_outcome( $record );
-			}
-
-			// One request at a time: while one waits, the second group offers nothing to type into, to the
-			// Administrator no more than to the school. An Administrator's own correction would leave the
-			// school's request open over a value it was not asked against, so they are told where it is decided.
-			if ( WPCPM_Institution_Details::GROUP_CHECKED === $group && $open ) {
-				if ( $checker ) {
-					self::render_decide();
-				}
-
-				continue;
-			}
-
-			self::render_form( $record, $group, $current, $kept[ $group ], $group === $flash['group'] ? $flash['problems'] : array(), $checker );
-		}
-
-		WPCPM_Institution_Tracks::render( $record, $checker, 'tracks' === $flash['section'] ? $flash['message'] : null );
-		WPCPM_Institution_Assignment::render( $record, $checker, 'assignment' === $flash['section'] ? $flash['message'] : null );
-
-		echo '</div></details></section>';
+		// Drawn with the shared parts (Stage B, Task 19), from the reader and the data read above.
+		self::render_parts( $record, $current, $open, $facts, $flash, $kept, $checker );
 	}
 	// phpcs:enable Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
 	// phpcs:enable VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable
@@ -227,48 +190,630 @@ class WPCPM_Institution_Details_Card {
 		);
 	}
 
+	/*
+	 * The rules the card asks (Stage B, Task 19: one helper per rule)
+	 * --------------------------------------------------------------------
+	 */
+
 	/**
-	 * One group's rows: label and value, in the order of the details table, and under a row that has a
-	 * change waiting, the line that says so.
+	 * The outcome the card prints at its head: an outcome of the Tracks offered or the Assigned Administrator form is
+	 * read under that section's heading instead.
 	 *
-	 * A definition list, a row to a `div`, so the waiting line is part of the row it is about and a
-	 * screen reader reads it with that row.
+	 * @param array $flash What `take_flash()` returned.
+	 * @return array{0: string, 1: string}|null Tone and sentence, or null.
+	 */
+	private static function card_message( array $flash ) {
+		return null !== $flash['message'] && ! in_array( $flash['section'], array( 'tracks', 'assignment' ), true ) ? $flash['message'] : null;
+	}
+
+	/**
+	 * The group whose form a refusal is about, when that form is drawn: an error the flash names a group for (a refused
+	 * post, or one whose typing was kept), while the group offers its form. '' for every other outcome, which the card
+	 * says at its top (Gate B round 2, F2).
+	 *
+	 * @param array|null $message What `card_message()` returned.
+	 * @param array      $flash   What `take_flash()` returned.
+	 * @param int        $open    The request waiting, or 0.
+	 * @return string `GROUP_NOW`, `GROUP_CHECKED` or ''.
+	 */
+	private static function refused_form( $message, array $flash, $open ) {
+		if ( null === $message || 'error' !== $message[0] || ! array_key_exists( $flash['group'], self::groups() ) ) {
+			return '';
+		}
+
+		return self::offers_form( $flash['group'], $open ) ? $flash['group'] : '';
+	}
+
+	/**
+	 * A group's fold, the id its refusal's way back lands on.
+	 *
+	 * @param string $group `GROUP_NOW` or `GROUP_CHECKED`.
+	 * @return string
+	 */
+	private static function fold_id( $group ) {
+		return 'wpcpm-details-' . $group;
+	}
+
+	/**
+	 * The outcome a section of the card reads under its own heading: the Tracks offered or the Assigned Administrator
+	 * form's, by the section the handler flashed it for.
+	 *
+	 * @param array  $flash   What `take_flash()` returned.
+	 * @param string $section `tracks` or `assignment`.
+	 * @return array{0: string, 1: string}|null Tone and sentence, or null.
+	 */
+	private static function section_message( array $flash, $section ) {
+		return $section === $flash['section'] ? $flash['message'] : null;
+	}
+
+	/**
+	 * Whether the line telling an Administrator where the school's waiting request is decided is drawn: under the second
+	 * group while it offers no form, to an Administrator alone (the school's accounts read Withdraw it instead).
 	 *
 	 * @param string $group   `GROUP_NOW` or `GROUP_CHECKED`.
-	 * @param array  $current What the program has on record (`WPCPM_Institution_Details::current()`).
-	 * @param array  $facts   The open request's facts (`WPCPM_Institution_Request::facts()`), or none.
-	 * @param bool   $checker Whether the reader is an Administrator, who reads the waiting lines and is not
-	 *                        offered the school's Withdraw it.
+	 * @param int    $open    The request waiting, or 0.
+	 * @param bool   $checker Whether the reader is an Administrator.
+	 * @return bool
 	 */
-	private static function render_rows( $group, array $current, array $facts, $checker ) {
+	private static function shows_decide( $group, $open, $checker ) {
+		return $checker && ! self::offers_form( $group, $open );
+	}
+
+	/**
+	 * Whether a group's outcome line is drawn: the latest answered request's, under the second group, while none waits.
+	 *
+	 * @param string $group `GROUP_NOW` or `GROUP_CHECKED`.
+	 * @param int    $open  The request waiting, or 0.
+	 * @return bool
+	 */
+	private static function shows_outcome( $group, $open ) {
+		return WPCPM_Institution_Details::GROUP_CHECKED === $group && ! $open;
+	}
+
+	/**
+	 * Whether a group offers its form. One request at a time: while one waits, the second group offers nothing to type
+	 * into, to the Administrator no more than to the school. An Administrator's own correction would leave the school's
+	 * request open over a value it was not asked against, so they are told where it is decided (`decide_html()`).
+	 *
+	 * @param string $group `GROUP_NOW` or `GROUP_CHECKED`.
+	 * @param int    $open  The request waiting, or 0.
+	 * @return bool
+	 */
+	private static function offers_form( $group, $open ) {
+		return ! ( WPCPM_Institution_Details::GROUP_CHECKED === $group && $open );
+	}
+
+	/**
+	 * Whether a group's form saves at once: the first group's for everybody, the second group's for an Administrator,
+	 * who checks it. Only the school's own second form is a request.
+	 *
+	 * @param string $group   `GROUP_NOW` or `GROUP_CHECKED`.
+	 * @param bool   $checker Whether the reader is an Administrator.
+	 * @return bool
+	 */
+	private static function saves( $group, $checker ) {
+		return WPCPM_Institution_Details::GROUP_NOW === $group || $checker;
+	}
+
+	/**
+	 * A form's words: the fold's title and second piece, the busy words and the button.
+	 *
+	 * @param bool $saves Whether the form saves at once (`saves()`).
+	 * @return array{title: string, second: string, busy: string, button: string}
+	 */
+	private static function fold_words( $saves ) {
+		return array(
+			'title'  => $saves ? __( 'Correct these', 'wpcredits-program-manager' ) : __( 'Ask to correct these', 'wpcredits-program-manager' ),
+			'second' => $saves ? __( '(saved at once)', 'wpcredits-program-manager' ) : __( '(an Administrator checks first)', 'wpcredits-program-manager' ),
+			'busy'   => $saves ? __( 'Saving', 'wpcredits-program-manager' ) : __( 'Sending', 'wpcredits-program-manager' ),
+			'button' => $saves ? __( 'Save the details', 'wpcredits-program-manager' ) : __( 'Send to an Administrator', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
+	 * The note over an Administrator's second form, which saves what a school's would only ask; '' for every other form.
+	 *
+	 * @param string $group   `GROUP_NOW` or `GROUP_CHECKED`.
+	 * @param bool   $checker Whether the reader is an Administrator.
+	 * @return string
+	 */
+	private static function checker_note( $group, $checker ) {
+		return WPCPM_Institution_Details::GROUP_NOW !== $group && $checker ? __( 'You are an Administrator, so these are saved at once and nobody approves them.', 'wpcredits-program-manager' ) : '';
+	}
+
+	/**
+	 * The hidden fields a group's form posts after its nonce: its action and the institution.
+	 *
+	 * @param string $group  `GROUP_NOW` or `GROUP_CHECKED`.
+	 * @param string $record Institutions record ID.
+	 * @return array<string, string> Name to value, in the order posted.
+	 */
+	private static function form_fields( $group, $record ) {
+		return array(
+			'action' => WPCPM_Institution_Details::GROUP_NOW === $group ? self::ACTION_SAVE : self::ACTION_ASK,
+			'record' => (string) $record,
+		);
+	}
+
+	/**
+	 * The hidden fields Withdraw it posts after its nonce: the request's handler, the request, and the card it was
+	 * pressed on, so the withdrawal comes back to it and not to the top of the page.
+	 *
+	 * @param int $request The request.
+	 * @return array<string, string> Name to value, in the order posted.
+	 */
+	private static function withdraw_fields( $request ) {
+		return array(
+			'action'                                => WPCPM_Institution_Request::ACTION_DETAILS_WITHDRAW,
+			'request'                               => (string) (int) $request,
+			WPCPM_Institution_Request::RETURN_FIELD => self::ANCHOR,
+		);
+	}
+
+	/**
+	 * Hidden fields as today's forms print them, one input to a name.
+	 *
+	 * @param array<string, string> $fields Name to value.
+	 * @return string Escaped markup.
+	 */
+	public static function hidden_html( array $fields ) {
+		$out = '';
+
+		foreach ( $fields as $name => $value ) {
+			$out .= sprintf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( (string) $name ), esc_attr( (string) $value ) );
+		}
+
+		return $out;
+	}
+
+	/**
+	 * The words of the line under a row whose change waits, with the value asked for and the day as its two placeholders.
+	 *
+	 * @return string
+	 */
+	private static function waiting_format() {
+		/* translators: 1: the value an Administrator is being asked to put on record, 2: the day it was asked. */
+		return __( 'Waiting for an Administrator: %1$s, asked on %2$s.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The values asked for by the waiting request, by the detail's key.
+	 *
+	 * @param array $facts The open request's facts (`WPCPM_Institution_Request::facts()`), or none.
+	 * @return array<string, string>
+	 */
+	private static function asked( array $facts ) {
 		$asked = array();
 
 		foreach ( isset( $facts['changes'] ) ? (array) $facts['changes'] : array() as $row ) {
 			$asked[ $row['key'] ] = $row['asked'];
 		}
 
-		echo '<dl class="wpcpm-details__list">';
+		return $asked;
+	}
+
+	/**
+	 * What an Administrator reads under the second group while the school's request waits, as markup: the place linked
+	 * to the requests card of the Administrator Dashboard while that page is published.
+	 *
+	 * @return string Escaped markup.
+	 */
+	private static function decide_html() {
+		$page = (string) WPCPM_Administrators_Dashboard::page_url();
+
+		return wp_kses(
+			'' !== $page
+				? self::decide_sentence( '<a href="' . esc_url( $page . '#wpcpm-requests' ) . '">', '</a>' )
+				: esc_html( self::decide_sentence() ),
+			array( 'a' => array( 'href' => array() ) )
+		);
+	}
+
+	/**
+	 * The outcome line's sentence for a school: the latest answered request's, '' for none.
+	 *
+	 * @param string $record Institutions record ID.
+	 * @return string Not escaped.
+	 */
+	private static function outcome_for( $record ) {
+		return self::outcome_sentence( WPCPM_Institution_Request::latest_details_outcome( $record ) );
+	}
+
+	/**
+	 * Whether a detail holds nothing: "Not given yet" is read for it.
+	 *
+	 * @param mixed $value What the program has on record.
+	 * @return bool
+	 */
+	private static function is_empty( $value ) {
+		return is_array( $value ) ? array() === $value : '' === trim( (string) $value );
+	}
+
+	/**
+	 * Everything a question of a form is drawn with, worked out once: its id and name, its words, and
+	 * the box's value, limit and keyboard by today's typed-text rules, or the ticked languages, or the country chosen.
+	 *
+	 * @param string            $key      The detail's key.
+	 * @param string            $type     Its type: `text`, `url`, `email`, `country` or `choices`.
+	 * @param array             $question The application's question for it.
+	 * @param string|string[]   $value    What the program has on record.
+	 * @param string|array|null $typed    What a refused post typed for it, or null.
+	 * @return array
+	 */
+	private static function field_spec( $key, $type, array $question, $value, $typed ) {
+		$spec = array(
+			'id'       => 'wpcpm-details-' . $key,
+			'name'     => self::FIELD_PREFIX . $key,
+			'label'    => (string) $question['label'],
+			'required' => ! empty( $question['required'] ),
+			'help'     => ! empty( $question['help'] ) ? (string) $question['help'] : '',
+			'columns'  => ! empty( $question['columns'] ),
+		);
+
+		if ( 'choices' === $type ) {
+			$spec['picked']  = is_array( $typed ) ? $typed : (array) $value;
+			$spec['choices'] = isset( $question['choices'] ) ? (array) $question['choices'] : array();
+
+			return $spec;
+		}
+
+		if ( 'country' === $type ) {
+			$spec['current'] = is_string( $typed ) ? $typed : (string) $value;
+			$spec['options'] = array( '' => __( 'Choose a country', 'wpcredits-program-manager' ) ) + WPCPM_Countries::options();
+			/* translators: Shown in the empty country field, which takes typing. */
+			$spec['find'] = __( 'Type to find your country', 'wpcredits-program-manager' );
+			$spec['none'] = __( 'No country has that name.', 'wpcredits-program-manager' );
+			/* translators: %s: how many countries the list shows, as a number. */
+			$spec['count'] = __( 'Countries in the list: %s', 'wpcredits-program-manager' );
+
+			return $spec;
+		}
+
+		$limit = isset( $question['maxlength'] ) ? (int) $question['maxlength'] : 200;
+
+		if ( is_string( $typed ) ) {
+			$shown = WPCPM_Typed_Text::kept_attr( $typed );
+		} elseif ( 'email' === $type ) {
+			$shown = (string) $value;
+		} elseif ( 'url' === $type ) {
+			$shown = WPCPM_Typed_Text::one_line( WPCPM_Typed_Text::kept_attr( (string) $value ) );
+		} else {
+			$shown = WPCPM_Typed_Text::one_line( WPCPM_Typed_Text::attr_text( (string) $value ) );
+		}
+
+		$spec['box']   = 'email' === $type ? 'email' : 'text';
+		$spec['shown'] = $shown;
+		// A text the program holds longer than its box is drawn with room for all of it.
+		$spec['maxlength'] = (int) ( 'text' === $type ? WPCPM_Typed_Text::drawn_limit( (string) $value, $limit ) : $limit );
+		$spec['inputmode'] = 'url' === $type ? 'url' : ( 'email' === $type ? 'email' : '' );
+		$spec['auto']      = isset( $question['auto'] ) ? (string) $question['auto'] : '';
+
+		return $spec;
+	}
+
+	/*
+	 * The card on the shared parts (Stage B, Task 19; design 6.4)
+	 * --------------------------------------------------------------------
+	 */
+
+	/**
+	 * The card on the parts: the shell's card fold, open, its anchor on the section; its name and the phrase "What the
+	 * program has on record." in its head (the view is "Your institution" and holds other cards, so the card keeps a
+	 * head of its own: design 6, 6.4); the outcome first; then each group's in-card heading, its key and value table and
+	 * its inner fold; the outcome line under the second table, or an Administrator's note of where a waiting request is
+	 * decided; then Tracks offered and, for an Administrator, who follows the school up.
+	 *
+	 * @param string $record  Institutions record ID.
+	 * @param array  $current What the program has on record.
+	 * @param int    $open    The request waiting, or 0.
+	 * @param array  $facts   The open request's facts, or none.
+	 * @param array  $flash   What `take_flash()` returned.
+	 * @param array  $kept    What a refused post kept, by group.
+	 * @param bool   $checker Whether the reader is an Administrator.
+	 */
+	private static function render_parts( $record, array $current, $open, array $facts, array $flash, array $kept, $checker ) {
+		WPCPM_Dashboard_Card::open(
+			array(
+				'key'           => 'details',
+				// The name alone: the view's lede already says what the program has on record (Task 19, fix round 1).
+				'title'         => __( 'Your institution\'s details', 'wpcredits-program-manager' ),
+				'open'          => true,
+				'prefix'        => 'wpcpm-',
+				'id_on'         => 'section',
+				'section_class' => '',
+			)
+		);
+
+		$message = self::card_message( $flash );
+		$at_form = self::refused_form( $message, $flash, $open );
+
+		// A refusal of a group's form is said in that form's fold (`render_form_parts()`); any other outcome here.
+		if ( null !== $message && '' === $at_form ) {
+			echo WPCPM_Dashboard_Card::message( $message[0], $message[1], 'wpcpm-details__message' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Dashboard_Card::message() escapes what it prints.
+		}
+
+		$asked = self::asked( $facts );
+
+		foreach ( self::groups() as $group => $heading ) {
+			$heading_id = 'wpcpm-details-' . $group . '-heading';
+
+			echo WPCPM_UI::heading( $heading, 'h4', $heading_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the part.
+
+			self::render_table_parts( $group, $current, $asked, $facts, $checker, $heading_id );
+
+			if ( self::shows_outcome( $group, $open ) ) {
+				$sentence = self::outcome_for( $record );
+
+				if ( '' !== $sentence ) {
+					echo WPCPM_UI::intro( $sentence ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the part.
+				}
+			}
+
+			if ( self::shows_decide( $group, $open, $checker ) ) {
+				echo WPCPM_UI::intro( '', '', '', self::decide_html() ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- decide_html() passes through wp_kses().
+			}
+
+			if ( ! self::offers_form( $group, $open ) ) {
+				continue;
+			}
+
+			self::render_form_parts( $record, $group, $current, $kept[ $group ], $group === $flash['group'] ? $flash['problems'] : array(), $checker, $group === $at_form ? WPCPM_Dashboard_Card::message( $message[0], $message[1], 'wpcpm-details__message' ) : '' );
+		}
+
+		WPCPM_Institution_Tracks::render( $record, $checker, self::section_message( $flash, 'tracks' ) );
+		WPCPM_Institution_Assignment::render( $record, $checker, self::section_message( $flash, 'assignment' ) );
+
+		WPCPM_Dashboard_Card::close();
+	}
+
+	/**
+	 * One group's key and value table (design 2.7, 6): a row to each detail of the group, in the details table's order
+	 * and with its labels, each label a row header; "Not given yet" in words, of the empty kind; the page address, the
+	 * website and the contact's email token cells, which may break anywhere; every other value as it is: the key and value table's value cell breaks
+	 * a word anywhere, so a 40-character name never widens the card. A row whose change waits holds the waiting line under
+	 * its value.
+	 *
+	 * @param string $group      `GROUP_NOW` or `GROUP_CHECKED`.
+	 * @param array  $current    What the program has on record.
+	 * @param array  $asked      What the waiting request asks, by key (`asked()`).
+	 * @param array  $facts      The open request's facts, or none.
+	 * @param bool   $checker    Whether the reader is an Administrator, who is not offered the school's Withdraw it.
+	 * @param string $heading_id The group's heading, which names the table.
+	 */
+	private static function render_table_parts( $group, array $current, array $asked, array $facts, $checker, $heading_id ) {
+		$label = array(
+			'key'    => 'label',
+			'label'  => '',
+			'kind'   => 'text',
+			'header' => true,
+		);
+		$text  = array(
+			'key'   => 'value',
+			'label' => '',
+			'kind'  => 'text',
+		);
+		$token = array(
+			'key'   => 'value',
+			'label' => '',
+			'kind'  => 'token',
+		);
+		$out   = WPCPM_UI::table_open(
+			array( $label, $text ),
+			array(
+				'keyvalue'   => true,
+				'labelledby' => $heading_id,
+			)
+		);
 
 		foreach ( WPCPM_Institution_Details::fields() as $key => $spec ) {
 			if ( $group !== $spec['group'] ) {
 				continue;
 			}
 
-			printf(
-				'<div class="wpcpm-details__row"><dt>%1$s</dt><dd>%2$s</dd>',
-				esc_html( $spec['label'] ),
-				esc_html( self::shown( $key, $current[ $key ] ) )
-			);
+			$empty = self::is_empty( $current[ $key ] );
+			$shown = self::shown( $key, $current[ $key ] );
+			$cells = ! $empty && in_array( $spec['type'], array( 'url', 'email' ), true );
+			$html  = esc_html( $shown );
 
 			if ( isset( $asked[ $key ] ) ) {
-				self::render_waiting( $asked[ $key ], (int) $facts['at'], (int) $facts['id'], ! $checker );
+				$html .= self::waiting_parts( $asked[ $key ], (int) $facts['at'], (int) $facts['id'], ! $checker, $spec['label'] );
 			}
 
-			echo '</div>';
+			$out .= WPCPM_UI::row_open()
+				. WPCPM_UI::cell( $label, esc_html( $spec['label'] ) )
+				. WPCPM_UI::cell( $cells ? $token : $text, $html, $empty ? 'empty' : '' )
+				. WPCPM_UI::row_close();
 		}
 
-		echo '</dl>';
+		echo $out . WPCPM_UI::table_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the table parts; each value escaped above.
 	}
+
+	/**
+	 * The waiting line under a row's value on the parts: today's sentence in words, the value asked for
+	 * as it is and the day whole, as the cell's second line, with no colored edge; then, for the school's own
+	 * accounts, Withdraw it (quiet red), posting what today's form posts. Today's form asks no question, and neither
+	 * does this one; the row is named for a screen reader, as every row has its own.
+	 *
+	 * @param string $asked    The value asked for, as a person reads it.
+	 * @param int    $at       When it was asked, as a Unix time.
+	 * @param int    $request  The request.
+	 * @param bool   $withdraw Whether to offer Withdraw it.
+	 * @param string $label    The row's label.
+	 * @return string Escaped markup.
+	 */
+	private static function waiting_parts( $asked, $at, $request, $withdraw, $label ) {
+		$line = sprintf( esc_html( self::waiting_format() ), esc_html( (string) $asked ), WPCPM_UI::whole( WPCPM_Dates::day( $at ) ) );
+		$out  = WPCPM_UI::cell_sub( '', $line );
+
+		if ( ! $withdraw ) {
+			return $out;
+		}
+
+		return $out
+			. sprintf(
+				'<form method="post" action="%1$s" novalidate data-wpcpm-once data-wpcpm-busy="%2$s">',
+				esc_url( admin_url( 'admin-post.php' ) ),
+				esc_attr__( 'Withdrawing', 'wpcredits-program-manager' )
+			)
+			. WPCPM_UI::nonce( WPCPM_Institution_Request::ACTION_DETAILS_WITHDRAW . '_' . $request )
+			. self::hidden_html( self::withdraw_fields( $request ) )
+			. WPCPM_UI::button(
+				array(
+					'label'   => __( 'Withdraw it', 'wpcredits-program-manager' ),
+					'kind'    => 'quiet-danger',
+					'context' => (string) $label,
+					'side'    => 'front',
+				)
+			)
+			. '</form>';
+	}
+
+	/**
+	 * One group's inner fold on the parts, with its form: "Correct these" with "(saved at once)", or the school's
+	 * "Ask to correct these" with "(an Administrator checks first)"; closed, and open for a form a refusal gave its
+	 * typing back to. The form posts what today's form posts (its nonce without an id), asks the application's own
+	 * questions as fields, the languages a choice group and Country the one combobox, and ends with its one primary.
+	 *
+	 * @param string $record   Institutions record ID.
+	 * @param string $group    `GROUP_NOW` or `GROUP_CHECKED`.
+	 * @param array  $current  What the program has on record.
+	 * @param array  $typed    What a refused post kept, by key, or none.
+	 * @param array  $problems What was wrong with a refused post's fields, by key.
+	 * @param bool   $checker  Whether the reader is an Administrator.
+	 * @param string $refusal  The refusal of this form, as the shell's message, or ''.
+	 */
+	private static function render_form_parts( $record, $group, array $current, array $typed, array $problems, $checker, $refusal = '' ) {
+		$words  = self::fold_words( self::saves( $group, $checker ) );
+		$fields = self::form_fields( $group, $record );
+		$note   = self::checker_note( $group, $checker );
+
+		$fold = WPCPM_UI::inner_open(
+			array(
+				'title'  => $words['title'],
+				'second' => $words['second'],
+				'open'   => array() !== $typed || '' !== $refusal,
+				'id'     => self::fold_id( $group ),
+			)
+		);
+
+		// A refusal of this form is the open fold's first block, directly over the form (Gate B round 2, F2).
+		echo $fold . $refusal; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts and in WPCPM_Dashboard_Card::message().
+		printf(
+			'<form method="post" action="%1$s" novalidate data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr( $words['busy'] )
+		);
+		echo WPCPM_UI::nonce( $fields['action'] . '_' . $record ) . self::hidden_html( $fields ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the part and in hidden_html().
+
+		if ( '' !== $note ) {
+			echo WPCPM_UI::intro( $note ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the part.
+		}
+
+		$questions = WPCPM_Institution_Application::fields();
+
+		foreach ( WPCPM_Institution_Details::fields() as $key => $spec ) {
+			if ( $group !== $spec['group'] ) {
+				continue;
+			}
+
+			$field = self::field_parts(
+				$spec['type'],
+				self::field_spec( $key, $spec['type'], $questions[ WPCPM_Institution_Details::question( $key ) ], $current[ $key ], isset( $typed[ $key ] ) ? $typed[ $key ] : null ),
+				isset( $problems[ $key ] ) ? (string) $problems[ $key ] : ''
+			);
+
+			echo $field; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts.
+		}
+
+		$button = WPCPM_UI::button(
+			array(
+				'label' => $words['button'],
+				'side'  => 'front',
+			)
+		);
+
+		echo WPCPM_UI::actions( array( $button ) ) . '</form>' . WPCPM_UI::inner_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts.
+	}
+
+	/**
+	 * One question of a form on the parts: a field, the languages a choice group in columns (its help under its legend
+	 * and its refusal under its options), Country the one combobox; the problem under its box and tied to it.
+	 *
+	 * @param string $type    The detail's type.
+	 * @param array  $spec    What `field_spec()` worked out.
+	 * @param string $problem What was wrong with it, or ''.
+	 * @return string Escaped markup.
+	 */
+	private static function field_parts( $type, array $spec, $problem ) {
+		$need = $spec['required'] ? 'required' : '';
+
+		if ( 'choices' === $type ) {
+			$options = array();
+
+			foreach ( $spec['choices'] as $choice ) {
+				$options[ (string) $choice ] = trim( (string) $choice );
+			}
+
+			return WPCPM_UI::choices(
+				array(
+					'id'            => $spec['id'],
+					'legend'        => $spec['label'],
+					'name'          => $spec['name'] . '[]',
+					'type'          => 'checkbox',
+					'options'       => $options,
+					'checked'       => $spec['picked'],
+					'need'          => $need,
+					'hint'          => $spec['help'],
+					'group_problem' => $problem,
+					'columns'       => $spec['columns'],
+				)
+			);
+		}
+
+		if ( 'country' === $type ) {
+			return WPCPM_UI::field(
+				array(
+					'type'          => 'combo',
+					'id'            => $spec['id'],
+					'name'          => $spec['name'],
+					'label'         => $spec['label'],
+					'value'         => $spec['current'],
+					'options'       => $spec['options'],
+					'need'          => $need,
+					// Today's select carries no `required`: the handler says what is missing.
+					'required_attr' => false,
+					'hint'          => $spec['help'],
+					'problem'       => $problem,
+					'find'          => $spec['find'],
+					'none'          => $spec['none'],
+					'count'         => $spec['count'],
+				)
+			);
+		}
+
+		return WPCPM_UI::field(
+			array(
+				'type'    => $spec['box'],
+				'id'      => $spec['id'],
+				'name'    => $spec['name'],
+				'label'   => $spec['label'],
+				'value'   => $spec['shown'],
+				'need'    => $need,
+				'hint'    => $spec['help'],
+				'problem' => $problem,
+				'attrs'   => array(
+					'maxlength'    => $spec['maxlength'],
+					'autocomplete' => $spec['auto'],
+					'inputmode'    => $spec['inputmode'],
+				),
+			)
+		);
+	}
+
+	/*
+	 * The card today (every surface not on the parts)
+	 * --------------------------------------------------------------------
+	 */
 
 	/**
 	 * One value as the list reads it: the details class's words for it, and "Not given yet" for none.
@@ -278,78 +823,7 @@ class WPCPM_Institution_Details_Card {
 	 * @return string
 	 */
 	private static function shown( $key, $value ) {
-		$empty = is_array( $value ) ? array() === $value : '' === trim( (string) $value );
-
-		return $empty ? __( 'Not given yet', 'wpcredits-program-manager' ) : WPCPM_Institution_Details::show( $key, $value );
-	}
-
-	/**
-	 * The line under a row whose change waits for an Administrator: what was asked, the day, and Withdraw it.
-	 *
-	 * Every waiting row of the school's own accounts carries its own Withdraw it, as the mockup draws them,
-	 * though they withdraw the one request. The form posts the request's own handler, whose nonce is keyed to
-	 * the request and whose policy check is the same fence this card sits behind. An Administrator reads the
-	 * line and is not offered the school's button: the request is decided where requests are decided, and
-	 * their handler still admits them should a screen of theirs ever post it.
-	 *
-	 * The line takes the page's warning tone from its `wpcpm-warning` class.
-	 *
-	 * @param string $asked    The value asked for, as a person reads it.
-	 * @param int    $at       When it was asked, as a Unix time.
-	 * @param int    $request  The request.
-	 * @param bool   $withdraw Whether to offer Withdraw it.
-	 */
-	private static function render_waiting( $asked, $at, $request, $withdraw ) {
-		echo '<dd class="wpcpm-details__waiting wpcpm-warning">';
-
-		printf(
-			'<span class="wpcpm-details__waiting-text">%s</span> ',
-			esc_html(
-				sprintf(
-					/* translators: 1: the value an Administrator is being asked to put on record, 2: the day it was asked. */
-					__( 'Waiting for an Administrator: %1$s, asked on %2$s.', 'wpcredits-program-manager' ),
-					$asked,
-					WPCPM_Dates::day( $at )
-				)
-			)
-		);
-
-		if ( ! $withdraw ) {
-			echo '</dd>';
-
-			return;
-		}
-
-		printf(
-			'<form class="wpcpm-details__withdraw" method="post" action="%1$s" novalidate data-wpcpm-once data-wpcpm-busy="%2$s">',
-			esc_url( admin_url( 'admin-post.php' ) ),
-			esc_attr__( 'Withdrawing', 'wpcredits-program-manager' )
-		);
-		wp_nonce_field( WPCPM_Institution_Request::ACTION_DETAILS_WITHDRAW . '_' . $request );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Institution_Request::ACTION_DETAILS_WITHDRAW ) );
-		printf( '<input type="hidden" name="request" value="%d" />', (int) $request );
-		// The card the press was made on: the withdrawal comes back to it and not to the top of the page.
-		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( WPCPM_Institution_Request::RETURN_FIELD ), esc_attr( self::ANCHOR ) );
-		printf( '<button type="submit" class="wpcpm-details__withdraw-button">%s</button>', esc_html__( 'Withdraw it', 'wpcredits-program-manager' ) );
-		echo '</form></dd>';
-	}
-
-	/**
-	 * The line an Administrator reads under the second group while the school's request waits: where it is
-	 * decided, linked to the requests card of the Administrator Dashboard while that page is published.
-	 */
-	private static function render_decide() {
-		$page = (string) WPCPM_Administrators_Dashboard::page_url();
-
-		printf(
-			'<p class="wpcpm-details__decide">%s</p>',
-			wp_kses(
-				'' !== $page
-					? self::decide_sentence( '<a href="' . esc_url( $page . '#wpcpm-requests' ) . '">', '</a>' )
-					: esc_html( self::decide_sentence() ),
-				array( 'a' => array( 'href' => array() ) )
-			)
-		);
+		return self::is_empty( $value ) ? __( 'Not given yet', 'wpcredits-program-manager' ) : WPCPM_Institution_Details::show( $key, $value );
 	}
 
 	/**
@@ -370,253 +844,43 @@ class WPCPM_Institution_Details_Card {
 	}
 
 	/**
-	 * What the school was last told about a request: the day an approval was made, or an Administrator's
-	 * note on a decline, and nothing for a withdrawal.
+	 * The sentence the card prints for a request's outcome, which the Institution Dashboard's Overview
+	 * reads as its news row's why: the day an approval was made, or the decline with the Administrator's note when
+	 * there is one. Not escaped: a caller escapes it where it prints it.
 	 *
-	 * Drawn to every account of the school, and only while no request waits: the next request replaces
-	 * the outcome, and a withdrawal is an outcome that says nothing.
-	 *
-	 * @param string $record Institutions record ID.
+	 * @param array $outcome What `WPCPM_Institution_Request::latest_details_outcome()` returned.
+	 * @return string '' for a withdrawal, no outcome, or an approval with no day.
 	 */
-	private static function render_outcome( $record ) {
-		$outcome = WPCPM_Institution_Request::latest_details_outcome( $record );
+	public static function outcome_sentence( array $outcome ): string {
+		$state = isset( $outcome['state'] ) ? (string) $outcome['state'] : '';
 
-		if ( empty( $outcome['state'] ) ) {
-			return;
-		}
-
-		if ( WPCPM_Institution_Request::STATE_DONE === $outcome['state'] ) {
-			$day = WPCPM_Dates::day( (int) $outcome['closed_at'] );
+		if ( WPCPM_Institution_Request::STATE_DONE === $state ) {
+			$day = WPCPM_Dates::day( isset( $outcome['closed_at'] ) ? (int) $outcome['closed_at'] : 0 );
 
 			if ( '' === $day ) {
-				return;
+				return '';
 			}
 
-			printf(
-				'<p class="wpcpm-details__outcome">%s</p>',
-				esc_html(
-					sprintf(
-						/* translators: %s: the day an Administrator made the change a school asked for. */
-						__( 'Updated on %s.', 'wpcredits-program-manager' ),
-						$day
-					)
-				)
-			);
-
-			return;
-		}
-
-		if ( WPCPM_Institution_Request::STATE_DECLINED !== $outcome['state'] ) {
-			return;
-		}
-
-		$note = trim( (string) $outcome['note'] );
-
-		printf(
-			'<p class="wpcpm-details__outcome">%s</p>',
-			esc_html(
-				'' === $note
-					? __( 'An Administrator did not make the change you asked for.', 'wpcredits-program-manager' )
-					: sprintf(
-						/* translators: %s: the note an Administrator left when they declined a school's request to correct its details. */
-						__( 'An Administrator did not make the change you asked for: %s', 'wpcredits-program-manager' ),
-						$note
-					)
-			)
-		);
-	}
-
-	/**
-	 * One group's disclosure, with its form.
-	 *
-	 * Closed, and open only for a form a refusal has given its typing back to. The form is a column of the
-	 * application's own questions, each with the label, the help and the limit the application gives it.
-	 *
-	 * A form that saves at once reads as one: the first group's for everybody, and the second group's for
-	 * an Administrator, who checks it. Only the school's own second form reads as a request.
-	 *
-	 * `novalidate`, since the handlers hold every rule and say what is wrong in the application's words: a
-	 * box the browser would refuse, such as a stored contact email the base holds two addresses in, would
-	 * otherwise stop a post of the rest before the rule that a box posted back as drawn is no change applies.
-	 *
-	 * @param string $record   Institutions record ID.
-	 * @param string $group    `GROUP_NOW` or `GROUP_CHECKED`.
-	 * @param array  $current  What the program has on record.
-	 * @param array  $typed    What a refused post kept, by key, or none.
-	 * @param array  $problems What was wrong with a refused post's fields, by key.
-	 * @param bool   $checker  Whether the reader is an Administrator, whose second group is saved at once.
-	 */
-	private static function render_form( $record, $group, array $current, array $typed, array $problems, $checker ) {
-		$now   = WPCPM_Institution_Details::GROUP_NOW === $group;
-		$saves = $now || $checker;
-
-		printf(
-			'<details class="wpcpm-details__more" id="wpcpm-details-%1$s"%2$s><summary class="wpcpm-details__toggle">%3$s <span class="wpcpm-details__when">%4$s</span></summary>',
-			esc_attr( $group ),
-			array() !== $typed ? ' open' : '',
-			$saves ? esc_html__( 'Correct these', 'wpcredits-program-manager' ) : esc_html__( 'Ask to correct these', 'wpcredits-program-manager' ),
-			$saves ? esc_html__( '(saved at once)', 'wpcredits-program-manager' ) : esc_html__( '(an Administrator checks first)', 'wpcredits-program-manager' )
-		);
-
-		$action = $now ? self::ACTION_SAVE : self::ACTION_ASK;
-
-		printf(
-			'<form class="wpcpm-details__form" method="post" action="%1$s" novalidate data-wpcpm-once data-wpcpm-busy="%2$s">',
-			esc_url( admin_url( 'admin-post.php' ) ),
-			$saves ? esc_attr__( 'Saving', 'wpcredits-program-manager' ) : esc_attr__( 'Sending', 'wpcredits-program-manager' )
-		);
-		wp_nonce_field( $action . '_' . $record );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $action ) );
-		printf( '<input type="hidden" name="record" value="%s" />', esc_attr( $record ) );
-
-		if ( ! $now && $checker ) {
-			printf(
-				'<p class="wpcpm-details__note">%s</p>',
-				esc_html__( 'You are an Administrator, so these are saved at once and nobody approves them.', 'wpcredits-program-manager' )
+			return sprintf(
+				/* translators: %s: the day an Administrator made the change a school asked for. */
+				__( 'Updated on %s.', 'wpcredits-program-manager' ),
+				$day
 			);
 		}
 
-		$questions = WPCPM_Institution_Application::fields();
+		if ( WPCPM_Institution_Request::STATE_DECLINED !== $state ) {
+			return '';
+		}
 
-		foreach ( WPCPM_Institution_Details::fields() as $key => $spec ) {
-			if ( $group !== $spec['group'] ) {
-				continue;
-			}
+		$note = trim( isset( $outcome['note'] ) ? (string) $outcome['note'] : '' );
 
-			self::render_field(
-				$key,
-				$spec['type'],
-				$questions[ WPCPM_Institution_Details::question( $key ) ],
-				$current[ $key ],
-				isset( $typed[ $key ] ) ? $typed[ $key ] : null,
-				isset( $problems[ $key ] ) ? (string) $problems[ $key ] : ''
+		return '' === $note
+			? __( 'An Administrator did not make the change you asked for.', 'wpcredits-program-manager' )
+			: sprintf(
+				/* translators: %s: the note an Administrator left when they declined a school's request to correct its details. */
+				__( 'An Administrator did not make the change you asked for: %s', 'wpcredits-program-manager' ),
+				$note
 			);
-		}
-
-		printf(
-			'<p class="wpcpm-details__actions"><button type="submit" class="wpcpm-button">%s</button></p>',
-			$saves ? esc_html__( 'Save the details', 'wpcredits-program-manager' ) : esc_html__( 'Send to an Administrator', 'wpcredits-program-manager' )
-		);
-
-		echo '</form></details>';
-	}
-
-	/**
-	 * One question of a form, drawn as the application draws it.
-	 *
-	 * The label, the "Required" mark, the help and the limit are the application's; the box is drawn with
-	 * the value the program has, or with what a refused post typed, exactly: a typed text is drawn back as
-	 * the person typed it (`WPCPM_Typed_Text`), so a box posted back unedited comes back as it was.
-	 * A list of languages is boxes in columns and the country is the one type-to-find field.
-	 *
-	 * @param string            $key      The detail's key.
-	 * @param string            $type     Its type: `text`, `url`, `email`, `country` or `choices`.
-	 * @param array             $question The application's question for it.
-	 * @param string|string[]   $value    What the program has on record.
-	 * @param string|array|null $typed    What a refused post typed for it, or null.
-	 * @param string            $problem  What was wrong with it, or ''.
-	 */
-	private static function render_field( $key, $type, array $question, $value, $typed, $problem ) {
-		$id       = 'wpcpm-details-' . $key;
-		$name     = self::FIELD_PREFIX . $key;
-		$required = ! empty( $question['required'] );
-		$mark     = $required ? ' <span class="wpcpm-field__required">' . esc_html__( 'Required', 'wpcredits-program-manager' ) . '</span>' : '';
-		$says     = array();
-
-		if ( ! empty( $question['help'] ) ) {
-			$says[] = $id . '-help';
-		}
-
-		if ( '' !== $problem ) {
-			$says[] = $id . '-problem';
-		}
-
-		$describedby = empty( $says ) ? '' : ' aria-describedby="' . esc_attr( implode( ' ', $says ) ) . '"';
-		$invalid     = '' !== $problem ? ' aria-invalid="true"' : '';
-		$wrapper     = in_array( $type, array( 'choices', 'country' ), true ) ? 'div' : 'p';
-
-		printf(
-			'<%1$s class="wpcpm-field wpcpm-field--%2$s%3$s%4$s">',
-			esc_attr( $wrapper ),
-			esc_attr( $type ),
-			! empty( $question['columns'] ) ? ' wpcpm-field--columns' : '',
-			'' !== $problem ? ' has-problem' : ''
-		);
-
-		if ( 'choices' === $type ) {
-			$picked = is_array( $typed ) ? $typed : (array) $value;
-
-			printf( '<span class="wpcpm-field__label" id="%1$s-label">%2$s%3$s</span>', esc_attr( $id ), esc_html( $question['label'] ), $mark ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from a literal and esc_html__() above.
-			printf( '<span class="wpcpm-field__choices" role="group" aria-labelledby="%1$s-label"%2$s>', esc_attr( $id ), $describedby ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from the escaped id above.
-
-			foreach ( isset( $question['choices'] ) ? (array) $question['choices'] : array() as $choice ) {
-				printf(
-					'<label class="wpcpm-field__check"><input type="checkbox" name="%1$s[]" value="%2$s"%3$s /> <span>%4$s</span></label>',
-					esc_attr( $name ),
-					esc_attr( $choice ),
-					checked( in_array( $choice, $picked, true ), true, false ),
-					esc_html( trim( $choice ) )
-				);
-			}
-
-			echo '</span>';
-		} elseif ( 'country' === $type ) {
-			WPCPM_Dashboards::render_combo(
-				array(
-					'id'          => $id,
-					'name'        => $name,
-					'options'     => array( '' => __( 'Choose a country', 'wpcredits-program-manager' ) ) + WPCPM_Countries::options(),
-					'current'     => is_string( $typed ) ? $typed : (string) $value,
-					'label'       => $question['label'],
-					'mark'        => $required ? __( 'Required', 'wpcredits-program-manager' ) : '',
-					'describedby' => implode( ' ', $says ),
-					'invalid'     => '' !== $problem,
-					/* translators: Shown in the empty country field, which takes typing. */
-					'find'        => __( 'Type to find your country', 'wpcredits-program-manager' ),
-					'none'        => __( 'No country has that name.', 'wpcredits-program-manager' ),
-					/* translators: %s: how many countries the list shows, as a number. */
-					'count'       => __( 'Countries in the list: %s', 'wpcredits-program-manager' ),
-				)
-			);
-		} else {
-			$limit = isset( $question['maxlength'] ) ? (int) $question['maxlength'] : 200;
-
-			if ( is_string( $typed ) ) {
-				$shown = WPCPM_Typed_Text::kept_attr( $typed );
-			} elseif ( 'email' === $type ) {
-				$shown = (string) $value;
-			} elseif ( 'url' === $type ) {
-				$shown = WPCPM_Typed_Text::one_line( WPCPM_Typed_Text::kept_attr( (string) $value ) );
-			} else {
-				$shown = WPCPM_Typed_Text::one_line( WPCPM_Typed_Text::attr_text( (string) $value ) );
-			}
-
-			printf( '<label for="%1$s">%2$s%3$s</label>', esc_attr( $id ), esc_html( $question['label'] ), $mark ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from a literal and esc_html__() above.
-			printf(
-				'<input type="%1$s" id="%2$s" name="%3$s" value="%4$s" maxlength="%5$d"%6$s%7$s%8$s%9$s%10$s />',
-				'email' === $type ? 'email' : 'text',
-				esc_attr( $id ),
-				esc_attr( $name ),
-				esc_attr( $shown ),
-				// A text the program holds longer than its box is drawn with room for all of it.
-				(int) ( 'text' === $type ? WPCPM_Typed_Text::drawn_limit( (string) $value, $limit ) : $limit ),
-				'url' === $type ? ' inputmode="url"' : '',
-				'email' === $type ? ' inputmode="email"' : '',
-				isset( $question['auto'] ) ? ' autocomplete="' . esc_attr( $question['auto'] ) . '"' : '',
-				$required ? ' required="required"' : '',
-				$invalid . $describedby // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Literals and the escaped id above.
-			);
-		}
-
-		if ( ! empty( $question['help'] ) ) {
-			printf( '<span class="wpcpm-field__hint" id="%1$s-help">%2$s</span>', esc_attr( $id ), esc_html( $question['help'] ) );
-		}
-
-		if ( '' !== $problem ) {
-			printf( '<span class="wpcpm-field__problem" id="%1$s-problem">%2$s</span>', esc_attr( $id ), esc_html( $problem ) );
-		}
-
-		printf( '</%s>', esc_attr( $wrapper ) );
 	}
 
 	/**
@@ -939,7 +1203,7 @@ class WPCPM_Institution_Details_Card {
 	 * Whether a posted box is the value the program has, as it was drawn.
 	 *
 	 * Read as the box reads it: the entities a stored text holds are read back, and each line break is a
-	 * space, since the box is drawn that way (`render_field()`). The test of whether a box posted back
+	 * space, since the box is drawn that way (`field_parts()`). The test of whether a box posted back
 	 * unedited changed anything.
 	 *
 	 * @param string $typed   What was posted.
@@ -993,6 +1257,8 @@ class WPCPM_Institution_Details_Card {
 		}
 
 		WPCPM_Typed_Text::keep( self::typed_form( $record, $group ), $typed, $room );
+
+		self::$kept_group = (string) $group;
 	}
 
 	/**
@@ -1000,16 +1266,27 @@ class WPCPM_Institution_Details_Card {
 	 *
 	 * **This does not return.** Every call to it ends the request, which is why a refusal above reads as one
 	 * line and not as an early return with a branch around it. The destination is rebuilt here and not taken
-	 * from the request: the Institution Dashboard, and for an Administrator the school they were viewing,
-	 * through the switcher's argument, since the page would otherwise open on the first school with a member.
+	 * from the request: the Institution Dashboard's Your institution view, and for an Administrator the school
+	 * they were viewing, through the switcher's argument, since the page would otherwise open on the first school
+	 * with a member.
 	 *
 	 * @param string $record Institutions record ID the outcome is about.
 	 * @param string $status A key of `messages()`, or `said` with the sentence in `$extra['text']`.
 	 * @param array  $extra  `group` and `problems` of a refused post, or `text`; `section` set to `tracks` or
 	 *                       `assignment` for the section's form, whose outcome is read under its own heading.
-	 * @param string $anchor The id to land on, the card's own by default: a section's form lands on its outcome line.
+	 * @param string $anchor The id to land on, the card's own by default: a section's form lands on its outcome line, and
+	 *                       a refusal that kept a group's typing on that group's fold, where the refusal is drawn
+	 *                       (Gate B round 2, F3), the group named in the flash for the card to place it.
 	 */
 	public static function finish( $record, $status, array $extra = array(), $anchor = '' ) {
+		$kept             = self::$kept_group;
+		self::$kept_group = '';
+
+		if ( '' !== $kept && ! isset( $extra['section'] ) ) {
+			$extra  = array_merge( array( 'group' => $kept ), $extra );
+			$anchor = '' !== $anchor ? $anchor : self::fold_id( $kept );
+		}
+
 		WPCPM_Flash::set(
 			WPCPM_Institution_Request::FLASH_DETAILS,
 			array_merge(
@@ -1021,14 +1298,17 @@ class WPCPM_Institution_Details_Card {
 			)
 		);
 
-		$url = (string) WPCPM_Institutions_Dashboard::page_url();
-		$url = '' !== $url ? $url : home_url( '/' );
+		$manage = current_user_can( WPCPM_Roles::CAP_MANAGE );
 
-		if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			$url = add_query_arg( array( WPCPM_Institution_Roster::ARG_VIEW => $record ), $url );
+		// Your institution, the view that draws the card (`card_url()`), at the card or the section's outcome line.
+		$url = WPCPM_Institutions_Dashboard::card_url( 'details', $manage ? (string) $record : '', '' !== $anchor ? (string) $anchor : self::ANCHOR );
+
+		if ( '' === $url ) {
+			$url = $manage ? add_query_arg( array( WPCPM_Institution_Roster::ARG_VIEW => $record ), home_url( '/' ) ) : home_url( '/' );
+			$url = $url . '#' . ( '' !== $anchor ? $anchor : self::ANCHOR );
 		}
 
-		wp_safe_redirect( $url . '#' . ( '' !== $anchor ? $anchor : self::ANCHOR ) );
+		wp_safe_redirect( $url );
 		exit;
 	}
 }

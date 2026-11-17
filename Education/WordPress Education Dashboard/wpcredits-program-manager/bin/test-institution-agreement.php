@@ -1841,7 +1841,8 @@ ck( 'and their message says the scan is a courtesy, in the same breath as what i
 ), array( true, true ) );
 ck( 'the members are told when to expect an answer and how to take it back', array(
 	false !== strpos( $GLOBALS['mail'][0]['body'], 'within 3 working days' ),
-	false !== strpos( $GLOBALS['mail'][0]['body'], 'If it was the wrong file, withdraw it from the Collaboration Agreement card on your Institution Dashboard and upload the right one.' ),
+	// Task 25, fix round 1, B1: the sentence says what a school with no settled agreement shows its people now.
+	false !== strpos( $GLOBALS['mail'][0]['body'], 'If it was the wrong file, open Agreement on your Institution Dashboard, withdraw it there and upload the right one.' ),
 	false === stripos( $GLOBALS['mail'][0]['body'], 'agreement panel' ),
 ), array( true, true, true ) );
 
@@ -2323,8 +2324,9 @@ ck( 'every member got the note, once each', mail_log(), array( 'agreement-return
 ck( 'word for word', false !== strpos( $GLOBALS['mail'][0]['body'], $note ), true );
 ck( 'naming the manager who wrote it', false !== strpos( $GLOBALS['mail'][0]['body'], 'Kasia Manager' ), true );
 ck( 'and replying reaches them', $GLOBALS['mail'][0]['headers'], array( 'Reply-To: "Kasia Manager" <kasia@example.org>' ) );
-ck( 'saying where the corrected copy goes: the Collaboration Agreement card on the Institution Dashboard, and no panel', array(
-	false !== strpos( $GLOBALS['mail'][0]['body'], 'Upload the corrected copy from the Collaboration Agreement card on your Institution Dashboard. Replying to this message reaches the Administrator who wrote the note.' ),
+ck( 'saying where the corrected copy goes: the Agreement view on the Institution Dashboard, and no panel', array(
+	// Task 25, fix round 1, B1: the sentence says what a school with no settled agreement shows its people now.
+	false !== strpos( $GLOBALS['mail'][0]['body'], 'Upload the corrected copy under Agreement on your Institution Dashboard. Replying to this message reaches the Administrator who wrote the note.' ),
 	false === stripos( $GLOBALS['mail'][0]['body'], 'agreement panel' ),
 ), array( true, true ) );
 ck( 'one audit row, on the manager ground', array( $GLOBALS['audit'][0]['kind'], $GLOBALS['audit'][0]['ground'] ), array( 'agreement_return', 'manager' ) );
@@ -2680,8 +2682,9 @@ ck( 'with the note word for word, in both of them', array(
 	false !== strpos( $GLOBALS['mail'][1]['body'], $note ),
 ), array( true, true ) );
 ck( 'naming the manager who wrote it', false !== strpos( $GLOBALS['mail'][0]['body'], 'Kasia Manager' ), true );
-ck( 'saying what the account shows now rather than what is gone, by the card\'s name and the dashboard\'s, with no panel', array(
-	false !== strpos( $GLOBALS['mail'][0]['body'], 'Until an agreement is in force again, your Institution Dashboard shows only the Collaboration Agreement card. Nothing about your students has been deleted.' ),
+ck( 'saying what the school\'s people see now rather than what is gone, by the views\' names and the dashboard\'s, with no panel', array(
+	// Task 25, fix round 1, B1: the sentence says what a school with no settled agreement shows its people now.
+	false !== strpos( $GLOBALS['mail'][0]['body'], 'Until an agreement is in force again, your institution\'s representatives see only the Overview and the Agreement on the Institution Dashboard, and its tutors cannot open it. Nothing about your students has been deleted.' ),
 	false === stripos( $GLOBALS['mail'][0]['body'], 'agreement panel' ),
 ), array( true, true ) );
 ck( 'and naming the assigned Administrator to write to, not the country\'s contact', array(
@@ -3751,6 +3754,72 @@ ck( 'revoked_facts() gives a revoked agreement\'s date and trimmed note, and the
 	WPCPM_Institution_Agreement::revoked_facts( $facts_other ),
 	WPCPM_Institution_Agreement::revoked_facts( 999999 ),
 ), array( array( 'at' => 1780000000, 'note' => 'Paused for the term.' ), $empty_facts, $empty_facts, $empty_facts ) );
+
+// Institution Dashboard, Task 21, fix round 1: a refused upload keeps the kind the person chose (one of the two a form
+// may declare, else nothing, and the form shows today's default) for its one redraw, through `WPCPM_Flash::keep()`; the
+// signer's tick is not kept, a declaration is made again with each send. The statuses, the redirects and what is stored
+// do not move (every check above). An upload that goes through keeps nothing and drops what an earlier refusal kept.
+echo "\n=== handle_upload(): a refused upload keeps the kind chosen (Task 21, fix round 1) ===\n";
+
+/**
+ * Run a handler with what an earlier refusal kept still in place, and say how it ended and what is kept now.
+ *
+ * @param string     $method The handler.
+ * @param array|null $before What an earlier refusal kept, or null.
+ * @return array
+ */
+function run_kept( $method, $before = null ) {
+	unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] );
+	// A new request each time: the flash's memo lasts a request (`take()`), and this process plays several.
+	$taken = new ReflectionProperty( 'WPCPM_Flash', 'taken' );
+	if ( PHP_VERSION_ID < 80100 ) {
+		$taken->setAccessible( true );
+	}
+	$taken->setValue( null, array() );
+	if ( null !== $before ) {
+		WPCPM_Flash::keep( WPCPM_Institution_Agreement::KEPT_UPLOAD . 'recAAAAAAAAAAAAA1', $before );
+	}
+	try {
+		call_user_func( array( 'WPCPM_Institution_Agreement', $method ) );
+		$how = 'no exit';
+	} catch ( Exception $e ) {
+		$how = 0 === strpos( $e->getMessage(), 'wp_die: ' ) ? 'died' : flashed();
+	}
+	$pending = get_user_meta( $GLOBALS['uid'], WPCPM_Flash::META, true );
+	$kept    = is_array( $pending ) && isset( $pending[ 'kept:' . WPCPM_Institution_Agreement::KEPT_UPLOAD . 'recAAAAAAAAAAAAA1' ] ) ? $pending[ 'kept:' . WPCPM_Institution_Agreement::KEPT_UPLOAD . 'recAAAAAAAAAAAAA1' ]['values'] : null;
+	return array( $how, $kept );
+}
+$up_kept = array();
+upload_world();
+$_POST['wpcpm_agreement_kind']   = 'own';
+$_POST['wpcpm_agreement_signed'] = '0';
+$up_kept['declare, own'] = run_kept( 'handle_upload' );
+upload_world();
+$_POST['wpcpm_agreement_kind'] = 'own';
+post_file( temp_file( pdf_bytes() ), 'agreement.pdf', 12 * 1024 * 1024 );
+$up_kept['too big, own'] = run_kept( 'handle_upload' );
+upload_world();
+$_POST['wpcpm_agreement_kind'] = 'own';
+post_file( temp_file( 'not a pdf at all' ), 'agreement.pdf' );
+$up_kept['not a pdf, own'] = run_kept( 'handle_upload' );
+upload_world();
+$_POST['wpcpm_agreement_kind'] = 'legacy" onclick="x';
+$up_kept['a kind nobody knows'] = run_kept( 'handle_upload' );
+upload_world();
+seed_post( 'recAAAAAAAAAAAAA1', 'submitted', 'own' );
+$up_kept['in review, template'] = run_kept( 'handle_upload' );
+upload_world();
+$_POST['wpcpm_agreement_kind'] = 'own';
+$up_kept['uploaded, an earlier refusal kept'] = run_kept( 'handle_upload', array( 'wpcpm_agreement_kind' => 'template' ) );
+ck( 'a refused upload keeps the kind chosen and nothing else; a kind nobody knows is not kept; one that goes through keeps nothing', $up_kept, array(
+	'declare, own'                      => array( 'agreement-declare', array( 'wpcpm_agreement_kind' => 'own' ) ),
+	'too big, own'                      => array( 'agreement-too-big', array( 'wpcpm_agreement_kind' => 'own' ) ),
+	'not a pdf, own'                    => array( 'agreement-not-pdf', array( 'wpcpm_agreement_kind' => 'own' ) ),
+	'a kind nobody knows'               => array( 'agreement-kind', null ),
+	'in review, template'               => array( 'agreement-in-review', array( 'wpcpm_agreement_kind' => 'template' ) ),
+	'uploaded, an earlier refusal kept' => array( 'agreement-uploaded', null ),
+) );
+ck( 'the kept forms\' names', array( WPCPM_Institution_Agreement::KEPT_UPLOAD, WPCPM_Institution_Agreement::KEPT_ON_FILE ), array( 'agreement-upload:', 'agreement-on-file:' ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

@@ -736,6 +736,8 @@ $GLOBALS['opts']['wpcpm_tracks'] = array( array( 'key' => 'growth' ), array( 'ke
 // What the prefix loop sweeps: two institutions' module orders and two sponsors' (Institutions release
 // 3), a form neither a post nor the index knows of, written by a compile that never finished, and two
 // accounts' invitation locks, left by requests that died while they were sending (1.122.32).
+// The Institution Dashboard's saved module order is swept by its literal prefix: the constant that named it went in
+// Task 25, fix round 1, B4, with the only code that read it.
 $swept_options = array( 'wpcpm_institution_modules_recSEED0000000001', 'wpcpm_institution_modules_recSEED0000000002', 'wpcpm_sponsor_modules_recSEED0000000003', 'wpcpm_sponsor_modules_spoSEED0000000004', 'wpcpm_track_fields_orphan', 'wpcpm_invite_lock_7', 'wpcpm_invite_lock_8' );
 
 foreach ( $swept_options as $name ) {
@@ -1227,7 +1229,6 @@ $names = array(
 	'WPCPM_Track_Store::OPT_SEEDED'                 => 'wpcpm_tracks_seeded',
 	'WPCPM_Track_Store::OPT_UPGRADE_LOCK'           => 'wpcpm_tracks_upgrade_lock',
 	'WPCPM_Track_Store::META_DEFINITION'            => '_wpcpm_track_definition',
-	'WPCPM_Institutions_Dashboard::OPT_MODULES_PREFIX' => 'wpcpm_institution_modules_',
 	'WPCPM_Sponsors_Dashboard::OPT_MODULES_PREFIX' => 'wpcpm_sponsor_modules_',
 	'WPCPM_Mail::QUEUE_OPTION'                      => 'wpcpm_invite_queue',
 	'WPCPM_Mail::RUN_OPTION'                        => 'wpcpm_invite_run',

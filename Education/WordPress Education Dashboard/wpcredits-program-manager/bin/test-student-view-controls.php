@@ -425,11 +425,18 @@ class WPCPM_Contribution_Teams {
 	public static function label_icon( $value ) { return '<span class="wpcpm-team__icon"></span>'; }
 }
 
-/** The icon set. */
-class WPCPM_Icons {
-	public static function svg( $name, $size = 16 ) { return '<svg class="wpcpm-icon wpcpm-icon--' . $name . '"></svg>'; }
-}
+/** The icon set, the real one: the parts draw their chevrons with it. */
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
 
+// The parts the card is drawn with (Institution Dashboard, Task 16), and what they ask of WordPress.
+if ( ! function_exists( 'date_i18n' ) ) {
+	function date_i18n( $f, $t = false ) { return gmdate( 'Y-m-d', false === $t ? time() : (int) $t ); }
+}
+if ( ! function_exists( 'is_admin' ) ) {
+	function is_admin() { return false; }
+}
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-student-view.php';
 
 $fail  = 0;
@@ -506,7 +513,7 @@ function card( $institution, $user_id, $reader, array $allow = array() ) {
  * @return string
  */
 function export_href( $html ) {
-	$pattern = '#<p class="wpcpm-institution__student-export"><a href="([^"]*)"#';
+	$pattern = '#<p class="wpcpm-ui-intro"><a href="([^"]*)">Download this student#';
 
 	return preg_match( $pattern, (string) $html, $m ) ? $m[1] : '';
 }
@@ -758,19 +765,18 @@ echo "\n=== Where the two controls sit ===\n";
 
 $ana = card( $inst_a, 10, 20 );
 
-ck( 'the way back first, then the report, the export link, the read time, and the status card last',
+ck( 'the report first, then the export link, the read time, and the status card last (no way back: the side menu leads back)',
 	order( $ana, array(
 		'wpcpm-institution__status',
-		'wpcpm-institution__student-export',
-		'wpcpm-institution__back',
-		'wpcpm-institution__read',
-		'wpcpm-report__disclosure',
+		'>Download this student',
+		'Back to the roster',
+		'The Student Report Card is read when you open it.',
+		'data-wpcpm-report=',
 	) ),
 	array(
-		'wpcpm-institution__back',
-		'wpcpm-report__disclosure',
-		'wpcpm-institution__student-export',
-		'wpcpm-institution__read',
+		'data-wpcpm-report=',
+		'>Download this student',
+		'The Student Report Card is read when you open it.',
 		'wpcpm-institution__status',
 	) );
 
@@ -779,8 +785,7 @@ ck( 'the way back first, then the report, the export link, the read time, and th
 $opens  = substr( $ana, 0, (int) strpos( $ana, 'wpcpm-institution__status' ) );
 $before = substr( $ana, 0, (int) strrpos( $opens, '<section' ) );
 
-// `render_form()` prints a `wpcpm-institution__card` box of its own, so nesting it would put
-// two card borders around one block. Counting the tags says it is a sibling without pinning
+// `render_form()` prints a card of its own, so nesting it would put a card inside a card. Counting the tags says it is a sibling without pinning
 // how many sections the card above it happens to print.
 ck( 'the status card is a sibling of the student card, not a box inside it',
 	substr_count( $before, '<section' ) === substr_count( $before, '</section>' ), true );
@@ -789,8 +794,8 @@ ck( 'and it is the last thing on the page',
 
 // A quiet link, not a button and not a form: it takes nothing away and changes nothing, and a
 // second submit control beside the two that mail a student is a control somebody clicks first.
-ck( 'the export is an anchor', substr_count( $ana, '<p class="wpcpm-institution__student-export"><a href=' ), 1 );
-ck( 'and not a form', false !== strpos( $ana, 'wpcpm-institution__student-export"><form' ), false );
+ck( 'the export is an anchor, a line of its own', substr_count( $ana, '<p class="wpcpm-ui-intro"><a href="https://example.test/wp-admin/admin-post.php?action=wpcpm_export_student' ), 1 );
+ck( 'and not a form', 1 === preg_match( '#<form[^>]*>(?:(?!</form>).)*wpcpm_export_student#s', $ana ), false );
 ck( 'its label says what the file holds, grades included',
 	false !== strpos( $ana, 'details and course grades as a CSV file' ), true );
 
@@ -802,8 +807,8 @@ $ana = card( $inst_a, 10, 20 );
 
 ck( 'the line is asked for once, about the student on screen and never the reader', $GLOBALS['invite_calls'], array( 10 ) );
 ck( 'it comes right after the identity block, before the table',
-	order( $ana, array( '<table', 'wpcpm-institution__invite', 'wpcpm-institution__student-identity', 'wpcpm-report__disclosure' ) ),
-	array( 'wpcpm-institution__student-identity', 'wpcpm-institution__invite', '<table', 'wpcpm-report__disclosure' ) );
+	order( $ana, array( '<table', 'wpcpm-institution__invite', 'wpcpm-ui-item__head', 'data-wpcpm-report=' ) ),
+	array( 'wpcpm-ui-item__head', 'wpcpm-institution__invite', '<table', 'data-wpcpm-report=' ) );
 ck( 'as the next thing the card prints once the identity block closes', false !== strpos( $ana, '</div></div><div class="wpcpm-institution__invite"' ), true );
 
 $opens  = substr( $ana, 0, (int) strpos( $ana, 'wpcpm-institution__invite' ) );
@@ -820,12 +825,12 @@ ck( 'a reader refused the card never reaches the line', $GLOBALS['invite_calls']
 echo "\n=== The correction form is folded inside the card ===\n";
 
 $ana      = card( $inst_a, 10, 20 );
-$folded   = '<details class="wpcpm-institution__correct"><summary class="wpcpm-institution__correct-toggle">Correct this student&#039;s details</summary><section class="wpcpm-institution__card wpcpm-institution__edit" id="wpcpm-student-form">';
-$one_form = substr_count( $ana, '<details class="wpcpm-institution__correct"' );
+$folded   = '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" id="wpcpm-student-form"><summary class="wpcpm-ui-fold__head"><span class="wpcpm-ui-fold__lead"><span class="wpcpm-ui-fold__title">Correct this student&#039;s details</span></span>';
+$one_form = substr_count( $ana, 'Correct this student&#039;s details</span>' );
 
 ck( 'the form is drawn once, in a closed disclosure whose summary names it', array( $one_form, false !== strpos( $ana, $folded ) ), array( 1, true ) );
-ck( 'and the disclosure holds the form and closes right after it', 1 === preg_match( '#<details class="wpcpm-institution__correct">.*</form></section></details>#s', $ana ), true );
-ck( 'a closed disclosure carries no open attribute', false !== strpos( $ana, '<details class="wpcpm-institution__correct" open' ), false );
+ck( 'and the disclosure holds the form and closes right after it', 1 === preg_match( '#<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" id="wpcpm-student-form">.*?<div class="wpcpm-ui-fold__body"><section class="wpcpm-institution__card wpcpm-institution__edit" id="wpcpm-student-form">.*?</form></section></div></details>#s', $ana ), true );
+ck( 'a closed disclosure carries no open attribute', false !== strpos( $ana, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id="wpcpm-student-form"' ), false );
 
 // The Students Reports record, and not the Students record the status card is keyed to: the form
 // is claimed against the report, and the nonce it mints is keyed to it.
@@ -841,14 +846,14 @@ ck( 'the fence was asked about editing, on the student\'s own account',
 // one block that changes something, so it comes after the reading and before the way out.
 ck( 'it sits after the Student Report Card and before the export link, inside the card',
 	order( $ana, array(
-		'wpcpm-institution__student-export',
-		'wpcpm-institution__correct',
-		'wpcpm-report__disclosure',
+		'>Download this student',
+		'id="wpcpm-student-form"',
+		'data-wpcpm-report=',
 		'wpcpm-institution__status',
 	) ),
-	array( 'wpcpm-report__disclosure', 'wpcpm-institution__correct', 'wpcpm-institution__student-export', 'wpcpm-institution__status' ) );
+	array( 'data-wpcpm-report=', 'id="wpcpm-student-form"', '>Download this student', 'wpcpm-institution__status' ) );
 
-$opens_before_form = substr( $ana, 0, (int) strpos( $ana, 'wpcpm-institution__correct' ) );
+$opens_before_form = substr( $ana, 0, (int) strpos( $ana, 'id="wpcpm-student-form"' ) );
 ck( 'in the student card, not beside it', substr_count( $opens_before_form, '<section' ) - substr_count( $opens_before_form, '</section>' ), 1 );
 
 $by_manager = card( $inst_a, 10, 30 );
@@ -857,8 +862,8 @@ ck( 'an Administrator reading the same student gets the same folded form', false
 // A refusal to edit is a form the card is not given: not a closed summary with nothing behind it.
 $no_edit = card( $inst_a, 10, 20, array( WPCPM_Institution_Policy::ACT_EDIT_STUDENT => false ) );
 
-ck( 'a reader allowed the card and refused the edit gets no disclosure', false !== strpos( $no_edit, 'wpcpm-institution__correct' ), false );
-ck( 'and no summary line naming a form they cannot use', false !== strpos( $no_edit, 'Correct this student&#039;s details</summary>' ), false );
+ck( 'a reader allowed the card and refused the edit gets no disclosure', false !== strpos( $no_edit, 'id="wpcpm-student-form"' ), false );
+ck( 'and no summary line naming a form they cannot use', false !== strpos( $no_edit, 'Correct this student&#039;s details' ), false );
 ck( 'while the rest of the card is there', array( false !== strpos( $no_edit, 'Ana Lopez' ), '' !== export_href( $no_edit ), false !== strpos( $no_edit, 'wpcpm-institution__status' ) ), array( true, true, true ) );
 
 $shut = card( $inst_a, 10, 20, array( WPCPM_Institution_Policy::ACT_VIEW_STUDENT => false ) );
@@ -869,7 +874,7 @@ $no_export_no_status = card( $inst_a, 10, 20, array( WPCPM_Institution_Policy::A
 ck( 'closing the export and the status change does not close the correction form', false !== strpos( $no_export_no_status, $folded ), true );
 
 $no_record = card( $inst_a, 13, 20 );
-ck( 'a student with no progress record is given no disclosure', array( false !== strpos( $no_record, 'wpcpm-institution__correct' ), false !== strpos( $no_record, 'no Student Report Card to show' ) ), array( false, true ) );
+ck( 'a student with no progress record is given no disclosure', array( false !== strpos( $no_record, 'id="wpcpm-student-form"' ), false !== strpos( $no_record, 'no Student Report Card to show' ) ), array( false, true ) );
 
 // A save that was refused or that changed something leaves its sentence inside the form, and a
 // sentence inside a closed disclosure is a sentence nobody reads. So the disclosure opens for it.
@@ -878,8 +883,8 @@ ob_start();
 WPCPM_Institution_Student_View::render( $inst_a, 10, array() );
 $said = (string) ob_get_clean();
 
-ck( 'the disclosure opens when the last save left a message', false !== strpos( $said, '<details class="wpcpm-institution__correct" open><summary' ), true );
-ck( 'and the message is inside it', 1 === preg_match( '#<details class="wpcpm-institution__correct" open>.*Nothing was saved\..*</details>#s', $said ), true );
+ck( 'the disclosure opens when the last save left a message', false !== strpos( $said, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id="wpcpm-student-form"><summary' ), true );
+ck( 'and the message is inside it', 1 === preg_match( '#<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id="wpcpm-student-form">.*Nothing was saved\..*</details>#s', $said ), true );
 $GLOBALS['correct_message'] = false;
 
 // Every class the disclosure prints has a rule in the stylesheet this page loads. The form folded inside it
@@ -887,16 +892,7 @@ $GLOBALS['correct_message'] = false;
 // a 32px inset, so a card inside a card would be inset twice unless the plugin takes it off.
 $css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/institution.css' );
 
-foreach ( array( 'wpcpm-institution__correct', 'wpcpm-institution__correct-toggle' ) as $class ) {
-	ck( sprintf( '.%s is styled on this page', $class ), false !== strpos( $css, '.' . $class . ' {' ), true );
-}
 
-ck( 'the form inside the disclosure is not a second card: no second inset, no repeated heading',
-	array(
-		false !== strpos( $css, '.wpc-institution-page .wpcpm-institution__correct > .wpcpm-institution__card {' . "\n\tpadding-inline: 0;" ),
-		false !== strpos( $css, '.wpcpm-institution__correct .wpcpm-institution__edit > .wpcpm-institution__heading {' . "\n\tdisplay: none;" ),
-	),
-	array( true, true ) );
 
 $dashes = array();
 

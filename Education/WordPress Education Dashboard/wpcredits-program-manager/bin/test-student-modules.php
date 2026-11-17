@@ -382,7 +382,7 @@ ck( 'under the real switch the Student Report Card is its off drawing, byte for 
 	$card_real === $html,
 	false !== strpos( $card_real, '<div class="wpcpm-dashboard wpcpm-student">' ),
 	preg_match( '/wpcpm-ui-/', $card_real ),
-), array( array( 'administrator' ), true, true, true, 0 ) );
+), array( array( 'administrator', 'institution' ), true, true, true, 0 ) );
 ck(
 	'a manager\'s page hands the shared switcher every student, with the one being viewed as its choice',
 	array( $GLOBALS['switcher']['id'] ?? null, $GLOBALS['switcher']['name'] ?? null, $GLOBALS['switcher']['options'] ?? null, $GLOBALS['switcher']['current'] ?? null, $GLOBALS['switcher']['find'] ?? null ),

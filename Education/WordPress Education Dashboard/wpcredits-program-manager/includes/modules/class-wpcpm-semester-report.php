@@ -471,6 +471,20 @@ final class WPCPM_Semester_Report {
 	}
 
 	/**
+	 * The report's title as a reader is given it: the stored title through `the_title`, as `get_the_title()` gives it,
+	 * without the "Private: " WordPress puts before a private post's title. A report is always stored private, so the
+	 * document a school reads, prints and downloads was headed "Private: Semester report: ..." (Task 28, closing item).
+	 * Read from the stored title rather than by switching `private_title_format` off around a call: no filter of the
+	 * site's is changed for the request, and every other filter on titles still runs.
+	 *
+	 * @param WP_Post $post The report.
+	 * @return string Not escaped.
+	 */
+	public static function title( WP_Post $post ) {
+		return (string) apply_filters( 'the_title', (string) $post->post_title, (int) $post->ID ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core's hook, run as get_the_title() runs it.
+	}
+
+	/**
 	 * The stored snapshot, normalized, or an empty array at a version this code does not know.
 	 *
 	 * Every key is present and typed on the way out, so a renderer never has to test whether

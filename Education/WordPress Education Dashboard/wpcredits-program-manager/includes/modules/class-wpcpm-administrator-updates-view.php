@@ -21,6 +21,12 @@
  * update the Administrator Dashboard does not list, such as the sponsors' own, and any sponsors' update opened
  * while the address names the sponsor the Administrator is looking at, as the sponsor menu's links do.
  *
+ * Since 1.123.96 an update institutions read, one the Institution Dashboard's list holds
+ * (`WPCPM_Updates::lists( $post, 'institution' )`), is drawn the same way in the Institution Dashboard's frame, where
+ * the theme names `institution-updates`: for a school's representative or tutor, and for an Administrator when the
+ * address names a school or the Administrator Dashboard does not list it. A sponsor the address names is decided
+ * first, then a school it names, then the sponsors' unlisted update.
+ *
  * @package WPCreditsProgramManager
  */
 
@@ -70,7 +76,11 @@ class WPCPM_Administrator_Updates_View {
 	 * Administrator Dashboard lists, read by an Administrator; `sponsor` for one the Sponsor Dashboard lists,
 	 * read by somebody who acts for a sponsor, or by an Administrator when the Administrator Dashboard does not
 	 * list it or the address names a sponsor (1.123.79: the sponsors' own update drew outside any frame for an
-	 * Administrator, the sponsor menu's Program updates included); '' for anything else, or where the theme
+	 * Administrator, the sponsor menu's Program updates included); `institution` for one the Institution Dashboard
+	 * lists, read by a school's member, or by an Administrator when the Administrator Dashboard does not list it or the
+	 * address names a school (1.123.96: for an Administrator, a sponsor the address names first, then a school it
+	 * names, then an update their dashboard does not list, the sponsors' before the schools'; for anybody else the
+	 * sponsor first, as before); '' for anything else, or where the theme
 	 * does not name that frame's updates.
 	 *
 	 * @param mixed $post A post, or anything else.
@@ -82,19 +92,52 @@ class WPCPM_Administrator_Updates_View {
 		}
 
 		$sponsors = class_exists( 'WPCPM_Sponsors_Dashboard' ) && WPCPM_Dashboard_Frame::owns_page( WPCPM_Sponsors_Dashboard::FRAME_PAGE . '-updates' ) && WPCPM_Updates::lists( $post, 'sponsor' );
+		$schools  = class_exists( 'WPCPM_Institutions_Dashboard' ) && WPCPM_Dashboard_Frame::owns_page( WPCPM_Institutions_Dashboard::FRAME_PAGE . '-updates' ) && WPCPM_Updates::lists( $post, 'institution' );
 
 		if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
 			$administrators = WPCPM_Dashboard_Frame::owns_page( self::FRAME_PAGE ) && WPCPM_Updates::lists( $post, 'administrator' );
 
-			// The sponsor's frame for the sponsor an Administrator is looking at, so its menu leads back there.
-			if ( $sponsors && ( ! $administrators || '' !== WPCPM_Sponsors_Dashboard::requested_record() ) ) {
+			// The frame of the sponsor, then of the school, an Administrator is looking at, so its menu leads back there;
+			// only then an update the Administrator Dashboard does not list, the sponsors' before the schools'.
+			if ( $sponsors && '' !== WPCPM_Sponsors_Dashboard::requested_record() ) {
 				return 'sponsor';
+			}
+
+			if ( $schools && '' !== WPCPM_Institutions_Dashboard::requested_record() ) {
+				return 'institution';
+			}
+
+			if ( $sponsors && ! $administrators ) {
+				return 'sponsor';
+			}
+
+			if ( $schools && ! $administrators ) {
+				return 'institution';
 			}
 
 			return $administrators ? 'administrator' : '';
 		}
 
-		return $sponsors && class_exists( 'WPCPM_Sponsor_Members' ) && WPCPM_Sponsor_Members::is_member() ? 'sponsor' : '';
+		if ( $sponsors && class_exists( 'WPCPM_Sponsor_Members' ) && WPCPM_Sponsor_Members::is_member() ) {
+			return 'sponsor';
+		}
+
+		return $schools && WPCPM_Institutions_Dashboard::is_member() ? 'institution' : '';
+	}
+
+	/**
+	 * Whose frame, menu, list and surface of the shared parts: `administrator`, `sponsor` or `institution`, and
+	 * `administrator` for anything else (and for `institution` when the Institution Dashboard is not there).
+	 *
+	 * @param string $audience What `audience_of()` answered, or anything else.
+	 * @return string
+	 */
+	private static function surface_of( $audience ) {
+		if ( 'sponsor' === $audience ) {
+			return 'sponsor';
+		}
+
+		return 'institution' === $audience && class_exists( 'WPCPM_Institutions_Dashboard' ) ? 'institution' : 'administrator';
 	}
 
 	/**
@@ -141,14 +184,19 @@ class WPCPM_Administrator_Updates_View {
 	 *
 	 * @param string  $content  The post, rendered.
 	 * @param WP_Post $post     The post.
-	 * @param string  $audience `administrator` or `sponsor`: whose frame, menu and list.
+	 * @param string  $audience `administrator`, `sponsor` or `institution`: whose frame, menu and list.
 	 * @return string
 	 */
 	public static function render( $content, WP_Post $post, $audience = 'administrator' ) {
-		$audience = 'sponsor' === $audience ? 'sponsor' : 'administrator';
-		$menu     = 'sponsor' === $audience
-			? WPCPM_Sponsors_Dashboard::menu_args( WPCPM_Sponsors_Dashboard::VIEW_UPDATES )
-			: WPCPM_Administrators_Dashboard::menu_args( WPCPM_Administrators_Dashboard::VIEW_UPDATES );
+		$audience = self::surface_of( $audience );
+
+		if ( 'sponsor' === $audience ) {
+			$menu = WPCPM_Sponsors_Dashboard::menu_args( WPCPM_Sponsors_Dashboard::VIEW_UPDATES );
+		} elseif ( 'institution' === $audience ) {
+			$menu = WPCPM_Institutions_Dashboard::menu_args( WPCPM_Institutions_Dashboard::VIEW_UPDATES );
+		} else {
+			$menu = WPCPM_Administrators_Dashboard::menu_args( WPCPM_Administrators_Dashboard::VIEW_UPDATES );
+		}
 
 		WPCPM_Administrator_Guide_View::register_assets();
 		wp_enqueue_style( WPCPM_Administrator_Guide_View::STYLE );
@@ -157,7 +205,7 @@ class WPCPM_Administrator_Updates_View {
 		// The view is drawn in the dashboard's frame, so it names that dashboard's surface of the shared parts while it
 		// draws (design 3.5), as the dashboard's other views do: the frame's buttons and tags look the same on every
 		// item of its menu.
-		WPCPM_UI::enter( 'sponsor' === $audience ? 'sponsor' : 'administrator' );
+		WPCPM_UI::enter( self::surface_of( $audience ) );
 
 		try {
 			ob_start();
@@ -194,13 +242,21 @@ class WPCPM_Administrator_Updates_View {
 	 * area, as the guide's does; a list of the one post alone is not drawn.
 	 *
 	 * @param WP_Post $current  The post being read.
-	 * @param string  $audience `administrator` or `sponsor`: whose list.
+	 * @param string  $audience `administrator`, `sponsor` or `institution`: whose list.
 	 */
 	private static function others( WP_Post $current, $audience = 'administrator' ) {
-		$posts = WPCPM_Updates::posts( self::LIST_MAX, 'sponsor' === $audience ? 'sponsor' : 'administrator' );
+		$audience = self::surface_of( $audience );
+		$posts    = WPCPM_Updates::posts( self::LIST_MAX, $audience );
 
-		// In a sponsor's frame each link keeps the sponsor an Administrator is looking at (1.123.79).
-		$keep = 'sponsor' === $audience ? WPCPM_Sponsors_Dashboard::requested_record() : '';
+		// In a sponsor's frame each link keeps the sponsor an Administrator is looking at (1.123.79), in a school's
+		// the school (1.123.96); a member's own page needs neither, and `requested_record()` is '' for them.
+		$keep = '';
+
+		if ( 'sponsor' === $audience ) {
+			$keep = WPCPM_Sponsors_Dashboard::requested_record();
+		} elseif ( 'institution' === $audience ) {
+			$keep = WPCPM_Institutions_Dashboard::requested_record();
+		}
 
 		// The update being read is always in the list: one older than the newest twenty takes the last
 		// place, so the list keeps its length and its order (the release's review, 1.123.71).
@@ -229,7 +285,7 @@ class WPCPM_Administrator_Updates_View {
 		foreach ( $posts as $post ) {
 			printf(
 				'<li class="wpcpm-guide__entry"><a class="wpcpm-guide__link wpcpm-guide__link--post" href="%1$s"%2$s>%3$s<span class="wpcpm-guide__date">%4$s</span></a></li>',
-				esc_url( '' !== $keep ? WPCPM_Sponsors_Dashboard::keep_sponsor( (string) get_permalink( $post ), $keep ) : (string) get_permalink( $post ) ),
+				esc_url( self::kept( (string) get_permalink( $post ), $audience, $keep ) ),
 				(int) $post->ID === (int) $current->ID ? ' aria-current="page"' : '',
 				esc_html( $post->post_title ),
 				esc_html( (string) get_the_date( '', $post ) )
@@ -237,5 +293,21 @@ class WPCPM_Administrator_Updates_View {
 		}
 
 		echo '</ul></nav>';
+	}
+
+	/**
+	 * An update's address, keeping the sponsor or the school an Administrator is looking at; as it is with none.
+	 *
+	 * @param string $url      The update's address.
+	 * @param string $audience `administrator`, `sponsor` or `institution`.
+	 * @param string $keep     The record to keep, or ''.
+	 * @return string Not escaped.
+	 */
+	private static function kept( $url, $audience, $keep ) {
+		if ( '' === $keep ) {
+			return $url;
+		}
+
+		return 'institution' === $audience ? WPCPM_Institutions_Dashboard::keep_institution( $url, $keep ) : WPCPM_Sponsors_Dashboard::keep_sponsor( $url, $keep );
 	}
 }

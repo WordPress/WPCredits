@@ -9,8 +9,8 @@
  * - The wiring: Join and Leave are admin-post actions, and their nopriv twins too, so a login that
  *   lapsed reaches the handlers' own 403 rather than core's blank page; the loader and uninstall.php require the
  *   class right after the program's card, and the Sponsors module boots it; the calendar calls it
- *   from the student's funnel and the mentor's sessions column, and the Institution Dashboard after
- *   its modules and before the read line, each behind class_exists(). On the Student Report Card
+ *   from the student's funnel and the mentor's sessions column, and the Institution Dashboard on its
+ *   Events view, each behind class_exists(). On the Student Report Card
  *   the list and the group sessions sit in the calls card's pair of columns, after both, and the
  *   calendar stylesheet spans them across the pair, one rule for the two.
  * - The list, for each of the four audiences on their own page: "Events from our sponsors", under
@@ -193,6 +193,20 @@ function is_email( $value ) { return is_string( $value ) && filter_var( $value, 
 function wp_parse_url( $url, $component = -1 ) { return parse_url( (string) $url, $component ); }
 function wp_specialchars_decode( $text, $quotes = ENT_NOQUOTES ) { return htmlspecialchars_decode( (string) $text, ENT_QUOTES ); }
 function home_url( $path = '' ) { return 'https://site.example' . $path; }
+// The Institution Dashboard's view address (Task 9: its event list's way back opens the Events view), as WordPress
+// builds it: the new keys and values set on the query as given, the fragment kept at the end.
+function add_query_arg( $set, $url = '' ) {
+	$frag = '';
+	if ( false !== ( $h = strpos( (string) $url, '#' ) ) ) {
+		$frag = substr( (string) $url, $h );
+		$url  = substr( (string) $url, 0, $h );
+	}
+	$pairs = array();
+	foreach ( (array) $set as $k => $v ) {
+		$pairs[] = $k . '=' . $v;
+	}
+	return $url . ( false === strpos( (string) $url, '?' ) ? '?' : '&' ) . implode( '&', $pairs ) . $frag;
+}
 function network_home_url( $path = '' ) { return 'https://site.example' . $path; }
 function admin_url( $path = '' ) { return 'https://site.example/wp-admin/' . $path; }
 function get_bloginfo( $show = '' ) { return isset( $GLOBALS['site_name'] ) ? (string) $GLOBALS['site_name'] : 'WordPress Education'; }
@@ -468,6 +482,7 @@ function wp_mail( $to, $subject, $message, $headers = '', $attachments = array()
 // The calendar file's scratch space: this run's own folder (bin/stubs/temp-dir.php).
 require_once __DIR__ . '/stubs/temp-dir.php';
 require_once __DIR__ . '/stubs/mail-recording.php';
+require_once __DIR__ . '/stubs/view-faults.php';
 /** This run's folder, or, while a check says the site cannot write one, a folder that is not there. */
 function get_temp_dir() { return empty( $GLOBALS['no_temp'] ) ? wpcpm_test_temp_dir() : sys_get_temp_dir() . '/wpcpm-test-no-such-folder-' . getmypid() . '/'; }
 function wp_generate_password( $length = 12, $special = true, $extra = false ) { return substr( bin2hex( random_bytes( 16 ) ), 0, (int) $length ); }
@@ -521,6 +536,27 @@ class WPCPM_Flash {
 		unset( $GLOBALS['flash'][ $user_id ][ (string) $channel ] );
 		return $value;
 	}
+	// Read-only: what `take()` would return, nothing deleted (Institution Dashboard frame, Task 3).
+	public static function peek( $channel, $user_id = 0 ) {
+		$user_id = $user_id ? (int) $user_id : get_current_user_id();
+		return isset( $GLOBALS['flash'][ $user_id ][ (string) $channel ] ) ? $GLOBALS['flash'][ $user_id ][ (string) $channel ] : '';
+	}
+}
+
+// What the Institution Dashboard's `views_for()` asks besides the list, for the contact's school alone:
+// the policy allows every question, the agreement is settled, enrollment is on (Task 3, fix round 1).
+class WPCPM_Institution_Policy {
+	const ACT_VIEW_ROSTER          = 'view_roster';
+	const ACT_ADD_STUDENT          = 'add_student';
+	const ACT_VIEW_SEMESTER_REPORT = 'view_semester_report';
+	public static function subject_institution( $record ) { return array( 'institution_ids' => array( (string) $record ) ); }
+	public static function decide( $act, array $subject, $user = null ) { return array( 'allowed' => array( 'recSEED0000000301' ) === $subject['institution_ids'] ); }
+}
+class WPCPM_Institution_Agreement {
+	public static function is_settled( $record ) { return 'recSEED0000000301' === (string) $record; }
+}
+class WPCPM_Institution_Import_Form {
+	public static function enabled() { return true; }
 }
 
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
@@ -552,6 +588,14 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-event.php';
 // The surface switch and the shared parts: `render_actions()` draws its buttons through them on the Administrator
 // Dashboard while its switch is on, and today's markup everywhere else (UI shared parts, Task 13c).
 require_once __DIR__ . '/../includes/class-wpcpm-ui.php';
+// The Institution Dashboard's list on the parts (Task 22): its outcome and its folded description need the card shell, the form errors' link and the icons; the sanitizer is
+// core's, as the other card suites stand it in.
+require_once __DIR__ . '/../includes/class-wpcpm-icons.php';
+require_once __DIR__ . '/../includes/class-wpcpm-form-errors.php';
+require_once __DIR__ . '/../includes/class-wpcpm-dashboard-card.php';
+if ( ! function_exists( 'sanitize_html_class' ) ) {
+	function sanitize_html_class( $c, $f = '' ) { $c = preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); return '' === $c ? (string) $f : $c; }
+}
 
 // Loaded only when it is there, so that before it exists every check below fails on its own.
 $list_file = __DIR__ . '/../includes/modules/class-wpcpm-sponsor-event-list.php';
@@ -898,17 +942,22 @@ ck(
 	},
 	array( array( array( '.wpcpm-calls__cols > .wpcpm-sessions', '.wpcpm-calls__cols > .wpcpm-sevents' ), true ) )
 );
+// The Institution Dashboard in the frame (its Task 5): the list is the Events view's card, drawn behind
+// class_exists(), and the menu offers Events on a contact's own page alone, a tutor not among them (a Join would put
+// a tutor on the event), while the school is not locked and the list has something to show, asked by a peek.
+$school_view  = body_of( $school_src, 'private static function render_view(' );
+$school_views = body_of( $school_src, 'private static function work_out_views(' );
 ck(
-	'the Institution Dashboard calls it behind class_exists() after its modules and before the read line, for a contact of the institution drawn',
+	'the Institution Dashboard calls it behind class_exists() on its Events view, offered for a contact of the institution on their own page',
 	array(
-		// One tab deeper since the render is one try, whose finally leaves the surface (shared parts, Task 9).
-		false !== strpos( $modules, "if ( \$own_page && class_exists( 'WPCPM_Sponsor_Event_List' ) ) {\n\t\t\t\t\tWPCPM_Sponsor_Event_List::render( \$viewer, WPCPM_Sponsor_Event_List::BACK_INSTITUTION );" ),
-		strpos( $modules, 'self::render_module( $key' ) < strpos( $modules, 'WPCPM_Sponsor_Event_List::render(' ),
-		strpos( $modules, 'WPCPM_Sponsor_Event_List::render(' ) < strpos( $modules, 'read_line(' ),
-		// A contact on their own page, a tutor of the school not among them (Institutions release 1): a Join would put a tutor on the event.
-		false !== strpos( $modules, "\$own_page = (string) WPCPM_Institution_Members::institution_of( \$viewer ) === \$record\n\t\t\t\t\t&& WPCPM_Institution_Members::LEVEL_TUTOR !== WPCPM_Institution_Members::level_of( \$viewer );" ),
+		false !== strpos( $school_view, "case self::VIEW_EVENTS:" ),
+		false !== strpos( $school_view, "if ( class_exists( 'WPCPM_Sponsor_Event_List' ) ) {\n\t\t\t\t\tWPCPM_Sponsor_Event_List::render( \$viewer, WPCPM_Sponsor_Event_List::BACK_INSTITUTION );" ),
+		strpos( $school_view, 'case self::VIEW_EVENTS:' ) < strpos( $school_view, 'WPCPM_Sponsor_Event_List::render(' ),
+		false !== strpos( $school_views, "\$own_page = (string) WPCPM_Institution_Members::institution_of( \$viewer ) === \$record\n\t\t\t&& WPCPM_Institution_Members::LEVEL_TUTOR !== WPCPM_Institution_Members::level_of( \$viewer );" ),
+		false !== strpos( $school_views, "if ( \$own_page && ! \$locked && class_exists( 'WPCPM_Sponsor_Event_List' ) && WPCPM_Sponsor_Event_List::shows( \$viewer ) ) {" ),
+		substr_count( $school_src, 'WPCPM_Sponsor_Event_List::render(' ),
 	),
-	array( true, true, true, true )
+	array( true, true, true, true, true, 1 )
 );
 ck(
 	'the four keys, the list\'s anchor, the program\'s card\'s, and the channel',
@@ -1038,6 +1087,92 @@ ck(
 	},
 	''
 );
+
+// Whether the list would print its section (Institution Dashboard frame, Task 3): the Events view is
+// in a school's menu exactly when the list has something to draw there, and `render()` asks the same
+// three questions through it, so the two cannot disagree. The list itself prints byte for byte what it
+// printed at `c0dfdf0a`: an institution's contact with two events, and a graduate no event is for.
+/** Whether the list shows for `$viewer`, signed in as `$uid` (the viewer when not given). */
+function shows_for( $viewer, $uid = null ) {
+	$GLOBALS['uid'] = null === $uid ? (int) $viewer : (int) $uid;
+	return WPCPM_Sponsor_Event_List::shows( $GLOBALS['users'][ (int) $viewer ] );
+}
+ck( 'the list shows for a viewer with an open event', static function () { return shows_for( CONTACT ); }, true );
+ck( 'the list does not show for another user than the one signed in', static function () { return array( shows_for( CONTACT, MANAGER ), shows_for( CONTACT, 0 ) ); }, array( false, false ) );
+ck(
+	'the list does not show while it is not live',
+	static function () {
+		$GLOBALS['settings']['sponsor_tiers_live'] = false;
+		try {
+			return shows_for( CONTACT );
+		} finally {
+			$GLOBALS['settings']['sponsor_tiers_live'] = true;
+		}
+	},
+	false
+);
+ck( 'the list does not show with no event and no pending message', static function () { return array( shows_for( GRADUATE ), shows_for( STRANGER ) ); }, array( false, false ) );
+ck(
+	'the list shows with no event but a pending message',
+	static function () {
+		$GLOBALS['flash'][ GRADUATE ]['sevent-list'] = 'gone';
+		try {
+			return shows_for( GRADUATE );
+		} finally {
+			unset( $GLOBALS['flash'][ GRADUATE ] );
+		}
+	},
+	true
+);
+// Fix round 1: asking whether the list shows peeks at its message and takes nothing, so a page that
+// asks and then draws no list leaves the message, in the suite's own storage, for the next request.
+ck(
+	'shows() leaves the pending message stored',
+	static function () {
+		$GLOBALS['flash'][ CONTACT ]['sevent-list'] = 'full';
+		try {
+			return array( shows_for( CONTACT ), $GLOBALS['flash'][ CONTACT ]['sevent-list'] ?? null );
+		} finally {
+			unset( $GLOBALS['flash'][ CONTACT ] );
+		}
+	},
+	array( true, 'full' )
+);
+ck(
+	'shows() twice, then render() still prints the message, and takes it',
+	static function () {
+		$GLOBALS['flash'][ CONTACT ]['sevent-list'] = 'full';
+		try {
+			shows_for( CONTACT );
+			shows_for( CONTACT );
+			$html = draw( CONTACT, 'institution' );
+			return array( false !== strpos( $html, '<p class="wpcpm-sevent__message is-error" role="status">That event filled up before you could join it.</p>' ), isset( $GLOBALS['flash'][ CONTACT ]['sevent-list'] ) );
+		} finally {
+			unset( $GLOBALS['flash'][ CONTACT ] );
+		}
+	},
+	array( true, false )
+);
+ck(
+	'a request that asks views_for() and draws no list leaves the message for the next request, which prints it',
+	static function () {
+		$GLOBALS['flash'][ CONTACT ]['sevent-list'] = 'full';
+		try {
+			$GLOBALS['uid'] = CONTACT;
+			$views          = WPCPM_Institutions_Dashboard::views_for( 'recSEED0000000301', $GLOBALS['users'][ CONTACT ], false );
+			$left           = $GLOBALS['flash'][ CONTACT ]['sevent-list'] ?? null;
+			$next           = draw( CONTACT, 'institution' );
+			return array( in_array( 'events', $views, true ), $left, false !== strpos( $next, 'That event filled up before you could join it.' ), isset( $GLOBALS['flash'][ CONTACT ]['sevent-list'] ) );
+		} finally {
+			unset( $GLOBALS['flash'][ CONTACT ] );
+		}
+	},
+	array( true, 'full', true, false )
+);
+ck( 'shows() peeks and render() takes, through the one helper', array( false !== strpos( (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-event-list.php' ), 'return null !== self::drawable( $viewer, false );' ), false !== strpos( (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-event-list.php' ), '$drawable = self::drawable( $viewer );' ) ), array( true, true ) );
+ck( 'the list a contact with two events reads is today\'s, byte for byte', static function () { return md5( draw( CONTACT, 'institution' ) ); }, 'c9bac41992e301f4900997237f7c633d' );
+ck( 'the list a graduate with no event reads is today\'s: nothing', static function () { return md5( draw( GRADUATE, 'student' ) ); }, 'd41d8cd98f00b204e9800998ecf8427e' );
+ck( 'render() and shows() ask their three questions through one helper, so the two cannot disagree', false !== strpos( body_of( (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-event-list.php' ), 'public static function render( $viewer, $back )' ), 'self::drawable( $viewer )' ) && false !== strpos( body_of( (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-event-list.php' ), 'public static function shows( WP_User $viewer ): bool' ), 'self::drawable( $viewer, false )' ), true );
 
 /* ---- joining: the order of the checks ------------------------------------------- */
 
@@ -1348,7 +1483,7 @@ ck(
 	static function () {
 		return array( WPCPM_Sponsor_Event_List::back_to( 'student', STUDENT ), WPCPM_Sponsor_Event_List::back_to( 'mentor', STUDENT ), WPCPM_Sponsor_Event_List::back_to( 'institution', STUDENT ), WPCPM_Sponsor_Event_List::back_to( 'admin', STUDENT ) );
 	},
-	array( 'https://site.example/student-dashboard/#wpcpm-sevents', 'https://site.example/mentor-dashboard/#wpcpm-sevents', 'https://site.example/institution-dashboard/#wpcpm-sevents', 'https://site.example/administrator-dashboard/#wpcpm-sponsor-events' )
+	array( 'https://site.example/student-dashboard/#wpcpm-sevents', 'https://site.example/mentor-dashboard/#wpcpm-sevents', 'https://site.example/institution-dashboard/?wpcpm_view=events#wpcpm-sevents', 'https://site.example/administrator-dashboard/#wpcpm-sponsor-events' )
 );
 ck(
 	'a posted address is never followed: it goes to the page the person\'s audience implies, as an unknown key and no key do',
@@ -1360,7 +1495,7 @@ ck(
 			WPCPM_Sponsor_Event_List::back_to( '', STUDENT ),
 		);
 	},
-	array( array( 'joined', 'https://site.example/institution-dashboard/#wpcpm-sevents' ), 'https://site.example/mentor-dashboard/#wpcpm-sevents', 'https://site.example/administrator-dashboard/#wpcpm-sponsor-events', 'https://site.example/student-dashboard/#wpcpm-sevents' )
+	array( array( 'joined', 'https://site.example/institution-dashboard/?wpcpm_view=events#wpcpm-sevents' ), 'https://site.example/mentor-dashboard/#wpcpm-sevents', 'https://site.example/administrator-dashboard/#wpcpm-sponsor-events', 'https://site.example/student-dashboard/#wpcpm-sevents' )
 );
 ck(
 	'a page that is not published sends the press to the page the audience implies, and with none of those, or nobody\'s, to the front page',
@@ -1390,7 +1525,7 @@ ck(
 
 		return $pages;
 	},
-	array( 'https://site.example/student-dashboard/#wpcpm-sevents', 'https://site.example/mentor-dashboard/#wpcpm-sevents', 'https://site.example/institution-dashboard/#wpcpm-sevents', 'https://site.example/administrator-dashboard/#wpcpm-sponsor-events', '', '', '' )
+	array( 'https://site.example/student-dashboard/#wpcpm-sevents', 'https://site.example/mentor-dashboard/#wpcpm-sevents', 'https://site.example/institution-dashboard/?wpcpm_view=events#wpcpm-sevents', 'https://site.example/administrator-dashboard/#wpcpm-sponsor-events', '', '', '' )
 );
 
 /* ---- the flash ----------------------------------------------------------------- */
@@ -1874,12 +2009,12 @@ ck(
 	array( 'student' => array( true, true, true ), 'mentor' => array( true, true, true ), 'institution' => array( true, true, true ) )
 );
 
-// Fix round 1, ruling 5: the parts draw Join and Leave for the Administrator Dashboard's card alone. A page that lists
-// the events and carries the call link (the Institution Dashboard, whose surface takes the parts in a later release)
-// keeps today's markup even once its own surface is on, until that surface's release converts it: drawn here with the
-// `institution` surface set live for this check only.
+// Fix round 1, ruling 5: the parts drew Join and Leave for the Administrator Dashboard's card alone. Since the Institution
+// Dashboard's own release (Task 22) its surface, live and named, draws the list and its presses on the parts, the call
+// link with them; the Report Cards, which share the renderer, keep today's markup with it live (pinned below, in the
+// Task 22 section).
 ck(
-	'with the Institution Dashboard\'s own surface live and named, its Join, its Leave and the call link are today\'s, byte for byte (fix round 1, ruling 5)',
+	'with the Institution Dashboard\'s own surface live and named, its list, its Join, its Leave and the call link are drawn on the parts, the call link kept (Task 22, in place of fix round 1, ruling 5)',
 	static function () use ( $ra_joined, $ra_open, $ra_off ) {
 		$off = draw( CONTACT, 'institution' );
 		WPCPM_UI::set_live( array( 'administrator', 'institution' ) );
@@ -1897,9 +2032,9 @@ ck(
 			WPCPM_UI::leave();
 			WPCPM_UI::set_live( null );
 		}
-		return array( $list === $off, $on_it === $ra_off['institution, on it'], $not_on_it === $ra_off['institution, not on it'], false !== strpos( $on_it, '>Join the call<' ) );
+		return array( $list === $off, $on_it === $ra_off['institution, on it'], $not_on_it === $ra_off['institution, not on it'], false !== strpos( $on_it, '>Join the call<' ), 0 === strpos( $list, '<section class="wpcpm-ui-block" id="wpcpm-sevents">' ) );
 	},
-	array( true, true, true, true )
+	array( false, false, false, true, true )
 );
 
 // The Administrator Dashboard with its switch on: the card puts Join or Leave in the event's own Decide row (Task 18d),
@@ -1997,6 +2132,658 @@ ck(
 	},
 	array( true, array( '', false ), '' )
 );
+
+/* ---- Events on the parts (Institution Dashboard, Task 22) ---------------------- */
+
+echo "\n=== Events on the parts, the Report Cards' calendars unchanged (Institution Dashboard, Task 22) ===\n";
+
+// A clock of its own, past every event above, so the lists below hold this section's three events alone. The mails the
+// plans and approvals send are not the recording's: what was sent is put back after the section.
+$t22_sent     = $GLOBALS['sent'];
+$t22_recorded = isset( $GLOBALS['wpcpm_recorded'] ) ? $GLOBALS['wpcpm_recorded'] : null;
+$t22_now      = $GLOBALS['now'];
+set_now( utc( '2027-03-01 12:00' ) );
+const T22_LONG = 'spoAAAA0000000006';
+$GLOBALS['index'][ T22_LONG ] = array( 'record_id' => T22_LONG, 'name' => 'Examplesponsorforappliedwebengineeringco', 'status' => 'Approved', 'tier' => 'champion', 'tier_until' => '' );
+
+// One the reader is on (the contact, a student and a mentor), one with no places left (a student nobody else is), one of
+// a sponsor whose name and whose title are 40-character words, past midnight on the reader's clock, its description long.
+$t22_on   = attempt(
+	static function () {
+		$id = WPCPM_Sponsor_Event::plan_program( event_fields( utc( '2027-03-10 10:00' ), array( 'title' => 'Program office hours & "more"', 'places' => 5, 'minutes' => 60, 'link' => 'https://meet.example/office?a=1&b=2', 'zone' => 'Europe/Warsaw', 'description' => 'Short words & "quotes".' ) ), MANAGER );
+		foreach ( array( CONTACT, STUDENT, MENTOR ) as $person ) {
+			add_post_meta( $id, '_wpcpm_sevent_person', $person );
+		}
+		return $id;
+	}
+);
+$t22_full = attempt(
+	static function () {
+		$id = WPCPM_Sponsor_Event::plan_program( event_fields( utc( '2027-03-15 09:00' ), array( 'title' => 'A full workshop', 'places' => 1, 'link' => 'https://meet.example/full', 'zone' => 'Europe/Warsaw' ) ), MANAGER );
+		add_post_meta( $id, '_wpcpm_sevent_person', JOINER_TWO );
+		return $id;
+	}
+);
+$t22_long = attempt(
+	static function () {
+		$id = WPCPM_Sponsor_Event::plan( T22_LONG, event_fields( utc( '2027-03-20 22:30' ), array( 'title' => 'Exampleworkshoponappliedwebengineeringxx', 'places' => 0, 'minutes' => 120, 'link' => 'https://meet.example/long', 'zone' => 'Europe/Warsaw' ) ), MANAGER, 'manager' );
+		WPCPM_Sponsor_Event::approve( $id, MANAGER );
+		return $id;
+	}
+);
+
+/**
+ * The list as one person sees it on one page, under a surface: `''` (none named), `off` (the Institution Dashboard
+ * named, its switch as it ships), `parts` (the Institution Dashboard named and live), or another surface's name with
+ * the Institution Dashboard live. No outcome waits unless one is given.
+ *
+ * @param int    $uid     Who looks, on their own page.
+ * @param string $back    Which page.
+ * @param string $surface The surface.
+ * @param string $flash   An outcome waiting on the list's channel, or ''.
+ * @return string
+ */
+function t22_draw( $uid, $back, $surface, $flash = '' ) {
+	unset( $GLOBALS['flash'][ (int) $uid ] );
+	if ( '' !== $flash ) {
+		$GLOBALS['flash'][ (int) $uid ]['sevent-list'] = $flash;
+	}
+	t22_enter( $surface );
+	try {
+		return draw( $uid, $back );
+	} finally {
+		t22_leave( $surface );
+	}
+}
+
+/** Name the surface t22_draw() is told, with the switch it says. */
+function t22_enter( $surface ) {
+	if ( '' === $surface ) {
+		return;
+	}
+	if ( 'off' === $surface ) {
+		WPCPM_UI::enter( 'institution' );
+		return;
+	}
+	WPCPM_UI::set_live( array( 'administrator', 'institution' ) );
+	WPCPM_UI::enter( 'parts' === $surface ? 'institution' : $surface );
+}
+
+/** Leave what t22_enter() named. */
+function t22_leave( $surface ) {
+	if ( '' === $surface ) {
+		return;
+	}
+	WPCPM_UI::leave();
+	WPCPM_UI::set_live( null );
+}
+
+/** Join or Leave for one event, as `render_actions()` draws it for one person on one page, under a surface. */
+function t22_actions( $id, $uid, $back, $surface ) {
+	$GLOBALS['uid'] = (int) $uid;
+	t22_enter( $surface );
+	ob_start();
+	try {
+		WPCPM_Sponsor_Event_List::render_actions( get_post( $id ), $GLOBALS['users'][ (int) $uid ], $back );
+	} finally {
+		$html = (string) ob_get_clean();
+		t22_leave( $surface );
+	}
+	return $html;
+}
+
+/** The outcome as the program's card draws it (`render_message()`), under a surface. */
+function t22_message( $uid, $flash, $surface ) {
+	$GLOBALS['uid']                                = (int) $uid;
+	$GLOBALS['flash'][ (int) $uid ]['sevent-list'] = $flash;
+	t22_enter( $surface );
+	ob_start();
+	try {
+		WPCPM_Sponsor_Event_List::render_message();
+	} finally {
+		$html = (string) ob_get_clean();
+		t22_leave( $surface );
+	}
+	return $html;
+}
+
+/** The words a reader sees and hears, a word each, sorted: what a drawing says, whatever its markup. */
+function t22_words( $html ) {
+	$text = html_entity_decode( strip_tags( str_replace( array( '<wbr>', '<' ), array( '', ' <' ), (string) $html ) ), ENT_QUOTES, 'UTF-8' );
+	preg_match_all( '/[\p{L}\p{N}]+/u', $text, $m );
+	$words = array_values( array_unique( $m[0] ) );
+	sort( $words );
+	return $words;
+}
+
+/** Today's list without its heading, which the parts do not print (fix round 1, point 1): the words the rest says. */
+function t22_unheaded( $html ) {
+	return (string) preg_replace( '#<h2 class="wpcpm-sevents__heading wpcpm-student__heading">[^<]*</h2>#', '', (string) $html );
+}
+
+/** What a drawing offers to press: each form's address and posted fields, and each link's address, how it opens and its words. */
+function t22_offers( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div>' . (string) $html . '</div>' );
+	libxml_clear_errors();
+	$x   = new DOMXPath( $doc );
+	$out = array();
+	foreach ( ra_posted( $html ) as $form ) {
+		$out[] = 'form ' . $form['posts'] . ' ' . $form['guard'] . ' ' . implode( '&', $form['hidden'] ) . ' asks ' . $form['asks'];
+	}
+	foreach ( $x->query( '//a' ) as $a ) {
+		$out[] = 'link ' . $a->getAttribute( 'href' ) . ' rel=' . $a->getAttribute( 'rel' ) . ' target=' . $a->getAttribute( 'target' ) . ' ' . trim( preg_replace( '/\s+/', ' ', $a->textContent ) );
+	}
+	sort( $out );
+	return $out;
+}
+
+// Every state the class draws, on the old branch: each reader's list of the three events, the contact's with each
+// outcome, and with no event to list each outcome alone (a graduate, whom no event is for), each event's Join or Leave,
+// and the Report Cards' two lists; the program's card's outcome under Coming up.
+$t22_statuses = array_keys( WPCPM_Sponsor_Event_List::messages() );
+$t22_cases    = array(
+	'contact, three events' => array( 'list', CONTACT, 'institution', '' ),
+	'tutor, three events'   => array( 'list', TUTOR, 'institution', '' ),
+	'manager, three events' => array( 'list', MANAGER, 'institution', '' ),
+	'student, Student Report Card' => array( 'list', STUDENT, 'student', '' ),
+	'mentor, Mentor Report Card'   => array( 'list', MENTOR, 'mentor', '' ),
+	'student, a full one, Student Report Card' => array( 'list', JOINER_TWO, 'student', '' ),
+);
+foreach ( $t22_statuses as $t22_status ) {
+	$t22_cases[ 'contact, three events, ' . $t22_status ] = array( 'list', CONTACT, 'institution', $t22_status );
+	$t22_cases[ 'no event, ' . $t22_status ]              = array( 'list', GRADUATE, 'institution', $t22_status );
+	$t22_cases[ 'student, ' . $t22_status ]               = array( 'list', STUDENT, 'student', $t22_status );
+	$t22_cases[ 'program card, ' . $t22_status ]          = array( 'message', MANAGER, '', $t22_status );
+}
+foreach ( array( 'on it' => $t22_on, 'full' => $t22_full, 'long' => $t22_long ) as $t22_which => $t22_id ) {
+	foreach ( array( 'contact' => array( CONTACT, 'institution' ), 'tutor' => array( TUTOR, 'institution' ), 'student' => array( STUDENT, 'student' ), 'mentor' => array( MENTOR, 'mentor' ), 'manager' => array( MANAGER, 'admin' ) ) as $t22_who => $t22_case ) {
+		$t22_cases[ 'actions, ' . $t22_which . ', ' . $t22_who ] = array( 'actions', $t22_case[0], $t22_case[1], (int) $t22_id );
+	}
+}
+
+/** One old-branch case, drawn under a surface. */
+function t22_case( array $case, $surface ) {
+	if ( 'list' === $case[0] ) {
+		return t22_draw( $case[1], $case[2], $surface, $case[3] );
+	}
+	if ( 'message' === $case[0] ) {
+		return t22_message( $case[1], $case[3], $surface );
+	}
+	return t22_actions( $case[3], $case[1], $case[2], $surface );
+}
+
+// Digests of each case as the class at 68d6c986 draws it (T22_PRINT=1 prints them), before the parts' branch.
+// `format_range()`'s words for the fix round's real calls, at 68d6c986 (T22_PRINT=1 prints them).
+const T22_RANGE_BASE = 'e20551e12810373ff97d1a366ac9e87f';
+
+const T22_BASE = array(
+	'contact, three events' => 'bba8096db304be2d29296ef9559a7ae2',
+	'tutor, three events' => 'd41d8cd98f00b204e9800998ecf8427e',
+	'manager, three events' => 'b20080b59e55f74bc6725977428cd788',
+	'student, Student Report Card' => 'e17cf3d4ab89a9a9355c1b8bf9262b1c',
+	'mentor, Mentor Report Card' => 'e3de8758c8bd142b105ab169ebb6783b',
+	'student, a full one, Student Report Card' => '26b5300b4157468414076169bbb90c3a',
+	'contact, three events, joined' => '06529fd30d69a18c82be17031af8c7ec',
+	'no event, joined' => 'a3246612ff857f705a0bba3e6acc9455',
+	'student, joined' => 'ad9f2bb3c9e14523f18946ec29cb9102',
+	'program card, joined' => '75f928644942986165c63ca897635989',
+	'contact, three events, left' => 'ad82bf00759cdbc38391c3dd29531221',
+	'no event, left' => '4a63773d5a7014ed93977d532e278d90',
+	'student, left' => 'ead83b93fa67a60cc85267e37813adda',
+	'program card, left' => '28fcc6c095c77dd238b630548c12d5ae',
+	'contact, three events, full' => '844242a423dae05635619d3c7fa80343',
+	'no event, full' => 'a1ccd834904c416f855409992c50a87c',
+	'student, full' => '382a1232a7ce99d373f5db78c6317128',
+	'program card, full' => '4dda23f300aabedb269d0a5471634c88',
+	'contact, three events, past' => '01545a7feba18eacaa75fb244d07682a',
+	'no event, past' => '14d02bddefabd3a2d3a86e8923f64fb2',
+	'student, past' => 'b9fe3f4f6cce8d4ee46de96083cc85f6',
+	'program card, past' => '7f6ae4b5d3fc114653f04ddf2d44cffc',
+	'contact, three events, not-open' => '99ccedd1ba50926a64e0707318410af1',
+	'no event, not-open' => '35634c335f14a353458d1e470148c5ec',
+	'student, not-open' => '15ae3a06978ccaca6366abadbfb6c2a3',
+	'program card, not-open' => '0c6b5c65da0eb6dcdfb5447b83df0397',
+	'contact, three events, audience' => '440cfdedbaa8c129914d814e6cc78c6b',
+	'no event, audience' => 'da5bbd95cc561fd6c7ff32324fb96d2f',
+	'student, audience' => 'e46f1dc28254b854fbc479f315fbe182',
+	'program card, audience' => '920a0eb8f5708cf2206f253f6ec984c0',
+	'contact, three events, own' => 'c3f87b65a6db93c88a5cbcefb8f46ae8',
+	'no event, own' => '53b562c044cde1d8b66494d10f6b7d45',
+	'student, own' => '054aa45e6446c73ee45d024452699883',
+	'program card, own' => '702c842cc00bbff8283d32d41d6ef166',
+	'contact, three events, busy' => '1f3787e0992bf08ae03c9af232794797',
+	'no event, busy' => 'c5d45386fb5e328cfd7ce0cbfd296d02',
+	'student, busy' => 'f4787c92421f2264efde5f234eccdf4c',
+	'program card, busy' => '79e85cbf2cf1c8f926810f2e5f38e044',
+	'contact, three events, already' => 'd52d91bceaf7818f36563ba6bea6435b',
+	'no event, already' => '015260beaa79bf6d769bd449b7a4df7c',
+	'student, already' => 'fcbece24fe043a6b4067ed92e5de9d2c',
+	'program card, already' => '9af694c0beceacfbc79d831292893a6f',
+	'contact, three events, not-joined' => '08c856ee2de85e8e61fe6560cbc72f1e',
+	'no event, not-joined' => '3ce334bc39142f56a42c95349a2d65c1',
+	'student, not-joined' => '51d735b6f30d742fd04168e03e053985',
+	'program card, not-joined' => '6f7be4a927f35e586db8cf66097f334f',
+	'contact, three events, canceled' => '9dbeefb7f1d6ea8f902d06c6ee9ff265',
+	'no event, canceled' => '0088a5667367555d6dee691fe15c1a45',
+	'student, canceled' => '891629143a51864e0cb65b510c4cd7c9',
+	'program card, canceled' => '2820f93ed8b9f40f04276c0624212123',
+	'contact, three events, gone' => '1b92354ea06c9b2ab58ac98fd1273560',
+	'no event, gone' => '19e6e4ab38a4ae641970272ba0602c4d',
+	'student, gone' => '315c9664c52e68d317d8210856999523',
+	'program card, gone' => 'ef3399d9b2be58b16e2b7896a60f7072',
+	'contact, three events, failed' => 'b21e98197add679b52eb69847a3b779d',
+	'no event, failed' => '806c847331ea2c75d4a49ff51ee3add9',
+	'student, failed' => '39c96042a955679caa2b924183c35d4d',
+	'program card, failed' => 'ba8b0b1eb498259d05bce9a5ef4a0362',
+	'actions, on it, contact' => 'f58cd410ce96b1693e52a0c4c07e33d0',
+	'actions, on it, tutor' => '3a0e643448009fcb033393b11b1fd251',
+	'actions, on it, student' => '58ec65749380e828009c0581cbb300f8',
+	'actions, on it, mentor' => '899ac43f9dc9442241e9390701fd1049',
+	'actions, on it, manager' => '6c79d73ffecfea80003543f24bd1b2eb',
+	'actions, full, contact' => 'd41d8cd98f00b204e9800998ecf8427e',
+	'actions, full, tutor' => 'd41d8cd98f00b204e9800998ecf8427e',
+	'actions, full, student' => 'd41d8cd98f00b204e9800998ecf8427e',
+	'actions, full, mentor' => 'd41d8cd98f00b204e9800998ecf8427e',
+	'actions, full, manager' => 'd41d8cd98f00b204e9800998ecf8427e',
+	'actions, long, contact' => 'ba2eecd6c917f4107075e2e842ef0c0d',
+	'actions, long, tutor' => 'ba2eecd6c917f4107075e2e842ef0c0d',
+	'actions, long, student' => 'df95f2dd573b7e6cabebcdd7bc758d4e',
+	'actions, long, mentor' => 'dbf0ee2a0229229cb4d05923c4cdb3df',
+	'actions, long, manager' => '5259791b0d80d2c5c271ed27688bd589',
+);
+
+$t22_off = array();
+foreach ( $t22_cases as $t22_name => $t22_case ) {
+	$t22_off[ $t22_name ] = attempt( static function () use ( $t22_case ) { return t22_case( $t22_case, '' ); } );
+}
+if ( getenv( 'T22_PRINT' ) ) {
+	echo var_export( array_map( 'md5', array_map( 'strval', $t22_off ) ), true ), "\n";
+	$t22_ranges = array();
+	foreach ( array( 'Europe/Warsaw', 'America/New_York', 'Asia/Tokyo' ) as $t22_zone ) {
+		foreach ( array( array( '2027-03-10 10:00', '2027-03-10 11:00' ), array( '2027-03-20 22:30', '2027-03-21 00:30' ), array( '2026-11-10 19:00', '2026-11-10 20:30' ) ) as $t22_pair ) {
+			$t22_ranges[] = WPCPM_Mentor_Calls::format_range( utc( $t22_pair[0] ), utc( $t22_pair[1] ), new DateTimeZone( $t22_zone ) );
+		}
+	}
+	echo 'T22_RANGE_BASE ', md5( implode( '|', $t22_ranges ) ), "\n", implode( "\n", $t22_ranges ), "\n";
+}
+ck(
+	'the old branch: every state the class draws is the base\'s, byte for byte (each reader\'s list, each outcome with and without an event, each Join and Leave, the Report Cards\' lists, the program card\'s outcome)',
+	static function () use ( $t22_off ) { return array( count( $t22_off ), array_map( 'md5', array_map( 'strval', $t22_off ) ) === T22_BASE ); },
+	array( count( T22_BASE ), true )
+);
+ck(
+	'and the same bytes with the Institution Dashboard live under every other surface: the Report Cards, the Administrator Dashboard, the Sponsor Dashboard, a wp-admin tab',
+	static function () use ( $t22_cases, $t22_off ) {
+		$differ = array();
+		foreach ( array( 'report-cards', 'administrator', 'sponsor', 'wpcpm-sponsors/queue' ) as $surface ) {
+			foreach ( $t22_cases as $name => $case ) {
+				// The program's card draws its outcome on the Administrator Dashboard; its Join and Leave are its Decide row's there.
+				if ( 'administrator' === $surface && 'actions' === $case[0] && 'admin' === $case[2] ) {
+					continue;
+				}
+				if ( t22_case( $case, $surface ) !== $t22_off[ $name ] ) {
+					$differ[] = $surface . ': ' . $name;
+				}
+			}
+		}
+		return $differ;
+	},
+	array()
+);
+ck(
+	'the Report Cards\' calendars: the Student Report Card\'s and the Mentor Report Card\'s lists, with the Institution Dashboard live and the Report Cards named, are today\'s, their call links among them',
+	static function () use ( $t22_off ) {
+		$student = t22_draw( STUDENT, 'student', 'report-cards' );
+		$mentor  = t22_draw( MENTOR, 'mentor', 'report-cards' );
+		return array( $student === $t22_off['student, Student Report Card'], $mentor === $t22_off['mentor, Mentor Report Card'], false !== strpos( $student, 'class="wpcpm-sevent__link"' ), strpos( $student . $mentor, 'wpcpm-ui-' ) );
+	},
+	array( true, true, true, false )
+);
+
+// The parts: the Institution Dashboard live and named.
+$t22_new = array();
+foreach ( $t22_cases as $t22_name => $t22_case ) {
+	if ( 'institution' === $t22_case[2] ) {
+		$t22_new[ $t22_name ] = attempt( static function () use ( $t22_case ) { return t22_case( $t22_case, 'parts' ); } );
+	}
+}
+// The whole view on the real list (Task 23, fix round 1): every case the Institution Dashboard draws, its long
+// descriptions' folds open, under the Events view's own head (`bin/stubs/view-faults.php`).
+$t22_views = array_map( static function ( $html ) { return str_replace( '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner">', '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open>', (string) $html ); }, $t22_new );
+ck( 'the whole Events view on the real list, every case: one H1, the headings in order, no id twice, the lede once, no title again', array( wpcpm_view_faults_of( 'Events', $t22_views ), count( array_filter( array_map( 'trim', $t22_views ) ) ) >= 20 ), array( array(), true ) );
+// An event with its own actions (Task 23, fix round 1, S5): each event of the three, name, facts and actions read on
+// its own line. Read off the fixture by hand: the school's contact is on the office hours (Leave and the call there),
+// the full workshop offers nobody a place, the long-named sponsor's event is open to join; an Administrator is on
+// none of them, so both open events offer Join.
+$t22_rows_first = 'Program office hours & "more" | the WordPress Credits Program; March 10, 2027 11:00 am to 12:00 pm; 60 minutes; 2 places left | ';
+$t22_rows_full  = 'A full workshop | the WordPress Credits Program; March 15, 2027 10:00 am to 11:30 am; 90 minutes; Full | ';
+$t22_rows_long  = 'Exampleworkshoponappliedwebengineeringxx | Examplesponsorforappliedwebengineeringco; March 20, 2027 11:30 pm to March 21, 2027 1:30 am; 120 minutes; Open to everyone | Join';
+ck( 'each event reads its own facts and offers its own actions on its own line, for the contact and for an Administrator', array( wpcpm_list_rows( $t22_new['contact, three events'] ), wpcpm_list_rows( $t22_new['manager, three events'] ) ), array(
+	array( $t22_rows_first . 'Leave, Join the call', $t22_rows_full, $t22_rows_long ),
+	array( $t22_rows_first . 'Join', $t22_rows_full, $t22_rows_long ),
+) );
+$t22_list = (string) $t22_new['contact, three events'];
+if ( getenv( 'T22_PRINT' ) ) {
+	echo $t22_list, "\n";
+}
+
+ck(
+	'the view\'s content is one headless block, the list\'s anchor on it: no card head, no fold, none of today\'s classes, and no heading at all: "Events from our sponsors" says what the view\'s lede says one line above, and each row names its host (fix round 1, point 1)',
+	static function () use ( $t22_list ) {
+		return array(
+			0 === strpos( $t22_list, '<section class="wpcpm-ui-block" id="wpcpm-sevents"><p class="wpcpm-ui-intro">Times are in your time zone' ),
+			substr_count( $t22_list, 'id="wpcpm-sevents"' ),
+			substr( $t22_list, -10 ),
+			preg_match( '/<h[1-6]|Events from our sponsors/', $t22_list ),
+			strpos( $t22_list, 'wpcpm-ui-fold-card' ),
+			strpos( $t22_list, '<h2' ),
+			preg_match( '/wpcpm-sevent__|wpcpm-sevents__|wpcpm-button|wpcpm-inline-form|wpcpm-student__/', $t22_list ),
+		);
+	},
+	array( true, 1, '</section>', 0, false, false, 0 )
+);
+ck(
+	'the zone is named once, in today\'s words, a fact only it holds; then one list of rows, its facts under the name, a row per event, soonest first',
+	static function () use ( $t22_list ) {
+		preg_match_all( '/<li class="wpcpm-ui-list__row[^"]*">/', $t22_list, $rows );
+		return array(
+			substr_count( $t22_list, '<p class="wpcpm-ui-intro">Times are in your time zone, Europe / Warsaw.</p>' ),
+			substr_count( $t22_list, '<ul class="wpcpm-ui-list wpcpm-ui-list--under">' ),
+			count( $rows[0] ),
+			strpos( $t22_list, 'Program office hours' ) < strpos( $t22_list, 'A full workshop' ) && strpos( $t22_list, 'A full workshop' ) < strpos( $t22_list, 'Exampleworkshop' ),
+		);
+	},
+	array( 1, 1, 3, true )
+);
+ck(
+	'the event the reader is on: its name, the host, its day and time on the reader\'s clock, each date whole, how long and the places left as facts in today\'s words; "You are on it." its note; Leave quiet red with today\'s question and Join the call a quiet link that opens apart as today, both named for the event',
+	static function () use ( $t22_list ) {
+		preg_match( '/<li class="wpcpm-ui-list__row wpcpm-ui-list__row--note wpcpm-ui-list__row--more">.*?<\/li>/s', $t22_list, $row );
+		$row = $row[0] ?? '';
+		return array(
+			false !== strpos( $row, '<span class="wpcpm-ui-list__name">Program office hours &amp; &quot;more&quot;</span>' ),
+			false !== strpos( $row, '<span class="wpcpm-ui-item__fact">the WordPress Credits Program</span>' ),
+			false !== strpos( $row, '<span class="wpcpm-ui-item__fact"><span class="wpcpm-ui-whole">March 10, 2027 11:00 am</span> to <span class="wpcpm-ui-whole">12:00 pm</span></span>' ),
+			false !== strpos( $row, '<span class="wpcpm-ui-item__fact">60 minutes</span><span class="wpcpm-ui-item__fact">2 places left</span>' ),
+			false !== strpos( $row, '<p class="wpcpm-ui-list__note">You are on it.</p>' ),
+			false !== strpos( $row, '<button type="submit" class="wpcpm-btn wpcpm-btn--quiet wpcpm-btn--danger" data-wpcpm-confirm="Leave this event? Your place goes back.">Leave<span class="screen-reader-text"> Program office hours &amp; &quot;more&quot;</span></button>' ),
+			false !== strpos( $row, '<a class="wpcpm-btn wpcpm-btn--quiet" href="https://meet.example/office?a=1&amp;b=2" rel="noopener noreferrer" target="_blank">Join the call<span class="screen-reader-text"> Program office hours &amp; &quot;more&quot;</span></a>' ),
+			false !== strpos( $row, '<p class="wpcpm-ui-note">Short words &amp; &quot;quotes&quot;.</p>' ),
+		);
+	},
+	array( true, true, true, true, true, true, true, true )
+);
+ck(
+	'the full one says so in words, and offers nothing: no Join drawn to look disabled',
+	static function () use ( $t22_list ) {
+		preg_match( '/<li class="wpcpm-ui-list__row wpcpm-ui-list__row--more">(?:(?!<\/li>).)*A full workshop.*?<\/li>/s', $t22_list, $row );
+		$row = $row[0] ?? '';
+		return array( false !== strpos( $row, '<span class="wpcpm-ui-item__fact">Full</span>' ), strpos( $row, 'wpcpm-ui-list__act' ), strpos( $row, 'disabled' ), strpos( $row, '<form' ) );
+	},
+	array( true, false, false, false )
+);
+ck(
+	'the 40-character name and host are plain words the sheet breaks where they would overflow, no `<wbr>` (fix round 1, point 2), the range past midnight keeps each of its dates whole, the long description folds under today\'s words, and Join is quiet, named for the event',
+	static function () use ( $t22_list ) {
+		preg_match( '/<li class="wpcpm-ui-list__row wpcpm-ui-list__row--more">(?:(?!<\/li>).)*Exampleworkshop.*?<\/li>/s', $t22_list, $row );
+		$row = $row[0] ?? '';
+		return array(
+			false !== strpos( $row, '<span class="wpcpm-ui-list__name">Exampleworkshoponappliedwebengineeringxx</span>' ),
+			false !== strpos( $row, '<span class="wpcpm-ui-item__fact">Examplesponsorforappliedwebengineeringco</span>' ),
+			false !== strpos( $row, '<span class="wpcpm-ui-whole">March 20, 2027 11:30 pm</span> to <span class="wpcpm-ui-whole">March 21, 2027 1:30 am</span>' ),
+			false !== strpos( $row, '<span class="wpcpm-ui-item__fact">120 minutes</span><span class="wpcpm-ui-item__fact">Open to everyone</span>' ),
+			false !== strpos( $row, '<span class="wpcpm-ui-fold__title">Read the description</span>' ),
+			false !== strpos( $row, '<button type="submit" class="wpcpm-btn wpcpm-btn--quiet">Join<span class="screen-reader-text"> Exampleworkshoponappliedwebengineeringxx</span></button>' ),
+			strpos( $row, 'Join the call' ),
+		);
+	},
+	array( true, true, true, true, true, true, false )
+);
+
+// Join and Leave post exactly what they post today: core's nonce with its id and its referer stood in, compared form by
+// form with today's (`ra_posted()`), and the call link with today's.
+$GLOBALS['faithful_nonces'] = true;
+$t22_faithful_off = t22_draw( CONTACT, 'institution', '' );
+$t22_faithful_new = t22_draw( CONTACT, 'institution', 'parts' );
+$t22_faithful_mgr = array( t22_draw( MANAGER, 'institution', '' ), t22_draw( MANAGER, 'institution', 'parts' ) );
+unset( $GLOBALS['faithful_nonces'] );
+ck(
+	'Join and Leave post what they post today: the method, the address, the guard and its busy words, every hidden field in order (the nonce keyed to the event, the referer, the action, the event, the way back), the submit (no name, no value) and the browser\'s question',
+	static function () use ( $t22_faithful_off, $t22_faithful_new, $t22_faithful_mgr, $t22_on, $t22_long ) {
+		$old = ra_posted( $t22_faithful_off );
+		$new = ra_posted( $t22_faithful_new );
+		return array(
+			count( $old ),
+			$new === $old,
+			ra_posted( $t22_faithful_mgr[1] ) === ra_posted( $t22_faithful_mgr[0] ),
+			$new[0]['hidden'] ?? null,
+			$new[0]['asks'] ?? null,
+			$new[0]['guard'] ?? null,
+			$new[1]['hidden'] ?? null,
+			$new[1]['asks'] ?? null,
+			$new[1]['submits'] ?? null,
+		);
+	},
+	array(
+		2,
+		true,
+		true,
+		array( '_wpnonce=nonce-wpcpm_sevent_leave_' . $t22_on, '_wp_http_referer=/administrator-dashboard/', 'action=wpcpm_sevent_leave', 'wpcpm_sevent_id=' . $t22_on, 'wpcpm_sevent_back=institution' ),
+		'Leave this event? Your place goes back.',
+		'once Leaving',
+		array( '_wpnonce=nonce-wpcpm_sevent_join_' . $t22_long, '_wp_http_referer=/administrator-dashboard/', 'action=wpcpm_sevent_join', 'wpcpm_sevent_id=' . $t22_long, 'wpcpm_sevent_back=institution' ),
+		'',
+		array( 'submit = Join Exampleworkshoponappliedwebengineeringxx' ),
+	)
+);
+ck(
+	'the referer is in the drawn markup of each form on both branches, once; the parts\' nonce carries no id, and no id repeats',
+	static function () use ( $t22_faithful_off, $t22_faithful_new ) {
+		preg_match_all( '/ id="([^"]+)"/', $t22_faithful_new, $ids );
+		return array( substr_count( $t22_faithful_off, 'name="_wp_http_referer"' ), substr_count( $t22_faithful_new, 'name="_wp_http_referer"' ), substr_count( $t22_faithful_off, 'id="_wpnonce"' ), substr_count( $t22_faithful_new, 'id="_wpnonce"' ), count( $ids[1] ) === count( array_unique( $ids[1] ) ) );
+	},
+	array( 2, 2, 2, 0, true )
+);
+ck(
+	'and the call link opens what it opens today, with today\'s rel and target, for the person on the event alone',
+	static function () use ( $t22_faithful_off, $t22_faithful_new ) {
+		$links = static function ( $html ) {
+			return array_values( array_filter( t22_offers( $html ), static function ( $o ) { return 0 === strpos( $o, 'link ' ); } ) );
+		};
+		return array( $links( $t22_faithful_new ) === $links( $t22_faithful_off ), $links( $t22_faithful_new ) );
+	},
+	array( true, array( 'link https://meet.example/office?a=1&b=2 rel=noopener noreferrer target=_blank Join the call Program office hours & "more"' ) )
+);
+
+ck(
+	'who sees what does not move: for the contact, a tutor (whom no event is for: nothing on either branch) and an Administrator, both branches say the same words and offer the same presses and links',
+	static function () use ( $t22_off, $t22_new ) {
+		$out = array();
+		// The presses compared as WordPress prints today's nonce, with its referer, as the parts' nonce prints one.
+		$GLOBALS['faithful_nonces'] = true;
+		try {
+			foreach ( array( 'contact, three events' => CONTACT, 'tutor, three events' => TUTOR, 'manager, three events' => MANAGER ) as $name => $uid ) {
+				$offers       = array( t22_offers( t22_draw( $uid, 'institution', '' ) ), t22_offers( t22_draw( $uid, 'institution', 'parts' ) ) );
+				$out[ $name ] = array( t22_words( $t22_new[ $name ] ) === t22_words( t22_unheaded( $t22_off[ $name ] ) ), $offers[1] === $offers[0], count( $offers[1] ) );
+			}
+		} finally {
+			unset( $GLOBALS['faithful_nonces'] );
+		}
+		return $out;
+	},
+	array(
+		'contact, three events' => array( true, true, 3 ),
+		'tutor, three events'   => array( true, true, 0 ),
+		'manager, three events' => array( true, true, 2 ),
+	)
+);
+ck(
+	'and so do the outcomes, with and without an event to list: each in its words, on each branch',
+	static function () use ( $t22_off, $t22_new, $t22_statuses ) {
+		$differ = array();
+		$GLOBALS['faithful_nonces'] = true;
+		try {
+			foreach ( $t22_statuses as $status ) {
+				foreach ( array( 'contact, three events, ' => CONTACT, 'no event, ' => GRADUATE ) as $base => $uid ) {
+					$offers = array( t22_offers( t22_draw( $uid, 'institution', '', $status ) ), t22_offers( t22_draw( $uid, 'institution', 'parts', $status ) ) );
+					if ( t22_words( $t22_new[ $base . $status ] ) !== t22_words( t22_unheaded( $t22_off[ $base . $status ] ) ) || $offers[1] !== $offers[0] ) {
+						$differ[] = $base . $status;
+					}
+				}
+			}
+		} finally {
+			unset( $GLOBALS['faithful_nonces'] );
+		}
+		return $differ;
+	},
+	array()
+);
+ck(
+	'every outcome is the shell\'s message, its tone from the list\'s own map: a refusal alerts, a success is polite, each once, after the zone and before the list; with no event, the block holds the sentence alone',
+	static function () use ( $t22_new, $t22_statuses ) {
+		$out = array();
+		foreach ( $t22_statuses as $status ) {
+			$said  = WPCPM_Sponsor_Event_List::messages()[ $status ];
+			$want  = WPCPM_Dashboard_Card::message( $said[0], $said[1], 'wpcpm-sevent__message' );
+			$with  = (string) $t22_new[ 'contact, three events, ' . $status ];
+			$alone = (string) $t22_new[ 'no event, ' . $status ];
+			$out[] = array(
+				substr_count( $with, $want ),
+				strpos( $with, 'Times are in your time zone' ) < strpos( $with, $want ) && strpos( $with, $want ) < strpos( $with, '<ul class="wpcpm-ui-list' ),
+				$alone === '<section class="wpcpm-ui-block" id="wpcpm-sevents">' . $want . '</section>',
+				false !== strpos( $want, 'error' === $said[0] ? 'role="alert"' : 'role="status"' ),
+			);
+		}
+		return array_values( array_unique( array_map( 'serialize', $out ) ) );
+	},
+	array( serialize( array( 1, true, true, true ) ) )
+);
+ck(
+	'`render_actions()` on the parts prints the row\'s presses and link alone, and nothing where there is nothing to press',
+	static function () use ( $t22_new ) {
+		return array(
+			0 === strpos( (string) $t22_new['actions, on it, contact'], '<form method="post" action="https://site.example/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Leaving">' ),
+			false !== strpos( (string) $t22_new['actions, on it, contact'], '>Join the call<' ),
+			strpos( (string) $t22_new['actions, on it, contact'], 'wpcpm-sevent__' ),
+			$t22_new['actions, full, contact'],
+			0 === strpos( (string) $t22_new['actions, long, contact'], '<form method="post"' ),
+		);
+	},
+	array( true, true, false, '', true )
+);
+
+// Hostile input: a sponsor's name is what its people typed. The store's cleaner takes tags out of a title and a
+// description, so the sponsor's name carries the tag, the quote and the ampersand to both branches.
+ck(
+	'a sponsor\'s name holding a tag, a double quote and an ampersand is escaped once on both branches: no raw tag, no broken attribute, nothing escaped twice',
+	static function () {
+		$GLOBALS['index'][ T22_LONG ]['name'] = '<script>alert(1)</script> "Q" & Co';
+		try {
+			$old = t22_draw( CONTACT, 'institution', '' );
+			$new = t22_draw( CONTACT, 'institution', 'parts' );
+		} finally {
+			$GLOBALS['index'][ T22_LONG ]['name'] = 'Examplesponsorforappliedwebengineeringco';
+		}
+		$out = array();
+		foreach ( array( $old, $new ) as $html ) {
+			// A long run of the name takes break opportunities on the parts (`breakable()`); read without them.
+			$out[] = array( strpos( $html, '<script' ), preg_match( '/&amp;(amp|lt|gt|quot|#0?39);/', $html ), false !== strpos( str_replace( '<wbr>', '', $html ), '&lt;script&gt;alert(1)&lt;/script&gt; &quot;Q&quot; &amp; Co' ) );
+		}
+		return $out;
+	},
+	array( array( false, 0, true ), array( false, 0, true ) )
+);
+
+// The layout harness: every state the view draws on the parts, its long description's fold open.
+if ( function_exists( 'wpcpm_layout_keep' ) ) {
+	foreach ( $t22_new as $t22_name => $t22_html ) {
+		if ( 0 === strpos( $t22_name, 'actions, ' ) || '' === (string) $t22_html ) {
+			continue;
+		}
+		wpcpm_layout_keep( 'Events: ' . $t22_name, str_replace( '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner">', '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open>', (string) $t22_html ) );
+	}
+}
+
+ck(
+	'one helper per rule: both drawings ask `press_of()` who gets which press, `press_fields()` what a press posts, `press_words()` its words, `call_link()` the link, `event_facts()` the facts, `description_shown()` the fold, `zone_sentence()` the line over the list',
+	static function () use ( $list_file ) {
+		$src = (string) file_get_contents( $list_file );
+		$out = array();
+		foreach ( array( 'press_of', 'press_fields', 'press_words', 'call_link', 'event_facts', 'description_shown', 'zone_sentence' ) as $helper ) {
+			$out[ $helper ] = substr_count( $src, 'self::' . $helper . '(' ) >= 2;
+		}
+		return $out;
+	},
+	array( 'press_of' => true, 'press_fields' => true, 'press_words' => true, 'call_link' => true, 'event_facts' => true, 'description_shown' => true, 'zone_sentence' => true )
+);
+
+// Fix round 1, points 1 to 5.
+ck(
+	'fix round 1: no `<wbr>` anywhere the parts draw the list (`breakable()` is for a data table\'s cell), and no heading in either of its words',
+	static function () use ( $t22_new ) {
+		$all = implode( '', array_map( 'strval', $t22_new ) );
+		return array( substr_count( $all, '<wbr>' ), preg_match( '/<h[1-6]/', $all ), substr_count( $all, 'Events from our sponsors' ) );
+	},
+	array( 0, 0, 0 )
+);
+ck(
+	'fix round 1: the class says what is true of `render_actions()` now, and its `parts()` asks for the card shell too',
+	static function () use ( $list_file ) {
+		$src = (string) file_get_contents( $list_file );
+		preg_match( '/private static function parts\(\) \{(.*?)\n\t\}/s', $src, $parts );
+		return array( strpos( $src, 'until its own release' ), strpos( $src, 'until their own release' ), false !== strpos( $parts[1] ?? '', "class_exists( 'WPCPM_Dashboard_Card', false )" ) );
+	},
+	array( false, false, true )
+);
+// `format_range()`'s words for the real calls, as the class at 68d6c986 prints them: the same day, past midnight on the
+// reader's clock, and an hour-long call, on three clocks.
+ck(
+	'fix round 1: `WPCPM_Mentor_Calls::format_range()` prints the base\'s words, and the list reads its two moments from the one place that formats them (`range_moments()`), never the formats itself',
+	static function () use ( $list_file ) {
+		$out = array();
+		foreach ( array( 'Europe/Warsaw', 'America/New_York', 'Asia/Tokyo' ) as $zone ) {
+			foreach ( array( array( '2027-03-10 10:00', '2027-03-10 11:00' ), array( '2027-03-20 22:30', '2027-03-21 00:30' ), array( '2026-11-10 19:00', '2026-11-10 20:30' ) ) as $pair ) {
+				$out[] = WPCPM_Mentor_Calls::format_range( utc( $pair[0] ), utc( $pair[1] ), new DateTimeZone( $zone ) );
+			}
+		}
+		$src = (string) file_get_contents( $list_file );
+		return array( md5( implode( '|', $out ) ), substr_count( $src, 'WPCPM_Mentor_Calls::range_moments(' ), strpos( $src, "get_option( 'date_format' )" ), strpos( $src, "get_option( 'time_format' )" ) );
+	},
+	array( T22_RANGE_BASE, 1, false, false )
+);
+
+// The part extended (rule 5): row() takes `more`. Without it the row prints the base's bytes, pinned by digests taken at
+// 68d6c986 with the Administrator Dashboard's out-of-force agreement row, its sponsor-notes row and a row with every
+// other argument; with it, the markup under the note and over the form, the row marked.
+ck(
+	'row() without `more` prints the base\'s bytes; with it, the caller\'s markup under the note, over the form, the row marked `--more`',
+	static function () {
+		$sets = array(
+			array( 'id' => 'wpcpm-sponsor-agreement-41', 'name' => 'Partner <b>Example</b> & Co', 'tag' => array( 'words' => 'Revoked', 'tone' => '' ), 'facts' => array( 'Revoked on <span>x</span>', array( 'html' => '<span class="wpcpm-ui-whole">May 1, 2026</span>' ) ), 'actions' => array( '<form method="post"><button>Reinstate</button></form>' ) ),
+			array( 'name' => 'Champion Example', 'href' => 'https://example.test/sponsor/', 'facts' => array( '2 days ago' ), 'note' => "Line one & <i>two</i>\nline three" ),
+			array( 'name' => 'Ana', 'note' => 'You are on it.', 'form' => '<form></form>', 'form_id' => 'f-1', 'media' => '<img alt="">', 'level' => 'h4' ),
+		);
+		$out  = array_map( static function ( $args ) { return md5( WPCPM_UI::row( $args ) ); }, $sets );
+		$out[] = WPCPM_UI::row( $sets[2] ) === WPCPM_UI::row( array_merge( $sets[2], array( 'more' => '' ) ) );
+		$out[] = WPCPM_UI::row( array( 'name' => 'E', 'note' => 'N', 'more' => '<p class="wpcpm-ui-note">D</p>', 'form' => '<form></form>', 'form_id' => 'f' ) );
+		return $out;
+	},
+	array(
+		'd1dc9381b56ae9c5e2aedbc2cb41f5bd',
+		'c817cecd347dfb90cf5ec046d6ba51b2',
+		'e2370619cd1a4110c9671409be20d0b2',
+		true,
+		'<li class="wpcpm-ui-list__row wpcpm-ui-list__row--note wpcpm-ui-list__row--more"><div class="wpcpm-ui-list__line"><span class="wpcpm-ui-list__name">E</span><span class="wpcpm-ui-list__facts"></span></div><p class="wpcpm-ui-list__note">N</p><div class="wpcpm-ui-list__more"><p class="wpcpm-ui-note">D</p></div><div class="wpcpm-ui-list__form" id="f"><form></form></div></li>',
+	)
+);
+
+$GLOBALS['sent'] = $t22_sent;
+if ( null !== $t22_recorded ) {
+	$GLOBALS['wpcpm_recorded'] = $t22_recorded;
+}
+set_now( $t22_now );
 
 /* ---- the house rules ---------------------------------------------------------- */
 

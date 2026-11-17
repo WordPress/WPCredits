@@ -713,5 +713,13 @@ $ord_kept = WPCPM_UI::decide(
 // The digest is of this area as decide() printed it at 7c06eb89, before the row was ordered by kind.
 ck( 'an area already in order prints byte for byte what it printed before', md5( $ord_kept ), 'f15c5169499429fb10247bd30625e03a' );
 
+// The layout harness's drawings (bin/ui/layout/dump.php): the Decide area in a card's body, as an Administrator
+// Dashboard card holds its decision row, once as printed and once with the note refused, on the Administrator
+// Dashboard's Overview.
+if ( function_exists( 'wpcpm_layout_keep' ) ) {
+	wpcpm_layout_keep( 'Decide: an application card, Approve and Reject with the note panel', '<div class="wpcpm-ui-fold__body"><p>An application waits for a decision. <a href="https://example.org/application">Read the application</a></p>' . app_area( 7 ) . '</div>', 'administrator' );
+	wpcpm_layout_keep( 'Decide: an application card, the note refused', '<div class="wpcpm-ui-fold__body">' . app_area( 8, array( 'open' => true, 'problem' => 'Say why, in a sentence.' ) ) . '</div>', 'administrator' );
+}
+
 echo "\n" . ( $fail ? "$fail of $checks checks failed" : "all $checks checks passed" ) . "\n";
 exit( $fail ? 1 : 0 );

@@ -178,7 +178,20 @@ function get_posts( $a = array() ) {
 	return array_reverse( $out );
 }
 function check_admin_referer( $a = -1, $q = '_wpnonce' ) { $GLOBALS['referer'][] = $a; return true; }
-function wp_nonce_field( $a = '', $n = '_wpnonce', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />'; }
+// Core's shape (Institution Dashboard, Task 16): the token under its id and name, then the page the form is drawn on, which
+// the handler's way back reads; so the drawn form is asserted with the referer field it posts.
+function wp_referer_field( $display = true ) {
+	$field = '<input type="hidden" name="_wp_http_referer" value="/institution-dashboard/?wpcpm_view=students&amp;wpcpm_institution_student=10" />';
+	if ( $display ) { echo $field; }
+	return $field;
+}
+function wp_nonce_field( $a = '', $n = '_wpnonce', $r = true, $e = true ) {
+	$field = '<input type="hidden" id="' . esc_attr( $n ) . '" name="' . esc_attr( $n ) . '" value="nonce-' . esc_attr( $a ) . '" />' . ( $r ? wp_referer_field( false ) : '' );
+	if ( $e ) { echo $field; }
+	return $field;
+}
+function wp_create_nonce( $a = -1 ) { return 'nonce-' . $a; }
+function is_admin() { return false; }
 function selected( $a, $b, $echo = true ) { $out = ( (string) $a === (string) $b ) ? ' selected="selected"' : ''; if ( $echo ) { echo $out; } return $out; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function home_url( $p = '/' ) { return 'https://example.test' . $p; }
@@ -325,9 +338,17 @@ if ( ! class_exists( 'WPCPM_Settings' ) ) {
 		public static function get() { return array( 'reports_table' => 'tblREPORTS', 'students_table' => 'tblSTUDENTS' ); }
 	}
 }
+require_once __DIR__ . '/stubs/institution-card-url.php';
 if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
 	class WPCPM_Institutions_Dashboard {
 		public static function page_url() { return 'https://example.test/institutions/'; }
+		// The page's addresses, as the real class builds them (bin/stubs/institution-card-url.php, checked against it
+		// in bin/test-institution-ways-back.php).
+		public static function view_url( $view = 'overview', $record = '', array $args = array() ) { return wpcpm_test_institution_view_url( self::page_url(), $view, $record, $args ); }
+		public static function view_of( $card ) { return wpcpm_test_institution_view_of( $card ); }
+		public static function card_url( $card, $record = '', $item = '', array $args = array() ) { return wpcpm_test_institution_card_url( self::page_url(), $card, $record, $item, $args ); }
+		public static function requested_record() { return wpcpm_test_institution_requested_record(); }
+		public static function way_back( $card ) { return wpcpm_test_institution_way_back( self::page_url(), $card ); }
 	}
 }
 if ( ! class_exists( 'WPCPM_Student_Report_Form' ) ) {
@@ -443,6 +464,13 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-audit.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-policy.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-student-form.php';
+// The parts the form is drawn with.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
+if ( ! function_exists( 'sanitize_html_class' ) ) {
+	/** Core's: a class name with anything but letters, digits, hyphens and underscores taken out. */
+	function sanitize_html_class( $c, $f = '' ) { $c = preg_replace( '|%[a-fA-F0-9][a-fA-F0-9]|', '', (string) $c ); $c = preg_replace( '/[^A-Za-z0-9_-]/', '', $c ); return '' === $c ? (string) $f : $c; }
+}
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
 
 $fail = 0;
 function ck( $label, $actual, $expected ) {
@@ -617,7 +645,7 @@ function draw( $viewer, $record, $institution, $user_id ) {
 function drawn_values( $html ) {
 	$out = array();
 
-	if ( preg_match_all( '/name="student\[([^"]+)\]" value="([^"]*)"/', $html, $inputs, PREG_SET_ORDER ) ) {
+	if ( preg_match_all( '/<input\b[^>]* name="student\[([^"]+)\]"[^>]* value="([^"]*)"/', $html, $inputs, PREG_SET_ORDER ) ) {
 		foreach ( $inputs as $input ) {
 			$out[ $input[1] ] = html_entity_decode( $input[2], ENT_QUOTES );
 		}
@@ -628,7 +656,7 @@ function drawn_values( $html ) {
 	if ( preg_match( '/<select[^>]*name="student\[([^"]+)\]"[^>]*>(.*?)<\/select>/s', $html, $select ) ) {
 		$chosen = '';
 
-		if ( preg_match( '/<option value="([^"]*)" selected="selected">/', $select[2], $option ) ) {
+		if ( preg_match( '/<option value="([^"]*)"(?: selected="selected"| selected)>/', $select[2], $option ) ) {
 			$chosen = html_entity_decode( $option[1], ENT_QUOTES );
 		}
 
@@ -913,7 +941,8 @@ ck(
 	'each refused slot says its own reason at its field, and the summary counts them',
 	array(
 		substr_count( $pair_form, 'aria-invalid="true"' ),
-		has( $pair_form, '<div class="wpcpm-errors" role="alert" tabindex="-1"><h4 class="wpcpm-errors__title">Two answers need a change</h4>' ),
+		// An h3: the summary stands under the view's h2 with no heading between (Task 23, fix round 1).
+		has( $pair_form, '<div class="wpcpm-errors" role="alert" tabindex="-1"><h3 class="wpcpm-errors__title">Two answers need a change</h3>' ),
 		has( $pair_form, 'A date is written as YYYY-MM-DD, an end date has to be after the start date' ),
 		has( $pair_form, 'Nothing was saved. What was refused: Start date, End date.' ),
 	),
@@ -1268,19 +1297,15 @@ $said = draw( 4, $report, $inst_a, 10 );
 
 ck( 'the class the card opens its folded section for is a constant of the form', WPCPM_Institution_Student_Form::CLASS_MESSAGE, 'wpcpm-institution__edit-message' );
 ck( 'and the real form prints a save\'s outcome in a paragraph of exactly that class',
-	has( $said, '<p class="' . WPCPM_Institution_Student_Form::CLASS_MESSAGE . ' is-success" role="status">Saved. The change is in the program records and on your roster.</p>' ), true );
+	has( $said, '<p class="' . WPCPM_Institution_Student_Form::CLASS_MESSAGE . ' ' . WPCPM_Institution_Student_Form::CLASS_MESSAGE . '--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>Saved. The change is in the program records and on your roster.</p>' ), true );
 ck( 'while a form with nothing to say prints none', has( draw( 2, $report, $inst_a, 10 ), WPCPM_Institution_Student_Form::CLASS_MESSAGE ), false );
 ck( 'and the student card reads the constant, not the string', array(
 	false !== strpos( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-student-view.php' ), 'WPCPM_Institution_Student_Form::CLASS_MESSAGE' ),
 	false !== strpos( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-student-view.php' ), "'wpcpm-institution__edit-message'" ),
 ), array( true, false ) );
 
-// The form is drawn on a page now (inside the student card), so every class it prints has a rule: the lesson
-// of the import form's first ship, when every label and every box came out as the browser's own. Read from
-// the form's own source, so a class added to it fails here until it is dressed. The button is the shared
-// one (the dashboard stylesheet, which the institution stylesheet depends on); the form element itself
-// has no box of its own to dress; `is-success` and `is-error` are state hooks the page's other flashes
-// have no rule for either.
+// The form is drawn with the shared parts (Task 16): the one class of its own it still prints is the outcome's, the
+// class the student card opens its folded section for (above); every other class is a part's.
 $form_source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-student-form.php' );
 preg_match_all( '/class="([^"]+)"/', $form_source, $class_lists );
 
@@ -1297,39 +1322,7 @@ foreach ( $class_lists[1] as $list ) {
 $printed = array_keys( $printed );
 sort( $printed );
 
-ck( 'the form prints these ten classes', $printed, array(
-	'wpcpm-button',
-	'wpcpm-institution__card',
-	'wpcpm-institution__edit',
-	'wpcpm-institution__edit-field',
-	'wpcpm-institution__edit-form',
-	'wpcpm-institution__edit-input',
-	'wpcpm-institution__edit-lede',
-	'wpcpm-institution__edit-message',
-	'wpcpm-institution__edit-note',
-	'wpcpm-institution__heading',
-) );
-
-$sheets = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/institution.css' ) . (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/dashboard.css' );
-$bare   = array();
-
-foreach ( array_diff( $printed, array( 'wpcpm-institution__edit-form' ) ) as $class ) {
-	if ( 1 !== preg_match( '/\.' . preg_quote( $class, '/' ) . '(?![\w-])/', $sheets ) ) {
-		$bare[] = $class;
-	}
-}
-
-ck( 'every class the form prints is styled on the page it is drawn on', $bare, array() );
-
-// The save's sentence is a flash like the page's others: the same bordered box, by the same rule.
-$css_institution = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/institution.css' );
-ck( 'the outcome of a save is in the page\'s bordered flash group', 1 === preg_match( '/\.wpcpm-details__message,\n\.wpcpm-institution__edit-message \{\n\tborder: 1px solid/', $css_institution ), true );
-ck( 'the fields inside the folded form share the details card\'s label-above layout and control widths', array(
-	false !== strpos( $css_institution, ".wpcpm-details .wpcpm-field,\n.wpcpm-institution__correct .wpcpm-institution__edit-field {" ),
-	false !== strpos( $css_institution, ".wpcpm-details .wpcpm-field > label,\n.wpcpm-details .wpcpm-field__label,\n.wpcpm-institution__correct .wpcpm-institution__edit-field > label {" ),
-	false !== strpos( $css_institution, ".wpcpm-details .wpcpm-field select,\n.wpcpm-institution__correct .wpcpm-institution__edit-input {" ),
-), array( true, true, true ) );
-ck( 'and the lede and the note are spaced as the details card\'s lead is', 1 === preg_match( '/\.wpcpm-details__lead,\n\.wpcpm-institution__edit-lede,\n\.wpcpm-institution__edit-note \{\n\tmargin: 0 0 1em;/', $css_institution ), true );
+ck( 'the form prints no class of its own but its outcome\'s', $printed, array( 'wpcpm-institution__edit-message' ) );
 ck( 'and so is a reader whose student has no report record', draw( 2, '', $inst_a, 10 ), '' );
 
 $GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $inst_a ) ]['rows'][ $dupe ] = array(
@@ -1342,9 +1335,9 @@ $GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $inst_a ) ]['rows'][ $dupe ] 
 );
 
 $twice = draw( 2, $report, $inst_a, 10 );
-ck( 'a student on two roster rows has the Students half switched off', 4, substr_count( $twice, 'disabled="disabled"' ) );
+ck( 'a student on two roster rows has the Students half switched off', 4, preg_match_all( '/<(?:input|select)\b[^>]*\sdisabled\b/', $twice ) );
 ck( 'and is told why', has( $twice, 'An Administrator needs to merge them first.' ), true );
-ck( 'while the name on the report record is still editable', has( $twice, 'name="student[' . k( 'reports', 'Name' ) . ']" value="Ada E"' ), true );
+ck( 'while the name on the report record is still editable', has( $twice, 'name="student[' . k( 'reports', 'Name' ) . ']" maxlength="200" value="Ada E"' ), true );
 
 
 echo "\n=== The form and the handler compare against the same values ===\n";
@@ -1426,7 +1419,7 @@ $GLOBALS['live_rows'][ $report ]['fields']['Your field of study'] = 'Underwater 
 
 $html = draw( 2, $report, $inst_a, 10 );
 
-ck( 'it is shown selected and carrying itself, not an empty value', has( $html, '<option value="Underwater Basket Weaving" selected="selected">' ), true );
+ck( 'it is shown selected and carrying itself, not an empty value', has( $html, '<option value="Underwater Basket Weaving" selected>' ), true );
 ck( 'and named for what it is', has( $html, 'not one of the program' ), true );
 
 $posted = drawn_values( $html );
@@ -1464,7 +1457,7 @@ $kept_form = draw( 2, $report, $inst_a, 10 );
 $kept      = drawn_values( $kept_form );
 ck( 'a colleague drawing the same student reads the program records', $colleague[ k( 'students', 'End Date' ) ], '2026-06-30' );
 ck( 'the refused end date comes back as it was typed, and the saved full name as it is stored', array( $kept[ k( 'students', 'End Date' ) ], $kept[ k( 'students', 'Full Name' ) ] ), array( '2036-06-30', 'Ada Nowak' ) );
-ck( 'under the sentence that names what was refused', 1 === preg_match( '#<p class="wpcpm-institution__edit-message is-error" role="status">Saved, except for the following\. [^<]*End date\.</p>#', $kept_form ), true );
+ck( 'under the sentence that names what was refused', 1 === preg_match( '#<p class="wpcpm-institution__edit-message wpcpm-institution__edit-message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>Saved, except for the following\. [^<]*End date\.</p>#', $kept_form ), true );
 ck( 'once: the next drawing is the program records again', array( drawn_values( draw( 2, $report, $inst_a, 10 ) )[ k( 'students', 'End Date' ) ], isset( $GLOBALS['umeta'][2]['wpcpm_flash'][ $typed_channel ] ) ), array( '2026-06-30', false ) );
 
 reset_world();
@@ -1538,7 +1531,7 @@ $GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $inst_a ) ]['rows'][ $dupe ] 
 $drawn_states['duplicate'] = draw( 2, $report, $inst_a, 10 );
 
 $expected_states = array( 'untouched', 'saved', 'half-saved', 'half-saved, the dates unfiled', 'half-saved, no entry for the dates', 'refused', 'duplicate' );
-ck( 'every state is drawn, each with its outcome where a save left one', array( array_keys( array_filter( $drawn_states, 'strlen' ) ), substr_count( implode( '', $drawn_states ), WPCPM_Institution_Student_Form::CLASS_MESSAGE ) ), array( $expected_states, 5 ) );
+ck( 'every state is drawn, each with its outcome where a save left one', array( array_keys( array_filter( $drawn_states, 'strlen' ) ), substr_count( implode( '', $drawn_states ), 'class="' . WPCPM_Institution_Student_Form::CLASS_MESSAGE . ' ' ) ), array( $expected_states, 5 ) );
 ck( 'the duplicate state draws its note', has( $drawn_states['duplicate'], 'An Administrator needs to merge them first.' ), true );
 
 $base_words = array();
@@ -1631,6 +1624,233 @@ foreach ( array(
 
 ck( 'no dash but the plain hyphen in any of the four files', $dashes, array() );
 
+/* ---- the form on the parts (Institution Dashboard, Task 16) --------------- */
+
+echo "\n=== The form on the parts (Institution Dashboard, Task 16) ===\n";
+
+
+/**
+ * What each drawn form posts, as a browser posts it: its method and address, then every input, select and named button
+ * that is not disabled, as `name=value` (a select by its selected option, or its first), sorted; and whether it locks at
+ * its press saying it is saving.
+ *
+ * @param string $html Drawn markup.
+ * @return array[]
+ */
+function posted_forms( $html ) {
+	$attr  = static function ( $tag, $name ) {
+		return preg_match( '/\s' . $name . '="([^"]*)"/', $tag, $m ) ? $m[1] : null;
+	};
+	$forms = array();
+	preg_match_all( '#<form\b([^>]*)>(.*?)</form>#s', (string) $html, $found, PREG_SET_ORDER );
+	foreach ( $found as $form ) {
+		$fields = array();
+		preg_match_all( '#<(input|button)\b([^>]*)>#', $form[2], $controls, PREG_SET_ORDER );
+		foreach ( $controls as $control ) {
+			if ( null === $attr( $control[2], 'name' ) || 1 === preg_match( '/\sdisabled\b/', $control[2] ) ) {
+				continue;
+			}
+			$fields[] = $attr( $control[2], 'name' ) . '=' . (string) $attr( $control[2], 'value' );
+		}
+		preg_match_all( '#<select\b([^>]*)>(.*?)</select>#s', $form[2], $selects, PREG_SET_ORDER );
+		foreach ( $selects as $select ) {
+			if ( 1 === preg_match( '/\sdisabled\b/', $select[1] ) ) {
+				continue;
+			}
+			preg_match_all( '#<option\b([^>]*)>#', $select[2], $options, PREG_SET_ORDER );
+			$chosen = isset( $options[0] ) ? (string) $attr( $options[0][1], 'value' ) : '';
+			foreach ( $options as $option ) {
+				if ( 1 === preg_match( '/\sselected\b/', $option[1] ) ) {
+					$chosen = (string) $attr( $option[1], 'value' );
+					break;
+				}
+			}
+			$fields[] = $attr( $select[1], 'name' ) . '=' . $chosen;
+		}
+		sort( $fields );
+		$forms[] = array(
+			'method' => (string) $attr( $form[1], 'method' ),
+			'action' => (string) $attr( $form[1], 'action' ),
+			'fields' => $fields,
+			'busy'   => 1 === preg_match( '/\sdata-wpcpm-once\b/', $form[1] ) && 'Saving...' === $attr( $form[1], 'data-wpcpm-busy' ),
+		);
+	}
+	return $forms;
+}
+
+/**
+ * Each refused box: its id, whether it says so (`aria-invalid`), the sentence under it and the summary's link to it.
+ *
+ * @param string $html Drawn markup.
+ * @return array
+ */
+function refusals( $html ) {
+	$out = array();
+	preg_match_all( '#<p class="wpcpm-field__problem" id="([^"]+)-problem">([^<]*)</p>#', (string) $html, $found, PREG_SET_ORDER );
+	foreach ( $found as $problem ) {
+		$out[ $problem[1] ] = array(
+			1 === preg_match( '#<(?:input|select)\b[^>]*\sid="' . preg_quote( $problem[1], '#' ) . '"[^>]*\saria-invalid="true"[^>]*\saria-describedby="' . preg_quote( $problem[1], '#' ) . '-problem"#', (string) $html ),
+			$problem[2],
+			false !== strpos( (string) $html, 'href="#' . $problem[1] . '"' ),
+		);
+	}
+	ksort( $out );
+	return $out;
+}
+
+/**
+ * The form in each case the suite pins: a member's, a refused post with its typing kept, a student on two roster rows, a
+ * stored value the program no longer offers, and the sentence of a save.
+ *
+ * @return string[] Drawn markup, by case.
+ */
+function form_cases() {
+	global $report, $inst_a, $student, $dupe;
+	$cases = array();
+
+	reset_world();
+	$cases['member'] = draw( 2, $report, $inst_a, 10 );
+
+	reset_world();
+	save( 2, $report, array( k( 'students', 'Full Name' ) => '  Ada Nowak  ', k( 'students', 'End Date' ) => '2036-06-30', k( 'reports', 'Name' ) => 'Ada & <b>Q&amp;A</b>' ) );
+	$cases['refused, typing kept'] = draw( 2, $report, $inst_a, 10 );
+
+	reset_world();
+	$GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $inst_a ) ]['rows'][ $dupe ] = array(
+		'record_id'   => $dupe,
+		'name'        => 'Ada Example',
+		'email'       => 'ada@example.test',
+		'email_key'   => 'ada@example.test',
+		'institution' => $inst_a,
+		'user_id'     => 0,
+	);
+	$cases['two roster rows'] = draw( 2, $report, $inst_a, 10 );
+
+	reset_world();
+	WPCPM_Roster_Index::update( $inst_a, $student, array( 'field_of_study' => 'Underwater Basket Weaving' ) );
+	$cases['a stored value no longer offered'] = draw( 2, $report, $inst_a, 10 );
+
+	reset_world();
+	save( 2, $report, array( k( 'students', 'End Date' ) => '2026-07-31' ) );
+	$cases['saved'] = draw( 2, $report, $inst_a, 10 );
+
+	return $cases;
+}
+
+$form_digest = static function ( array $cases ) {
+	return array_map(
+		static function ( $html ) {
+			return md5( $html );
+		},
+		$cases
+	);
+};
+
+// What the old form posted, read from the class at db850661 (the last commit that drew it) before it was deleted
+// (Task 23): a digest of every case's posted forms, the refused case's refusals and its posted fields, and for each
+// reader whether a form was drawn and a digest of what it posted. The parts are held to them.
+$old_posted        = '7b5b19a4abc57c7bede54b89c875118a';
+$old_refusals      = '99aa7cb648f50a83ca271ec25a75b487';
+$old_refused_posts = '1d6c75a6dd12edf8a42e6f34774eddce';
+$old_none          = '40cd750bba9870f18aada2478b24840a';
+$old_who           = array(
+	1  => array( false, '123e370d7aa511f116ea11dca40fab96' ),
+	2  => array( false, '123e370d7aa511f116ea11dca40fab96' ),
+	3  => array( true, $old_none ),
+	4  => array( true, $old_none ),
+	10 => array( true, $old_none ),
+	20 => array( true, $old_none ),
+);
+WPCPM_UI::set_live( array( 'administrator', 'institution' ) );
+WPCPM_UI::enter( 'institution' );
+$new_form = form_cases();
+WPCPM_UI::leave();
+
+$nf = $new_form['member'];
+ck( 'on the parts: today\'s lede as the intro, then the one form, with no card, heading or class of the old form', array(
+	0 === strpos( $nf, '<p class="wpcpm-ui-intro">These five details are yours to correct.' ),
+	has( $nf, '<form method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Saving...">' ),
+	substr( $nf, -strlen( '</form>' ) ),
+	has( $nf, 'wpcpm-institution__' ),
+	has( $nf, '<h3' ),
+	has( $nf, '<section' ),
+	has( $nf, 'wpcpm-button' ),
+), array( true, true, '</form>', false, false, false, false ) );
+// Gate B, B8: the page's content runs through wptexturize, which prints " - " as an en dash and "--" as one too; the
+// owner's rule is no em or en dash in anything the product prints, so the intro holds neither.
+ck( 'the intro holds no spaced hyphen or double hyphen, which the site would print as a dash', preg_match( '/(^|\s)-(\s|$)|--/', wp_strip_all_tags_compat( $nf ) ), 0 );
+ck( 'five fields, label above: the two names text boxes with today\'s length, the two dates 200px date boxes, Field of study a select, today\'s ids and names', array(
+	substr_count( $nf, '<div class="wpcpm-ui-field"><label class="wpcpm-ui-field__label" for="wpcpm-student-' ),
+	has( $nf, '<input type="text" class="wpcpm-ui-field__control" id="wpcpm-student-' . k( 'reports', 'Name' ) . '" name="student[' . k( 'reports', 'Name' ) . ']" maxlength="200" value="Ada E">' ),
+	substr_count( $nf, '<input type="date" class="wpcpm-ui-field__control wpcpm-ui-field__control--date" id="wpcpm-student-' ),
+	has( $nf, '<select class="wpcpm-ui-field__control wpcpm-ui-field__control--select" id="wpcpm-student-' . k( 'students', 'Your field of study' ) . '" name="student[' . k( 'students', 'Your field of study' ) . ']">' ),
+	has( $nf, '<option value="">Not set</option>' ),
+), array( 5, true, 2, true, true ) );
+ck( 'Save changes, primary, in an action row', has( $nf, '<div class="wpcpm-ui-actions"><button type="submit" class="wpcpm-btn">Save changes</button></div></form>' ), true );
+ck( 'every case posts what the old form posted, field by field: method, address, every enabled box\'s name and value, the nonce\'s action, the referer', md5( serialize( array_map( 'posted_forms', $new_form ) ) ), $old_posted );
+$sorted = static function ( array $list ) {
+	sort( $list );
+	return $list;
+};
+ck( 'which is the action, the record, the nonce keyed to it, the referer and the five boxes', posted_forms( $nf )[0]['fields'] ?? array(), $sorted( array(
+	'_wp_http_referer=/institution-dashboard/?wpcpm_view=students&amp;wpcpm_institution_student=10',
+	'_wpnonce=nonce-wpcpm_save_student_' . $report,
+	'action=wpcpm_save_student',
+	'record=' . $report,
+	'student[' . k( 'reports', 'Name' ) . ']=Ada E',
+	'student[' . k( 'students', 'End Date' ) . ']=2026-06-30',
+	'student[' . k( 'students', 'Full Name' ) . ']=Ada Example',
+	'student[' . k( 'students', 'Start Date' ) . ']=2026-02-01',
+	'student[' . k( 'students', 'Your field of study' ) . ']=Technology &amp; Engineering',
+) ) );
+ck( 'the referer is in the markup it draws', substr_count( $nf, 'name="_wp_http_referer"' ), 1 );
+
+$nr = $new_form['refused, typing kept'];
+ck( 'a refused post: today\'s sentence as the shared message, alerting and the focus target, the summary over the fields, each refusal tied to its box, as the old form ties it', array(
+	1 === preg_match( '#<p class="wpcpm-institution__edit-message wpcpm-institution__edit-message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>Saved, except for the following\. [^<]*End date\.</p>#', $nr ),
+	has( $nr, 'class="wpcpm-form-errors' ) || has( $nr, 'wpcpm-errors' ) || has( $nr, '<h4' ),
+	md5( serialize( refusals( $nr ) ) ),
+	count( refusals( $nr ) ) > 0,
+), array( true, true, $old_refusals, true ) );
+ck( 'and the refused box keeps what was typed, an entity typed out kept as typed', array(
+	has( $nr, 'value="2036-06-30"' ),
+	md5( serialize( posted_forms( $nr ) ) ),
+), array( true, $old_refused_posts ) );
+ck( 'the sentence carries the class the card opens its fold on', has( $nr, WPCPM_Institution_Student_Form::CLASS_MESSAGE ), true );
+
+$nt = $new_form['two roster rows'];
+ck( 'a student on two roster rows: the four Students boxes drawn disabled, the name on the Student Report Card editable, today\'s note', array(
+	substr_count( $nt, ' disabled' ),
+	has( $nt, 'name="student[' . k( 'reports', 'Name' ) . ']" maxlength="200" value="Ada E">' ),
+	has( $nt, '<p class="wpcpm-ui-intro wpcpm-ui-intro--muted">This student has more than one entry in the program&#039;s records, so the site cannot tell which of them a change belongs to. An Administrator needs to merge them first. The name on the Student Report Card can still be corrected.</p>' ),
+), array( 4, true, true ) );
+ck( 'a stored value no longer offered: shown, selected, carrying itself, named for what it is', has( $new_form['a stored value no longer offered'], '<option value="Underwater Basket Weaving" selected>Underwater Basket Weaving (not one of the program&#039;s choices)</option>' ), true );
+ck( 'a save\'s sentence is the dashboards\' shared message in today\'s class: polite, and the focus target', has( $new_form['saved'], '<p class="wpcpm-institution__edit-message wpcpm-institution__edit-message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>Saved.' ), true );
+
+// Ruling 3 of the dispatch: the same readers are drawn the same form, or nothing, as the old form drew.
+$who = array();
+foreach ( array( 1, 2, 3, 4, 10, 20 ) as $viewer ) {
+	reset_world();
+	$GLOBALS['users'][20]   = new WP_User( 20, 'A Tutor', 'tutor@example.test' );
+	$GLOBALS['members'][20] = array( $inst_a );
+	$GLOBALS['levels']      = array( 20 => 'tutor' );
+	WPCPM_UI::enter( 'institution' );
+	$new_one = draw( $viewer, $report, $inst_a, 10 );
+	WPCPM_UI::leave();
+	$GLOBALS['levels'] = array();
+	$who[ $viewer ]    = array( '' === $new_one, md5( serialize( posted_forms( $new_one ) ) ) );
+}
+WPCPM_UI::set_live( null );
+ck( 'every reader is drawn the form the old form drew, or nothing where it drew nothing', $who, $old_who );
+$form_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-student-form.php' );
+ck( 'the rules for which boxes are drawn and enabled, and which hidden fields the form carries, are written once', array(
+	substr_count( $form_src, "'reports' === \$table || \$settled" ),
+	substr_count( $form_src, 'name="record" value="%s"' ),
+	substr_count( $form_src, 'WPCPM_UI::nonce( self::nonce_action( $record ) )' ),
+), array( 1, 1, 1 ) );
+
+// The layout cases are kept by bin/test-institution-student-view.php, in the whole card.
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );
 
@@ -1639,4 +1859,11 @@ exit( $fail ? 1 : 0 );
  */
 function wp_json_encode_compat( $value ) {
 	return (string) json_encode( $value );
+}
+
+/**
+ * The drawn text with its tags taken out, for the dash check (Gate B, B8).
+ */
+function wp_strip_all_tags_compat( $html ) {
+	return (string) preg_replace( '/<[^>]+>/', ' ', (string) $html );
 }

@@ -76,7 +76,8 @@ export async function uploadAgreement(newContext, BASE, login, pdfPath, nameOnDo
   // The agreement page opens the browser's print dialog by itself; here the PDF is saved directly instead.
   await context.addInitScript(() => { window.print = () => {}; });
   const page = await context.newPage();
-  await page.goto(BASE + '/institution-dashboard/', { waitUntil: 'networkidle' });
+  // The generate form and the upload form are on the Agreement view, not on the bare page (the Overview).
+  await page.goto(BASE + '/institution-dashboard/?wpcpm_view=agreement', { waitUntil: 'networkidle' });
   // The institution's name as it is to be printed on the document, typed in the generate form's own box.
   if (nameOnDocument) {
     const box = page.locator('form', { has: page.getByRole('button', { name: 'Generate the agreement', exact: true }) }).locator('input[name="wpcpm_agreement_name"]').filter({ visible: true });
@@ -91,7 +92,7 @@ export async function uploadAgreement(newContext, BASE, login, pdfPath, nameOnDo
   const agreement = doc || page;
   await agreement.waitForLoadState('networkidle');
   await agreement.pdf({ path: pdfPath, format: 'A4', printBackground: true });
-  if (doc) await doc.close(); else await page.goto(BASE + '/institution-dashboard/', { waitUntil: 'networkidle' });
+  if (doc) await doc.close(); else await page.goto(BASE + '/institution-dashboard/?wpcpm_view=agreement', { waitUntil: 'networkidle' });
   await page.locator('input[type=file]').first().setInputFiles(pdfPath);
   await page.getByLabel('The program\'s template, signed', { exact: false }).check();
   await page.getByLabel('This document is signed by somebody who can commit the institution.', { exact: false }).check();

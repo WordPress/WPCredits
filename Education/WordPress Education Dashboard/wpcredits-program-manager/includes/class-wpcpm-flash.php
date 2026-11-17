@@ -61,6 +61,14 @@ class WPCPM_Flash {
 	const KEPT_MAX = 60000;
 
 	/**
+	 * What `take()` read in this request, by user and channel: a second ask must not come back
+	 * empty because the first consumed it, and `peek()` reads it too.
+	 *
+	 * @var array<string, mixed>
+	 */
+	private static $taken = array();
+
+	/**
 	 * Queue a message for the next page this user loads.
 	 *
 	 * @param string $channel Message channel, e.g. `call` or `availability`.
@@ -100,18 +108,16 @@ class WPCPM_Flash {
 			return '';
 		}
 
-		static $taken = array();
-
 		$memo = $user_id . '|' . $channel;
 
-		if ( array_key_exists( $memo, $taken ) ) {
-			return $taken[ $memo ];
+		if ( array_key_exists( $memo, self::$taken ) ) {
+			return self::$taken[ $memo ];
 		}
 
 		$pending = self::pending( $user_id );
 
 		if ( ! array_key_exists( $channel, $pending ) ) {
-			$taken[ $memo ] = '';
+			self::$taken[ $memo ] = '';
 
 			return '';
 		}
@@ -128,9 +134,40 @@ class WPCPM_Flash {
 			update_user_meta( $user_id, self::META, wp_slash( $pending ) );
 		}
 
-		$taken[ $memo ] = $value;
+		self::$taken[ $memo ] = $value;
 
 		return $value;
+	}
+
+	/**
+	 * Read a message and leave it: what `take()` would return now, with nothing deleted.
+	 *
+	 * For a page that asks whether a part has anything to say before it decides whether to draw
+	 * that part: asking must not use the message up, or a view that does not draw the part would
+	 * lose it. A channel `take()` already read in this request gives what `take()` gave; a peek is
+	 * not remembered, so a `take()` after it still returns the message and deletes it, once.
+	 *
+	 * @param string $channel Message channel.
+	 * @param int    $user_id Optional user; defaults to the current user.
+	 * @return mixed The value, or an empty string when there is nothing pending.
+	 */
+	public static function peek( $channel, $user_id = 0 ) {
+		$user_id = $user_id ? (int) $user_id : get_current_user_id();
+		$channel = (string) $channel;
+
+		if ( ! $user_id ) {
+			return '';
+		}
+
+		$memo = $user_id . '|' . $channel;
+
+		if ( array_key_exists( $memo, self::$taken ) ) {
+			return self::$taken[ $memo ];
+		}
+
+		$pending = self::pending( $user_id );
+
+		return array_key_exists( $channel, $pending ) ? $pending[ $channel ] : '';
 	}
 
 	/**

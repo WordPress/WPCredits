@@ -264,74 +264,135 @@ class WPCPM_Institution_Tracks {
 			return;
 		}
 
-		printf( '<h4 class="wpcpm-details__subtitle">%s</h4>', esc_html__( 'Tracks', 'wpcredits-program-manager' ) );
+		// Drawn with the shared parts, as the card that draws this section is (Stage B, Task 19).
+		self::render_parts( $record, $checker, $message );
+	}
 
-		// The outcome line takes the focus after a post (`assets/js/forms.js`), as the dashboard card's does.
-		if ( is_array( $message ) ) {
-			printf(
-				'<p class="wpcpm-details__message is-%1$s" role="status" tabindex="-1" id="%3$s" data-wpcpm-card-message>%2$s</p>',
-				esc_attr( $message[0] ),
-				esc_html( $message[1] ),
-				esc_attr( self::OUTCOME_ID )
-			);
+	/**
+	 * What a member is told about the tracks, which the program sets: the sentence with the program's contact address.
+	 *
+	 * @return string Not escaped.
+	 */
+	private static function member_note() {
+		$contact = trim( (string) WPCPM_Settings::get_value( 'mail_contact', '' ) );
+
+		return sprintf(
+			/* translators: %s: the program's contact email address. */
+			__( 'The program sets the tracks your institution offers. To change them, write to %s.', 'wpcredits-program-manager' ),
+			'' !== $contact ? $contact : WPCPM_Student_Registration_Form::CONTACT
+		);
+	}
+
+	/**
+	 * The hint under the tracks' boxes.
+	 *
+	 * @return string Not escaped.
+	 */
+	private static function form_hint() {
+		return __( 'Students are asked which track they want when two or more are ticked.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The hidden fields the form posts after its nonce: its action and the institution.
+	 *
+	 * @param string $record The institution's record ID.
+	 * @return array<string, string>
+	 */
+	private static function form_fields( $record ) {
+		return array(
+			'action' => self::ACTION_SAVE,
+			'record' => (string) $record,
+		);
+	}
+
+	/**
+	 * Tracks offered on the shared parts (design 6.4): an in-card heading and a list of the tracks offered that the site
+	 * runs, or the one muted line for none; the outcome of the last post under the heading, where its way back lands (its
+	 * id on a wrapper, since the shell's message takes none); a member is told who sets them; an Administrator has the
+	 * inner fold Change the tracks, a choice group of every track the site runs with its hint, and one primary.
+	 *
+	 * @param string     $record  The institution's record ID.
+	 * @param bool       $checker Whether the reader is an Administrator, who sets the list.
+	 * @param array|null $message The outcome of the last post as type and text, or null.
+	 */
+	private static function render_parts( $record, $checker, $message ) {
+		echo WPCPM_UI::heading( __( 'Tracks offered', 'wpcredits-program-manager' ), 'h4' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the part.
+
+		// The outcome under the heading, where its way back lands; a refusal in the open fold, directly over the form it
+		// refused, its way back landing there with it (Gate B round 2, F2).
+		$outcome = is_array( $message ) ? sprintf( '<div id="%1$s">%2$s</div>', esc_attr( self::OUTCOME_ID ), WPCPM_Dashboard_Card::message( $message[0], $message[1], 'wpcpm-details__message' ) ) : '';
+		$refusal = $checker && is_array( $message ) && 'error' === $message[0];
+
+		if ( ! $refusal ) {
+			echo $outcome; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Dashboard_Card::message() escapes what it prints.
 		}
 
 		$offered = self::runnable( $record );
 
-		// One row, drawn as the card's two groups draw theirs (`WPCPM_Institution_Details_Card::render_rows()`).
-		printf(
-			'<dl class="wpcpm-details__list"><div class="wpcpm-details__row"><dt>%1$s</dt><dd>%2$s</dd></div></dl>',
-			esc_html__( 'Tracks offered', 'wpcredits-program-manager' ),
-			esc_html( array() === $offered ? __( 'None listed yet.', 'wpcredits-program-manager' ) : implode( ', ', $offered ) )
-		);
+		if ( array() === $offered ) {
+			echo WPCPM_UI::list_empty( __( 'None listed yet.', 'wpcredits-program-manager' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the part.
+		} else {
+			$list = WPCPM_UI::list_open();
+
+			foreach ( $offered as $name ) {
+				$list .= WPCPM_UI::row( array( 'name' => (string) $name ) );
+			}
+
+			echo $list . WPCPM_UI::list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts.
+		}
 
 		if ( ! $checker ) {
-			$contact = trim( (string) WPCPM_Settings::get_value( 'mail_contact', '' ) );
-
-			printf(
-				'<p class="wpcpm-details__note">%s</p>',
-				esc_html(
-					sprintf(
-						/* translators: %s: the program's contact email address. */
-						__( 'The program sets the tracks your institution offers. To change them, write to %s.', 'wpcredits-program-manager' ),
-						'' !== $contact ? $contact : WPCPM_Student_Registration_Form::CONTACT
-					)
-				)
-			);
+			echo WPCPM_UI::intro( self::member_note(), 'muted' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the part.
 
 			return;
 		}
 
-		// A closed disclosure, as the groups' forms are, open after an outcome the form was posted for.
-		printf(
-			'<details class="wpcpm-details__more" id="wpcpm-details-tracks"%1$s><summary class="wpcpm-details__toggle">%2$s</summary>',
-			is_array( $message ) ? ' open' : '',
-			esc_html__( 'Change the tracks', 'wpcredits-program-manager' )
+		$options = array();
+
+		foreach ( WPCPM_Program::labels() as $status => $name ) {
+			$options[ (string) $status ] = (string) $name;
+		}
+
+		$fold = WPCPM_UI::inner_open(
+			array(
+				'title' => __( 'Change the tracks', 'wpcredits-program-manager' ),
+				'open'  => is_array( $message ),
+				'id'    => 'wpcpm-details-tracks',
+			)
 		);
+
+		echo $fold . ( $refusal ? $outcome : '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts and in WPCPM_Dashboard_Card::message().
 		printf(
-			'<form class="wpcpm-details__form" method="post" action="%1$s" novalidate data-wpcpm-once data-wpcpm-busy="%2$s">',
+			'<form method="post" action="%1$s" novalidate data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
 			esc_attr__( 'Saving', 'wpcredits-program-manager' )
 		);
-		wp_nonce_field( self::ACTION_SAVE . '_' . $record );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
-		printf( '<input type="hidden" name="record" value="%s" />', esc_attr( $record ) );
-		echo '<span class="wpcpm-field__choices" role="group" aria-label="' . esc_attr__( 'Tracks offered', 'wpcredits-program-manager' ) . '">';
+		echo WPCPM_UI::nonce( self::ACTION_SAVE . '_' . $record ) . WPCPM_Institution_Details_Card::hidden_html( self::form_fields( $record ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the part and in hidden_html().
 
-		foreach ( WPCPM_Program::labels() as $status => $name ) {
-			printf(
-				'<label class="wpcpm-field__check"><input type="checkbox" name="%1$s[]" value="%2$s"%3$s /> <span>%4$s</span></label>',
-				esc_attr( self::FIELD ),
-				esc_attr( (string) $status ),
-				checked( isset( $offered[ $status ] ), true, false ),
-				esc_html( (string) $name )
-			);
-		}
+		$group  = WPCPM_UI::choices(
+			array(
+				'id'      => 'wpcpm-details-tracks-offered',
+				'legend'  => __( 'Tracks offered', 'wpcredits-program-manager' ),
+				'name'    => self::FIELD . '[]',
+				'type'    => 'checkbox',
+				'options' => $options,
+				'checked' => array_map(
+					static function ( $status ) {
+						return (string) $status;
+					},
+					array_keys( $offered )
+				),
+				'hint'    => self::form_hint(),
+			)
+		);
+		$button = WPCPM_UI::button(
+			array(
+				'label' => __( 'Save tracks', 'wpcredits-program-manager' ),
+				'side'  => 'front',
+			)
+		);
 
-		echo '</span>';
-		printf( '<span class="wpcpm-field__hint">%s</span>', esc_html__( 'Students are asked which track they want when two or more are ticked.', 'wpcredits-program-manager' ) );
-		printf( '<p class="wpcpm-details__actions"><button type="submit" class="wpcpm-button">%s</button></p>', esc_html__( 'Save tracks', 'wpcredits-program-manager' ) );
-		echo '</form></details>';
+		echo $group . WPCPM_UI::actions( array( $button ) ) . '</form>' . WPCPM_UI::inner_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts.
 	}
 
 	/**

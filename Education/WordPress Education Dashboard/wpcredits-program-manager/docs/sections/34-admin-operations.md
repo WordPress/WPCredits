@@ -160,7 +160,7 @@ The **Activated** view of the Mentors screen's **Waiting for review** tab says w
 
 #### A student's invitation from the Institution Dashboard
 
-A student with no sign-in on record has a line on their card. It says when the last invitation went, with **Resend invitation** (**Send invitation** when none went).
+A student with no sign-in on record has a line on their card, on the school's **Students** view. It says when the last invitation went, with **Resend invitation** (**Send invitation** when none went).
 
 - The school's representatives can press it, and so can an Administrator who opened the dashboard. Tutors cannot. No Administrator is emailed.
 - The 15 minutes apply, and each school can send 20 a day. A press that sends nothing does not count.
@@ -237,7 +237,7 @@ The plugin makes no page for the Student Interest Form: add the **Student Intere
 
 The Administrator guide is at `/administrator-guide/`, and `/program-manager-guide/` leads there.
 
-The Institution Dashboard's guide button follows a published page at `institution-guide` on this site when there is one, and the handbook's institutions page until that page exists. The Sponsor Dashboard's guide button follows a published page at `sponsor-guide` on this site when there is one, and the handbook's sponsor guide until that page exists. Each release republishes both pages from the built Institution guide and Sponsor guide, so a change made to either page by hand lasts only until the next release.
+The Institution Dashboard's guide button follows a published page at `institution-guide` on this site when there is one, and the handbook's institutions page until that page exists. The Sponsor Dashboard's guide button follows a published page at `sponsor-guide` on this site when there is one, and the handbook's sponsor guide until that page exists. Each release republishes both pages from the built Institution guide and Sponsor guide, so a change made to either page by hand lasts only until the next release. Since 1.123.96 the Institution Dashboard's button is **Institution guide** under **Help** in its menu, and this site's page opens in the dashboard's frame.
 
 The Mentor Report Card's button does the same with `mentor-guide` and the handbook's Mentor guide. The Student Report Card's does so with `student-guide` and the Student guide.
 
@@ -288,7 +288,7 @@ The site drafts each institution's report for a semester once it has ended.
 - A job's draft is emailed to **Who reviews reports**, or every Administrator when it is empty.
 - These settings are in `WPCredits Program > Settings`, tab **Institutions**, section **Semester reports**.
 
-You review the draft on the school's Institution Dashboard, then press **Approve this report**.
+You review the draft on the school's Institution Dashboard, in its **Semester reports** view, then press **Approve this report**.
 
 - The school sees it from then, with **Download PDF**, and its accounts are emailed. With no account, the screen says so: send the PDF yourself.
 - Approval is refused while the students' consent answers cannot be read.
@@ -1019,13 +1019,13 @@ Step by step: [[Plan or cancel an event of the program's own]].
 
 #### Where people see and join an event
 
-Once approved, an event is listed under **Events from our sponsors** for the people it is for. The heading is **Events from our sponsors and the program** while one of the program's own is listed.
+Once approved, an event is listed for the people it is for, in the places below. On the two Report Cards the list is headed **Events from our sponsors**, or **Events from our sponsors and the program** while one of the program's own is listed. On the Institution Dashboard the **Events** view lists them under its own name, with no heading, and Administrators see them on the card **Events**.
 
 | Who | Where |
 |---|---|
 | Current students | Student Report Card, under the group sessions in **My mentor call** |
 | Active mentors | Mentor Report Card, under the sessions panel |
-| Institution contacts, but not tutors | Institution Dashboard, after its sections |
+| Institution contacts, but not tutors | Institution Dashboard, the **Events** view |
 | Administrators | The card **Events**, on each event tagged **Coming up**, while that card shows |
 
 A current student holds a status in **Currently mentoring** and not in **Past students** (`WPCredits Program > Settings`, tab **Students and mentors**).
@@ -1276,7 +1276,7 @@ It lists many of the names the plugin stores things under, each with the name it
 | `wpcpm_handbook_page_visible` | `WPCPM_Handbook_Assistant::OPT_APPLIED` |
 | `wpcpm_institution_announce_lock` | `WPCPM_Institution_Announce::LOCK` (the lock one announcement holds while it reads the record IDs already announced, posts and writes them back, so two syncs finishing together cannot announce the same institution twice; it holds for two minutes at most and a run that cannot take it announces nothing) |
 | `wpcpm_institution_announced` | `WPCPM_Institution_Announce::OPT_ANNOUNCED` (the record IDs of the institutions whose arrival at Confirmed has been announced on Slack, so none is announced a second time) |
-| `wpcpm_institution_modules_` | `WPCPM_Institutions_Dashboard::OPT_MODULES_PREFIX` (each institution's module order) |
+| `wpcpm_institution_modules_` | None since 1.123.96 (each institution's module order, saved with the arrows before 1.123.96; since then nothing writes or reads it, the constant that named it is gone, and uninstall deletes it by this name; the Student Report Card keeps its own order in user meta, `wpcpm_student_modules`) |
 | `wpcpm_institution_page_id` | `WPCPM_Institutions_Dashboard::OPT_PAGE` |
 | `wpcpm_institution_page_title_fixed` | `WPCPM_Institutions_Dashboard::OPT_TITLE_FIXED` |
 | `wpcpm_institutions_index` | `WPCPM_Institutions_Index::OPT_NAME` |

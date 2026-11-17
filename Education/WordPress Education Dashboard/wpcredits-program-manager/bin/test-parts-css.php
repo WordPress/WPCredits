@@ -1001,7 +1001,8 @@ ck( 'ruling 7: an item after an item: the soft hairline, 24px above and 24px bel
 	array_values( array_filter( array_map( static function ( $r ) { return $r[0]; }, $parts ), static function ( $sel ) { return 1 === preg_match( '/\.wpcpm-ui-item(?![\w-])/', $sel ); } ) ),
 ), array(
 	array( 'border-top: 1px solid var( --wpcpm-f-line-soft )', 'margin-top: var( --wpcpm-f-apart )', 'padding-top: var( --wpcpm-f-apart )' ),
-	array( '.wpcpm-ui-item + .wpcpm-ui-fold--inner', '.wpcpm-ui-item + .wpcpm-ui-item' ),
+	// Gate B, B2: an item's first block starts at the item's own top, after a hidden field it carries first.
+	array( '.wpcpm-ui-item + .wpcpm-ui-fold--inner', '.wpcpm-ui-item + .wpcpm-ui-item', '.wpcpm-ui-item > :first-child', '.wpcpm-ui-item > input[type="hidden"] + :not( input )' ),
 ) );
 
 // Task 17b fix round, ruling 5, as Task 18a (point 1) made it: the agreement review's checklist is a plain list, not a

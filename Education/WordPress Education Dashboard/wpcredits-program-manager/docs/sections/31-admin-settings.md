@@ -271,7 +271,7 @@ How schools join and who follows them up, at `WPCredits Program > Settings`, tab
 Headed **Applications and enrollment** on the screen.
 
 - **Applications from institutions**: **Take applications through the form on this site** opens the public form at /institution-application/. Default: off.
-- **Enrollment lists from institutions**: **Let an institution send a list of students to enroll** adds an **Enroll students** section to the Institution Dashboard. A school chooses the program and the term, then adds one student or sends a CSV. Default: off.
+- **Enrollment lists from institutions**: **Let an institution send a list of students to enroll** adds an **Enroll students** view to the Institution Dashboard's menu. A school chooses the program and the term, then adds one student or sends a CSV. Default: off.
 - **Create accounts automatically**: **Let the sync create the first account for a Confirmed institution**, from the Contact Email in Airtable. Default: off.
 
 Rules:
@@ -315,7 +315,7 @@ A person who logs in from a link that names a page, such as an invitation, goes 
 
 What the sync does when an institution's stage is no longer ticked under **Institution pipeline stages** on the **Advanced** tab.
 
-- **Its people**: Choices: **Remove its people, so they lose access to its students**, **Leave its people in place, able to open only its agreement**. Default: **Remove its people, so they lose access to its students**. The accounts are never deleted.
+- **Its people**: Choices: **Remove its people, so they lose access to its students**, **Leave its people in place, its representatives seeing only the Overview and the Agreement**. Default: **Remove its people, so they lose access to its students**. The accounts are never deleted.
 
 Either way, the agreement stops counting as recorded. People left in place can open the agreement, but nothing else of the institution, until it counts again. A school with no stage at all has not left: the sync leaves it and its people alone. A school that left and whose stage is then emptied reopens at the next sync for whoever is still attached.
 

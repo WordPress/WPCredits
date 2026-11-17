@@ -283,7 +283,9 @@ function wp_get_current_user() { return new WP_User( (int) $GLOBALS['uid'], 'Mem
 function get_user_by( $by, $value ) {
 	if ( 'id' === $by ) {
 		$id = (int) $value;
-		return $id > 0 ? new WP_User( $id, 'Person ' . $id, 'person' . $id . '@example.test' ) : false;
+		// A name a check sets for one account (Task 18's hostile words), else the name every other check reads.
+		$name = isset( $GLOBALS['user_names'][ $id ] ) ? (string) $GLOBALS['user_names'][ $id ] : 'Person ' . $id;
+		return $id > 0 ? new WP_User( $id, $name, 'person' . $id . '@example.test' ) : false;
 	}
 	return false;
 }
@@ -384,7 +386,18 @@ function get_post_field( $field, $post = null, $context = 'display' ) {
 	$p = get_post( $post );
 	return $p && property_exists( $p, $field ) ? $p->$field : '';
 }
-function get_the_title( $post = null ) { $p = get_post( $post ); return $p ? $p->post_title : ''; }
+// As WordPress's: a private post's title is put through `private_title_format` ("Private: %s"), then `the_title`.
+function get_the_title( $post = null ) {
+	$p = get_post( $post );
+	if ( ! $p ) {
+		return '';
+	}
+	$t = (string) $p->post_title;
+	if ( 'private' === $p->post_status ) {
+		$t = sprintf( apply_filters( 'private_title_format', 'Private: %s', $p ), $t );
+	}
+	return apply_filters( 'the_title', $t, $p->ID );
+}
 function mysql2date( $format, $date, $translate = true ) { return gmdate( (string) $format, (int) strtotime( (string) $date . ' UTC' ) ); }
 function get_gmt_from_date( $date, $format = 'Y-m-d H:i:s' ) { return gmdate( $format, (int) strtotime( (string) $date . ' UTC' ) ); }
 function date_i18n( $format, $stamp = false, $gmt = false ) { return gmdate( (string) $format, false === $stamp ? time() : (int) $stamp ); }
@@ -477,6 +490,12 @@ function wp_restore_post_revision( $id ) {
 
 function wp_nonce_field( $action = -1, $name = '_wpnonce', $referer = true, $display = true ) {
 	$html = '<input type="hidden" name="' . esc_attr( $name ) . '" value="nonce-' . esc_attr( $action ) . '" />';
+	// Core's own shape (an id equal to the name, then the referer field), where a check asks for it: the Semester
+	// reports view's checks (Institution Dashboard, Task 18) compare what a form posts, the referer included, and that
+	// the parts' nonce repeats no id. Off, the field is what every earlier check of this suite pinned.
+	if ( ! empty( $GLOBALS['core_nonce'] ) ) {
+		$html = '<input type="hidden" id="' . esc_attr( $name ) . '" name="' . esc_attr( $name ) . '" value="nonce-' . esc_attr( $action ) . '" />' . ( $referer ? wp_referer_field( false ) : '' );
+	}
 	if ( $display ) { echo $html; }
 	return $html;
 }
@@ -828,8 +847,16 @@ class WPCPM_Institution_Roster {
 	}
 }
 
+require_once __DIR__ . '/stubs/institution-card-url.php';
 class WPCPM_Institutions_Dashboard {
 	public static function page_url() { return 'https://example.test/institution-dashboard/'; }
+	// The page's addresses, as the real class builds them (bin/stubs/institution-card-url.php, checked against it
+	// in bin/test-institution-ways-back.php).
+	public static function view_url( $view = 'overview', $record = '', array $args = array() ) { return wpcpm_test_institution_view_url( self::page_url(), $view, $record, $args ); }
+	public static function view_of( $card ) { return wpcpm_test_institution_view_of( $card ); }
+	public static function card_url( $card, $record = '', $item = '', array $args = array() ) { return wpcpm_test_institution_card_url( self::page_url(), $card, $record, $item, $args ); }
+	public static function requested_record() { return wpcpm_test_institution_requested_record(); }
+	public static function way_back( $card ) { return wpcpm_test_institution_way_back( self::page_url(), $card ); }
 }
 
 class WPCPM_Administrators_Dashboard {
@@ -922,6 +949,7 @@ class WPCPM_Contribution_Teams {
 class WPCPM_Institution_Policy {
 	const GROUND_MANAGER = 'manager';
 	const GROUND_MEMBER  = 'member';
+	const GROUND_TUTOR   = 'tutor';
 
 	const ACT_VIEW_ROSTER          = 'view_roster';
 	const ACT_VIEW_SEMESTER_REPORT = 'view_semester_report';
@@ -965,6 +993,12 @@ class WPCPM_Institution_Policy {
 			);
 		}
 
+		// A school whose agreement is not settled (Task 18's per-reader checks): the real policy refuses its people
+		// every action but the ungated ones, and this card asks none of those.
+		if ( ! empty( $GLOBALS['policy_locked'] ) ) {
+			return array( 'allowed' => false, 'ground' => '', 'institution' => '', 'fields' => array(), 'why' => 'locked' );
+		}
+
 		// The real map's row for this action holds only GROUND_MANAGER: the approval design
 		// of 4 September 2026, decision 1, gives the write to the program and not to a member.
 		if ( self::ACT_EDIT_SEMESTER_REPORT === $action ) {
@@ -974,7 +1008,8 @@ class WPCPM_Institution_Policy {
 		if ( '' !== (string) $GLOBALS['acting'] && in_array( (string) $GLOBALS['acting'], $ids, true ) ) {
 			return array(
 				'allowed'     => true,
-				'ground'      => self::GROUND_MEMBER,
+				// A tutor's ground where a check names it (Task 18), else a representative's.
+				'ground'      => ! empty( $GLOBALS['policy_ground'] ) ? (string) $GLOBALS['policy_ground'] : self::GROUND_MEMBER,
 				'institution' => (string) $GLOBALS['acting'],
 				'fields'      => null,
 				'why'         => '',
@@ -1001,6 +1036,7 @@ class WPCPM_Institution_Policy {
 
 // Declares add_filter() and apply_filters(), which run what is hooked: the program map is made of filters.
 require_once __DIR__ . '/stubs/compiled-seeds.php';
+require_once __DIR__ . '/stubs/view-faults.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
@@ -1019,6 +1055,18 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-report-for
 // names them.
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
+// The shared parts, which the card draws on wherever it is drawn since Task 23 (the Institution Dashboard is its one
+// caller, always on the parts): loaded here, before the first drawing, with the referer field the parts' nonce prints.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
+function wp_referer_field( $display = true ) {
+	$field = '<input type="hidden" name="_wp_http_referer" value="/administrator-dashboard/" />';
+	if ( $display ) {
+		echo $field; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A constant.
+	}
+	return $field;
+}
 
 // The program map and the report forms are the compiled tracks' (bin/stubs/compiled-seeds.php).
 WPCPM_Tracks::init();
@@ -1896,7 +1944,8 @@ function form_fields( $html ) {
 
 	if ( preg_match_all( '/<textarea\b[^>]*name=["\']([^"\']+)["\'][^>]*>(.*?)<\/textarea>/is', $html, $areas, PREG_SET_ORDER ) ) {
 		foreach ( $areas as $area ) {
-			$value = html_entity_decode( $area[2], ENT_QUOTES );
+			// A browser drops the one newline that may follow the opening tag, as the parts' text area prints it.
+			$value = html_entity_decode( (string) preg_replace( '/^\r?\n/', '', $area[2] ), ENT_QUOTES );
 			set_posted( $fields, $area[1], $value );
 			$textareas[ $area[1] ] = $value;
 		}
@@ -3155,7 +3204,7 @@ foreach ( array( 'ACTION_GENERATE', 'ACTION_SAVE', 'ACTION_APPROVE', 'ACTION_REO
 ck( 'no textarea either', has( $member_card, '<textarea' ), false );
 
 $member_reading = screen_html( $B, '2026-H1' );
-ck( 'the approved report opens read-only', has( $member_reading, 'Back to the other semesters' ) && has( $member_reading, 'Participation' ), true );
+ck( 'the approved report opens read-only', has( $member_reading, 'Participation' ) && ! has( $member_reading, '<form' ), true );
 ck( 'with the PDF button and no editor', has( $member_reading, '>Download PDF<' ) && ! has( $member_reading, '<textarea' ), true );
 $member_asks_draft = screen_html( $B, '2025-H2' );
 ck( 'asking for the draft by address lands on the list', has( $member_asks_draft, 'is being prepared' ) && ! has( $member_asks_draft, 'Participation' ), true );
@@ -3174,7 +3223,7 @@ $draft_editor = screen_html( $B, '2025-H2' );
 ck( 'a draft offers Approve and not Reopen', has( $draft_editor, 'value="' . WPCPM_Semester_Report_Screen::ACTION_APPROVE . '"' ) && ! has( $draft_editor, 'value="' . WPCPM_Semester_Report_Screen::ACTION_REOPEN . '"' ), true );
 ck( 'and the editing form', has( $draft_editor, '<textarea' ), true );
 ck( 'and says who drafted it', has( $draft_editor, 'Drafted by an Administrator' ), true );
-ck( 'the state word of a draft is Draft', has( $draft_editor, '<span class="wpcpm-report-card__state">Draft</span>' ), true );
+ck( 'the state word of a draft is Draft', has( $draft_editor, '<span class="wpcpm-status">Draft</span>' ), true );
 $approved_editor = screen_html( $B, '2026-H1' );
 ck( 'an approved report offers Reopen and not Approve', has( $approved_editor, 'value="' . WPCPM_Semester_Report_Screen::ACTION_REOPEN . '"' ) && ! has( $approved_editor, 'value="' . WPCPM_Semester_Report_Screen::ACTION_APPROVE . '"' ), true );
 ck( 'and no editing form', has( $approved_editor, '<textarea' ), false );
@@ -3202,15 +3251,6 @@ ck( 'given the dashboard return, Draft now carries both of WPCPM_Return\'s hidde
 // drawn without the dashboard return, today's form, byte for byte.
 if ( ! class_exists( 'WPCPM_UI', false ) ) {
 	require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
-}
-if ( ! function_exists( 'wp_referer_field' ) ) {
-	function wp_referer_field( $display = true ) {
-		$field = '<input type="hidden" name="_wp_http_referer" value="/administrator-dashboard/" />';
-		if ( $display ) {
-			echo $field; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A constant.
-		}
-		return $field;
-	}
 }
 $df_draw = static function ( $return ) use ( $B ) {
 	ob_start();
@@ -3284,6 +3324,16 @@ ck( 'a member printing a draft reads exactly as a ghost', $draft_print === $ghos
 $_GET = array( 'report' => $m_approved );
 $approved_print = run_handler( WPCPM_Semester_Report_Screen::ACTION_PRINT );
 ck( 'and prints the approved one', has( $approved_print, '<!DOCTYPE html>' ) || has( $approved_print, '<html' ), true );
+// Task 28, closing item: a report is stored private, and WordPress puts "Private: " before such a post's title; the
+// report a school reads, prints and downloads carries its own title alone, on the page and in the printed <title>.
+$t28_report = get_post( $m_approved );
+ck( 'the stand-in titles a private report as WordPress does, "Private: " first', array( $t28_report->post_status, 0 === strpos( get_the_title( $t28_report ), 'Private: ' ) ), array( 'private', true ) );
+ck( 'the printed report\'s <title> and its heading, and the document on the page, are the report\'s own title', array(
+	has( $approved_print, '<title>' . esc_html( $t28_report->post_title ) . '</title>' ),
+	has( $approved_print, 'Private:' ),
+	has( WPCPM_Semester_Report_Screen::render_document( $t28_report, false, 'h2' ), '<h2 class="wpcpm-report-doc__title">' . esc_html( $t28_report->post_title ) . '</h2>' ),
+	has( WPCPM_Semester_Report_Screen::render_document( $t28_report, false ), 'Private:' ),
+), array( true, false, true, false ) );
 $GLOBALS['manage'] = true;
 $GLOBALS['acting'] = '';
 $_GET = array( 'report' => $m_draft );
@@ -3416,10 +3466,10 @@ $draft_post = WPCPM_Semester_Report::generate( $B, '2025-H2' );
 
 $GLOBALS['manage'] = false;
 $GLOBALS['acting'] = $B;
+// The card is the Semester reports view's block on the parts and folds no more (Task 23): what the address asks for is
+// what the view shows, the list for a draft a member may not read.
 $asked_card        = screen_html( $B, '2025-H2' );
-ck( 'a member asking for a draft by address gets an open card', has( $asked_card, 'wpcpm-report-card__disclosure" open' ), true );
-$unasked_card = screen_html( $B, '' );
-ck( 'and the card stays folded when the address asks for nothing', has( $unasked_card, 'wpcpm-report-card__disclosure" open' ), false );
+ck( 'a member asking for a draft by address is shown the list, the draft a sentence on it', array( has( $asked_card, 'is being prepared' ), has( $asked_card, '<textarea' ) ), array( true, false ) );
 
 $GLOBALS['index'] = $saved_index;
 
@@ -3594,10 +3644,11 @@ function views( $url, $record ) {
  * @return string
  */
 function report_address( $cohort = '', $record = '' ) {
-	$url = 'https://example.test/institution-dashboard/';
+	// The Semester reports view, which holds the card (Task 9).
+	$url = 'https://example.test/institution-dashboard/?wpcpm_view=reports';
 
 	if ( '' !== $cohort ) {
-		$url .= '?' . WPCPM_Semester_Report_Screen::ARG . '=' . $cohort;
+		$url .= '&' . WPCPM_Semester_Report_Screen::ARG . '=' . $cohort;
 	}
 
 	if ( '' !== $record ) {
@@ -3606,6 +3657,7 @@ function report_address( $cohort = '', $record = '' ) {
 
 	return $url . '#wpcpm-report';
 }
+
 
 /** The status the last press flashed. */
 function said_last() {
@@ -3947,13 +3999,13 @@ $GLOBALS['uid']    = 3;
 $_POST             = array();
 $_GET              = array();
 
-echo "\n=== An administrator's Open and Back links keep the institution they are viewing ===\n";
+echo "\n=== An administrator's Open links keep the institution they are viewing ===\n";
 
-// The presses above come back to the institution an administrator was viewing; so do the two
-// links the card draws for them. `resolve_institution()` reads the switcher on the manager's
-// branch alone, so an Open or a Back to the other semesters without it lands an administrator on
-// the first institution with a member: the report they opened is not the one they get. A member's
-// links are what they always were, byte for byte, since their own membership places them.
+// The presses above come back to the institution an administrator was viewing; so does the Open
+// link the card draws for them. `resolve_institution()` reads the switcher on the manager's
+// branch alone, so an Open without it lands an administrator on the first institution with a
+// member: the report they opened is not the one they get. A member's links are what they always
+// were, since their own membership places them. (The way back is the view's side menu.)
 
 /**
  * The address of every anchor in some markup whose text is `$text`, as a browser reads it.
@@ -3967,7 +4019,9 @@ function hrefs_of( $html, $text ) {
 
 	if ( preg_match_all( '/<a\b[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/is', (string) $html, $anchors, PREG_SET_ORDER ) ) {
 		foreach ( $anchors as $anchor ) {
-			if ( $text === trim( strip_tags( $anchor[2] ) ) ) {
+			// The link's words as they read on the screen: what only a screen reader hears (the parts' button names its
+			// semester for one) set aside.
+			if ( $text === trim( strip_tags( (string) preg_replace( '#<span class="screen-reader-text">.*?</span>#s', '', $anchor[2] ) ) ) ) {
 				$found[] = html_entity_decode( $anchor[1], ENT_QUOTES );
 			}
 		}
@@ -4046,17 +4100,11 @@ foreach ( array( $PREV, $COHORT ) as $n => $cohort ) {
 	ck( 'Open ' . $cohort . ': is that address and nothing else', $open, report_address( $cohort, $B ) );
 }
 
-// The editor, of the approved report and of the draft.
-foreach ( array( 'an approved report' => $COHORT, 'a draft' => $PREV ) as $what => $cohort ) {
-	$backs = hrefs_of( screen_html( $B, $cohort ), 'Back to the other semesters' );
-	$back  = isset( $backs[0] ) ? $backs[0] : '';
-
-	ck( 'the editor of ' . $what . ' draws one Back to the other semesters', count( $backs ), 1 );
-	ck( 'the editor of ' . $what . ': Back names the institution being viewed', views( $back, $B ), true );
-	ck( 'the editor of ' . $what . ': Back names no semester, so it is the list', has( $back, 'wpcpm_report=' ), false );
-	ck( 'the editor of ' . $what . ': Back ends at the report card', ends_at_the_card( $back ), true );
-	ck( 'the editor of ' . $what . ': Back is that address and nothing else', $back, report_address( '', $B ) );
-}
+// The editor, of the approved report and of the draft: the side menu's Semester reports item leads back to the list,
+// so neither draws a way back of its own (Task 9; the card's old branch, which did, was deleted in Task 23).
+WPCPM_UI::enter( 'institution' );
+ck( 'the editor of an approved report and of a draft draws no Back to the other semesters', array( hrefs_of( screen_html( $B, $COHORT ), 'Back to the other semesters' ), hrefs_of( screen_html( $B, $PREV ), 'Back to the other semesters' ) ), array( array(), array() ) );
+WPCPM_UI::leave();
 
 // A member of B: their own membership places them, so their links carry no switcher, and are the
 // addresses they were before.
@@ -4065,12 +4113,17 @@ $GLOBALS['acting'] = $B;
 $GLOBALS['uid']    = 21;
 
 $views = hrefs_of( screen_html( $B, '' ), 'View' );
-$back  = hrefs_of( screen_html( $B, $COHORT ), 'Back to the other semesters' );
 
 ck( 'a member\'s list draws one View link, for the approved semester', $views, array( report_address( $COHORT ) ) );
 ck( 'the View link names no switcher', isset( $views[0] ) && has( $views[0], WPCPM_Institution_Roster::ARG_VIEW ), false );
-ck( 'a member\'s reading view draws one Back to the other semesters, the address it always was', $back, array( report_address() ) );
-ck( 'the reading view\'s Back names no switcher', isset( $back[0] ) && has( $back[0], WPCPM_Institution_Roster::ARG_VIEW ), false );
+
+// Task 9: on the Institution Dashboard, the card's one caller, the side menu leads back to the list (the Semester
+// reports item), and an address with only the card's anchor would open the Overview, so the reading view draws no
+// Back link (the old branch that drew one elsewhere was reached by no other surface, and was deleted in Task 23).
+WPCPM_UI::enter( 'institution' );
+$dashboard_reading = screen_html( $B, $COHORT );
+WPCPM_UI::leave();
+ck( 'drawn on the Institution Dashboard, the reading view has no Back to the other semesters, and is still the report', array( hrefs_of( $dashboard_reading, 'Back to the other semesters' ), has( $dashboard_reading, 'Participation' ) ), array( array(), true ) );
 
 // Somebody the policy lets in as a manager who does not hold the capability: the capability
 // decides whether the switcher travels, and the ground does not. (The policy stand-in reads any
@@ -4083,10 +4136,8 @@ ck( 'the reader is not a manager', current_user_can( WPCPM_Roles::CAP_MANAGE ), 
 
 $opens = hrefs_of( screen_html( $B, '' ), 'Open' );
 sort( $opens );
-$back  = hrefs_of( screen_html( $B, $PREV ), 'Back to the other semesters' );
 
 ck( 'without the capability, the Open links name no switcher', $opens, array( report_address( $PREV ), report_address( $COHORT ) ) );
-ck( 'and the Back link is the address it always was', $back, array( report_address() ) );
 
 // The mail the institution's accounts get when a report is approved: it goes to members, who need no
 // switcher, so it names none.
@@ -4115,6 +4166,836 @@ $GLOBALS['acting']     = '';
 $GLOBALS['uid']        = 3;
 $_POST                 = array();
 $_GET                  = array();
+
+echo "\n=== Institution Dashboard, Task 18: the Semester reports view on the parts ===\n";
+
+// The Semester reports view of the Institution Dashboard (design 6.3) draws this card on the shared parts while
+// that page's switch is on, and only there: the card's renderers are shared with surfaces that stay off (a wp-admin
+// tab names itself `wpcpm-institutions/reports`), and the Administrator Dashboard, live on the parts, draws this
+// class's Draft now form. Every other surface prints today's markup byte for byte; the parts' branch says the same
+// facts, offers the same actions and posts the same fields.
+if ( ! class_exists( 'WPCPM_Form_Errors', false ) ) {
+	require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
+}
+if ( ! class_exists( 'WPCPM_Icons', false ) ) {
+	require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
+}
+
+WPCPM_Semester_Report::delete_all();
+$GLOBALS['transients']    = array();
+$GLOBALS['flash']         = array();
+$GLOBALS['mail']          = array();
+$GLOBALS['fail_table']    = '';
+$_POST                    = array();
+$_GET                     = array();
+$t18_saved_index          = $GLOBALS['index'];
+$t18_saved_inst           = $GLOBALS['inst_rows'];
+$t18_saved_feedback       = $GLOBALS['rows']['tblFeedback'];
+$t18_saved_revisions      = isset( $GLOBALS['revisions_of'] ) ? $GLOBALS['revisions_of'] : array();
+$GLOBALS['core_nonce']    = true;
+$GLOBALS['policy_locked'] = false;
+$GLOBALS['policy_ground'] = '';
+
+// A school of eight semesters, the long school name of the plan's fixture, six of them with a report: four
+// approved (the oldest with no approval stamp left, so it says Approved and no day), two drafts.
+$R18 = 'recINSTR000000005';
+$GLOBALS['inst_rows'][ $R18 ] = array( 'record_id' => $R18, 'name' => 'Exampleinstituteforappliedwebengineerings', 'stage' => 'Confirmed' );
+$t18_rows = array();
+$t18_n    = 0;
+foreach ( array( '2022-H2' => '2022-09-10', '2023-H1' => '2023-02-10', '2023-H2' => '2023-09-10', '2024-H1' => '2024-02-10', '2024-H2' => '2024-09-10', '2025-H1' => '2025-02-10', '2025-H2' => '2025-09-10', '2026-H1' => '2026-02-10' ) as $t18_start ) {
+	++$t18_n;
+	$t18_id              = sprintf( 'recSTUR%010d', $t18_n );
+	$t18_rows[ $t18_id ] = array( 'record_id' => $t18_id, 'name' => 'Example Student ' . $t18_n, 'email' => 'r' . $t18_n . '@example.test', 'email_key' => 'r' . $t18_n . '@example.test', 'status' => 'Graduate', 'start' => $t18_start, 'institution' => $R18, 'reports' => array(), 'user_id' => 0 );
+}
+$GLOBALS['index'][ $R18 ] = array( 'read' => 1756900005, 'rows' => $t18_rows );
+
+$GLOBALS['manage'] = true;
+$GLOBALS['acting'] = '';
+$GLOBALS['uid']    = 3;
+$t18_reports       = array();
+foreach ( array( '2023-H2', '2024-H1', '2024-H2', '2025-H1', '2025-H2', '2026-H1' ) as $t18_cohort ) {
+	$t18_reports[ $t18_cohort ] = (int) WPCPM_Semester_Report::generate( $R18, $t18_cohort );
+}
+foreach ( array( '2023-H2', '2024-H2', '2025-H1', '2026-H1' ) as $t18_cohort ) {
+	WPCPM_Semester_Report::approve( get_post( $t18_reports[ $t18_cohort ] ), 3 );
+}
+delete_post_meta( $t18_reports['2023-H2'], WPCPM_Semester_Report::META_APPROVED );
+
+// A semester being edited, on the school with quotes (A): a student whose name is one 40-character word and whose
+// released answer holds a 48-character word, a section of the school's own words with one too, and a translation.
+$t18_long_name = 'Lena Exampleunbrokenstudentnamewithfortychars';
+$t18_long_word = 'Averyveryveryverylongunbrokenwordinastudentsansw';
+$GLOBALS['index'][ $A ]['rows']['recSTUA0000000020'] = row( 'recSTUA0000000020', $t18_long_name, 'In Sensei', '2026-02-16', array( 'user_id' => 20 ) );
+$GLOBALS['rows']['tblFeedback'][] = feedback_row( 'recFDBA0000000020', strtolower( str_replace( ' ', '.', $t18_long_name ) ) . '@example.test', $t18_long_name, array( $A ), 'Yes, with my name', 'Yes, with my name', $t18_long_word . ' is how the first patch felt.' );
+$t18_editing = (int) WPCPM_Semester_Report::generate( $A, $COHORT );
+update_post_meta(
+	$t18_editing,
+	WPCPM_Semester_Report::META_SECTIONS,
+	array(
+		'overview'   => array( 'text' => 'Our own words, with ' . $t18_long_word . ' in them.', 'hidden' => false ),
+		'continuing' => array( 'text' => '', 'hidden' => true ),
+	)
+);
+update_post_meta( $t18_editing, WPCPM_Semester_Report::META_CHOICES, array( report_id_of( strtolower( str_replace( ' ', '.', $t18_long_name ) ) . '@example.test' ) => array( 'include' => true, 'show_name' => true, 'translation' => 'Our translation, with ' . $t18_long_word . ' in it.' ) ) );
+// Three earlier versions: two by Administrators, one by an account since removed.
+$GLOBALS['revisions_of'][ $t18_editing ] = array();
+foreach ( array( 3, 5, 0 ) as $t18_author ) {
+	$GLOBALS['revisions_of'][ $t18_editing ][] = get_post( wp_insert_post( array( 'post_type' => 'revision', 'post_status' => 'inherit', 'post_parent' => $t18_editing, 'post_author' => $t18_author ) ) );
+}
+
+/** Mask what the clock writes, so a digest is the markup's and not the hour's. */
+function t18_mask( $html ) {
+	return (string) preg_replace( '/\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?/', '{date}', (string) $html );
+}
+
+/**
+ * Draw the card as the dashboard draws it, under a surface, with a list of surfaces on.
+ *
+ * @param array       $state  What the reader is: manage, acting, uid, record, cohort, flash, stash, locked, ground,
+ *                            fail.
+ * @param string|null $surface The surface drawing it, null for none.
+ * @param array|null  $live    The surfaces on, null for the constant.
+ * @return array{html: string, decisions: array}
+ */
+function t18_draw( array $state, $surface, $live ) {
+	$GLOBALS['manage']        = $state['manage'];
+	$GLOBALS['acting']        = $state['acting'];
+	$GLOBALS['uid']           = $state['uid'];
+	$GLOBALS['flash']         = isset( $state['flash'] ) ? array( WPCPM_Semester_Report_Screen::FLASH => $state['flash'] ) : array();
+	$GLOBALS['policy_locked'] = ! empty( $state['locked'] );
+	$GLOBALS['policy_ground'] = isset( $state['ground'] ) ? $state['ground'] : '';
+	$GLOBALS['fail_table']    = isset( $state['fail'] ) ? $state['fail'] : '';
+	$GLOBALS['transients']    = array();
+	$GLOBALS['decisions']     = array();
+	unset( $GLOBALS['umeta'][ (int) $state['uid'] ][ WPCPM_Semester_Report_Screen::META_STASH ] );
+	if ( isset( $state['stash'] ) ) {
+		update_user_meta( (int) $state['uid'], WPCPM_Semester_Report_Screen::META_STASH, $state['stash'] );
+	}
+
+	WPCPM_UI::set_live( $live );
+	if ( null !== $surface ) {
+		WPCPM_UI::enter( $surface );
+	}
+	$html = screen_html( $state['record'], $state['cohort'] );
+	if ( null !== $surface ) {
+		WPCPM_UI::leave();
+	}
+	WPCPM_UI::set_live( null );
+
+	$out = array( 'html' => $html, 'decisions' => $GLOBALS['decisions'] );
+
+	$GLOBALS['flash']         = array();
+	$GLOBALS['policy_locked'] = false;
+	$GLOBALS['policy_ground'] = '';
+	$GLOBALS['fail_table']    = '';
+	$GLOBALS['manage']        = true;
+	$GLOBALS['acting']        = '';
+	$GLOBALS['uid']           = 3;
+
+	return $out;
+}
+
+$t18_admin  = array( 'manage' => true, 'acting' => '', 'uid' => 3 );
+$t18_rep    = array( 'manage' => false, 'acting' => $R18, 'uid' => 21 );
+$t18_tutor  = array( 'manage' => false, 'acting' => $R18, 'uid' => 23, 'ground' => 'tutor' );
+$t18_stash  = array(
+	'report'   => $t18_editing,
+	'at'       => 1,
+	'sections' => array( 'ahead' => array( 'text' => 'Words a colleague\'s save refused, with ' . $t18_long_word . ' in them.', 'hidden' => false ) ),
+	'choices'  => array(),
+);
+$t18_states = array(
+	'Administrator, the index, eight semesters'          => $t18_admin + array( 'record' => $R18, 'cohort' => '' ),
+	'Administrator, a semester with no report asked for' => $t18_admin + array( 'record' => $R18, 'cohort' => '2023-H1' ),
+	'Administrator, a school with one semester'           => $t18_admin + array( 'record' => $D, 'cohort' => '' ),
+	'Administrator, a draft in the editor, every fold'   => $t18_admin + array( 'record' => $A, 'cohort' => $COHORT ),
+	'Administrator, a refused save kept'                 => $t18_admin + array( 'record' => $A, 'cohort' => $COHORT, 'stash' => $t18_stash, 'flash' => array( 'status' => 'stale' ) ),
+	'Administrator, the answers could not be read'       => $t18_admin + array( 'record' => $A, 'cohort' => $COHORT, 'fail' => 'tblFeedback' ),
+	'Administrator, an approved report'                  => $t18_admin + array( 'record' => $R18, 'cohort' => '2026-H1' ),
+	'Representative, the index, six semesters'           => $t18_rep + array( 'record' => $R18, 'cohort' => '' ),
+	'Representative, reading an approved report'         => $t18_rep + array( 'record' => $R18, 'cohort' => '2026-H1' ),
+	'Representative, a draft asked for by address'       => $t18_rep + array( 'record' => $R18, 'cohort' => '2025-H2' ),
+	'Representative, nothing published yet'              => array( 'manage' => false, 'acting' => $B, 'uid' => 21, 'record' => $B, 'cohort' => '' ),
+	'Tutor, the index'                                   => $t18_tutor + array( 'record' => $R18, 'cohort' => '' ),
+	'Tutor, reading an approved report'                  => $t18_tutor + array( 'record' => $R18, 'cohort' => '2025-H1' ),
+	'Locked school, the representative'                  => $t18_rep + array( 'record' => $R18, 'cohort' => '', 'locked' => true ),
+	'Locked school, a report asked for by address'       => $t18_rep + array( 'record' => $R18, 'cohort' => '2026-H1', 'locked' => true ),
+);
+// Each outcome the card's messages map holds, on the index, as an Administrator meets it.
+foreach ( array_keys( WPCPM_Semester_Report_Screen::messages() ) as $t18_key ) {
+	$t18_states[ 'message ' . $t18_key ] = $t18_admin + array( 'record' => $R18, 'cohort' => '', 'flash' => array( 'status' => $t18_key ) );
+}
+
+// The card on the Institution Dashboard, its one caller (`WPCPM_Institutions_Dashboard::card()`, always under the
+// surface `institution`, live): every state. Its old branch was deleted in Task 23; what that branch posted, offered,
+// asked and said in every state was read from the class at 982486be, the last commit that held it, before it went:
+// `bin/fixtures/semester-report-old-branch-982486be.json`, per state, md5 of `t18_forms()` and of `t18_offers()` of
+// the old drawing less its way back, both masked with `t18_mask()`, md5 of the policy calls, its words (`t18_words()`)
+// and its run-together text (`t18_flat()`), masked, and its referer and form counts. To reproduce: this suite, run
+// against `git archive 982486be`, each value computed as named from `t18_draw( $state, null, null )` with the
+// paragraph `wpcpm-report-card__back` taken out.
+$t18_on   = array( 'administrator', 'institution' );
+$t18_new  = array();
+foreach ( $t18_states as $t18_name => $t18_state ) {
+	$t18_new[ $t18_name ] = t18_draw( $t18_state, 'institution', $t18_on );
+}
+$t18_pins = json_decode( (string) file_get_contents( __DIR__ . '/fixtures/semester-report-old-branch-982486be.json' ), true );
+ck( 'Task 23: the old branch\'s pins cover every state this section draws, and nothing else', array_keys( (array) $t18_pins ), array_keys( $t18_states ) );
+// The whole view on the real card (Task 23, fix round 1): every state of every reader, each fold open, under the
+// Semester reports view's own head (`bin/stubs/view-faults.php`).
+$t18_views = array_map( static function ( $drawn ) { return str_replace( '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner">', '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open>', (string) $drawn['html'] ); }, $t18_new );
+ck( 'the whole Semester reports view on the real card, every state: one H1, the headings in order, no id twice, the lede once, no title again', array( wpcpm_view_faults_of( 'Semester reports', $t18_views ), count( array_filter( array_map( 'trim', $t18_views ) ) ) >= 5 ), array( array(), true ) );
+
+/* ---- the old branch's other callers, and the print document ---- */
+
+// The wp-admin Semester reports tab draws three of this class's renderers (the ask form on each report's row, Draft
+// now on each due row, the Draft now picker); the Administrator Dashboard draws Draft now with its return. Each is
+// today's under every surface that stays off, the tab's own name among them, with the Institution Dashboard on.
+$GLOBALS['inst_rows'][ $A ] = array( 'record_id' => $A, 'name' => 'Uniwersytet Łexample', 'stage' => 'Confirmed' );
+$t18_tab_draw = static function () use ( $t18_editing, $R18 ) {
+	ob_start();
+	WPCPM_Semester_Report_Screen::render_ask_form( $t18_editing );
+	WPCPM_Semester_Report_Screen::render_draft_form( $R18, '2023-H1' );
+	WPCPM_Semester_Report_Screen::render_draft_picker();
+	return t18_mask( (string) ob_get_clean() );
+};
+$t18_tab_base = $t18_tab_draw();
+$t18_tab_each = array();
+foreach ( array( 'institution', 'wpcpm-institutions/reports', '', 'report-cards', 'sponsor', 'wpcpm-institutions/accounts', 'administrator' ) as $t18_surface ) {
+	WPCPM_UI::set_live( $t18_on );
+	if ( '' !== $t18_surface ) {
+		WPCPM_UI::enter( $t18_surface );
+	}
+	$t18_tab_each[ $t18_surface ] = $t18_tab_draw() === $t18_tab_base;
+	if ( '' !== $t18_surface ) {
+		WPCPM_UI::leave();
+	}
+	WPCPM_UI::set_live( null );
+}
+ck( 'Task 18: the wp-admin tab\'s three renderers print today\'s markup under every surface, the Institution Dashboard on (digest)', array( md5( $t18_tab_base ), array_keys( array_filter( $t18_tab_each, static function ( $same ) { return ! $same; } ) ) ), array( '72d16bb0a7784ee38ea95c9cf9b2d685', array() ) );
+
+// The print document is untouched: the standalone document the PDF and the browser's print draw, and the copy the
+// screen draws under the editor.
+$t18_doc = array( t18_mask( WPCPM_Semester_Report_Screen::render_document( get_post( $t18_editing ), true ) ), t18_mask( WPCPM_Semester_Report_Screen::render_document( get_post( $t18_reports['2026-H1'] ), true ) ) );
+ck( 'Task 18: render_document( $post, true ) is today\'s, byte for byte (digests)', array( md5( $t18_doc[0] ), md5( $t18_doc[1] ) ), array( 'd3e3c39b25f8e6fa687b52d07c9e59c4', '426ef32c4bbf2e3acfa2bd76febb0c9f' ) );
+// Fix round 1: on the parts the document's title is an h2 (the view's H1 is the page's one name); every other caller,
+// the print route and the PDF among them, names no tag and prints today's h1. The two differ by that tag alone.
+$t18_h2_doc = static function ( $id ) {
+	return (string) preg_replace( '#^<article class="wpcpm-report-doc"><h1 class="wpcpm-report-doc__title">(.*?)</h1>#', '<article class="wpcpm-report-doc"><h2 class="wpcpm-report-doc__title">$1</h2>', WPCPM_Semester_Report_Screen::render_document( get_post( $id ), false ), 1 );
+};
+ck(
+	'Task 18: the parts\' editor and reading view draw the screen\'s document as today\'s card draws it, its title an h2; render_document() with no tag named is today\'s',
+	array(
+		has( $t18_new['Administrator, a draft in the editor, every fold']['html'], '<div class="wpcpm-ui-doc">' . $t18_h2_doc( $t18_editing ) . '</div>' ),
+		has( $t18_new['Representative, reading an approved report']['html'], '<div class="wpcpm-ui-doc">' . $t18_h2_doc( $t18_reports['2026-H1'] ) . '</div>' ),
+		WPCPM_Semester_Report_Screen::render_document( get_post( $t18_editing ), false, 'h2' ) === $t18_h2_doc( $t18_editing ),
+		WPCPM_Semester_Report_Screen::render_document( get_post( $t18_editing ), true, 'h1' ) === WPCPM_Semester_Report_Screen::render_document( get_post( $t18_editing ), true ),
+		WPCPM_Semester_Report_Screen::render_document( get_post( $t18_editing ), true, 'h3' ) === WPCPM_Semester_Report_Screen::render_document( get_post( $t18_editing ), true ),
+	),
+	array( true, true, true, true, true )
+);
+$t18_h1 = array();
+foreach ( array( 'Representative, reading an approved report', 'Tutor, reading an approved report', 'Administrator, a draft in the editor, every fold', 'Administrator, a refused save kept', 'Administrator, an approved report', 'Administrator, the answers could not be read' ) as $t18_name ) {
+	$t18_h1[ $t18_name ] = substr_count( $t18_new[ $t18_name ]['html'], '<h1' );
+}
+ck( 'Task 18: one name per page: on the parts a report read or edited prints no h1 of its own, so the view\'s H1 is the page\'s one', $t18_h1, array_fill_keys( array_keys( $t18_h1 ), 0 ) );
+
+/* ---- what each form posts, old branch against new ---- */
+
+/**
+ * Every form of a drawing, as a browser sends it: the method, the address, the encoding, the lock and its busy words,
+ * the browser question, and each control that posts (a checkbox only when ticked, a text area by its words less the
+ * leading line break a browser drops, a submit's own name and value), sorted.
+ *
+ * @param string $html A drawing.
+ * @return array[]
+ */
+function t18_forms( $html ) {
+	$out = array();
+	preg_match_all( '#<form\b([^>]*)>(.*?)</form>#s', (string) $html, $forms, PREG_SET_ORDER );
+	foreach ( $forms as $form ) {
+		$one = array();
+		foreach ( array( 'method', 'action', 'enctype', 'data-wpcpm-busy', 'data-wpcpm-confirm' ) as $attr ) {
+			$one[ $attr ] = preg_match( '#\s' . $attr . '="([^"]*)"#', $form[1], $m ) ? html_entity_decode( $m[1], ENT_QUOTES ) : null;
+		}
+		$one['once'] = (bool) preg_match( '#\sdata-wpcpm-once(?:[\s>=]|$)#', $form[1] . ' ' );
+		// A question on the submit button counts as the form's (the parts may carry it there).
+		$one['asks'] = preg_match_all( '#data-wpcpm-confirm="([^"]*)"#', $form[0], $asks ) ? array_map( 'html_entity_decode', $asks[1] ) : array();
+		$fields      = array();
+		preg_match_all( '#<input\b[^>]*>#', $form[2], $inputs );
+		foreach ( $inputs[0] as $input ) {
+			if ( ! preg_match( '#\sname="([^"]*)"#', $input, $name ) ) {
+				continue;
+			}
+			$type = preg_match( '#\stype="([^"]*)"#', $input, $t ) ? $t[1] : 'text';
+			if ( in_array( $type, array( 'checkbox', 'radio' ), true ) && ! preg_match( '#\schecked\b#', $input ) ) {
+				continue;
+			}
+			$fields[] = $name[1] . '=' . ( preg_match( '#\svalue="([^"]*)"#', $input, $v ) ? html_entity_decode( $v[1], ENT_QUOTES ) : 'on' );
+		}
+		preg_match_all( '#<textarea\b[^>]*\sname="([^"]*)"[^>]*>(.*?)</textarea>#s', $form[2], $areas, PREG_SET_ORDER );
+		foreach ( $areas as $area ) {
+			$words    = html_entity_decode( $area[2], ENT_QUOTES );
+			$fields[] = $area[1] . '=' . ( 0 === strpos( $words, "\n" ) ? substr( $words, 1 ) : $words );
+		}
+		preg_match_all( '#<button\b[^>]*\sname="([^"]*)"[^>]*\svalue="([^"]*)"#', $form[2], $buttons, PREG_SET_ORDER );
+		foreach ( $buttons as $button ) {
+			$fields[] = 'submit:' . $button[1] . '=' . $button[2];
+		}
+		sort( $fields );
+		$one['fields'] = $fields;
+		$out[]         = $one;
+	}
+	return $out;
+}
+
+$t18_posted = array();
+foreach ( $t18_states as $t18_name => $t18_state ) {
+	if ( md5( serialize( t18_forms( t18_mask( $t18_new[ $t18_name ]['html'] ) ) ) ) !== $t18_pins[ $t18_name ]['forms'] ) {
+		$t18_posted[] = $t18_name;
+	}
+}
+ck( 'Task 18: in every state, every form on the parts posts what the old branch\'s form posted (pinned at 982486be): method, address, lock, busy words, question, every field and its value, the nonce and the referer', $t18_posted, array() );
+$t18_actions = array();
+foreach ( array_merge( t18_forms( $t18_new['Administrator, a draft in the editor, every fold']['html'] ), t18_forms( $t18_new['Administrator, the index, eight semesters']['html'] ), t18_forms( $t18_new['Administrator, an approved report']['html'] ) ) as $t18_form ) {
+	foreach ( $t18_form['fields'] as $t18_field ) {
+		if ( 0 === strpos( $t18_field, 'action=' ) ) {
+			$t18_actions[ substr( $t18_field, 7 ) ] = true;
+		}
+	}
+}
+ksort( $t18_actions );
+// Draft now (wpcpm_report_draft) is the Administrator Dashboard's and the tab's, asserted above and in its own section;
+// the ask form is the tab's alone. The six the view draws are here.
+ck( 'Task 18: the checks cover the six forms the view draws: generate, save, refresh consent, approve, reopen, restore', array_keys( $t18_actions ), array( 'wpcpm_report_approve', 'wpcpm_report_generate', 'wpcpm_report_refresh_consent', 'wpcpm_report_reopen', 'wpcpm_report_restore', 'wpcpm_semester_report_save' ) );
+ck( 'Task 18: no form asks a question today, and none does on the parts: Approve and Reopen act at once', array_values( array_unique( array_merge( array_column( t18_forms( $t18_new['Administrator, a draft in the editor, every fold']['html'] ), 'data-wpcpm-confirm' ), array_merge( ...array_column( t18_forms( $t18_new['Administrator, an approved report']['html'] ), 'asks' ) ) ) ) ), array( null ) );
+$t18_ed_new = $t18_new['Administrator, a draft in the editor, every fold']['html'];
+ck(
+	'Task 18: the referer is drawn in each form, as the old branch drew it in each (pinned), and the parts\' nonce carries no id',
+	array(
+		substr_count( $t18_ed_new, 'name="_wp_http_referer"' ) === $t18_pins['Administrator, a draft in the editor, every fold']['referers'][0],
+		substr_count( $t18_ed_new, 'name="_wp_http_referer"' ) === substr_count( $t18_ed_new, '<form' ),
+		substr_count( $t18_ed_new, '<form' ) > 4,
+		substr_count( $t18_ed_new, 'id="_wpnonce"' ),
+	),
+	array( true, true, true, 0 )
+);
+
+/* ---- who sees what: the same facts, the same actions, the same policy calls ---- */
+
+/** The words a drawing says, tag by tag, with what only a screen reader hears and the document left out. */
+function t18_words( $html ) {
+	$words = array();
+	foreach ( preg_split( '#<[^>]*>#', t18_card( $html ) ) as $chunk ) {
+		$chunk = trim( (string) preg_replace( '/\s+/', ' ', html_entity_decode( $chunk, ENT_QUOTES ) ) );
+		if ( '' !== $chunk ) {
+			$words[] = $chunk;
+		}
+	}
+	return $words;
+}
+
+/** The card's markup less the document, the text areas' words and what only a screen reader hears. */
+function t18_card( $html ) {
+	$html = (string) preg_replace( '#<article class="wpcpm-report-doc.*$#s', '', (string) $html );
+	$html = (string) preg_replace( '#<span class="screen-reader-text">.*?</span>#s', '', str_replace( '<wbr>', '', $html ) );
+	return (string) preg_replace( '#<textarea\b[^>]*>.*?</textarea>#s', '', $html );
+}
+
+/** A drawing's words run together with no space and no tag, so a sentence split by a part's span still reads whole. */
+function t18_flat( $html ) {
+	return (string) preg_replace( '/\s+/', '', html_entity_decode( strip_tags( t18_card( $html ) ), ENT_QUOTES ) );
+}
+
+/** Every way a drawing offers onward: each link's words and address, each form's action. */
+function t18_offers( $html ) {
+	$html   = (string) preg_replace( '#<span class="screen-reader-text">.*?</span>#s', '', (string) $html );
+	$offers = array();
+	preg_match_all( '#<a\b[^>]*\shref="([^"]*)"[^>]*>(.*?)</a>#s', $html, $links, PREG_SET_ORDER );
+	foreach ( $links as $link ) {
+		$offers[] = 'link ' . trim( html_entity_decode( strip_tags( $link[2] ), ENT_QUOTES ) ) . ' ' . html_entity_decode( $link[1], ENT_QUOTES );
+	}
+	foreach ( t18_forms( $html ) as $form ) {
+		$offers[] = 'form ' . implode( ' ', array_filter( $form['fields'], static function ( $f ) { return 0 === strpos( $f, 'action=' ) || 0 === strpos( $f, 'report=' ) || 0 === strpos( $f, 'revision=' ) || 0 === strpos( $f, 'cohort=' ); } ) );
+	}
+	sort( $offers );
+	return $offers;
+}
+
+// The words today's card says that the parts no longer print, each by design: the card's own head (M22: the view's H1
+// "Semester reports" names the page). The words the parts add, each by design: the Decide row's heading.
+$t18_dropped = array( 'Semester report' );
+$t18_added   = array( 'Decide' );
+$t18_lost    = array();
+$t18_gained  = array();
+$t18_offered = array();
+$t18_asked   = array();
+foreach ( $t18_states as $t18_name => $t18_state ) {
+	$t18_was     = $t18_pins[ $t18_name ]['words'];
+	$t18_is      = t18_words( t18_mask( $t18_new[ $t18_name ]['html'] ) );
+	$t18_was_all = $t18_pins[ $t18_name ]['flat'];
+	$t18_is_all  = t18_flat( t18_mask( $t18_new[ $t18_name ]['html'] ) );
+	foreach ( $t18_was as $t18_w ) {
+		if ( ! in_array( $t18_w, $t18_dropped, true ) && ! has( $t18_is_all, preg_replace( '/\s+/', '', $t18_w ) ) ) {
+			$t18_lost[] = $t18_name . ': ' . $t18_w;
+		}
+	}
+	foreach ( $t18_is as $t18_w ) {
+		if ( ! in_array( $t18_w, $t18_added, true ) && ! has( $t18_was_all, preg_replace( '/\s+/', '', $t18_w ) ) ) {
+			$t18_gained[] = $t18_name . ': ' . $t18_w;
+		}
+	}
+	if ( md5( serialize( t18_offers( t18_mask( $t18_new[ $t18_name ]['html'] ) ) ) ) !== $t18_pins[ $t18_name ]['offers'] ) {
+		$t18_offered[] = $t18_name;
+	}
+	if ( md5( serialize( $t18_new[ $t18_name ]['decisions'] ) ) !== $t18_pins[ $t18_name ]['decisions'] ) {
+		$t18_asked[] = $t18_name;
+	}
+}
+ck( 'Task 18: per reader (an Administrator, a representative, a tutor, a locked school), the parts say every fact the old branch said (pinned)', $t18_lost, array() );
+ck( 'Task 18: and no fact it did not', $t18_gained, array() );
+ck( 'Task 18: and offer the links and the forms it offered (pinned)', $t18_offered, array() );
+ck( 'Task 18: after the policy calls it made, with the same arguments, in the same order (pinned)', $t18_asked, array() );
+ck(
+	'Task 18: only an Administrator is drawn a form: a representative and a tutor read, a locked school is drawn nothing on either branch',
+	array(
+		has( $t18_new['Representative, the index, six semesters']['html'], '<form' ),
+		has( $t18_new['Tutor, reading an approved report']['html'], '<form' ),
+		has( $t18_new['Representative, a draft asked for by address']['html'], '<textarea' ),
+		$t18_new['Locked school, the representative']['html'],
+		$t18_new['Locked school, a report asked for by address']['html'],
+		has( $t18_new['Administrator, the index, eight semesters']['html'], '<form' ),
+	),
+	array( false, false, false, '', '', true )
+);
+
+/* ---- the parts' branch ---- */
+
+$t18_ix = $t18_new['Administrator, the index, eight semesters']['html'];
+$t18_mx = $t18_new['Representative, the index, six semesters']['html'];
+$t18_rd = $t18_new['Representative, reading an approved report']['html'];
+$t18_ap = $t18_new['Administrator, an approved report']['html'];
+$t18_st = $t18_new['Administrator, a refused save kept']['html'];
+
+ck(
+	'Task 18: on the parts the view\'s card is a block with no head of its own (M22) and keeps its anchor, and nothing of today\'s card box',
+	array(
+		0 === strpos( $t18_ix, '<section class="wpcpm-ui-block" id="wpcpm-report">' ),
+		has( $t18_ix, '<details' ),
+		has( $t18_ix, 'Semester report<' ),
+		has( $t18_ix, 'wpcpm-institution__card' ),
+		has( $t18_ix, 'wpcpm-group' ),
+		'</section>' === substr( $t18_ix, -10 ),
+	),
+	array( true, false, false, false, false, true )
+);
+$t18_lede = 'A semester report is a snapshot of one term: how many students took part, what they worked on, and what they said about it. It names a student only if that student said it may.';
+ck(
+	'Task 18: an Administrator\'s index: the lede, then a list of rows, each semester named whole, its state a tag (Approved green, Draft neutral), Open a quiet link, Write the first draft a quiet button in its form',
+	array(
+		has( $t18_ix, '<p class="wpcpm-ui-intro">' . $t18_lede . '</p><ul class="wpcpm-ui-list">' ),
+		substr_count( $t18_ix, '<li class="wpcpm-ui-list__row"' ),
+		has( $t18_ix, '<span class="wpcpm-ui-list__name"><span class="wpcpm-ui-whole">January to June 2026</span></span><span class="wpcpm-status wpcpm-status--green">Approved</span>' ),
+		has( $t18_ix, '<span class="wpcpm-ui-list__name"><span class="wpcpm-ui-whole">July to December 2025</span></span><span class="wpcpm-status">Draft</span>' ),
+		has( $t18_ix, '<a class="wpcpm-btn wpcpm-btn--quiet" href="' . esc_url( report_address( '2026-H1', $R18 ) ) . '">Open<span class="screen-reader-text"> January to June 2026</span></a>' ),
+		substr_count( $t18_ix, '<button type="submit" class="wpcpm-btn wpcpm-btn--quiet">Write the first draft<span class="screen-reader-text"> ' ),
+		substr_count( $t18_ix, 'wpcpm-report-card__' ),
+	),
+	array( true, 8, true, true, true, 2, 0 )
+);
+ck(
+	'Task 18: a school\'s index: one row per report, Approved green with "Approved on" and the day whole as its fact (no day where none is stamped), View and Download PDF quiet links, then each semester being prepared a row of today\'s sentence and no action',
+	array(
+		substr_count( $t18_mx, '<li class="wpcpm-ui-list__row"' ),
+		1 === preg_match( '#<span class="wpcpm-ui-list__name"><span class="wpcpm-ui-whole">January to June 2026</span></span><span class="wpcpm-status wpcpm-status--green">Approved</span><span class="wpcpm-ui-list__facts"><span class="wpcpm-ui-item__fact">Approved on <span class="wpcpm-ui-whole">\{date\}</span></span></span><div class="wpcpm-ui-list__act"><a class="wpcpm-btn wpcpm-btn--quiet" href="[^"]*">View<span class="screen-reader-text"> January to June 2026</span></a><a class="wpcpm-btn wpcpm-btn--quiet" href="[^"]*">Download PDF<span class="screen-reader-text"> January to June 2026</span></a></div>#', t18_mask( $t18_mx ) ),
+		has( $t18_mx, '<span class="wpcpm-ui-whole">July to December 2023</span></span><span class="wpcpm-status wpcpm-status--green">Approved</span><span class="wpcpm-ui-list__facts"></span>' ),
+		// Fix round 1: named by its semester like every row; today's sentence its muted fact; no tag, no action.
+		has( $t18_mx, '<li class="wpcpm-ui-list__row"><div class="wpcpm-ui-list__line"><span class="wpcpm-ui-list__name"><span class="wpcpm-ui-whole">July to December 2025</span></span><span class="wpcpm-ui-list__facts"><span class="wpcpm-ui-item__fact">Your semester report for July to December 2025 is being prepared by the program team.</span></span></div></li>' ),
+		substr_count( $t18_mx, 'is being prepared by the program team.' ),
+		has( $t18_new['Representative, nothing published yet']['html'], '<p class="wpcpm-ui-list__empty">No semester report has been published for your institution yet.</p>' ),
+		has( $t18_mx, 'wpcpm-ui-intro' ),
+	),
+	array( 6, true, true, true, 2, true, false )
+);
+ck(
+	'Task 18: a report read by the school: named by its item header (an h2 under the view\'s H1, its tag, its facts), Download PDF a secondary button, then the document',
+	array(
+		1 === preg_match( '#^<section class="wpcpm-ui-block" id="wpcpm-report"><h2 class="wpcpm-ui-item__title"><span class="wpcpm-ui-whole">January to June 2026</span></h2><p class="wpcpm-ui-item__facts"><span class="wpcpm-status wpcpm-status--green">Approved</span><span class="wpcpm-ui-item__run">#', $t18_rd ),
+		has( t18_mask( $t18_rd ), '<span class="wpcpm-ui-item__fact">Approved on <span class="wpcpm-ui-whole">{date}</span> by Person 3.</span>' ),
+		has( $t18_rd, '<div class="wpcpm-ui-actions"><a class="wpcpm-btn wpcpm-btn--secondary" href="' ),
+		has( $t18_rd, '">Download PDF</a></div><div class="wpcpm-ui-doc"><article class="wpcpm-report-doc">' ) && '</article></div></section>' === substr( $t18_rd, -26 ),
+		substr_count( strstr( $t18_rd, '<article class="wpcpm-report-doc">', true ), '<h1' ),
+		has( $t18_rd, 'Back to the other semesters' ),
+	),
+	array( true, true, true, true, 0, false )
+);
+ck(
+	'Task 18: the editor: the item header, each section an in-card heading (no legend) with today\'s anchor, each box a text area of the parts with its label, the hide toggle a checkbox alone, Save the report the primary of its form',
+	array(
+		1 === preg_match( '#^<section class="wpcpm-ui-block" id="wpcpm-report"><h2 class="wpcpm-ui-item__title"><span class="wpcpm-ui-whole">January to June 2026</span></h2><p class="wpcpm-ui-item__facts"><span class="wpcpm-status">Draft</span>#', $t18_ed_new ),
+		has( $t18_ed_new, '<legend' ),
+		has( $t18_ed_new, '<h3 class="wpcpm-ui-h" id="wpcpm-report-field-overview">Program Overview</h3>' ),
+		has( $t18_ed_new, '<label class="wpcpm-ui-field__label" for="wpcpm-report-text-overview">What you want to say here</label><textarea class="wpcpm-ui-field__control wpcpm-ui-field__control--textarea" id="wpcpm-report-text-overview" name="section_text_overview" maxlength="5000" rows="5">' ),
+		has( $t18_ed_new, '<input type="checkbox" class="wpcpm-ui-choice__input" id="wpcpm-report-hide-continuing" name="section_hidden_continuing" value="1" checked>' ),
+		has( $t18_ed_new, '<div class="wpcpm-ui-actions"><button type="submit" class="wpcpm-btn">Save the report</button></div></form>' ),
+		has( $t18_ed_new, 'wpcpm-report-card__text' ),
+		// The document as it prints, last, under an in-card heading, in a block that lets a long word break.
+		has( $t18_ed_new, '<h3 class="wpcpm-ui-h">The report as it prints</h3><div class="wpcpm-ui-doc"><article class="wpcpm-report-doc">' ) && '</article></div></section>' === substr( $t18_ed_new, -26 ),
+		// No class of today's card on the parts but the outcome's own (none here).
+		substr_count( strstr( $t18_ed_new, '<article class="wpcpm-report-doc">', true ), 'wpcpm-report-card__' ),
+	),
+	array( true, false, true, true, true, true, false, true, 0 )
+);
+ck(
+	'Task 18: the quote picker: the student\'s words a note (never a box), their name, the two questions as checkboxes, the translation a text area with today\'s hint',
+	array(
+		has( $t18_ed_new, '<h3 class="wpcpm-ui-h">The quotes your students released</h3>' ),
+		// Fix round 2: a quotation, as today's card marks it, in the note's look.
+		has( $t18_ed_new, '<blockquote class="wpcpm-ui-note">' . $t18_long_word . ' is how the first patch felt.</blockquote>' ),
+		has( $t18_ed_new, '<p class="wpcpm-ui-intro wpcpm-ui-intro--muted">Lena Exampleunbrokenstudentnamewithfortychars</p>' ) && ! has( $t18_ed_new, '<wbr>' ),
+		has( $t18_ed_new, 'name="quote_include_' ) && has( $t18_ed_new, 'name="quote_name_' ),
+		has( $t18_ed_new, '<p class="wpcpm-ui-field__hint" id="wpcpm-report-translation-' ),
+		substr_count( strstr( $t18_ed_new, '<article class="wpcpm-report-doc">', true ), '<blockquote' ),
+	),
+	array( true, true, true, true, true, 1 )
+);
+ck(
+	'Task 18: then one row of Print this report and Check the students\' answers again (secondary), then the Decide row: Approve this report (primary), at once',
+	array(
+		1 === preg_match( '~<div class="wpcpm-ui-actions"><a class="wpcpm-btn wpcpm-btn--secondary" href="[^"]*">Print this report</a><form [^>]*>.*?<button type="submit" class="wpcpm-btn wpcpm-btn--secondary">Check the students&#039; answers again</button></form></div>~s', $t18_ed_new ),
+		1 === preg_match( '#<div class="wpcpm-ui-decide" id="wpcpm-decide-report-\d+"><h3 class="wpcpm-ui-h">Decide</h3><div class="wpcpm-ui-actions"><form [^>]*>.*?<button type="submit" class="wpcpm-btn">Approve this report</button></form></div></div>#s', $t18_ed_new ),
+		1 === preg_match( '#<h3 class="wpcpm-ui-h">Decide</h3><div class="wpcpm-ui-actions"><form [^>]*>.*?<button type="submit" class="wpcpm-btn wpcpm-btn--secondary">Reopen for editing</button></form></div></div>#s', $t18_ap ),
+		has( $t18_ap, 'Approve this report' ),
+		has( $t18_ap, '<textarea' ),
+	),
+	array( true, true, true, false, false )
+);
+ck(
+	'Task 18: the earlier versions an inner fold: each a row, its day whole, its author, Put this version back its quiet action',
+	array(
+		has( $t18_ed_new, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner"><summary class="wpcpm-ui-fold__head"><span class="wpcpm-ui-fold__lead"><span class="wpcpm-ui-fold__title">Earlier versions of this report</span></span>' ),
+		substr_count( $t18_ed_new, '>Put this version back<' ),
+		has( t18_mask( $t18_ed_new ), '<span class="wpcpm-ui-list__name"><span class="wpcpm-ui-whole">{date}</span> by Person 5</span>' ),
+		has( $t18_ed_new, ' by somebody who has left</span>' ),
+		has( $t18_ed_new, '<button type="submit" class="wpcpm-btn wpcpm-btn--quiet">Put this version back' ),
+	),
+	array( true, 3, true, true, true )
+);
+ck(
+	'Task 18: a refused save: the outcome by the shared renderer, then the stash sentence, then the kept words in their box',
+	array(
+		has( $t18_st, '<p class="wpcpm-report-card__message wpcpm-report-card__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>Someone at your institution saved this report after you opened it.' ),
+		has( $t18_st, '<p class="wpcpm-ui-intro wpcpm-report-hint">The words below are the ones you last sent, which were not saved because a colleague had saved this report in the meantime. Read what they wrote, above, then save again to keep yours.</p>' ),
+		has( $t18_st, 'Words a colleague&#039;s save refused, with ' . $t18_long_word . ' in them.</textarea>' ),
+	),
+	array( true, true, true )
+);
+ck(
+	'Task 18: the answers could not be read: today\'s sentence in words, no quote drawn',
+	array(
+		has( $t18_new['Administrator, the answers could not be read']['html'], '<p class="wpcpm-ui-intro">The students&#039; answers could not be read just now, so nothing is shown here. Nothing has been changed. Try again shortly.</p>' ),
+		has( $t18_new['Administrator, the answers could not be read']['html'], 'name="quote_include_' ),
+	),
+	array( true, false )
+);
+$t18_messages = array();
+foreach ( array_keys( WPCPM_Semester_Report_Screen::messages() ) as $t18_key ) {
+	$t18_html = $t18_new[ 'message ' . $t18_key ]['html'];
+	$t18_tone = WPCPM_Semester_Report_Screen::tone_for( $t18_key );
+	if ( ! has( $t18_html, '<section class="wpcpm-ui-block" id="wpcpm-report"><p class="wpcpm-report-card__message wpcpm-report-card__message--' . $t18_tone . ' is-' . $t18_tone . '" role="' . ( 'error' === $t18_tone ? 'alert' : 'status' ) . '" tabindex="-1" data-wpcpm-card-message>' ) ) {
+		$t18_messages[] = $t18_key;
+	}
+}
+ck( 'Task 18: every outcome is printed first in the block by the shared renderer, in the tone the class\'s map gives it', $t18_messages, array() );
+
+/* ---- hostile words ---- */
+
+// Every value a person can type that the card prints: a student's name and their released words (the snapshot keeps
+// both), the school's own words in a section and a translation, and the name of an Administrator who saved a version.
+$F18     = 'recINSTF000000006';
+$t18_bad = 'Eve <script>alert(1)</script> "Q" & Co';
+$GLOBALS['inst_rows'][ $F18 ]    = array( 'record_id' => $F18, 'name' => 'Example "F" & <b>Co</b>', 'stage' => 'Confirmed' );
+$GLOBALS['index'][ $F18 ]        = array( 'read' => 1756900006, 'rows' => array( 'recSTUF0000000001' => row( 'recSTUF0000000001', $t18_bad, 'In Sensei', '2026-02-16', array( 'email' => 'eve@example.test', 'email_key' => 'eve@example.test', 'institution' => $F18 ) ) ) );
+$GLOBALS['rows']['tblFeedback'][] = feedback_row( 'recFDBF0000000001', 'eve@example.test', $t18_bad, array( $F18 ), 'Yes, with my name', 'Yes, with my name', 'I said <script>alert(2)</script> "loud" & <i>clear</i>.' );
+$GLOBALS['transients']           = array();
+$t18_hostile                     = (int) WPCPM_Semester_Report::generate( $F18, $COHORT );
+update_post_meta( $t18_hostile, WPCPM_Semester_Report::META_SECTIONS, array( 'overview' => array( 'text' => 'Ours <script>alert(3)</script> "x" & <b>y</b>', 'hidden' => false ) ) );
+update_post_meta( $t18_hostile, WPCPM_Semester_Report::META_CHOICES, array( report_id_of( 'eve@example.test' ) => array( 'include' => true, 'show_name' => true, 'translation' => 'Ours <script>alert(4)</script> "t" & <i>u</i>' ) ) );
+$GLOBALS['user_names'][66] = 'Admin <script>alert(5)</script> "A" & <b>B</b>';
+$GLOBALS['revisions_of'][ $t18_hostile ] = array( get_post( wp_insert_post( array( 'post_type' => 'revision', 'post_status' => 'inherit', 'post_parent' => $t18_hostile, 'post_author' => 66 ) ) ) );
+$t18_hs    = $t18_admin + array( 'record' => $F18, 'cohort' => $COHORT );
+$t18_h_new = t18_draw( $t18_hs, 'institution', $t18_on )['html'];
+
+// Fix round 2: the header's "Approved on ... by" path, with a hostile Administrator's name, drawn for the Administrator
+// (the editor of an approved report) and for the school (reading it). Approved after the draft's drawings above, so
+// their digests stand.
+WPCPM_Semester_Report::approve( get_post( $t18_hostile ), 66 );
+$t18_ha     = $t18_admin + array( 'record' => $F18, 'cohort' => $COHORT );
+$t18_hr     = array( 'manage' => false, 'acting' => $F18, 'uid' => 21, 'record' => $F18, 'cohort' => $COHORT );
+$t18_ha_new = t18_draw( $t18_ha, 'institution', $t18_on )['html'];
+$t18_hr_new = t18_draw( $t18_hr, 'institution', $t18_on )['html'];
+// What the old branch posted and offered in these three drawings, read from the class at 982486be (the last commit
+// that held it) before it was deleted (Task 23): md5 of `t18_forms()` and of `t18_offers()` of the drawing with no
+// surface named, its way back (`wpcpm-report-card__back`) taken out, masked with `t18_mask()`. To reproduce: this
+// suite against `git archive 982486be`, the draft's taken before it is approved.
+$t18_hostile_pins = array(
+	'a draft, the Administrator'      => array( 'a24bd9e6907113f6e7c1febad288ff6d', 'ded1ecc8f58e7367832a1fb6e25c5964' ),
+	'approved, the Administrator'     => array( '52a50d3c1bf62a5a55e5b930a3bba2b0', '78e1b48858503f5198b4d584bbd4278c' ),
+	'approved, the school reading it' => array( '40cd750bba9870f18aada2478b24840a', 'a58dd0ff421d43f8f16227fc7f0274f3' ),
+);
+
+/**
+ * What escaping gone wrong would leave, value by value: each value the card prints (outside the document) must be there
+ * escaped once; no tag of theirs anywhere on the drawing, the document included; no attribute broken; nothing escaped
+ * twice.
+ *
+ * @param string   $html   A drawing.
+ * @param string[] $values The hostile values the card prints, by what they are.
+ * @return array
+ */
+function t18_escaping( $html, array $values ) {
+	$all  = str_replace( '<wbr>', '', (string) $html );
+	$card = (string) preg_replace( '#<article class="wpcpm-report-doc.*$#s', '', $all );
+	preg_match_all( '#<(/?)([a-zA-Z][a-zA-Z0-9-]*)\b([^>]*)>#', $all, $tags, PREG_SET_ORDER );
+	$theirs = array();
+	$broken = 0;
+	foreach ( $tags as $tag ) {
+		if ( in_array( strtolower( $tag[2] ), array( 'script', 'b', 'i' ), true ) ) {
+			$theirs[] = $tag[2];
+		}
+		if ( 0 !== substr_count( $tag[3], '"' ) % 2 ) {
+			++$broken;
+		}
+	}
+	$printed = array();
+	foreach ( $values as $what => $value ) {
+		$printed[ $what ] = has( $card, htmlspecialchars( $value, ENT_QUOTES ) );
+	}
+	return array(
+		'printed' => $printed,
+		'theirs'  => array_values( array_unique( $theirs ) ),
+		'broken'  => $broken,
+		'twice'   => (bool) preg_match( '#&amp;(?:amp|lt|gt|quot|\#0?39);#', $all ),
+	);
+}
+$t18_want = static function ( array $values ) {
+	return array( 'printed' => array_fill_keys( array_keys( $values ), true ), 'theirs' => array(), 'broken' => 0, 'twice' => false );
+};
+$t18_v_draft    = array(
+	'the student\'s name'     => $t18_bad,
+	'their released words'    => 'I said <script>alert(2)</script> "loud" & <i>clear</i>.',
+	'the school\'s own words' => 'Ours <script>alert(3)</script> "x" & <b>y</b>',
+	'the translation'         => 'Ours <script>alert(4)</script> "t" & <i>u</i>',
+	'who saved a version'     => $GLOBALS['user_names'][66],
+);
+$t18_v_approved = array(
+	'who approved it'     => $GLOBALS['user_names'][66],
+	'who saved a version' => $GLOBALS['user_names'][66],
+);
+$t18_v_reading  = array( 'who approved it' => $GLOBALS['user_names'][66] );
+ck( 'Task 18: hostile words, a draft in the editor: each value printed escaped once, no tag of theirs, no attribute broken', t18_escaping( $t18_h_new, $t18_v_draft ), $t18_want( $t18_v_draft ) );
+ck( 'Task 18: hostile words, approved by a hostile name, the Administrator\'s editor: the same', t18_escaping( $t18_ha_new, $t18_v_approved ), $t18_want( $t18_v_approved ) );
+ck( 'Task 18: hostile words, approved by a hostile name, the school reading it: the same', t18_escaping( $t18_hr_new, $t18_v_reading ), $t18_want( $t18_v_reading ) );
+ck( 'Task 18: hostile words, the parts post what the old branch posted and offer what it offered (pinned at 982486be), a draft and an approved report, for an Administrator and for the school', array(
+	'a draft, the Administrator'      => array( md5( serialize( t18_forms( t18_mask( $t18_h_new ) ) ) ), md5( serialize( t18_offers( t18_mask( $t18_h_new ) ) ) ) ),
+	'approved, the Administrator'     => array( md5( serialize( t18_forms( t18_mask( $t18_ha_new ) ) ) ), md5( serialize( t18_offers( t18_mask( $t18_ha_new ) ) ) ) ),
+	'approved, the school reading it' => array( md5( serialize( t18_forms( t18_mask( $t18_hr_new ) ) ) ), md5( serialize( t18_offers( t18_mask( $t18_hr_new ) ) ) ) ),
+), $t18_hostile_pins );
+
+// T18_PRINT=1 prints the digests this section pins of the surfaces that keep their old markup (the wp-admin tab's three
+// renderers and the printed document), to retake them from a base on purpose. The card's own pins are the old branch's,
+// read at 982486be into `bin/fixtures/semester-report-old-branch-982486be.json` and `$t18_hostile_pins`, and are not
+// retaken from this tree.
+if ( getenv( 'T18_PRINT' ) ) {
+	var_export( array( 'tab' => md5( $t18_tab_base ), 'doc' => array( md5( $t18_doc[0] ), md5( $t18_doc[1] ) ) ) );
+	echo "\n";
+}
+
+/* ---- the document's title on the parts ---- */
+
+// Fix rounds 2 and 3: the theme's global styles dress h1 and h2 apart (theme.json: letter spacing -0.02em and -0.01em;
+// size, weight and line height too, which the title's own class sets). On the parts the title is an h2, so the title,
+// named by its class inside the parts' wrapper, keeps the h1's letter spacing: it reads as today's. The rule lives with
+// the title's own rules in report-print.css, after its last line and outside any media block; parts.css holds none.
+$t18_print_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/report-print.css' );
+$t18_parts_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/parts.css' );
+$t18_spacing   = ".wpcpm-ui-doc .wpcpm-report-doc__title {\n\tletter-spacing: -0.02em;\n}\n";
+ck(
+	'Task 18: the document\'s title, named, keeps the theme\'s h1 letter spacing in the parts\' wrapper; the rule ends report-print.css, outside any media block; parts.css finds nothing by position',
+	array(
+		$t18_spacing === substr( $t18_print_css, -strlen( $t18_spacing ) ),
+		has( $t18_parts_css, 'letter-spacing: -0.02em' ),
+		has( $t18_parts_css, '.wpcpm-ui-doc > * > :first-child' ),
+	),
+	array( true, false, false )
+);
+
+/* ---- printing the page ---- */
+
+// Fix round 2: on the parts the lines that are a control's hint (the stash sentence, the sentence about asking) carry
+// `wpcpm-report-hint`, which the print sheet hides; the lines today's print keeps (the index's lede, "There is no report
+// for %s yet.", the note on an approved report) carry none.
+$t18_ap_html = $t18_new['Administrator, an approved report']['html'];
+ck(
+	'Task 18: the hint lines carry the print sheet\'s class, the lines today\'s print keeps do not',
+	array(
+		has( $t18_new['Administrator, a refused save kept']['html'], '<p class="wpcpm-ui-intro wpcpm-report-hint">The words below are the ones you last sent' ),
+		has( $t18_ed_new, '<p class="wpcpm-ui-intro wpcpm-ui-intro--muted wpcpm-report-hint">Students who have not answered yet' ),
+		has( $t18_new['Administrator, a semester with no report asked for']['html'], '<p class="wpcpm-ui-intro">A semester report is a snapshot of one term' ),
+		has( $t18_new['Administrator, a semester with no report asked for']['html'], '<p class="wpcpm-ui-intro">There is no report for January to June 2023 yet.</p>' ),
+		has( $t18_ap_html, '<p class="wpcpm-ui-intro">This report is approved and the institution can read it. Reopen it to change anything.</p>' ),
+		substr_count( $t18_ix . $t18_mx . $t18_rd, 'wpcpm-report-hint' ),
+	),
+	array( true, true, true, true, true, 0 )
+);
+
+// Fix round 1: Ctrl-P on the dashboard prints the document, as today's sheet makes it do for today's card by its old
+// classes: the parts' controls this view draws are hidden for print too, by rules scoped to the view's block and added
+// after the sheet's own. The old card's own rules went with its old branch (Task 23, fix round 1); the document's own
+// rules, which the printed page and the sponsors' report files read too (`STYLE_FILE`), are the ones the sheet held at
+// 982486be, rule for rule (`t23_doc_rules()`: every rule naming `wpcpm-report-doc` or `wpcpm-report-print`, in order,
+// with its media block; the digest is that function run on the sheet at 982486be).
+/**
+ * The document's own rules of a sheet, comments out and whitespace collapsed, in order, each with its media block.
+ *
+ * @param string $css The sheet.
+ * @return string[]
+ */
+function t23_doc_rules( $css ) {
+	return t23_rules_naming( $css, array( 'wpcpm-report-doc', 'wpcpm-report-print' ) );
+}
+
+/**
+ * The rules of a sheet that name one of some class stems, comments out and whitespace collapsed, in order, each with
+ * its media block; a selector list keeps only its selectors that name one.
+ *
+ * @param string   $css   The sheet.
+ * @param string[] $stems The class stems.
+ * @return string[]
+ */
+function t23_rules_naming( $css, array $stems ) {
+	$names = static function ( $sel ) use ( $stems ) {
+		foreach ( $stems as $stem ) {
+			if ( false !== strpos( $sel, $stem ) ) {
+				return true;
+			}
+		}
+		return false;
+	};
+	$css   = (string) preg_replace( '#/\*.*?\*/#s', '', (string) $css );
+	$css   = (string) preg_replace( '/\s+/', ' ', $css );
+	$out   = array();
+	$media = '';
+	$depth = 0;
+	$buf   = '';
+	$len   = strlen( $css );
+	for ( $i = 0; $i < $len; $i++ ) {
+		$c = $css[ $i ];
+		if ( '{' === $c ) {
+			$sel = trim( $buf );
+			$buf = '';
+			if ( 0 === strpos( $sel, '@' . 'media' ) ) { $media = $sel; $depth++; continue; } // Split: the fixtures suite reads a quoted @word as a handle.
+			$end = strpos( $css, '}', $i );
+			$decl = trim( substr( $css, $i + 1, $end - $i - 1 ) );
+			if ( $names( $sel ) ) {
+				$keep = implode( ', ', array_filter( array_map( 'trim', explode( ',', $sel ) ), $names ) );
+				$out[] = ( $depth ? $media . ' ' : '' ) . $keep . ' {' . $decl . '}';
+			}
+			$i = $end;
+			continue;
+		}
+		if ( '}' === $c ) { $depth = max( 0, $depth - 1 ); $media = ''; $buf = ''; continue; }
+		$buf .= $c;
+	}
+	return $out;
+}
+$t18_sheet  = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/report-print.css' );
+$t18_marker = '/* The Institution Dashboard\'s Semester reports view on the shared parts';
+$t18_at     = strpos( $t18_sheet, $t18_marker );
+$t18_added  = false === $t18_at ? '' : substr( $t18_sheet, $t18_at );
+preg_match_all( '#([^{}]+)\{\s*display:\s*none;\s*\}#', (string) preg_replace( '#/\*.*?\*/#s', '', $t18_added ), $t18_rules );
+$t18_hidden = array();
+foreach ( $t18_rules[1] as $t18_list ) {
+	foreach ( explode( ',', $t18_list ) as $t18_sel ) {
+		$t18_sel = trim( (string) preg_replace( '#^@media print\s*\{#', '', trim( $t18_sel ) ) );
+		if ( '' !== $t18_sel ) {
+			$t18_hidden[] = $t18_sel;
+		}
+	}
+}
+ck(
+	'Task 18: the print sheet\'s document rules are the ones it held at 982486be, rule for rule, the old card\'s two kept rules are too, and the additions hide the parts\' controls of this view alone and, with a report open, the frame and the view\'s head around it (Task 28, W8)',
+	array(
+		md5( serialize( t23_doc_rules( $t18_sheet ) ) ),
+		t23_rules_naming( $t18_sheet, array( 'wpcpm-report-card' ) ),
+		$t18_hidden,
+		0 === strpos( trim( (string) preg_replace( '#/\*.*?\*/#s', '', $t18_added ) ), '@media print {' ),
+	),
+	array(
+		'4c2d00399d9b5f8e7e912ac7f882b397',
+		// The old card's rules the sheet keeps, as the sheet held them at 982486be: the outcome's shape on the screen, and
+		// the outcome hidden when the page is printed (Ctrl-P prints the report, not the message about it). The two the
+		// sheet also held there for wp-admin's forms (`__action`, `__generate`) dressed a page that never loads it, and
+		// went in Task 23, fix round 2.
+		array(
+			'.wpcpm-report-card__message {background: var( --wpcpm-surface, rgba( 128, 128, 128, 0.08 ) ); border: 1px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) ); border-inline-start-width: 4px; border-radius: var( --wpcpm-radius, 8px ); margin: 0 0 1.5em; padding: 0.6em 0.9em;}',
+			'@media print .wpcpm-report-card__message {display: none;}',
+		),
+		array(
+			'#wpcpm-report.wpcpm-ui-block form',
+			'#wpcpm-report.wpcpm-ui-block > .wpcpm-ui-actions',
+			'#wpcpm-report.wpcpm-ui-block > .wpcpm-ui-decide',
+			'#wpcpm-report.wpcpm-ui-block > .wpcpm-ui-fold',
+			'#wpcpm-report.wpcpm-ui-block > .wpcpm-report-hint',
+			'#wpcpm-report.wpcpm-ui-block > .wpcpm-ui-h',
+			// Task 28, W8: and with the report's document on the page, the page around it: the frame's bar, its menu and
+			// the view's head (bin/test-ui-layout.php draws it in print media).
+			'.wpcpm-frame:has( #wpcpm-report.wpcpm-ui-block .wpcpm-ui-doc ) > .wpcpm-frame__bar',
+			'.wpcpm-frame:has( #wpcpm-report.wpcpm-ui-block .wpcpm-ui-doc ) > .wpcpm-frame__body > .wpcpm-frame__menu',
+			'.wpcpm-frame:has( #wpcpm-report.wpcpm-ui-block .wpcpm-ui-doc ) .wpcpm-institution > .wpcpm-head',
+			// Task 28 fix round 2, X4: and the account prompt the root draws above the head.
+			'.wpcpm-frame:has( #wpcpm-report.wpcpm-ui-block .wpcpm-ui-doc ) .wpcpm-institution > .wpcpm-2fa',
+		),
+		true,
+	)
+);
+
+/* ---- the layout harness ---- */
+
+if ( function_exists( 'wpcpm_layout_keep' ) ) {
+	foreach ( array(
+		'Administrator, the index, eight semesters',
+		'Administrator, a semester with no report asked for',
+		'Administrator, a school with one semester',
+		'Representative, the index, six semesters',
+		'Representative, nothing published yet',
+		'Representative, reading an approved report',
+		'Administrator, a draft in the editor, every fold',
+		'Administrator, a refused save kept',
+		'Administrator, an approved report',
+	) as $t18_name ) {
+		// Every fold open: the earlier versions too.
+		wpcpm_layout_keep( 'Semester reports: ' . $t18_name, str_replace( '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner">', '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open>', $t18_new[ $t18_name ]['html'] ) );
+	}
+}
+
+// Put back what the section changed.
+$GLOBALS['index']                = $t18_saved_index;
+$GLOBALS['inst_rows']            = $t18_saved_inst;
+$GLOBALS['rows']['tblFeedback']  = $t18_saved_feedback;
+$GLOBALS['revisions_of']         = $t18_saved_revisions;
+$GLOBALS['core_nonce']           = false;
+$GLOBALS['user_names']           = array();
+$GLOBALS['transients']           = array();
+$GLOBALS['flash']                = array();
+$GLOBALS['manage']               = true;
+$GLOBALS['acting']               = '';
+$GLOBALS['uid']                  = 3;
+unset( $GLOBALS['umeta'][3][ WPCPM_Semester_Report_Screen::META_STASH ] );
+WPCPM_Semester_Report::delete_all();
+$_POST = array();
+$_GET  = array();
+
 
 echo "\n=== House rules ===\n";
 
@@ -4158,6 +5039,14 @@ ck(
 // The inventory (UI shared parts, Task 17b; bin/stubs/parts-inventory.php): every old class this suite's drawings on
 // the Administrator Dashboard's parts print inside the switch's root is one the inventory names, and no other.
 ck( 'the inventory: the old classes printed inside the parts are exactly the ones named in bin/stubs/parts-inventory.php', parts_inventory_found(), parts_inventory_pinned( 'semester-report' ) );
+
+// Gate B round 2, F2: a refused save is said at the save form, after the report's header and the form's own intro
+// ("The words below ..."), directly over the form; once.
+$f2_st = $t18_new['Administrator, a refused save kept']['html'];
+ck( 'a refused save: its outcome after the header and the form\'s intro, directly over the save form, once', array(
+	1 === preg_match( '#<p class="wpcpm-ui-intro wpcpm-report-hint">The words below[^<]*</p><p class="wpcpm-report-card__message wpcpm-report-card__message--error[^>]*>[^<]*</p><form #', $f2_st ),
+	substr_count( $f2_st, 'data-wpcpm-card-message' ),
+), array( true, 1 ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

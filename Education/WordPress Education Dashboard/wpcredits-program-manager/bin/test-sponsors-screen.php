@@ -7086,7 +7086,7 @@ ck( 'under the real switch the Sponsors screen\'s Waiting for review tab is its 
 	'' !== trim( (string) $tab_real ),
 	preg_match( '/wpcpm-ui-/', (string) $tab_real ),
 	WPCPM_UI::surface(),
-), array( array( 'administrator' ), true, true, 0, '' ) );
+), array( array( 'administrator', 'institution' ), true, true, 0, '' ) );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

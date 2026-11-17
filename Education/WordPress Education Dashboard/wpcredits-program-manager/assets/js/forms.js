@@ -569,6 +569,57 @@
 	}
 
 	/**
+	 * Take the focus again after the browser has followed the address's fragment (Gate B, B1). A handler's way back
+	 * names its card's anchor (`#wpcpm-people`), and a browser that follows a fragment runs the focusing steps on its
+	 * target: a card's section takes no focus, so the focus falls to the page, after `focusOutcome()` has run on
+	 * DOMContentLoaded. So on a page whose address has a fragment the outcome is focused once more when the page has
+	 * loaded, in a task of its own after the browser's, and only while the focus is on the page: a reader who has moved
+	 * it keeps it. A reader who has scrolled or pressed a key or the page since the first focus is not pulled back either
+	 * (Gate B round 2, F5): the second focus is not made. The scroll the browser makes to the fragment is not a reader's,
+	 * so the scroll event is not read; a wheel, a touch move, a key and a press are. An address with no fragment needs
+	 * none of this.
+	 */
+	function focusAfterFragment() {
+		var hash = window.location && window.location.hash ? String( window.location.hash ) : '';
+		var touched = false;
+		var kinds = [ 'keydown', 'wheel', 'touchmove', 'pointerdown' ];
+		var i;
+
+		function reader() {
+			touched = true;
+		}
+
+		function again() {
+			window.setTimeout( function () {
+				var active = document.activeElement;
+
+				for ( i = 0; i < kinds.length; i++ ) {
+					document.removeEventListener( kinds[ i ], reader, true );
+				}
+
+				if ( ! touched && ( ! active || active === document.body ) ) {
+					focusOutcome();
+				}
+			}, 0 );
+		}
+
+		if ( hash.length < 2 ) {
+			return;
+		}
+
+		for ( i = 0; i < kinds.length; i++ ) {
+			document.addEventListener( kinds[ i ], reader, true );
+		}
+
+		if ( 'complete' === document.readyState ) {
+			again();
+			return;
+		}
+
+		window.addEventListener( 'load', again );
+	}
+
+	/**
 	 * Show the registration form's track question for an institution that asks for one.
 	 *
 	 * A convenience, never a control: the server asks again when it checks the post, and with no script
@@ -709,6 +760,7 @@
 
 	ready( function () {
 		focusOutcome();
+		focusAfterFragment();
 		watchPressed();
 		watchSubmits();
 		releaseOnRestore();

@@ -73,12 +73,12 @@ ck( 'an empty fallback is passed over for the next', back_to( '', 'https://examp
 ck( 'and with nothing to go back to, nothing', back_to( '', '' ), '' );
 
 // The Institution Dashboard's three card presses go back the same way: the page, else the
-// dashboard's own, else the site's home, at the card's anchor.
+// dashboard's Students view (Task 9), else the site's home, at the card's anchor.
 $back_by = array();
 
 foreach ( array( 'class-wpcpm-institution-resend.php', 'class-wpcpm-institution-students.php', 'class-wpcpm-institution-student-form.php' ) as $file ) {
 	$source    = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/' . $file );
-	$back_by[] = array( substr_count( $source, "wp_safe_redirect( WPCPM_Request::back( WPCPM_Institutions_Dashboard::page_url(), home_url( '/' ) ) . '#' . self::ANCHOR );" ), substr_count( $source, 'wp_get_referer()' ) );
+	$back_by[] = array( substr_count( $source, "wp_safe_redirect( WPCPM_Request::back( WPCPM_Institutions_Dashboard::way_back( substr( self::ANCHOR, strlen( 'wpcpm-' ) ) ), home_url( '/' ) ) . '#' . self::ANCHOR );" ), substr_count( $source, 'wp_get_referer()' ) );
 }
 
 ck( 'the Institution Dashboard\'s resend, student and student form presses each ask back() for the one way back, and none reads the referer itself', $back_by, array_fill( 0, 3, array( 1, 0 ) ) );

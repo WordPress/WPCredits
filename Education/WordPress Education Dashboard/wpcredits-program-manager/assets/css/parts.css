@@ -496,7 +496,8 @@
 	margin-left: calc( var( --wpcpm-f-tie ) - 0.25em );
 }
 
-.wpcpm-ui-field .wpcpm-ui-field__control {
+.wpcpm-ui-field .wpcpm-ui-field__control,
+.wpcpm-ui-viewing .wpcpm-ui-viewing__box {
 	background-color: var( --wpcpm-f-surface );
 	border: 1px solid var( --wpcpm-f-control );
 	border-radius: 2px;
@@ -514,17 +515,20 @@
 
 /* A disabled box does not change on hover (the guard adds no weight). */
 
-.wpcpm-ui-field .wpcpm-ui-field__control:hover:where(:not(:disabled):not([aria-disabled="true"])) {
+.wpcpm-ui-field .wpcpm-ui-field__control:hover:where(:not(:disabled):not([aria-disabled="true"])),
+.wpcpm-ui-viewing .wpcpm-ui-viewing__box:hover:where(:not(:disabled):not([aria-disabled="true"])) {
 	border-color: var( --wpcpm-f-ink-2 );
 }
 
-.wpcpm-ui-field .wpcpm-ui-field__control:focus {
+.wpcpm-ui-field .wpcpm-ui-field__control:focus,
+.wpcpm-ui-viewing .wpcpm-ui-viewing__box:focus {
 	border-color: var( --wpcpm-f-brand );
 	outline: 2px solid var( --wpcpm-f-brand );
 	outline-offset: 2px;
 }
 
-.wpcpm-ui-field .wpcpm-ui-field__control--select {
+.wpcpm-ui-field .wpcpm-ui-field__control--select,
+.wpcpm-ui-viewing .wpcpm-ui-viewing__box {
 	appearance: none;
 	background-image: url( "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%2340464d' stroke-width='1.6'/%3E%3C/svg%3E" );
 	background-position: right 10px center;
@@ -590,9 +594,8 @@
    options, the option's hint muted under its words. A checkbox alone is a field of its own, 14px from the fields
    around it.
 
-   The theme's element rules for a label holding a checkbox or a radio, and for the box, reach this markup until
-   its next release leaves .wpcpm-ui-choice out (they weigh more): they center the box on the words, keep the 8px
-   gap and the 24px height and give the box 16px and no margin, so a one-line option looks the same either way. ---------- */
+   Since WPCredits theme 1.32.29 the theme's element rules for a label holding a checkbox or a radio, and for the
+   box, leave .wpcpm-ui-choice out, so the rules here are the whole of the choice's look. ---------- */
 
 .wpcpm-ui-choices {
 	border: 0;
@@ -605,6 +608,21 @@
 .wpcpm-ui-choices + .wpcpm-ui-field,
 .wpcpm-ui-choices + .wpcpm-ui-choices {
 	margin-top: var( --wpcpm-f-field );
+}
+
+/* A set of fields (Institution Dashboard, Task 17: Enroll students' One student and Or a list): the choice group's
+   fieldset, its legend an in-card heading, 24px under the field or the choice above it as a heading is. */
+
+.wpcpm-ui-field + .wpcpm-ui-choices--set,
+.wpcpm-ui-choices + .wpcpm-ui-choices--set {
+	margin-top: var( --wpcpm-f-apart );
+}
+
+/* The set's legend is the parts' heading, with none of the browser's own legend padding: it starts where the fields
+   under it start (Gate B round 2, F9: it stood 2px right of them). */
+
+.wpcpm-ui-choices--set > .wpcpm-ui-h {
+	padding: 0;
 }
 
 .wpcpm-ui-choices__legend {
@@ -650,6 +668,92 @@
 .wpcpm-ui-choice__hint {
 	color: var( --wpcpm-f-muted );
 	display: block;
+}
+
+/* A group's own hint, under its legend and over its options (Institution Dashboard, Task 19: the application's
+   languages): the legend's 6px above it, 8px to the first option, as between two options. A long group's options in
+   columns, each at least 180px, 8px apart down and 24px across; a two-line option does not push its row down. */
+
+.wpcpm-ui-choices__legend + .wpcpm-ui-field__hint {
+	margin: 0 0 8px;
+}
+
+.wpcpm-ui-choices__grid {
+	align-items: start;
+	display: grid;
+	gap: 8px var( --wpcpm-f-apart );
+	grid-template-columns: repeat( auto-fill, minmax( 180px, 1fr ) );
+}
+
+.wpcpm-ui-choices__grid > .wpcpm-ui-choice + .wpcpm-ui-choice {
+	margin-top: 0;
+}
+
+/* The one combobox as a field (WPCPM_UI::field() type combo, Task 19): the select is a field's select; the field that
+   stands in for it fills its block, whose width switcher.js holds at the select's, as the Viewing as box does. */
+
+.wpcpm-ui-field--combo .wpcpm-ui-field__control[role="combobox"] {
+	max-width: none;
+	min-width: 0;
+	width: 100%;
+}
+
+/* ---------- The file box (design 2.4): the secondary button "Choose a file" and the chosen file's name beside it,
+   muted 14px, 12px apart; the browser's own control stays in the form. With no script the button and the name keep
+   their printed `hidden` (held here against the frame's `display` of a button, by weight) and the
+   browser's control shows, never wider than its card. With the script (parts.js) the control takes the clipping
+   class: absolutely placed where the row starts, one pixel, clipped, never `display: none` or `visibility: hidden`,
+   so it keeps its label, its `required` and the browser's refusal, and stays the field's one tab stop. While it has
+   the focus (a Tab, a click on its label, or the browser's refusal of a missing file, which focuses it) the ring is
+   drawn on the button, where the reader looks. A long name breaks inside its box beside the button (min-width 0 and
+   the parts' break-word), never widening the card. ---------- */
+
+.wpcpm-ui-file {
+	position: relative;
+}
+
+.wpcpm-ui-file .wpcpm-ui-file__input {
+	max-width: 100%;
+}
+
+.wpcpm-ui-file .wpcpm-ui-file__input--hidden {
+	border: 0;
+	clip-path: inset( 50% );
+	height: 1px;
+	margin: -1px;
+	overflow: hidden;
+	padding: 0;
+	position: absolute;
+	white-space: nowrap;
+	width: 1px;
+}
+
+.wpcpm-ui-file__row {
+	align-items: center;
+	display: flex;
+	gap: var( --wpcpm-f-gap );
+}
+
+.wpcpm-ui-file__choose {
+	flex: none;
+}
+
+.wpcpm-ui-file__name {
+	color: var( --wpcpm-f-muted );
+	flex: 1 1 auto;
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	min-width: 0;
+	overflow-wrap: break-word;
+}
+
+.wpcpm-ui-file .wpcpm-ui-file__choose[hidden],
+.wpcpm-ui-file .wpcpm-ui-file__name[hidden] {
+	display: none;
+}
+
+.wpcpm-ui-file .wpcpm-ui-file__input:focus + .wpcpm-ui-file__row .wpcpm-ui-file__choose {
+	outline: 2px solid var( --wpcpm-f-brand );
+	outline-offset: 2px;
 }
 
 /* ---------- The logos (a small part of the sponsor application's details): a row that wraps, each figure at most
@@ -1020,6 +1124,44 @@
 	margin-top: var( --wpcpm-f-block );
 }
 
+/* An in-card heading after the run is 24px under it, as under any block (design 2.11; Gate B, B2): the run's 16px is
+   for the block it belongs with, and a heading starts a block that is not the fold's. */
+
+.wpcpm-ui-fold--inner + .wpcpm-ui-h {
+	margin-top: var( --wpcpm-f-apart );
+}
+
+/* A run of inner folds as a list (Task 28, W6: `WPCPM_UI::inner_list()`), drawn as the bare run is: the list stands
+   where its first fold would, 16px from the block before it, and draws nothing of its own; an item holds its fold and
+   nothing else, the first fold its top hairline, every other fold the one the fold before it draws below. */
+
+.wpcpm-ui-folds {
+	list-style: none;
+	margin: var( --wpcpm-f-block ) 0 0;
+	padding: 0;
+}
+
+.wpcpm-ui-folds__item {
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-ui-folds__item > .wpcpm-ui-fold--inner {
+	margin-top: 0;
+}
+
+.wpcpm-ui-folds__item + .wpcpm-ui-folds__item > .wpcpm-ui-fold--inner {
+	border-top: 0;
+}
+
+.wpcpm-ui-folds + :not( .wpcpm-ui-fold--inner ) {
+	margin-top: var( --wpcpm-f-block );
+}
+
+.wpcpm-ui-folds + .wpcpm-ui-h {
+	margin-top: var( --wpcpm-f-apart );
+}
+
 .wpcpm-ui-table + .wpcpm-ui-fold--inner {
 	border-top: 0;
 }
@@ -1061,6 +1203,24 @@
 	display: block;
 	font: 400 14px/20px var( --wpcpm-f-sans );
 	margin-top: 2px;
+}
+
+/* In the one-row form a head of words prints its second piece on the title's line (Gate B round 2, F1, ruled): 12px
+   after the title, the gap token the item header sets between a name and its reference (design 2.10), so the head is
+   44px. Where the line is too short for both the second piece goes under the title, 2px apart as in the stacked form,
+   and the head grows by that line. The stacked form (below) and a head with a photo keep the second piece under the
+   title. */
+
+.wpcpm-ui-fold--inner:not( .wpcpm-ui-fold--portrait ) > .wpcpm-ui-fold__head > .wpcpm-ui-fold__lead {
+	align-items: baseline;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2px var( --wpcpm-f-gap );
+	min-width: 0;
+}
+
+.wpcpm-ui-fold--inner:not( .wpcpm-ui-fold--portrait ) > .wpcpm-ui-fold__head > .wpcpm-ui-fold__lead > .wpcpm-ui-fold__second {
+	margin-top: 0;
 }
 
 .wpcpm-ui-fold--inner > .wpcpm-ui-fold__body {
@@ -1184,6 +1344,15 @@
 	.wpcpm-ui-fold--inner .wpcpm-ui-fold__lead {
 		grid-column: 1;
 		grid-row: 1;
+	}
+
+	/* The stacked form: the second piece under the title, 2px apart (Gate B round 2, F1). */
+	.wpcpm-ui-fold--inner:not( .wpcpm-ui-fold--portrait ) > .wpcpm-ui-fold__head > .wpcpm-ui-fold__lead {
+		display: block;
+	}
+
+	.wpcpm-ui-fold--inner:not( .wpcpm-ui-fold--portrait ) > .wpcpm-ui-fold__head > .wpcpm-ui-fold__lead > .wpcpm-ui-fold__second {
+		margin-top: 2px;
 	}
 
 	.wpcpm-ui-fold--inner .wpcpm-ui-fold__chev {
@@ -1310,6 +1479,15 @@
 		grid-row: 1;
 	}
 
+	/* The stacked form: the second piece under the title, 2px apart (Gate B round 2, F1). */
+	.wpcpm-ui-fold--inner:not( .wpcpm-ui-fold--portrait ) > .wpcpm-ui-fold__head > .wpcpm-ui-fold__lead {
+		display: block;
+	}
+
+	.wpcpm-ui-fold--inner:not( .wpcpm-ui-fold--portrait ) > .wpcpm-ui-fold__head > .wpcpm-ui-fold__lead > .wpcpm-ui-fold__second {
+		margin-top: 2px;
+	}
+
 	.wpcpm-ui-fold--inner .wpcpm-ui-fold__chev {
 		align-self: start;
 		grid-column: 2;
@@ -1392,6 +1570,15 @@
 	border-top: 1px solid var( --wpcpm-f-line-soft );
 	margin-top: var( --wpcpm-f-apart );
 	padding-top: var( --wpcpm-f-apart );
+}
+
+/* An item's first block starts at the item's own top, after any hidden field it carries first (the report editor's
+   quotes): its margin would fall through the item, past a heading's 8px, or add itself to the 24px between two items
+   (Gate B, B2). */
+
+.wpcpm-ui-item > :first-child,
+.wpcpm-ui-item > input[type="hidden"] + :not( input ) {
+	margin-top: 0;
 }
 
 .wpcpm-ui-item__title {
@@ -1617,15 +1804,21 @@
 	table-layout: fixed;
 }
 
-/* Inside a card the outer cells have no padding at the table's edges, so the text lines up with the card's. */
+/* Inside a card the outer cells have no padding at the table's edges, so the text lines up with the card's. So does an
+   item's own table after its header, drawn with no card around it (a student's card on the Institution Dashboard, whose
+   content starts at the view head's edge; Task 16). */
 
 .wpcpm-ui-fold__body .wpcpm-ui-table th:first-child,
-.wpcpm-ui-fold__body .wpcpm-ui-table td:first-child {
+.wpcpm-ui-fold__body .wpcpm-ui-table td:first-child,
+.wpcpm-ui-item__head ~ .wpcpm-ui-table th:first-child,
+.wpcpm-ui-item__head ~ .wpcpm-ui-table td:first-child {
 	padding-left: 0;
 }
 
 .wpcpm-ui-fold__body .wpcpm-ui-table th:last-child,
-.wpcpm-ui-fold__body .wpcpm-ui-table td:last-child {
+.wpcpm-ui-fold__body .wpcpm-ui-table td:last-child,
+.wpcpm-ui-item__head ~ .wpcpm-ui-table th:last-child,
+.wpcpm-ui-item__head ~ .wpcpm-ui-table td:last-child {
 	padding-right: 0;
 }
 
@@ -2622,6 +2815,20 @@
 	padding: 16px;
 }
 
+/* What a row holds under its line and its note, at the row's full width (row()'s `more`; Institution Dashboard, Task 22):
+   an event's description. A short one is a person's note, the row's 8px under it; a long one is an inner fold whose
+   top line stands 8px under the line above it and whose bottom line is the row's own. On a phone such a row of a list
+   with its facts under is the grid a noted row is, so its description reads before its action. */
+.wpcpm-ui-list__more > .wpcpm-ui-note {
+	margin: 0;
+	padding: 0 0 8px;
+}
+
+.wpcpm-ui-list__more > .wpcpm-ui-fold--inner {
+	border-bottom: 0;
+	margin: 0;
+}
+
 .wpcpm-ui-list__empty {
 	color: var( --wpcpm-f-muted );
 	font: 400 14px/20px var( --wpcpm-f-sans );
@@ -2693,7 +2900,8 @@
 		align-self: baseline;
 	}
 
-	.wpcpm-ui-list--under .wpcpm-ui-list__row--note {
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--note,
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--more {
 		align-items: center;
 		display: grid;
 		gap: 8px 16px;
@@ -2702,7 +2910,8 @@
 		padding: 8px 0;
 	}
 
-	.wpcpm-ui-list--under .wpcpm-ui-list__row--note > .wpcpm-ui-list__line {
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--note > .wpcpm-ui-list__line,
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--more > .wpcpm-ui-list__line {
 		display: contents;
 	}
 
@@ -2712,7 +2921,8 @@
 		padding: 0;
 	}
 
-	.wpcpm-ui-list--under .wpcpm-ui-list__row--note .wpcpm-ui-list__act {
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--note .wpcpm-ui-list__act,
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--more .wpcpm-ui-list__act {
 		order: 1;
 	}
 
@@ -2720,6 +2930,15 @@
 		grid-column: 1 / -1;
 		justify-self: stretch;
 		order: 2;
+	}
+
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--more > .wpcpm-ui-list__more {
+		grid-column: 1 / -1;
+		justify-self: stretch;
+	}
+
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--more > .wpcpm-ui-list__more > .wpcpm-ui-note {
+		padding-bottom: 0;
 	}
 }
 
@@ -2733,7 +2952,8 @@
 		align-self: baseline;
 	}
 
-	.wpcpm-ui-list--under .wpcpm-ui-list__row--note {
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--note,
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--more {
 		align-items: center;
 		display: grid;
 		gap: 8px 16px;
@@ -2742,7 +2962,8 @@
 		padding: 8px 0;
 	}
 
-	.wpcpm-ui-list--under .wpcpm-ui-list__row--note > .wpcpm-ui-list__line {
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--note > .wpcpm-ui-list__line,
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--more > .wpcpm-ui-list__line {
 		display: contents;
 	}
 
@@ -2752,7 +2973,8 @@
 		padding: 0;
 	}
 
-	.wpcpm-ui-list--under .wpcpm-ui-list__row--note .wpcpm-ui-list__act {
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--note .wpcpm-ui-list__act,
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--more .wpcpm-ui-list__act {
 		order: 1;
 	}
 
@@ -2760,6 +2982,15 @@
 		grid-column: 1 / -1;
 		justify-self: stretch;
 		order: 2;
+	}
+
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--more > .wpcpm-ui-list__more {
+		grid-column: 1 / -1;
+		justify-self: stretch;
+	}
+
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--more > .wpcpm-ui-list__more > .wpcpm-ui-note {
+		padding-bottom: 0;
 	}
 }
 
@@ -2946,6 +3177,346 @@
 
 .wpcpm-ui-fold:where( :not( .wpcpm-ui-fold--inner ) ) + :where( :not( .wpcpm-ui-fold ) ) {
 	margin-top: var( --wpcpm-f-module );
+}
+
+/* ---------- Viewing as institution, the compact control (Task 14, design 7): one small control, the label muted
+   beside its box (the one exception of design 2.4), the one combobox, and Show only while the parts' script has not
+   taken over. In a head it ends the head's first row, after the page's H1; in the choice state it is the main area's
+   one field, under the head. Under 800px of main area it takes its own line under the H1, at full width. ---------- */
+
+.wpcpm-ui-head-row {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --wpcpm-f-gap ) var( --wpcpm-f-apart );
+	justify-content: space-between;
+	min-width: 0;
+}
+
+.wpcpm-ui-head-row > :first-child {
+	min-width: 0;
+}
+
+.wpcpm-ui-viewing {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --wpcpm-f-tie ) var( --wpcpm-f-gap );
+	margin-block: var( --wpcpm-f-apart ) 0;
+	margin-inline: 0;
+	max-width: 100%;
+	min-width: 0;
+}
+
+.wpcpm-ui-head-row .wpcpm-ui-viewing {
+	flex: 0 1 auto;
+	margin-block: 0;
+	margin-inline-start: auto;
+}
+
+.wpcpm-ui-viewing__label {
+	color: var( --wpcpm-f-muted );
+	flex: 0 0 auto;
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	margin: 0;
+}
+
+/* The select and the field that stands in for it are a field's select (design 2.4): the box's rules above list them,
+   as wide as the longest name, at least 200px and at most 320px, the chevron and its room on the select's own side.
+   What differs: the field fills its block, whose width switcher.js holds; and nothing outside moves the box. */
+.wpcpm-ui-viewing .wpcpm-ui-viewing__box {
+	margin: 0;
+}
+
+.wpcpm-ui-viewing .wpcpm-ui-viewing__box[role="combobox"] {
+	width: 100%;
+}
+
+.wpcpm-ui-viewing__show {
+	flex: 0 0 auto;
+}
+
+/* A phone, and a main area under 800px: the same rules (the one narrow form, Task 18f). The box, the select or the field's
+   block that stands in for it (the block that holds the field's box), takes its own width, the longest name's, as its
+   basis and fills the rest of the line: beside the label while the name fits there, under it at full width when it
+   does not, so the name decides the wrap and is cut only when it is longer than the line (Gate B round 2, F4). The
+   select's rule stands alone, so a browser without :has() keeps it. With no script Show takes a line of its own, 16px
+   under the select as a button under a field stands (the row's 6px and its own 10px; Task 28 fix round 2, X11). Where the control's line is drawn in the head's narrow form is
+   the frame's head's rule (dashboard-frame.css, round 2, F11). */
+@media (max-width: 600px) {
+	.wpcpm-ui-head-row {
+		align-items: stretch;
+		flex-direction: column;
+	}
+
+	.wpcpm-ui-viewing,
+	.wpcpm-ui-head-row .wpcpm-ui-viewing {
+		margin-inline-start: 0;
+		width: 100%;
+	}
+
+	.wpcpm-ui-viewing .wpcpm-ui-viewing__box {
+		max-width: none;
+		min-width: 0;
+	}
+
+	.wpcpm-ui-viewing > .wpcpm-ui-viewing__box {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	.wpcpm-ui-viewing > :has( > .wpcpm-ui-viewing__box ) {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	.wpcpm-ui-viewing__show {
+		flex-basis: 100%;
+		margin-top: calc( var( --wpcpm-f-block ) - var( --wpcpm-f-tie ) );
+	}
+}
+
+@container wpcpm-main ( max-width: 799.98px ) {
+	.wpcpm-ui-head-row {
+		align-items: stretch;
+		flex-direction: column;
+	}
+
+	.wpcpm-ui-viewing,
+	.wpcpm-ui-head-row .wpcpm-ui-viewing {
+		margin-inline-start: 0;
+		width: 100%;
+	}
+
+	.wpcpm-ui-viewing .wpcpm-ui-viewing__box {
+		max-width: none;
+		min-width: 0;
+	}
+
+	.wpcpm-ui-viewing > .wpcpm-ui-viewing__box {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	.wpcpm-ui-viewing > :has( > .wpcpm-ui-viewing__box ) {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	.wpcpm-ui-viewing__show {
+		flex-basis: 100%;
+		margin-top: calc( var( --wpcpm-f-block ) - var( --wpcpm-f-tie ) );
+	}
+}
+
+/* ---------- A view's blocks above its cards, a row of fields, and a fold's media (Institution Dashboard, Task 15:
+   the Students view's filter bar and cohort summary, design 6.1). A block of a view stands 24px over the next one. A
+   row of fields lays its fields side by side, 12px apart down and 24px across, each as wide as its box (a select as
+   its longest option, the search box 320px), the hint wrapping under its own box; under 800px of main area the fields
+   stack at full width, 14px apart. An inner fold may lead with a 44px photo or the name's first letter, in a box of
+   its own before the text column; on a phone, and under 800px of main area, the head is three columns: the media
+   over two lines, the text column with the tag under it, the chevron pinned top right. ---------- */
+
+.wpcpm-ui-block {
+	margin: 0 0 var( --wpcpm-f-apart );
+}
+
+.wpcpm-ui-block > :last-child {
+	margin-bottom: 0;
+}
+
+/* A document drawn as it prints, inside a block (the Institution Dashboard's semester report, Task 18): it keeps its own
+   markup and its own sheet, and a word longer than the area (a school's name in its title, a student's in a quote)
+   breaks rather than widen the page. The 16px over it is a block's. */
+.wpcpm-ui-doc {
+	margin-top: var( --wpcpm-f-block );
+	overflow-wrap: break-word;
+}
+
+/* Under an in-card heading the document is what the heading names, 8px under it (design 2.11; Gate B, B2). */
+.wpcpm-ui-h + .wpcpm-ui-doc {
+	margin-top: 0;
+}
+
+.wpcpm-ui-fields {
+	align-items: flex-start;
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --wpcpm-f-gap ) var( --wpcpm-f-apart );
+	min-width: 0;
+}
+
+.wpcpm-ui-fields > .wpcpm-ui-field {
+	flex: 0 1 auto;
+	margin-top: 0;
+	max-width: 100%;
+	min-width: 0;
+	width: min-content;
+}
+
+.wpcpm-ui-fields .wpcpm-ui-field__control[type="search"] {
+	width: 320px;
+}
+
+.wpcpm-ui-fold__portrait,
+.wpcpm-ui-item__media {
+	align-items: center;
+	background: var( --wpcpm-f-surface );
+	border: 1px solid var( --wpcpm-f-line );
+	border-radius: 2px;
+	box-sizing: border-box;
+	display: flex;
+	flex: none;
+	height: 44px;
+	justify-content: center;
+	overflow: hidden;
+	width: 44px;
+}
+
+.wpcpm-ui-fold__portrait > *,
+.wpcpm-ui-item__media > * {
+	display: block;
+	height: 100%;
+	max-width: 100%;
+	object-fit: cover;
+	width: 100%;
+}
+
+.wpcpm-ui-fold__portrait > .wpcpm-ui-fold__initials,
+.wpcpm-ui-item__media > .wpcpm-ui-item__initials {
+	color: var( --wpcpm-f-ink-2 );
+	font: 600 14px/42px var( --wpcpm-f-sans );
+	text-align: center;
+}
+
+/* An item header that leads with a person's photo (Institution Dashboard, Task 16: a student's card, design 6.1): the
+   photo's 44px box, as an inner fold's, then the name and its facts in the column beside it, 12px away, top-aligned, at
+   every width; the name and the facts keep their own rules. What follows the header stands 16px under it, as a block
+   under an item's facts does. */
+.wpcpm-ui-item__head {
+	align-items: flex-start;
+	display: flex;
+	gap: var( --wpcpm-f-gap );
+	min-width: 0;
+}
+
+.wpcpm-ui-item__lead {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.wpcpm-ui-item__head + .wpcpm-ui-block,
+.wpcpm-ui-item__head + .wpcpm-ui-table {
+	margin-top: var( --wpcpm-f-block );
+}
+
+/* A phone, and a main area under 800px: the same rules (the one narrow form, Task 18f). A row of fields stands as one
+   column: each field on a line of its own, the field's distance between them, and its box, its select or its search box
+   fills the line. An inner fold that leads with a photo draws its head as a grid: the 44px photo in the first column,
+   across the head's two lines (its one line when there is no status tag), the title and its second piece beside it on
+   the first line, the tag under them, and the chevron at the end of the first line. */
+@media (max-width: 600px) {
+	.wpcpm-ui-fields {
+		display: block;
+	}
+
+	.wpcpm-ui-fields > .wpcpm-ui-field {
+		width: auto;
+	}
+
+	.wpcpm-ui-fields > .wpcpm-ui-field + .wpcpm-ui-field {
+		margin-top: var( --wpcpm-f-field );
+	}
+
+	.wpcpm-ui-fields .wpcpm-ui-field__control,
+	.wpcpm-ui-fields .wpcpm-ui-field__control--select,
+	.wpcpm-ui-fields .wpcpm-ui-field__control[type="search"] {
+		max-width: none;
+		width: 100%;
+	}
+
+	.wpcpm-ui-fold--portrait > .wpcpm-ui-fold__head {
+		grid-template-columns: 44px minmax( 0, 1fr ) 20px;
+	}
+
+	.wpcpm-ui-fold--portrait > .wpcpm-ui-fold__head > .wpcpm-ui-fold__portrait {
+		grid-column: 1;
+		grid-row: 1 / span 2;
+	}
+
+	/* With no status tag there is no second line: the photo spans the one row, so no empty row and its gap sit under
+	   it, and the head keeps its padding the same above and below (Gate B, B3: 12px above, 16px below). */
+	.wpcpm-ui-fold--portrait > .wpcpm-ui-fold__head:not( :has( > .wpcpm-ui-fold__end > * ) ) > .wpcpm-ui-fold__portrait {
+		grid-row: 1;
+	}
+
+	.wpcpm-ui-fold--portrait > .wpcpm-ui-fold__head > .wpcpm-ui-fold__lead {
+		grid-column: 2;
+		grid-row: 1;
+	}
+
+	.wpcpm-ui-fold--portrait > .wpcpm-ui-fold__head > .wpcpm-ui-fold__end > * {
+		grid-column: 2;
+		grid-row: 2;
+		justify-self: start;
+	}
+
+	.wpcpm-ui-fold--portrait > .wpcpm-ui-fold__head > .wpcpm-ui-fold__chev {
+		grid-column: 3;
+		grid-row: 1;
+	}
+}
+
+@container wpcpm-main ( max-width: 799.98px ) {
+	.wpcpm-ui-fields {
+		display: block;
+	}
+
+	.wpcpm-ui-fields > .wpcpm-ui-field {
+		width: auto;
+	}
+
+	.wpcpm-ui-fields > .wpcpm-ui-field + .wpcpm-ui-field {
+		margin-top: var( --wpcpm-f-field );
+	}
+
+	.wpcpm-ui-fields .wpcpm-ui-field__control,
+	.wpcpm-ui-fields .wpcpm-ui-field__control--select,
+	.wpcpm-ui-fields .wpcpm-ui-field__control[type="search"] {
+		max-width: none;
+		width: 100%;
+	}
+
+	.wpcpm-ui-fold--portrait > .wpcpm-ui-fold__head {
+		grid-template-columns: 44px minmax( 0, 1fr ) 20px;
+	}
+
+	.wpcpm-ui-fold--portrait > .wpcpm-ui-fold__head > .wpcpm-ui-fold__portrait {
+		grid-column: 1;
+		grid-row: 1 / span 2;
+	}
+
+	/* With no status tag there is no second line: the photo spans the one row, so no empty row and its gap sit under
+	   it, and the head keeps its padding the same above and below (Gate B, B3: 12px above, 16px below). */
+	.wpcpm-ui-fold--portrait > .wpcpm-ui-fold__head:not( :has( > .wpcpm-ui-fold__end > * ) ) > .wpcpm-ui-fold__portrait {
+		grid-row: 1;
+	}
+
+	.wpcpm-ui-fold--portrait > .wpcpm-ui-fold__head > .wpcpm-ui-fold__lead {
+		grid-column: 2;
+		grid-row: 1;
+	}
+
+	.wpcpm-ui-fold--portrait > .wpcpm-ui-fold__head > .wpcpm-ui-fold__end > * {
+		grid-column: 2;
+		grid-row: 2;
+		justify-self: start;
+	}
+
+	.wpcpm-ui-fold--portrait > .wpcpm-ui-fold__head > .wpcpm-ui-fold__chev {
+		grid-column: 3;
+		grid-row: 1;
+	}
 }
 
 /* ---------- Hidden stays hidden inside the parts, which set display ---------- */

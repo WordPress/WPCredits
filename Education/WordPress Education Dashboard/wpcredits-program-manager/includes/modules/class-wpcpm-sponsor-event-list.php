@@ -140,21 +140,13 @@ final class WPCPM_Sponsor_Event_List {
 	 *                             and deciding the heading's markup.
 	 */
 	public static function render( $viewer, $back ) {
-		if ( ! $viewer instanceof WP_User || ! $viewer->exists() || get_current_user_id() !== (int) $viewer->ID ) {
+		$drawable = self::drawable( $viewer );
+
+		if ( null === $drawable ) {
 			return;
 		}
 
-		$message = self::pending();
-
-		if ( ! self::live() ) {
-			return;
-		}
-
-		$events = WPCPM_Sponsor_Event::open_for( $viewer );
-
-		if ( array() === $events && null === $message ) {
-			return;
-		}
+		list( $message, $events ) = $drawable;
 
 		$zone    = WPCPM_Mentor_Availability::viewer_timezone( (int) $viewer->ID );
 		$program = false;
@@ -163,20 +155,17 @@ final class WPCPM_Sponsor_Event_List {
 			$program = $program || WPCPM_Sponsor_Event::is_program( $event );
 		}
 
+		if ( self::parts() ) {
+			self::render_parts( $message, $events, $viewer, $zone, $back );
+
+			return;
+		}
+
 		printf( '<section class="wpcpm-sevents" id="%s">', esc_attr( self::ANCHOR ) );
 		self::render_heading( $back, $program );
 
 		if ( array() !== $events ) {
-			printf(
-				'<p class="wpcpm-sevents__zone">%s</p>',
-				esc_html(
-					sprintf(
-						/* translators: %s: the time zone's name, e.g. America / New York. */
-						__( 'Times are in your time zone, %s.', 'wpcredits-program-manager' ),
-						WPCPM_Mentor_Availability::zone_label( $zone->getName() )
-					)
-				)
-			);
+			printf( '<p class="wpcpm-sevents__zone">%s</p>', esc_html( self::zone_sentence( $zone ) ) );
 		}
 
 		self::draw_message( $message );
@@ -195,6 +184,53 @@ final class WPCPM_Sponsor_Event_List {
 	}
 
 	/**
+	 * Whether `render()` would print its section for the person named: they are the person signed
+	 * in, the list is live, and there is an event open to them or an outcome waiting on the list's
+	 * channel. The Institution Dashboard asks it to know whether its Events view is in the menu.
+	 *
+	 * The three questions are `render()`'s own, asked through the one helper both call, so the two
+	 * cannot disagree. It peeks at the outcome waiting on the list's channel and takes nothing, so a
+	 * page that asks and then draws no list leaves the outcome for the page that does.
+	 *
+	 * @param WP_User $viewer The person looking, whose page this is.
+	 * @return bool
+	 */
+	public static function shows( WP_User $viewer ): bool {
+		return null !== self::drawable( $viewer, false );
+	}
+
+	/**
+	 * The three questions `render()` asks before it prints: what it draws, or null for nothing.
+	 *
+	 * For `render()` the outcome waiting on the list's channel is taken once the viewer is the person
+	 * signed in, whatever is drawn after, as `render()` has always taken it; for `shows()` it is only
+	 * peeked at, and stays.
+	 *
+	 * @param WP_User|null $viewer The person looking.
+	 * @param bool         $take   Take the outcome (`render()`), or only peek at it (`shows()`).
+	 * @return array{0: array|null, 1: array}|null The outcome to say and the events to list, or null.
+	 */
+	private static function drawable( $viewer, $take = true ) {
+		if ( ! $viewer instanceof WP_User || ! $viewer->exists() || get_current_user_id() !== (int) $viewer->ID ) {
+			return null;
+		}
+
+		$message = self::pending( $take );
+
+		if ( ! self::live() ) {
+			return null;
+		}
+
+		$events = WPCPM_Sponsor_Event::open_for( $viewer );
+
+		if ( array() === $events && null === $message ) {
+			return null;
+		}
+
+		return array( $message, $events );
+	}
+
+	/**
 	 * The list's heading, in the house's markup for the place it is drawn, so the theme's existing
 	 * rules dress it there and no rule of its own has to be kept in step with them: on the Student
 	 * Report Card, the student's group sessions' own subheading, since the list sits under the
@@ -209,7 +245,7 @@ final class WPCPM_Sponsor_Event_List {
 	 * @param bool   $program Whether an event of the program's own is listed.
 	 */
 	private static function render_heading( $back, $program = false ) {
-		$text = $program ? __( 'Events from our sponsors and the program', 'wpcredits-program-manager' ) : __( 'Events from our sponsors', 'wpcredits-program-manager' );
+		$text = self::heading_text( $program );
 
 		if ( self::BACK_STUDENT === $back ) {
 			printf( '<h4 class="wpcpm-sevents__heading wpcpm-calls__subheading">%s</h4>', esc_html( $text ) );
@@ -242,8 +278,9 @@ final class WPCPM_Sponsor_Event_List {
 	 * event that is not approved, for nobody signed in, or with nothing to press. The Administrator
 	 * Dashboard's card draws this on each event under Coming up, and the call link itself; while that
 	 * dashboard's switch is on, nothing is printed here: the card puts Join or Leave in the event's own
-	 * Decide row (`decision_parts()`, Task 18d). Every page that lists the events draws today's markup,
-	 * whatever surface is on, until its own release.
+	 * Decide row (`decision_parts()`, Task 18d). On the Institution Dashboard, while its surface is on,
+	 * the row's presses and call link are the shared parts' (Task 22); the Student and Mentor Report
+	 * Cards' lists draw today's markup.
 	 *
 	 * @param WP_Post      $event  The event, one a list or the program's card read as not over yet.
 	 * @param WP_User|null $viewer The person looking, who presses as themselves; nothing is drawn
@@ -258,9 +295,17 @@ final class WPCPM_Sponsor_Event_List {
 		}
 
 		// On the Administrator Dashboard's card while its switch is on, Join or Leave is a decision of the event's own
-		// Decide row, which the card draws (`decision_parts()`). The pages that list the events (the Report Cards and the
-		// Institution Dashboard) draw today's markup below, the call link with it, until their own release.
+		// Decide row, which the card draws (`decision_parts()`). The Institution Dashboard on its parts draws the row's
+		// presses below; the Report Cards' lists draw today's markup, the call link with it.
 		if ( self::BACK_ADMIN === $back && class_exists( 'WPCPM_UI', false ) && WPCPM_UI::on() ) {
+			return;
+		}
+
+		// On the Institution Dashboard's parts (Task 22): the row's presses and its call link, the parts' buttons; the
+		// mark that the reader is on the event is the row's note, which the row draws.
+		if ( self::parts() ) {
+			echo implode( '', self::actions_parts( $event, $press, $back ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::button() and WPCPM_UI::nonce().
+
 			return;
 		}
 
@@ -269,18 +314,18 @@ final class WPCPM_Sponsor_Event_List {
 		echo '<div class="wpcpm-sevent__actions">';
 
 		if ( $joined ) {
-			printf( '<p class="wpcpm-sevent__joined">%s</p>', esc_html__( 'You are on it.', 'wpcredits-program-manager' ) );
+			printf( '<p class="wpcpm-sevent__joined">%s</p>', esc_html( self::joined_words() ) );
 			self::render_press( self::ACTION_LEAVE, $event, $back );
 
-			$link = WPCPM_Sponsor_Event::link_of( $event );
+			$link = self::call_link( $event, $back );
 
 			// Named to a screen reader with its event, as Join and Leave are: a list of several
 			// events otherwise reads "Join the call" once for each, with nothing to tell them apart.
-			if ( self::BACK_ADMIN !== $back && '' !== $link ) {
+			if ( '' !== $link ) {
 				printf(
 					'<a class="wpcpm-sevent__link" href="%1$s" target="_blank" rel="noopener noreferrer">%2$s<span class="screen-reader-text"> %3$s</span></a>',
 					esc_url( $link ),
-					esc_html__( 'Join the call', 'wpcredits-program-manager' ),
+					esc_html( self::call_words() ),
 					esc_html( $event->post_title )
 				);
 			}
@@ -387,7 +432,7 @@ final class WPCPM_Sponsor_Event_List {
 	 * @param string       $back   Which page this is.
 	 */
 	private static function render_item( WP_Post $event, WP_User $viewer, DateTimeZone $zone, $back ) {
-		$facts = WPCPM_Sponsor_Event::facts( $event );
+		$facts = self::event_facts( $event, $zone );
 
 		echo '<li class="wpcpm-sevent__item">';
 		printf(
@@ -401,9 +446,9 @@ final class WPCPM_Sponsor_Event_List {
 				sprintf(
 					/* translators: 1: the day and the start and end times, 2: how long it runs, e.g. 60 minutes, 3: the places left, e.g. 12 places left, Full, or No longer offered. */
 					__( '%1$s. %2$s. %3$s.', 'wpcredits-program-manager' ),
-					WPCPM_Mentor_Calls::format_range( $facts['start'], $facts['end'], $zone ),
-					WPCPM_Sponsor_Event::length_line( $facts['minutes'] ),
-					WPCPM_Sponsor_Event::offers_events( $event ) ? self::places( $facts['places'], $facts['joined'] ) : __( 'No longer offered', 'wpcredits-program-manager' )
+					$facts['range'],
+					$facts['length'],
+					$facts['places']
 				)
 			)
 		);
@@ -419,13 +464,14 @@ final class WPCPM_Sponsor_Event_List {
 	 * @param string $text The description.
 	 */
 	private static function render_description( $text ) {
-		$text = (string) $text;
+		$text  = (string) $text;
+		$shown = self::description_shown( $text );
 
-		if ( '' === trim( $text ) ) {
+		if ( '' === $shown ) {
 			return;
 		}
 
-		if ( mb_strlen( $text ) <= self::DESCRIPTION_SHOWN ) {
+		if ( 'whole' === $shown ) {
 			printf( '<p class="wpcpm-sevent__description">%s</p>', esc_html( $text ) );
 
 			return;
@@ -433,9 +479,343 @@ final class WPCPM_Sponsor_Event_List {
 
 		printf(
 			'<details class="wpcpm-sevent__more"><summary>%1$s</summary><p class="wpcpm-sevent__description">%2$s</p></details>',
-			esc_html__( 'Read the description', 'wpcredits-program-manager' ),
+			esc_html( self::more_words() ),
 			esc_html( $text )
 		);
+	}
+
+	/*
+	 * --------------------------------------------------------------------
+	 * The list on the Institution Dashboard's parts (Task 22), and the rules both drawings ask
+	 * --------------------------------------------------------------------
+	 */
+
+	/**
+	 * Whether the list is drawn on the shared parts: the Institution Dashboard's surface named and on. Every other page
+	 * that draws the list (the Student and Mentor Report Cards' calendars) and the program's card on the Administrator
+	 * Dashboard keep today's markup, whatever else is on.
+	 *
+	 * @return bool
+	 */
+	private static function parts() {
+		return class_exists( 'WPCPM_UI', false ) && class_exists( 'WPCPM_Dashboard_Card', false ) && WPCPM_UI::on() && 'institution' === WPCPM_UI::surface();
+	}
+
+	/**
+	 * The list on the parts (design 6.6): the view's content, one headless block holding the list's anchor (the view's
+	 * head titles it "Events"); no heading, since today's "Events from our sponsors" says what the view's lede says one
+	 * line above and each row names its host (Task 22, fix round 1); the zone named once, a fact only it holds; the outcome, the shell's message in its tone; then one list of rows, the facts
+	 * under the name: the host, the day and time on the reader's clock with each date whole, how long and the places left
+	 * in today's words; "You are on it." the row's note; the description under it, folded when long; Join (quiet),
+	 * Leave (quiet red) and Join the call (a quiet link) in the row's action cell.
+	 *
+	 * @param array|null   $message The outcome to say, or null.
+	 * @param WP_Post[]    $events  The events to list.
+	 * @param WP_User      $viewer  The person looking.
+	 * @param DateTimeZone $zone    Their clock.
+	 * @param string       $back    Which page this is.
+	 */
+	private static function render_parts( $message, array $events, WP_User $viewer, DateTimeZone $zone, $back ) {
+		printf( '<section class="wpcpm-ui-block" id="%s">', esc_attr( self::ANCHOR ) );
+
+		if ( array() !== $events ) {
+			echo WPCPM_UI::intro( self::zone_sentence( $zone ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
+		}
+
+		self::draw_message( $message );
+
+		if ( array() !== $events ) {
+			echo WPCPM_UI::list_open( array( 'facts' => 'under' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup of its own.
+
+			foreach ( $events as $event ) {
+				echo self::row_parts( $event, $viewer, $zone, $back ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts.
+			}
+
+			echo WPCPM_UI::list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup of its own.
+		}
+
+		echo '</section>';
+	}
+
+	/**
+	 * One event as a row of the parts' list: its title and its host as typed (the list breaks a word that would
+	 * overflow; `breakable()` is for a data table's cell), when it runs with each date whole, how long and the places
+	 * left (or that it is no longer offered); "You are on it." the note of a row the reader is on; its description under
+	 * the row, whole or folded; and what the reader may press.
+	 *
+	 * @param WP_Post      $event  The event.
+	 * @param WP_User      $viewer The person looking.
+	 * @param DateTimeZone $zone   Their clock.
+	 * @param string       $back   Which page this is.
+	 * @return string Escaped markup.
+	 */
+	private static function row_parts( WP_Post $event, WP_User $viewer, DateTimeZone $zone, $back ) {
+		$facts = self::event_facts( $event, $zone );
+		$press = self::press_of( $event, $viewer );
+
+		return WPCPM_UI::row(
+			array(
+				'name'    => $facts['title'],
+				'facts'   => array(
+					$facts['host'],
+					array( 'html' => self::range_html( $facts['range'], $facts['start'], $facts['end'], $zone ) ),
+					$facts['length'],
+					$facts['places'],
+				),
+				'note'    => true === $press ? self::joined_words() : '',
+				'more'    => self::description_parts( $facts['description'] ),
+				'actions' => null === $press ? array() : self::actions_parts( $event, $press, $back ),
+			)
+		);
+	}
+
+	/**
+	 * When an event runs, as `WPCPM_Mentor_Calls::format_range()` words it on the reader's clock, with each of its
+	 * moments whole (`WPCPM_UI::whole()`), so a day, its month and its year never part and the range may break at its
+	 * own words between them. The words are the helper's, and the two moments are its own (`range_moments()`, the one
+	 * place their formats are read): marked where the words start and end with them; otherwise printed as they are.
+	 *
+	 * @param string       $range The helper's words.
+	 * @param int          $start The start, a Unix time.
+	 * @param int          $end   The end, a Unix time.
+	 * @param DateTimeZone $zone  The reader's clock.
+	 * @return string Escaped markup.
+	 */
+	private static function range_html( $range, $start, $end, DateTimeZone $zone ) {
+		$moments = WPCPM_Mentor_Calls::range_moments( $start, $end, $zone );
+		$from    = $moments['from'];
+		$to      = $moments['to'];
+		$between = strlen( $range ) - strlen( $from ) - strlen( $to );
+
+		if ( '' !== $from && '' !== $to && $between > 0 && 0 === strpos( $range, $from ) && substr( $range, -strlen( $to ) ) === $to ) {
+			return WPCPM_UI::whole( $from ) . esc_html( substr( $range, strlen( $from ), $between ) ) . WPCPM_UI::whole( $to );
+		}
+
+		return esc_html( $range );
+	}
+
+	/**
+	 * An event's description on the parts: whole as a person's note when it is short, folded under today's words as an
+	 * inner fold when it is long, as the program's card draws it; '' for none.
+	 *
+	 * @param string $text The description.
+	 * @return string Escaped markup.
+	 */
+	private static function description_parts( $text ) {
+		$text  = (string) $text;
+		$shown = self::description_shown( $text );
+
+		if ( '' === $shown ) {
+			return '';
+		}
+
+		if ( 'whole' === $shown ) {
+			return WPCPM_UI::note( $text );
+		}
+
+		return WPCPM_UI::inner_open( array( 'title' => self::more_words() ) ) . WPCPM_UI::note( $text ) . WPCPM_UI::inner_close();
+	}
+
+	/**
+	 * What the reader may press on an event on the parts, in the order today's markup has it: Leave (quiet red, today's
+	 * question) and, on the three pages that list the events, Join the call (a quiet link that opens apart, as today's);
+	 * or Join (quiet). Each press is its own form posting what today's posts (`press_fields()`), its nonce printed with
+	 * no id; each is named for its event to a screen reader.
+	 *
+	 * @param WP_Post $event  The event.
+	 * @param bool    $joined Whether the reader is on it (`press_of()`).
+	 * @param string  $back   Which page this is.
+	 * @return string[] Escaped markup, a press or a link each.
+	 */
+	private static function actions_parts( WP_Post $event, $joined, $back ) {
+		$out  = array( self::press_parts( $joined ? self::ACTION_LEAVE : self::ACTION_JOIN, $event, $back ) );
+		$link = $joined ? self::call_link( $event, $back ) : '';
+
+		if ( '' !== $link ) {
+			$out[] = WPCPM_UI::button(
+				array(
+					'label'   => self::call_words(),
+					'kind'    => 'quiet',
+					'href'    => $link,
+					'rel'     => 'noopener noreferrer',
+					'target'  => '_blank',
+					'context' => (string) $event->post_title,
+					'side'    => 'front',
+				)
+			);
+		}
+
+		return $out;
+	}
+
+	/**
+	 * One press on the parts, Join or Leave: today's form (the method, the address, the guard and its busy words), its
+	 * nonce with no id and the referer, today's hidden fields, and the button part, quiet or quiet red.
+	 *
+	 * @param string  $action ACTION_JOIN or ACTION_LEAVE.
+	 * @param WP_Post $event  The event.
+	 * @param string  $back   Which page this is.
+	 * @return string Escaped markup.
+	 */
+	private static function press_parts( $action, WP_Post $event, $back ) {
+		$join   = self::ACTION_JOIN === $action;
+		$words  = self::press_words( $join );
+		$hidden = '';
+
+		foreach ( self::press_fields( $action, $event, $back ) as $name => $value ) {
+			$hidden .= sprintf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( $name ), esc_attr( $value ) );
+		}
+
+		return sprintf(
+			'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr( $words['busy'] )
+		)
+			. WPCPM_UI::nonce( $action . '_' . (int) $event->ID )
+			. $hidden
+			. WPCPM_UI::button(
+				array(
+					'label'   => $words['label'],
+					'kind'    => $join ? 'quiet' : 'quiet-danger',
+					'confirm' => $words['confirm'],
+					'context' => (string) $event->post_title,
+					'side'    => 'front',
+				)
+			)
+			. '</form>';
+	}
+
+	/**
+	 * What a Join or a Leave posts besides its nonce, in today's order: the action, the event, the page to come back to
+	 * (one of the four keys, '' for any other). Both drawings print these.
+	 *
+	 * @param string  $action ACTION_JOIN or ACTION_LEAVE.
+	 * @param WP_Post $event  The event.
+	 * @param string  $back   Which page this is.
+	 * @return array<string, string> Name => value.
+	 */
+	private static function press_fields( $action, WP_Post $event, $back ) {
+		return array(
+			'action'          => (string) $action,
+			self::FIELD_EVENT => (string) (int) $event->ID,
+			self::FIELD_BACK  => in_array( $back, self::backs(), true ) ? (string) $back : '',
+		);
+	}
+
+	/**
+	 * A press's words, today's: its label, the busy words its guard shows while it posts, and the browser's question
+	 * (Leave asks; Join does not).
+	 *
+	 * @param bool $join Whether the press is Join.
+	 * @return array{label: string, busy: string, confirm: string}
+	 */
+	private static function press_words( $join ) {
+		return array(
+			'label'   => $join ? __( 'Join', 'wpcredits-program-manager' ) : __( 'Leave', 'wpcredits-program-manager' ),
+			'busy'    => $join ? __( 'Joining', 'wpcredits-program-manager' ) : __( 'Leaving', 'wpcredits-program-manager' ),
+			'confirm' => $join ? '' : __( 'Leave this event? Your place goes back.', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
+	 * The call link a person on an event is shown, on the three pages that list the events: the event's own, or '' (on
+	 * the Administrator Dashboard, whose card prints the link itself, and for an event with none).
+	 *
+	 * @param WP_Post $event The event.
+	 * @param string  $back  Which page this is.
+	 * @return string The address, not escaped.
+	 */
+	private static function call_link( WP_Post $event, $back ) {
+		return self::BACK_ADMIN === $back ? '' : (string) WPCPM_Sponsor_Event::link_of( $event );
+	}
+
+	/**
+	 * An event's facts as the list says them: its title and its host, when it runs on the reader's clock (the words and
+	 * the two moments), how long, the places left or that it is no longer offered, and its description.
+	 *
+	 * @param WP_Post      $event The event.
+	 * @param DateTimeZone $zone  The reader's clock.
+	 * @return array{title: string, host: string, range: string, start: int, end: int, length: string, places: string, description: string}
+	 */
+	private static function event_facts( WP_Post $event, DateTimeZone $zone ) {
+		$facts = WPCPM_Sponsor_Event::facts( $event );
+
+		return array(
+			'title'       => (string) $facts['title'],
+			'host'        => (string) $facts['host'],
+			'range'       => WPCPM_Mentor_Calls::format_range( $facts['start'], $facts['end'], $zone ),
+			'start'       => (int) $facts['start'],
+			'end'         => (int) $facts['end'],
+			'length'      => WPCPM_Sponsor_Event::length_line( $facts['minutes'] ),
+			'places'      => WPCPM_Sponsor_Event::offers_events( $event ) ? self::places( $facts['places'], $facts['joined'] ) : __( 'No longer offered', 'wpcredits-program-manager' ),
+			'description' => (string) $facts['description'],
+		);
+	}
+
+	/**
+	 * How a description is shown: 'whole' when it is short, 'folded' when it is longer than `DESCRIPTION_SHOWN`
+	 * characters, '' when there is none.
+	 *
+	 * @param string $text The description.
+	 * @return string
+	 */
+	private static function description_shown( $text ) {
+		if ( '' === trim( (string) $text ) ) {
+			return '';
+		}
+
+		return mb_strlen( (string) $text ) <= self::DESCRIPTION_SHOWN ? 'whole' : 'folded';
+	}
+
+	/**
+	 * The sentence that names the reader's clock, once, above the list.
+	 *
+	 * @param DateTimeZone $zone The reader's clock.
+	 * @return string
+	 */
+	private static function zone_sentence( DateTimeZone $zone ) {
+		return sprintf(
+			/* translators: %s: the time zone's name, e.g. America / New York. */
+			__( 'Times are in your time zone, %s.', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Availability::zone_label( $zone->getName() )
+		);
+	}
+
+	/**
+	 * The list's heading: the program named beside the sponsors only while an event of its own is listed.
+	 *
+	 * @param bool $program Whether an event of the program's own is listed.
+	 * @return string
+	 */
+	private static function heading_text( $program ) {
+		return $program ? __( 'Events from our sponsors and the program', 'wpcredits-program-manager' ) : __( 'Events from our sponsors', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The mark that the reader is on an event.
+	 *
+	 * @return string
+	 */
+	private static function joined_words() {
+		return __( 'You are on it.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The call link's words.
+	 *
+	 * @return string
+	 */
+	private static function call_words() {
+		return __( 'Join the call', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The words a long description is folded under.
+	 *
+	 * @return string
+	 */
+	private static function more_words() {
+		return __( 'Read the description', 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -448,30 +828,32 @@ final class WPCPM_Sponsor_Event_List {
 	 * @param string  $back   Which page this is.
 	 */
 	private static function render_press( $action, WP_Post $event, $back ) {
-		$join = self::ACTION_JOIN === $action;
+		$join  = self::ACTION_JOIN === $action;
+		$words = self::press_words( $join );
 
 		printf(
 			'<form class="wpcpm-inline-form %1$s" method="post" action="%2$s" data-wpcpm-once data-wpcpm-busy="%3$s">',
 			esc_attr( $join ? 'wpcpm-sevent__join' : 'wpcpm-sevent__leave' ),
 			esc_url( admin_url( 'admin-post.php' ) ),
-			esc_attr( $join ? __( 'Joining', 'wpcredits-program-manager' ) : __( 'Leaving', 'wpcredits-program-manager' ) )
+			esc_attr( $words['busy'] )
 		);
 		wp_nonce_field( $action . '_' . (int) $event->ID );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $action ) );
-		printf( '<input type="hidden" name="%1$s" value="%2$d" />', esc_attr( self::FIELD_EVENT ), (int) $event->ID );
-		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::FIELD_BACK ), esc_attr( in_array( $back, self::backs(), true ) ? $back : '' ) );
+
+		foreach ( self::press_fields( $action, $event, $back ) as $name => $value ) {
+			printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( $name ), esc_attr( $value ) );
+		}
 
 		if ( $join ) {
 			printf(
 				'<button type="submit" class="wpcpm-button">%1$s<span class="screen-reader-text"> %2$s</span></button>',
-				esc_html__( 'Join', 'wpcredits-program-manager' ),
+				esc_html( $words['label'] ),
 				esc_html( $event->post_title )
 			);
 		} else {
 			printf(
 				'<button type="submit" class="wpcpm-button wpcpm-button--secondary" data-wpcpm-confirm="%1$s">%2$s<span class="screen-reader-text"> %3$s</span></button>',
-				esc_attr__( 'Leave this event? Your place goes back.', 'wpcredits-program-manager' ),
-				esc_html__( 'Leave', 'wpcredits-program-manager' ),
+				esc_attr( $words['confirm'] ),
+				esc_html( $words['label'] ),
 				esc_html( $event->post_title )
 			);
 		}
@@ -480,13 +862,15 @@ final class WPCPM_Sponsor_Event_List {
 	}
 
 	/**
-	 * The outcome waiting on the list's channel for the signed-in person, taken: its notice kind and
-	 * its sentence, or null when there is none, or the status is none of the list's.
+	 * The outcome waiting on the list's channel for the signed-in person, taken, or only peeked at and
+	 * left: its notice kind and its sentence, or null when there is none, or the status is none of the
+	 * list's.
 	 *
+	 * @param bool $take Take the outcome, or peek at it and leave it.
 	 * @return array{0: string, 1: string}|null
 	 */
-	private static function pending() {
-		$status   = WPCPM_Flash::take( self::FLASH );
+	private static function pending( $take = true ) {
+		$status   = $take ? WPCPM_Flash::take( self::FLASH ) : WPCPM_Flash::peek( self::FLASH );
 		$messages = self::messages();
 
 		return is_string( $status ) && isset( $messages[ $status ] ) ? $messages[ $status ] : null;
@@ -499,6 +883,14 @@ final class WPCPM_Sponsor_Event_List {
 	 */
 	private static function draw_message( $message ) {
 		if ( ! is_array( $message ) ) {
+			return;
+		}
+
+		// On the Institution Dashboard's parts, the shell's outcome in the list's tone: a refusal alerts and takes the
+		// focus, a success is polite (Task 22).
+		if ( self::parts() ) {
+			echo WPCPM_Dashboard_Card::message( $message[0], $message[1], 'wpcpm-sevent__message' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Dashboard_Card::message() escapes what it prints.
+
 			return;
 		}
 
@@ -734,8 +1126,8 @@ final class WPCPM_Sponsor_Event_List {
 				$page = class_exists( 'WPCPM_Mentors_Dashboard' ) ? (string) WPCPM_Mentors_Dashboard::page_url() : '';
 				break;
 			case self::BACK_INSTITUTION:
-				$page = class_exists( 'WPCPM_Institutions_Dashboard' ) ? (string) WPCPM_Institutions_Dashboard::page_url() : '';
-				break;
+				// The Institution Dashboard draws one view at a time: the Events view, at the list (`card_url()`).
+				return class_exists( 'WPCPM_Institutions_Dashboard' ) ? WPCPM_Institutions_Dashboard::card_url( 'sevents' ) : '';
 			case self::BACK_ADMIN:
 				$page   = class_exists( 'WPCPM_Administrators_Dashboard' ) ? (string) WPCPM_Administrators_Dashboard::page_url() : '';
 				$anchor = self::ADMIN_ANCHOR;

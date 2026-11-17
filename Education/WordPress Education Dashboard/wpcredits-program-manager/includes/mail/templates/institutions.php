@@ -532,7 +532,7 @@ $wpcpm_revoked = static function ( $contact ) use ( $wpcpm_body ) {
 				'{administrator_name}'
 			),
 			'{note}',
-			__( 'Until an agreement is in force again, your Institution Dashboard shows only the Collaboration Agreement card. Nothing about your students has been deleted.', 'wpcredits-program-manager' ),
+			__( 'Until an agreement is in force again, your institution\'s representatives see only the Overview and the Agreement on the Institution Dashboard, and its tutors cannot open it. Nothing about your students has been deleted.', 'wpcredits-program-manager' ),
 			$contact
 				? sprintf(
 					/* translators: 1: country name, 2: the contact's email address. */
@@ -680,7 +680,7 @@ return array(
 					__( 'An Administrator will read it and you will get an email either way, usually within %s.', 'wpcredits-program-manager' ),
 					'{review_window}'
 				),
-				__( 'If it was the wrong file, withdraw it from the Collaboration Agreement card on your Institution Dashboard and upload the right one.', 'wpcredits-program-manager' ),
+				__( 'If it was the wrong file, open Agreement on your Institution Dashboard, withdraw it there and upload the right one.', 'wpcredits-program-manager' ),
 			)
 		),
 		'eol'          => "\r\n",
@@ -758,7 +758,7 @@ return array(
 					'{administrator_name}'
 				),
 				'{note}',
-				__( 'Upload the corrected copy from the Collaboration Agreement card on your Institution Dashboard. Replying to this message reaches the Administrator who wrote the note.', 'wpcredits-program-manager' ),
+				__( 'Upload the corrected copy under Agreement on your Institution Dashboard. Replying to this message reaches the Administrator who wrote the note.', 'wpcredits-program-manager' ),
 			)
 		),
 		'eol'          => "\r\n",

@@ -7551,7 +7551,7 @@ ck( 'under the real switch the Administrator Dashboard is drawn on: The program 
 	$ov_real === $ov_off,
 	has( $ov_real, 'wpcpm-administrator wpcpm-administrator--overview wpcpm-ui-on' ),
 	parts_outside_switch( $ov_real )[0],
-), array( array( 'administrator' ), true, true, false, true, array() ) );
+), array( array( 'administrator', 'institution' ), true, true, false, true, array() ) );
 
 /* ---- the students waiting to graduate (1.123.93) -------------------------- */
 

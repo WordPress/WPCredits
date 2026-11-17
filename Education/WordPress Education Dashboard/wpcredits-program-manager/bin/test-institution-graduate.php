@@ -190,7 +190,25 @@ function get_posts( $a = array() ) {
 	return array_reverse( $out );
 }
 function check_admin_referer( $a = -1, $q = '_wpnonce' ) { $GLOBALS['referer'][] = $a; return true; }
-function wp_nonce_field( $a = '', $n = '_wpnonce', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />'; }
+// Core's shape (Institution Dashboard, Task 16): the token under its id and name, then the page the form is drawn on, which
+// the handler's way back reads; so the drawn forms are asserted with the referer field they post.
+function wp_referer_field( $display = true ) {
+	$field = '<input type="hidden" name="_wp_http_referer" value="/institution-dashboard/?wpcpm_view=students&amp;wpcpm_institution_student=10" />';
+	if ( $display ) { echo $field; }
+	return $field;
+}
+function wp_nonce_field( $a = '', $n = '_wpnonce', $r = true, $e = true ) {
+	$field = '<input type="hidden" id="' . esc_attr( $n ) . '" name="' . esc_attr( $n ) . '" value="nonce-' . esc_attr( $a ) . '" />' . ( $r ? wp_referer_field( false ) : '' );
+	if ( $e ) { echo $field; }
+	return $field;
+}
+function wp_create_nonce( $a = -1 ) { return 'nonce-' . $a; }
+function number_format_i18n( $n, $d = 0 ) { return (string) round( $n, $d ); }
+function is_admin() { return false; }
+function _doing_it_wrong( $f, $m, $v ) { $GLOBALS['wrong'][] = $f; }
+function wp_script_is( $h, $l = 'enqueued' ) { return false; }
+function wp_register_script() {}
+function wp_enqueue_script( $h ) {}
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function home_url( $p = '/' ) { return 'https://example.test' . $p; }
 function wp_get_referer() { return 'https://example.test/institutions/?wpcpm_institution_student=10'; }
@@ -269,9 +287,17 @@ if ( ! class_exists( 'WPCPM_Settings' ) ) {
 		public static function get() { return array( 'reports_table' => 'tblREPORTS', 'students_table' => 'tblSTUDENTS' ); }
 	}
 }
+require_once __DIR__ . '/stubs/institution-card-url.php';
 if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
 	class WPCPM_Institutions_Dashboard {
 		public static function page_url() { return 'https://example.test/institutions/'; }
+		// The page's addresses, as the real class builds them (bin/stubs/institution-card-url.php, checked against it
+		// in bin/test-institution-ways-back.php).
+		public static function view_url( $view = 'overview', $record = '', array $args = array() ) { return wpcpm_test_institution_view_url( self::page_url(), $view, $record, $args ); }
+		public static function view_of( $card ) { return wpcpm_test_institution_view_of( $card ); }
+		public static function card_url( $card, $record = '', $item = '', array $args = array() ) { return wpcpm_test_institution_card_url( self::page_url(), $card, $record, $item, $args ); }
+		public static function requested_record() { return wpcpm_test_institution_requested_record(); }
+		public static function way_back( $card ) { return wpcpm_test_institution_way_back( self::page_url(), $card ); }
 	}
 }
 if ( ! class_exists( 'WPCPM_Student_Report_Form' ) ) {
@@ -393,6 +419,14 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-audit.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-policy.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-students.php';
+// The parts the card is drawn with.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
+if ( ! function_exists( 'sanitize_html_class' ) ) {
+	/** Core's: a class name with anything but letters, digits, hyphens and underscores taken out. */
+	function sanitize_html_class( $c, $f = '' ) { $c = preg_replace( '|%[a-fA-F0-9][a-fA-F0-9]|', '', (string) $c ); $c = preg_replace( '/[^A-Za-z0-9_-]/', '', $c ); return '' === $c ? (string) $f : $c; }
+}
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
 
 $fail  = 0;
 $total = 0;
@@ -615,7 +649,7 @@ $GLOBALS['users'][5]   = new WP_User( 5, 'A Registrar', 'registrar@example.test'
 $GLOBALS['members'][5] = array( $inst_a );
 press( 5, $student, 'graduated' );
 ck( 'and the card says graduating is switched off, in so many words',
-    has( draw( 5, $student, array() ), '<p class="wpcpm-institution__status-message is-error" role="status">Nothing was changed: marking a student as graduated is switched off on this screen for now. Administrators record graduations in the program records.</p>' ), true );
+    has( draw( 5, $student, array() ), '<p class="wpcpm-institution__status-message wpcpm-institution__status-message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>Nothing was changed: marking a student as graduated is switched off on this screen for now. Administrators record graduations in the program records.</p>' ), true );
 // A school reads "the program records" everywhere else on this screen, and the base's own name is
 // for the people who work in it. The sentence and the three docblocks that explain the switch say so.
 ck( 'and the sentence does not name the base', has( draw( 5, $student, array() ), 'record graduations in Airtable' ), false );
@@ -644,7 +678,7 @@ $graduate_card = draw( 2, $student, array( 'name' => 'Anna Nowak' ) );
 // and the placement already recorded as finished, never "not on the program right now".
 ck( 'a graduate\'s card draws no control', has( $graduate_card, '<form' ), false );
 ck( 'and says the placement is already recorded as finished, quoting the records',
-    has( $graduate_card, '<p class="wpcpm-institution__status-note">This placement is already recorded as finished, so there is nothing to record here. An Administrator changes it in the program records. They say: Graduated.</p>' ), true );
+    has( $graduate_card, '<p class="wpcpm-ui-intro">This placement is already recorded as finished, so there is nothing to record here. An Administrator changes it in the program records. They say: Graduated.</p>' ), true );
 ck( 'in the words the roster prints a graduate in, and not the raw status',
     has( $graduate_card, 'They say: Graduate.' ), false );
 ck( 'and not that the student is off the program', has( $graduate_card, 'not on the program right now' ), false );
@@ -1123,6 +1157,191 @@ ck( 'the outcome prints on the card it happened to', has( $html, 'recorded as gr
 
 $GLOBALS['uid'] = 4;
 ck( 'and the flash is cleared by printing it', flash(), null );
+
+echo "\n=== Finishing this placement on the parts (Institution Dashboard, Task 16) ===\n";
+
+
+/**
+ * What each drawn form posts: its method and address, then every hidden input and named control as `name=value`, sorted,
+ * and the browser question its submit asks. Keyed by the state the form posts, so two branches compare form by form.
+ *
+ * @param string $html Drawn markup.
+ * @return array
+ */
+function posted_forms( $html ) {
+	$forms = array();
+	preg_match_all( '#<form\b([^>]*)>(.*?)</form>#s', (string) $html, $found, PREG_SET_ORDER );
+	foreach ( $found as $form ) {
+		preg_match( '/\smethod="([^"]*)"/', $form[1], $method );
+		preg_match( '/\saction="([^"]*)"/', $form[1], $action );
+		preg_match_all( '#<(?:input|button)\b[^>]*\bname="([^"]*)"[^>]*\bvalue="([^"]*)"#', $form[2], $pairs, PREG_SET_ORDER );
+		$fields = array();
+		foreach ( $pairs as $pair ) {
+			$fields[] = $pair[1] . '=' . $pair[2];
+		}
+		sort( $fields );
+		preg_match( '/data-wpcpm-confirm="([^"]*)"/', $form[2], $confirm );
+		preg_match( '/name="state" value="([^"]*)"/', $form[2], $state );
+		$forms[ $state[1] ?? count( $forms ) ] = array(
+			'method'  => $method[1] ?? '',
+			'action'  => $action[1] ?? '',
+			'fields'  => $fields,
+			'confirm' => $confirm[1] ?? '',
+			'busy'    => 1 === preg_match( '/\sdata-wpcpm-once\b/', $form[1] ) && false !== strpos( $form[1], 'data-wpcpm-busy="Saving..."' ),
+		);
+	}
+	ksort( $forms );
+	return $forms;
+}
+
+/**
+ * The card as one reader, in each case the suite pins: both controls, graduating switched off, a paused row, a graduate, and
+ * the outcome of a press. Each case starts from a reset world; the filter that offers graduating is put back as it was.
+ *
+ * @return string[] Drawn markup, by case.
+ */
+function status_cases() {
+	global $student;
+	$offer = $GLOBALS['filters']['wpcpm_institution_graduation_offered'] ?? null;
+	$cases = array();
+
+	reset_world( 'In Sensei' );
+	$GLOBALS['filters']['wpcpm_institution_graduation_offered'] = array( '__return_true' );
+	$cases['both'] = draw( 2, $student, array( 'name' => 'Anna Nowak' ) );
+
+	reset_world( 'In Sensei' );
+	unset( $GLOBALS['filters']['wpcpm_institution_graduation_offered'] );
+	$cases['graduation off'] = draw( 2, $student, array( 'name' => 'Anna Nowak' ) );
+
+	reset_world( 'In Sensei' );
+	WPCPM_Roster_Index::update( $GLOBALS['inst_a'], $student, array( 'status' => 'Paused' ) );
+	$cases['paused'] = draw( 2, $student, array( 'name' => 'Anna Nowak' ) );
+
+	reset_world( 'In Sensei' );
+	WPCPM_Roster_Index::update( $GLOBALS['inst_a'], $student, array( 'status' => 'Graduate' ) );
+	$cases['graduate'] = draw( 2, $student, array( 'name' => 'Anna Nowak' ) );
+
+	// The outcome of a press, for a reader who has drawn no card in this run (`WPCPM_Flash::take()` keeps its first answer):
+	// the same reader every time, so each later run reads that first answer again.
+	reset_world( 'In Sensei' );
+	$GLOBALS['users'][7]   = new WP_User( 7, 'A Clerk', 'clerk@example.test' );
+	$GLOBALS['members'][7] = array( $GLOBALS['inst_a'] );
+	press( 7, $student, 'withdrawn' );
+	$cases['after a press'] = draw( 7, $student, array( 'name' => 'Anna Nowak' ) );
+
+	if ( null === $offer ) {
+		unset( $GLOBALS['filters']['wpcpm_institution_graduation_offered'] );
+	} else {
+		$GLOBALS['filters']['wpcpm_institution_graduation_offered'] = $offer;
+	}
+
+	return $cases;
+}
+
+// What the old card posted and said, read from the class at db850661 (the last commit that drew it) before it was
+// deleted (Task 23): a digest of each case's posted forms, the outcome's sentence after a press, and for each reader a
+// digest of the forms drawn (the empty drawing's for a reader drawn nothing). The parts are held to them.
+$old_both     = '49f5fd70ef4e1b40c6f940ca5d1881b3';
+$old_off      = 'c61c7f27ea63d7c61da172f0a5e9f4ba';
+$old_none     = '40cd750bba9870f18aada2478b24840a';
+$old_said     = 'Nothing was changed: this student is not on the program right now, so how their placement ended is an Administrator&#039;s to record. They say: Graduated.';
+$old_readers  = array(
+	1  => array( false, $old_both ),
+	2  => array( false, $old_both ),
+	3  => array( true, $old_none ),
+	4  => array( false, $old_both ),
+	10 => array( true, $old_none ),
+);
+WPCPM_UI::set_live( array( 'administrator', 'institution' ) );
+WPCPM_UI::enter( 'institution' );
+$new_cases = status_cases();
+WPCPM_UI::leave();
+
+$both = $new_cases['both'];
+ck( 'on the parts, its own card: the fold card under the anchor, open, its title in the head', array(
+	0 === strpos( $both, '<section class="wpcpm-ui-fold-card" id="wpcpm-student-status"><details class="wpcpm-ui-fold" open><summary class="wpcpm-ui-fold__head"><h3 class="wpcpm-ui-fold__title">Finishing this placement</h3>' ),
+	substr( $both, -strlen( '</div></details></section>' ) ),
+	substr_count( $both, 'Finishing this placement' ),
+), array( true, '</div></details></section>', 1 ) );
+ck( 'and none of the old card\'s classes', array( has( $both, 'wpcpm-institution__' ), has( $both, 'wpcpm-button' ) ), array( false, false ) );
+ck( 'one Decide row: Mark as graduated primary, then Mark as dropped out danger, each a form that posts at once', array(
+	1 === preg_match( '#<div class="wpcpm-ui-decide" id="wpcpm-decide-student-' . $student . '"><h4 class="wpcpm-ui-h">Decide</h4><div class="wpcpm-ui-actions"><form [^>]*>(?:(?!</form>).)*<button type="submit" class="wpcpm-btn" data-wpcpm-confirm="[^"]*">Mark as graduated</button></form><form [^>]*>(?:(?!</form>).)*<button type="submit" class="wpcpm-btn wpcpm-btn--danger" data-wpcpm-confirm="[^"]*">Mark as dropped out</button></form></div></div>#s', $both ),
+	substr_count( $both, 'wpcpm-ui-decide' ),
+	has( $both, 'wpcpm-ui-panel' ),
+), array( true, 1, false ) );
+ck( 'today\'s sentences around it: the lede first, the way back to the program contact after', array(
+	has( $both, '<p class="wpcpm-ui-intro">These two are yours to record when a placement ends. Both send the student a letter from the program records straight away, and neither can be undone from here.</p><div class="wpcpm-ui-decide"' ),
+	has( $both, '</div></div><p class="wpcpm-ui-intro wpcpm-ui-intro--muted">Recorded the wrong one? Nothing on this screen puts it back. Tell your program contact, who changes it in the program records.</p></div></details></section>' ),
+), array( true, true ) );
+ck( 'the two forms post what the old ones posted, form by form: method, address, every field, the nonce\'s action, the referer, the question', md5( serialize( posted_forms( $both ) ) ), $old_both );
+ck( 'which is the action, the record, the state, the nonce keyed to both and the page the press comes back to', posted_forms( $both )['withdrawn']['fields'], array(
+	'_wp_http_referer=/institution-dashboard/?wpcpm_view=students&amp;wpcpm_institution_student=10',
+	'_wpnonce=nonce-wpcpm_change_student_status_' . $student . '_withdrawn',
+	'action=wpcpm_change_student_status',
+	'record=' . $student,
+	'state=withdrawn',
+) );
+ck( 'the two forms carry the referer, in the markup they draw, as the old two did', substr_count( $both, 'name="_wp_http_referer"' ), 2 );
+ck( 'the questions are today\'s, word for word', array( posted_forms( $both )['graduated']['confirm'], posted_forms( $both )['withdrawn']['confirm'] ), array( esc_attr( WPCPM_Institution_Students::confirm( 'graduated', 'Anna Nowak' ) ), esc_attr( WPCPM_Institution_Students::confirm( 'withdrawn', 'Anna Nowak' ) ) ) );
+ck( 'each form locks at its press and says it is saving, as today', array( posted_forms( $both )['graduated']['busy'], posted_forms( $both )['withdrawn']['busy'] ), array( true, true ) );
+
+$off = $new_cases['graduation off'];
+ck( 'with graduating switched off: Mark as dropped out alone, and today\'s one-control sentence in its place', array(
+	has( $off, 'Mark as graduated' ),
+	has( $off, 'nonce-wpcpm_change_student_status_' . $student . '_graduated' ),
+	has( $off, '<p class="wpcpm-ui-intro">This one is yours to record when a placement ends. It sends the student a letter from the program records straight away, and it cannot be undone from here.</p>' ),
+	md5( serialize( posted_forms( $off ) ) ),
+), array( false, false, true, $old_off ) );
+ck( 'a paused row: no Decide row, today\'s sentence', array(
+	has( $new_cases['paused'], 'wpcpm-ui-decide' ),
+	has( $new_cases['paused'], '<form' ),
+	has( $new_cases['paused'], '<p class="wpcpm-ui-intro">' . esc_html( $reason ) ),
+), array( false, false, true ) );
+ck( 'a graduate: no Decide row, today\'s sentence quoting the records', array(
+	has( $new_cases['graduate'], 'wpcpm-ui-decide' ),
+	has( $new_cases['graduate'], '<p class="wpcpm-ui-intro">This placement is already recorded as finished, so there is nothing to record here. An Administrator changes it in the program records. They say: Graduated.</p>' ),
+), array( false, true ) );
+ck( 'the outcome of a press opens the body, in today\'s markup, and the card below it is today\'s note', array(
+	1 === preg_match( '#<div class="wpcpm-ui-fold__body"><p class="wpcpm-institution__status-message wpcpm-institution__status-message--[a-z]+ is-[a-z]+" role="(?:alert|status)" tabindex="-1" data-wpcpm-card-message>[^<]+</p><p class="wpcpm-ui-intro">#', $new_cases['after a press'] ),
+	preg_match( '#<p class="wpcpm-institution__status-message[^>]*>([^<]+)</p>#', $new_cases['after a press'], $said_new ) && $said_new[1] === $old_said,
+	has( $new_cases['after a press'], 'They say: Dropped out.</p>' ),
+), array( true, true, true ) );
+
+// Fix round 2: on the parts the outcome is the dashboards' shared message (`WPCPM_Dashboard_Card::message()`), in today's
+// class: a success is heard politely, a refusal alerts, and either is the focus target assets/js/forms.js moves to on load.
+WPCPM_UI::enter( 'institution' );
+reset_world( 'In Sensei' );
+$GLOBALS['users'][31]   = new WP_User( 31, 'A Secretary', 'secretary@example.test' );
+$GLOBALS['members'][31] = array( $inst_a );
+press( 31, $student, 'withdrawn' );
+$said_ok = draw( 31, $student, array( 'name' => 'Anna Nowak' ) );
+reset_world( 'In Sensei' );
+$GLOBALS['users'][32]   = new WP_User( 32, 'A Registrar Two', 'registrar2@example.test' );
+$GLOBALS['members'][32] = array( $inst_a );
+set_live( 'Paused' );
+press( 32, $student, 'withdrawn' );
+$said_no = draw( 32, $student, array( 'name' => 'Anna Nowak' ) );
+WPCPM_UI::leave();
+ck( 'on the parts a saved press is the shared message, polite, the focus target, in today\'s class and words', has( $said_ok, '<p class="wpcpm-institution__status-message wpcpm-institution__status-message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>Saved. This student is recorded as dropped out' ), true );
+ck( 'and a refused press alerts and takes the focus', has( $said_no, '<p class="wpcpm-institution__status-message wpcpm-institution__status-message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>Nothing was changed. The program records say this student is paused' ), true );
+
+// Ruling 3 of the dispatch: the same readers are offered the controls the old card offered.
+$readers = array();
+foreach ( array( 1, 2, 3, 4, 10 ) as $reader ) {
+	reset_world( 'In Sensei' );
+	$GLOBALS['filters']['wpcpm_institution_graduation_offered'] = array( '__return_true' );
+	WPCPM_UI::enter( 'institution' );
+	$new_reader = draw( $reader, $student, array( 'name' => 'Anna Nowak' ) );
+	WPCPM_UI::leave();
+	$readers[ $reader ] = array( '' === $new_reader, md5( serialize( posted_forms( $new_reader ) ) ) );
+}
+unset( $GLOBALS['filters']['wpcpm_institution_graduation_offered'] );
+WPCPM_UI::set_live( null );
+ck( 'every reader is offered the controls the old card offered, and a refused reader is drawn nothing', $readers, $old_readers );
+ck( 'the rule for which hidden fields a form carries is written once', array(
+	substr_count( $switch_source, 'WPCPM_UI::nonce( self::nonce_action( $record, $state ) )' ),
+	substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-students.php' ), 'name="%1$s" value="%2$s"' ),
+), array( 1, 1 ) );
 
 echo "\n=== House rules ===\n";
 

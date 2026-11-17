@@ -231,6 +231,8 @@ function get_post_time( $format, $gmt, $post, $translate = false ) {
  * ID first, which is how the audit reads orders its rows (date, then ID).
  */
 function get_posts( array $args ) {
+	// Counted, so a check can say nothing was read (Institution Dashboard, Task 22).
+	$GLOBALS['get_posts_calls'] = ( isset( $GLOBALS['get_posts_calls'] ) ? (int) $GLOBALS['get_posts_calls'] : 0 ) + 1;
 	$ids = array_keys( $GLOBALS['posts'] );
 	rsort( $ids );
 	$out = array();
@@ -276,6 +278,7 @@ function get_posts( array $args ) {
 }
 
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
+require_once __DIR__ . '/stubs/view-faults.php';
 require_once __DIR__ . '/../includes/class-wpcpm-dates.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-audit.php';
 // The classes whose words and constants a row is read with: the People card's words for how a member
@@ -288,6 +291,11 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-request.php
 require_once __DIR__ . '/../includes/class-wpcpm-airtable.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-record.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-history.php';
+// The parts the section is drawn with (Institution Dashboard, Task 23: the old markup is gone).
+require_once __DIR__ . '/../includes/class-wpcpm-icons.php';
+require_once __DIR__ . '/../includes/class-wpcpm-form-errors.php';
+require_once __DIR__ . '/../includes/class-wpcpm-ui.php';
+require_once __DIR__ . '/../includes/class-wpcpm-dashboard-card.php';
 
 $fail = 0;
 
@@ -331,13 +339,6 @@ function audit_row( $institution, $kind, $message, $actor = 0, array $data = arr
 	return is_int( $row ) ? $row : 0;
 }
 
-/** The rows of the History card, in page order. */
-function history_rows( $html ) {
-	preg_match_all( '/<li class="wpcpm-admin-history__row">(.*?)<\/li>/s', $html, $found );
-
-	return $found[1];
-}
-
 /** The text of the page, tags gone and entities decoded. */
 function text_of( $html ) {
 	return html_entity_decode( trim( preg_replace( '/\s+/', ' ', strip_tags( $html ) ) ), ENT_QUOTES, 'UTF-8' );
@@ -361,7 +362,7 @@ ck(
 
 $GLOBALS['users'][7] = new WP_User( 7, 'Test Member', 'testmember' );
 $GLOBALS['users'][8] = new WP_User( 8, '', 'login-only' );
-$GLOBALS['users'][9] = new WP_User( 9, '<script>alert(1)</script>Bold', 'bold' );
+$GLOBALS['users'][9] = new WP_User( 9, '<script>alert(1)</script>Bold "Q" & Co', 'bold' );
 
 echo "=== The five questions, as the form asks them ===\n";
 
@@ -395,24 +396,9 @@ audit_row( $krakow, 'invite_accepted', 'The invitation to invitee@example.test w
 $html = WPCPM_Institution_History::render( $krakow );
 
 ck( 'render() returns a string', is_string( $html ), true );
-ck( 'one section holds the whole of it', array( 0 === strpos( $html, '<section class="wpcpm-institution__admin"' ), substr( $html, -10 ), substr_count( $html, 'class="wpcpm-institution__admin"' ) ), array( true, '</section>', 1 ) );
-ck( 'with the heading, in the level and classes a module title wears', substr_count( $html, '<h2 class="wpcpm-student__heading wpcpm-institution__module-title">For Administrators</h2>' ), 1 );
-ck( 'and the line that says who it is for, under it', substr_count( $html, '<p class="wpcpm-student__note wpcpm-institution__module-lead">Only Administrators see this section.</p>' ), 1 );
-ck( 'the line is under the heading', strpos( $html, 'For Administrators</h2>' ) < strpos( $html, 'Only Administrators see this section.' ), true );
 
-ck(
-	'two cards, each a section with the card class around a closed details',
-	array(
-		preg_match_all( '/<section class="wpcpm-institution__card [^"]*"[^>]*>\s*<details class="wpcpm-group wpcpm-group__disclosure [^"]*">\s*<summary class="wpcpm-group__summary">/', $html ),
-		substr_count( $html, '<details' ),
-		preg_match( '/<details[^>]*\sopen/', $html ),
-	),
-	array( 2, 2, 0 )
-);
 
 preg_match_all( '/<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">([^<]*)<\/h3><span class="wpcpm-mentee__toggle" aria-hidden="true"><\/span><\/summary>/', $html, $titles );
-ck( 'their summaries are the dashboard\'s own: a title and the toggle, From the application first and History second', $titles[1], array( 'From the application', 'History' ) );
-ck( 'each body is a group body', substr_count( $html, '<div class="wpcpm-group__body ' ), 2 );
 
 echo "\n=== For Administrators alone ===\n";
 
@@ -420,7 +406,6 @@ $GLOBALS['can'] = false;
 ck( 'without the capability the class hands back nothing', WPCPM_Institution_History::render( $krakow ), '' );
 $GLOBALS['can'] = true;
 ck( 'an ID that is no record is handed nothing either', array( WPCPM_Institution_History::render( 'not-a-record' ), WPCPM_Institution_History::render( '' ) ), array( '', '' ) );
-ck( 'and the manager is shown the section again', 0 === strpos( WPCPM_Institution_History::render( $krakow ), '<section class="wpcpm-institution__admin"' ), true );
 
 echo "\n=== From the application ===\n";
 
@@ -436,18 +421,13 @@ ck(
 	),
 	array( true, true, true, true )
 );
-ck( 'as a list of terms and descriptions', array( substr_count( $html, '<dl class="wpcpm-admin-answers__list">' ), substr_count( $html, '<dt>' ), substr_count( $html, '<dd>' ) ), array( 1, 5, 5 ) );
-ck( 'the answers are the words stored', array( false !== strpos( $html, '<dd>Internship coordinator</dd>' ), false !== strpos( $html, '<dd>Example Signer</dd>' ), false !== strpos( $html, '<dd>Dean of the Faculty of Engineering</dd>' ), false !== strpos( $html, '<dd>https://example.test/credits</dd>' ) ), array( true, true, true, true ) );
-ck( 'the languages are joined by a comma and a space', false !== strpos( $html, '<dd>English, Polish</dd>' ), true );
 ck( 'a key the form does not ask is never shown, nor its name nor its value', array( false !== strpos( $html, 'not_a_question' ), false !== strpos( $html, 'Never shown' ) ), array( false, false ) );
 
 WPCPM_Institution_Record::fill_empty( $older, array( 'contact_role' => 'Head of department' ) );
 $partial = WPCPM_Institution_History::render( $older );
-ck( 'an institution that kept one answer lists that one', array( substr_count( $partial, '<dt>' ), false !== strpos( $partial, '<dt>Their role at the institution</dt>' ), false !== strpos( $partial, 'Head of department' ), false !== strpos( $partial, 'Their title' ) ), array( 1, true, true, false ) );
 
 $none = WPCPM_Institution_History::render( $empty );
 ck( 'an institution approved before the answers were kept says so', array( false !== strpos( $none, 'Nothing kept from the application.' ), false !== strpos( $none, '<dl' ) ), array( true, false ) );
-ck( 'in the card\'s own words', false !== strpos( $none, '<p class="wpcpm-institution__empty">Nothing kept from the application.</p>' ), true );
 ck( 'and shows no label for answers it does not hold', false !== strpos( $none, 'Their role at the institution' ), false );
 
 WPCPM_Institution_Record::fill_empty( $escaping, array( 'contact_role' => '<script>alert(1)</script> & "quoted"' ) );
@@ -456,26 +436,16 @@ ck( 'an answer is escaped at output', array( false !== strpos( $escaped, '<scrip
 
 echo "\n=== History ===\n";
 
-$rows = history_rows( $html );
-ck( 'one row per entry', count( $rows ), 3 );
-ck( 'newest first, a member row in the People card\'s words and not its stored ones', array( false !== strpos( $rows[0], 'The invitation to invitee@example.test was accepted.' ), false !== strpos( $rows[1], 'A student was linked' ), false !== strpos( $rows[2], 'Test Member was added as a member. Added when the application was approved.' ), false !== strpos( $rows[2], '(approved)' ) ), array( true, true, true, false ) );
 
 $entries = WPCPM_Institution_Audit::entries_for( $krakow, 10 );
-ck( 'each row holds the moment in the site\'s formats', array( false !== strpos( $rows[0], esc_html( WPCPM_Dates::moment( $entries[0]['time'] ) ) ), false !== strpos( $rows[2], esc_html( WPCPM_Dates::moment( $entries[2]['time'] ) ) ) ), array( true, true ) );
 ck( 'and the moment is not empty', '' !== WPCPM_Dates::moment( $entries[0]['time'] ), true );
-ck( 'in a time element carrying the instant', 1 === preg_match( '/<time datetime="' . preg_quote( gmdate( 'c', $entries[0]['time'] ), '/' ) . '">/', $rows[0] ), true );
-ck( 'each row says who: the account, the site, a removed account', array( false !== strpos( $rows[2], 'Test Member</span>' ), false !== strpos( $rows[1], 'The site</span>' ), false !== strpos( $rows[0], 'A removed account</span>' ) ), array( true, true, true ) );
-ck( 'and what happened, as a sentence of its own', array( false !== strpos( $rows[1], 'A student was linked to this institution.' ), substr_count( $html, 'wpcpm-admin-history__what' ) ), array( true, 3 ) );
 ck( 'nothing in the card says how many there are when all of them are drawn', false !== strpos( $html, 'Showing the latest' ), false );
 
 $quiet = WPCPM_Institution_History::render( $empty );
-ck( 'an institution with no entries says so, and draws no list', array( false !== strpos( $quiet, '<p class="wpcpm-institution__empty">Nothing has been recorded for this institution yet.</p>' ), false !== strpos( $quiet, '<ol' ), false !== strpos( $quiet, 'Showing the latest' ) ), array( true, false, false ) );
 
 // Core's own display name field is user-typed text.
 audit_row( $escaping, 'member_added', 'Added.', 9 );
 audit_row( $escaping, 'member_added', 'Added again.', 8 );
-$names = history_rows( WPCPM_Institution_History::render( $escaping ) );
-ck( 'a name is escaped, and a user with no display name is known by their login', array( false !== strpos( $names[1], '<script>' ), false !== strpos( $names[1], '&lt;script&gt;alert(1)&lt;/script&gt;Bold' ), false !== strpos( $names[0], 'login-only</span>' ) ), array( false, true, true ) );
 
 echo "\n=== The latest 100 ===\n";
 
@@ -484,17 +454,14 @@ for ( $n = 1; $n <= 101; $n++ ) {
 }
 
 $page = WPCPM_Institution_History::render( $crowded );
-ck( 'a hundred and one entries draw a hundred rows', count( history_rows( $page ) ), 100 );
 ck( 'the newest hundred: the last is drawn and the first is not', array( false !== strpos( $page, 'Entry 101.' ), false !== strpos( $page, 'Entry 002.' ), false !== strpos( $page, 'Entry 001.' ) ), array( true, true, false ) );
-ck( 'and the line says there were more, once, after the list', array( substr_count( $page, 'Showing the latest 100.' ), strpos( $page, 'Showing the latest 100.' ) > strrpos( $page, 'wpcpm-admin-history__row' ) ), array( 1, true ) );
-ck( 'in the card\'s own paragraph', false !== strpos( $page, '<p class="wpcpm-institution__empty wpcpm-admin-history__limit">Showing the latest 100.</p>' ), true );
+ck( 'and the line says there were more, once, after the list', array( substr_count( $page, 'Showing the latest 100.' ), strpos( $page, 'Showing the latest 100.' ) > strrpos( $page, 'Entry 002.' ) ), array( 1, true ) );
 
 for ( $n = 1; $n <= 100; $n++ ) {
 	audit_row( $full, 'invite_sent', sprintf( 'Entry %03d.', $n ), 7 );
 }
 
 $page = WPCPM_Institution_History::render( $full );
-ck( 'exactly a hundred entries draw a hundred rows and no line', array( count( history_rows( $page ) ), false !== strpos( $page, 'Showing the latest' ) ), array( 100, false ) );
 
 echo "\n=== A sponsor's rows are not an institution's ===\n";
 
@@ -524,11 +491,6 @@ WPCPM_Institution_Audit::record_program(
 );
 
 $shown = WPCPM_Institution_History::render( $sponsored );
-ck(
-	'a sponsor row with the same kind, under the very same key, is not in the institution\'s history; nor is the program\'s',
-	array( count( history_rows( $shown ) ), false !== strpos( $shown, 'Test Member was added as a member. Added by an Administrator.' ), false !== strpos( $shown, 'SPONSOR ROW' ), false !== strpos( $shown, 'PROGRAM ROW' ) ),
-	array( 1, true, false, false )
-);
 
 echo "\n=== Plain sentences ===\n";
 
@@ -761,8 +723,6 @@ $shown = implode( ' ', array_map( static function ( $reason ) use ( $stopped ) {
 ck( 'no reason slug and no stored colon shows, for any reason', array( false !== strpos( $shown, 'no-actor' ), false !== strpos( $shown, 'not-allowed' ), false !== strpos( $shown, 'stopped:' ) ), array( false, false, false ) );
 
 audit_row( $stopped_id, 'import_stopped', 'The import stopped: no-actor. 1 students had been created.', 0, array( 'batch' => 7, 'reason' => 'no-actor', 'created' => 1 ) );
-$stopped_rows = history_rows( WPCPM_Institution_History::render( $stopped_id ) );
-ck( 'the History card draws it as the sentence, not as stored', array( count( $stopped_rows ), false !== strpos( $stopped_rows[0], 'The import stopped because the batch no longer names the account that confirmed it. 1 student had been created.' ), false !== strpos( $stopped_rows[0], 'no-actor' ) ), array( 1, true, false ) );
 
 echo "\n=== The revoke row ===\n";
 
@@ -778,8 +738,6 @@ ck( 'nor does one whose note is only space', WPCPM_Institution_History::sentence
 ck( 'no other kind reads a note', WPCPM_Institution_History::sentence( array( 'kind' => 'agreement_return', 'message' => $stored['agreement_return'], 'data' => array( 'note' => 'Not for the history.' ) ) ), $stored['agreement_return'] );
 
 audit_row( $revoked, 'agreement_revoke', $stored['agreement_revoke'], 7, array( 'kind' => 'own', 'members' => 2, 'note' => 'It ended <b>early</b> & for good.' ) );
-$revoked_rows = history_rows( WPCPM_Institution_History::render( $revoked ) );
-ck( 'the row draws the note, escaped at output', array( count( $revoked_rows ), false !== strpos( $revoked_rows[0], 'account closed. Note: It ended early &amp; for good.' ) ), array( 1, true ) );
 
 echo "\n=== Member rows are built from their facts ===\n";
 
@@ -853,8 +811,6 @@ ck(
 ck( 'which are the plain words for the kinds', array( $bare( 'member_added' ), $bare( 'member_removed' ) ), array( 'A member was added to this institution.', 'A member was removed from this institution.' ) );
 
 audit_row( $escaping, 'member_added', 'Added.', 9, array( 'user' => 9, 'how' => 'invited' ) );
-$drawn = history_rows( WPCPM_Institution_History::render( $escaping ) );
-ck( 'a member row is drawn in the People card\'s words, the name escaped', array( false !== strpos( $drawn[0], '&lt;script&gt;alert(1)&lt;/script&gt;Bold was added as a member. Joined by invitation.' ), false !== strpos( $drawn[0], '<script>' ) ), array( true, false ) );
 
 echo "\n=== A message in the old words is read through the words for its kind ===\n";
 
@@ -975,12 +931,6 @@ ck(
 
 audit_row( $revoked, 'request_resolved', "An Administrator declined this request.\nSee recABCDEFGHIJKLMN.", 7, array( 'request' => 5, 'kind' => $details, 'state' => $declined ) );
 audit_row( $revoked, 'request_resolved', 'The institution withdrew this request.', 7, array( 'request' => 6, 'kind' => $details, 'state' => $withdrawn ), WPCPM_Institution_Audit::GROUND_MANAGER );
-$drawn = history_rows( WPCPM_Institution_History::render( $revoked ) );
-ck(
-	'the History card draws them, newest first, by state and by ground, with no record ID',
-	array( count( $drawn ), false !== strpos( $drawn[0], 'An Administrator withdrew a request.' ), false !== strpos( $drawn[1], 'An Administrator declined a request.</span>' ), false !== strpos( implode( '', $drawn ), 'recABC' ) ),
-	array( 3, true, true, false )
-);
 
 echo "\n=== The kinds a details correction adds ===\n";
 
@@ -1243,7 +1193,7 @@ ck( 'an account is its display name', WPCPM_Institution_History::who( array( 'ac
 ck( 'the system is the site', array( WPCPM_Institution_History::who( array( 'actor' => 0 ) ), WPCPM_Institution_History::who( array() ) ), array( 'The site', 'The site' ) );
 ck( 'an account that is gone is a removed account', WPCPM_Institution_History::who( array( 'actor' => 4040 ) ), 'A removed account' );
 ck( 'an account with no display name is its login', WPCPM_Institution_History::who( array( 'actor' => 8 ) ), 'login-only' );
-ck( 'who() returns text, not markup', WPCPM_Institution_History::who( array( 'actor' => 9 ) ), '<script>alert(1)</script>Bold' );
+ck( 'who() returns text, not markup', WPCPM_Institution_History::who( array( 'actor' => 9 ) ), '<script>alert(1)</script>Bold "Q" & Co' );
 
 echo "\n=== The section keeps the modules' rhythm on the WPCredits theme ===\n";
 
@@ -1278,12 +1228,269 @@ $section = isset( $rules[ $page ] ) ? $rules[ $page ] : array();
 $cards   = isset( $rules[ $page . ' > .wpcpm-institution__card' ] ) ? $rules[ $page . ' > .wpcpm-institution__card' ] : array();
 $gap     = isset( $rules[ $page . ' > .wpcpm-institution__card + .wpcpm-institution__card' ] ) ? $rules[ $page . ' > .wpcpm-institution__card + .wpcpm-institution__card' ] : array();
 
-ck( 'the section has the hairline a module has over its title, in the theme\'s soft line', isset( $section['border-top'] ) ? $section['border-top'] : null, '1px solid var( --wpc-line-soft, #ededed )' );
-ck( 'the 20px of top padding a module has', isset( $section['padding-top'] ) ? $section['padding-top'] : null, '20px' );
-ck( 'and the 22px from the module above', isset( $section['margin-top'] ) ? $section['margin-top'] : null, '22px' );
-ck( 'its cards have the margin 0 a module\'s cards have, above and below', array( isset( $cards['margin-top'] ) ? $cards['margin-top'] : null, isset( $cards['margin-bottom'] ) ? $cards['margin-bottom'] : null ), array( '0', '0' ) );
-ck( 'and stand 10px apart', isset( $gap['margin-top'] ) ? $gap['margin-top'] : null, '10px' );
-ck( 'the plain-plugin spacing is still there for a site without the theme', isset( $rules['.wpcpm-institution__admin']['margin'] ) ? $rules['.wpcpm-institution__admin']['margin'] : null, '1.25em 0 0' );
+
+echo "\n=== For Administrators on the parts (Institution Dashboard, Task 22) ===\n";
+
+// The two cards are the card shell's, its title through the parts' fold head, which draws the icons' chevron; the
+// sanitizer and the address escaper are core's, as the other card suites stand them in.
+require_once __DIR__ . '/../includes/class-wpcpm-icons.php';
+require_once __DIR__ . '/../includes/class-wpcpm-form-errors.php';
+require_once __DIR__ . '/../includes/class-wpcpm-ui.php';
+require_once __DIR__ . '/../includes/class-wpcpm-dashboard-card.php';
+if ( ! function_exists( 'esc_url' ) ) {
+	function esc_url( $url ) { return htmlspecialchars( (string) $url, ENT_QUOTES ); }
+}
+if ( ! function_exists( 'sanitize_html_class' ) ) {
+	function sanitize_html_class( $c, $f = '' ) { $c = preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); return '' === $c ? (string) $f : $c; }
+}
+if ( ! function_exists( 'is_admin' ) ) {
+	function is_admin() { return false; }
+}
+
+// The layout's cases: an application with a 40-character word, a 48-character address, a web address and an answer
+// the record holds blank; a history of twelve rows by an account whose name is a 40-character word.
+$t22_answers  = 'recTWENTYTWOANS01';
+$t22_long     = 'Exampleanswerforappliedwebengineeringxyz';
+$t22_email    = 'averyveryveryverylongmailboxname1234@example.org';
+$t22_name     = 'Exampleadministratorwithaverylongname123';
+$t22_history  = 'recTWENTYTWOHIS01';
+$GLOBALS['users'][11] = new WP_User( 11, $t22_name, 'longname' );
+WPCPM_Institution_Record::fill_empty(
+	$t22_answers,
+	array(
+		'contact_role'      => $t22_long,
+		'student_languages' => array( 'English', 'Polish', 'Spanish', 'Portuguese', 'Romanian', 'Ukrainian' ),
+		'signer_name'       => $t22_email,
+		'credits_page'      => 'https://example.test/a-page-about-wordpress-credits-at-our-school',
+	)
+);
+// An answer kept blank, as an older record may hold one: written to the record's own meta, as `fill_empty()` never writes one.
+foreach ( $GLOBALS['pmeta'] as $t22_post => $t22_meta ) {
+	if ( isset( $t22_meta[ WPCPM_Institution_Record::META_ANSWERS ]['signer_name'] ) && $t22_email === $t22_meta[ WPCPM_Institution_Record::META_ANSWERS ]['signer_name'] ) {
+		$GLOBALS['pmeta'][ $t22_post ][ WPCPM_Institution_Record::META_ANSWERS ]['signer_title'] = '  ';
+	}
+}
+audit_row( $t22_history, 'member_added', 'Added.', 11, array( 'user' => 11, 'how' => 'invite', 'invite' => 1, 'readded' => false ) );
+for ( $n = 1; $n <= 10; $n++ ) {
+	audit_row( $t22_history, 'invite_sent', sprintf( 'An invitation went to person%02d@example.test.', $n ), 11 );
+}
+audit_row( $t22_history, 'invite_accepted', '', 0 );
+
+ck( 'the fixture\'s long words are as long as the layout asks', array( strlen( $t22_long ), strlen( $t22_email ), strlen( $t22_name ), WPCPM_Mentors_Sync::is_record_id( $t22_answers ), WPCPM_Mentors_Sync::is_record_id( $t22_history ) ), array( 40, 48, 40, true, true ) );
+
+/**
+ * The section for one record under a surface: '' (none named), 'off' (the Institution Dashboard named, its switch as it
+ * ships), 'parts' (the Institution Dashboard named and live), or another surface's name with the Institution Dashboard
+ * live.
+ *
+ * @param string $record  The record.
+ * @param string $surface The surface.
+ * @return string
+ */
+function t22_render( $record, $surface ) {
+	if ( '' !== $surface ) {
+		if ( 'off' !== $surface ) {
+			WPCPM_UI::set_live( array( 'administrator', 'institution' ) );
+		}
+		WPCPM_UI::enter( in_array( $surface, array( 'off', 'parts' ), true ) ? 'institution' : $surface );
+	}
+	try {
+		return WPCPM_Institution_History::render( $record );
+	} finally {
+		if ( '' !== $surface ) {
+			WPCPM_UI::leave();
+			WPCPM_UI::set_live( null );
+		}
+	}
+}
+
+/** The words a reader sees, a word each, sorted. */
+function t22_words( $html ) {
+	$text = html_entity_decode( strip_tags( str_replace( array( '<wbr>', '<' ), array( '', ' <' ), (string) $html ) ), ENT_QUOTES, 'UTF-8' );
+	preg_match_all( '/[\p{L}\p{N}]+/u', $text, $m );
+	$words = array_values( array_unique( $m[0] ) );
+	sort( $words );
+	return $words;
+}
+
+$t22_records = array(
+	'krakow'    => $krakow,
+	'older'     => $older,
+	'empty'     => $empty,
+	'crowded'   => $crowded,
+	'full'      => $full,
+	'revoked'   => $revoked,
+	'escaping'  => $escaping,
+	'sponsored' => $sponsored,
+	'stopped'   => $stopped_id,
+	'answers'   => $t22_answers,
+	'history'   => $t22_history,
+);
+
+// Digests of each record's section as the class at 68d6c986 draws it (T22_PRINT=1 prints them), before the parts.
+// 'escaping' retaken in fix round 1, from the class at 68d6c986, once its name held a double quote and an ampersand too.
+// The words the old section said for each record, its heading and lede left out (the view's head says them), read from
+// the class at db850661 (the last commit that drew it) before it was deleted (Task 23): digests of the sorted words.
+const T22_OLD_WORDS = array(
+	'krakow'    => '03d913d43364f0f6c1a0a73892d5d64d',
+	'older'     => 'b68de00181cb8ac6b704c65e5feb0b03',
+	'empty'     => '9f3afd23266a6dd766d6726c3ed72908',
+	'crowded'   => '4c5283fb047898e373faa0ed55140924',
+	'full'      => '692bd5af3fd4782c9148e127c1153b9e',
+	'revoked'   => '477418fb607ac2d4090528f757b160c5',
+	'escaping'  => '24d239376b7cfb8b72d9e1a19208f415',
+	'sponsored' => 'dc2b795cc894acd7c165f429882005da',
+	'stopped'   => '017e8d29f054d146a1ed4e27b4f0a939',
+	'answers'   => 'b91568d7c95513cb15a26e26422d72a2',
+	'history'   => '2fbfd6098bfb885bf50b2bc4bde7d496',
+);
+
+$t22_new = array_map( static function ( $record ) { return t22_render( $record, 'parts' ); }, $t22_records );
+// Each record on its own line (Task 23, fix round 1, S5): the twelve rows, newest first, each sentence with its own
+// moment and its own actor. Read off the fixture by hand: ten invitations a minute apart after the long-named
+// Administrator was added, then the site accepting an invitation.
+$t22_rows_want = array( 'An invitation to act for this institution was accepted. | September 4, 2025 9:04 pm; The site | ' );
+for ( $t22_n = 10; $t22_n >= 1; $t22_n-- ) {
+	$t22_rows_want[] = sprintf( 'An invitation went to person%02d@example.test. | September 4, 2025 %s pm; Exampleadministratorwithaverylongname123 | ', $t22_n, gmdate( 'g:i', gmmktime( 20, 53 + $t22_n, 0, 9, 4, 2025 ) ) );
+}
+$t22_rows_want[] = 'Exampleadministratorwithaverylongname123 was added as a member. How this access was given was not recorded. | September 4, 2025 8:53 pm; Exampleadministratorwithaverylongname123 | ';
+ck( 'each of the twelve records reads its own moment and its own actor on its own line, newest first', wpcpm_list_rows( $t22_new['history'] ), $t22_rows_want );
+// The whole view on the real section (Task 23, fix round 1): every record's For Administrators section, under the
+// view's own head (`bin/stubs/view-faults.php`).
+ck( 'the whole For Administrators view on the real section, every record: one H1, the headings in order, no id twice, the lede once, no title again', array( wpcpm_view_faults_of( 'For Administrators', $t22_new ), count( array_filter( array_map( 'trim', $t22_new ) ) ) ), array( array(), count( $t22_new ) ) );
+if ( getenv( 'T22_PRINT' ) ) {
+	echo $t22_new['answers'], "\n", $t22_new['history'], "\n";
+}
+$t22_a = $t22_new['answers'];
+$t22_h = $t22_new['history'];
+
+ck(
+	'on the parts: the view\'s head says "For Administrators" and its lede "Only Administrators see this section." once, so the section prints neither; its anchor stays, around two cards',
+	array(
+		0 === strpos( $t22_new['krakow'], '<div id="wpcpm-for-administrators">' ),
+		substr( $t22_new['krakow'], -6 ),
+		strpos( $t22_new['krakow'], 'Only Administrators see this section.' ),
+		strpos( $t22_new['krakow'], '>For Administrators<' ),
+		preg_match( '/wpcpm-institution__|wpcpm-group|wpcpm-student__|wpcpm-admin-answers__|wpcpm-admin-history__/', $t22_new['krakow'] ),
+	),
+	array( true, '</div>', false, false, 0 )
+);
+ck(
+	'the two cards keep their keys and anchors, drawn open on the parts\' card fold: From the application, then History',
+	array(
+		preg_match_all( '/<section class="wpcpm-ui-fold-card" id="(wpcpm-admin-answers|wpcpm-admin-history)"><details class="wpcpm-ui-fold" open><summary class="wpcpm-ui-fold__head"><h3 class="wpcpm-ui-fold__title"(?: id="wpcpm-admin-answers-title")?>([^<]+)<\/h3>/', $t22_new['krakow'], $t22_cards ),
+		$t22_cards[1],
+		$t22_cards[2],
+	),
+	array( 2, array( 'wpcpm-admin-answers', 'wpcpm-admin-history' ), array( 'From the application', 'History' ) )
+);
+ck(
+	'From the application is the key and value table: each question answered a row header in the label column, in the form\'s order, a blank answer skipped as the live version skips it (Task 28, W3)',
+	array(
+		substr_count( $t22_a, '<table class="wpcpm-ui-table wpcpm-ui-table--keyvalue" role="table" aria-labelledby="wpcpm-admin-answers-title">' ),
+		preg_match_all( '/<th scope="row" role="rowheader" class="wpcpm-ui-cell--text">([^<]+)<\/th>/', $t22_a, $t22_labels ),
+		$t22_labels[1],
+	),
+	array( 1, 4, array( 'Their role at the institution', 'In which languages do your students study?', 'Who will sign the agreement for the institution?', 'Your page about WordPress Credits' ) )
+);
+ck(
+	'an answer: a 40-character word as typed, which the key and value table breaks where it would overflow (no `<wbr>`, fix round 1); an address and a web address token cells, printed as today with no link; the languages joined; a blank answer not drawn at all (Task 28, W3)',
+	array(
+		false !== strpos( $t22_a, '<td class="wpcpm-ui-cell--text" role="cell">' . $t22_long . '</td>' ),
+		false !== strpos( $t22_a, '<td class="wpcpm-ui-cell--token" role="cell">' . $t22_email . '</td>' ),
+		false !== strpos( $t22_a, '<td class="wpcpm-ui-cell--token" role="cell">https://example.test/a-page-about-wordpress-credits-at-our-school</td>' ),
+		false !== strpos( $t22_a, '<td class="wpcpm-ui-cell--text" role="cell">English, Polish, Spanish, Portuguese, Romanian, Ukrainian</td>' ),
+		false !== strpos( $t22_a, 'Not recorded' ) || false !== strpos( $t22_a, 'wpcpm-ui-cell--empty' ),
+		strpos( $t22_a, '<a ' ),
+	),
+	array( true, true, true, true, false, false )
+);
+ck(
+	'History is a list of rows, the facts under: each sentence, then the moment whole in a time element and who, a long name as typed (the sheet breaks it; fix round 1)',
+	array(
+		substr_count( $t22_h, '<ul class="wpcpm-ui-list wpcpm-ui-list--under">' ),
+		preg_match_all( '/<li class="wpcpm-ui-list__row">/', $t22_h ),
+		false !== strpos( $t22_h, '<li class="wpcpm-ui-list__row"><div class="wpcpm-ui-list__line"><span class="wpcpm-ui-list__name">An invitation to act for this institution was accepted.</span>' ),
+		preg_match_all( '/<span class="wpcpm-ui-list__facts"><span class="wpcpm-ui-item__fact"><time datetime="[0-9T:+-]+"><span class="wpcpm-ui-whole">[^<]+<\/span><\/time><\/span><span class="wpcpm-ui-item__fact">' . $t22_name . '<\/span><\/span>/', $t22_h ),
+		false !== strpos( $t22_h, '<span class="wpcpm-ui-list__name">' . $t22_name . ' was added as a member.' ),
+		false !== strpos( $t22_h, '<span class="wpcpm-ui-item__fact">The site</span>' ),
+		strpos( $t22_h, '&middot;' ),
+	),
+	array( 1, 12, true, 11, true, true, false )
+);
+ck(
+	'the latest hundred and the line that says so, muted, after the list; nothing kept and nothing recorded each the list\'s one muted line',
+	array(
+		preg_match_all( '/<li class="wpcpm-ui-list__row">/', $t22_new['crowded'] ),
+		false !== strpos( $t22_new['crowded'], '</ul><p class="wpcpm-ui-intro wpcpm-ui-intro--muted">Showing the latest 100.</p>' ),
+		false !== strpos( $t22_new['empty'], '<p class="wpcpm-ui-list__empty">Nothing kept from the application.</p>' ),
+		false !== strpos( $t22_new['empty'], '<p class="wpcpm-ui-list__empty">Nothing has been recorded for this institution yet.</p>' ),
+		strpos( $t22_new['empty'], '<table' ),
+		strpos( $t22_new['empty'], '<ul' ),
+	),
+	array( 100, true, true, true, false, false )
+);
+
+// Who sees what does not move: the same policy question before anything is read, on both branches.
+$t22_reads      = array();
+$GLOBALS['can'] = false;
+foreach ( array( '', 'off', 'parts' ) as $t22_surface ) {
+	$GLOBALS['get_posts_calls'] = 0;
+	$t22_reads[ $t22_surface ]  = array( t22_render( $krakow, $t22_surface ), $GLOBALS['get_posts_calls'] );
+}
+$GLOBALS['can'] = true;
+ck( 'without the capability nothing is drawn and nothing is read, on either branch', $t22_reads, array( '' => array( '', 0 ), 'off' => array( '', 0 ), 'parts' => array( '', 0 ) ) );
+ck( 'and an ID that is no record is handed nothing on the parts either', array( t22_render( 'not-a-record', 'parts' ), t22_render( '', 'parts' ) ), array( '', '' ) );
+
+// The same facts on both branches: today's heading and lede are the view's head on the parts; a blank answer is left out
+// on both, as today's list leaves it out (Task 28, W3).
+$t22_same = array();
+foreach ( $t22_records as $t22_key => $t22_record ) {
+	$t22_words = t22_words( $t22_new[ $t22_key ] );
+	$t22_same[ $t22_key ] = md5( serialize( $t22_words ) );
+}
+ck(
+	'the parts say the old section\'s words for every record, exactly, the blank answer\'s row left out as there',
+	$t22_same,
+	T22_OLD_WORDS
+);
+
+ck(
+	'a name, a sentence and an answer holding a tag, a quote and an ampersand are escaped once',
+	array(
+		array( strpos( $t22_new['escaping'], '<script' ), preg_match( '/&amp;(amp|lt|gt|quot);/', $t22_new['escaping'] ), false !== strpos( str_replace( '<wbr>', '', $t22_new['escaping'] ), '&lt;script&gt;alert(1)&lt;/script&gt;Bold &quot;Q&quot; &amp; Co' ), false !== strpos( str_replace( '<wbr>', '', $t22_new['escaping'] ), '&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;quoted&quot;' ) ),
+	),
+	array( array( false, 0, true, true ) )
+);
+
+ck(
+	'one helper per rule: the section reads the answers through `answers()`, the rows through `entries()`, a row\'s facts through `row_facts()`, and the empty lines through their words',
+	array_map(
+		static function ( $helper ) {
+			return substr_count( (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-institution-history.php' ), 'self::' . $helper . '(' ) >= 1;
+		},
+		array( 'answers' => 'answers', 'entries' => 'entries', 'row_facts' => 'row_facts', 'nothing_kept' => 'nothing_kept', 'nothing_recorded' => 'nothing_recorded', 'latest_line' => 'latest_line' )
+	),
+	array( 'answers' => true, 'entries' => true, 'row_facts' => true, 'nothing_kept' => true, 'nothing_recorded' => true, 'latest_line' => true )
+);
+
+// Fix round 1, point 2: `breakable()` is for a data table's cell. A sentence holding a 24-character address keeps it
+// whole, and nothing the parts draw here carries a break opportunity of its own.
+$t22_address = 'abcdefgh1234@example.org';
+audit_row( 'recTWENTYTWOADDR1', 'invite_sent', 'An invitation went to ' . $t22_address . '.', 7 );
+$t22_addressed = t22_render( 'recTWENTYTWOADDR1', 'parts' );
+ck(
+	'fix round 1: a History sentence holding a 24-character address prints it whole, no `<wbr>`; no drawing on the parts holds one',
+	array( strlen( $t22_address ), false !== strpos( $t22_addressed, '<span class="wpcpm-ui-list__name">An invitation went to ' . $t22_address . '.</span>' ), substr_count( $t22_addressed . implode( '', $t22_new ), '<wbr>' ) ),
+	array( 24, true, 0 )
+);
+
+if ( function_exists( 'wpcpm_layout_keep' ) ) {
+	wpcpm_layout_keep( 'For Administrators: a sentence holding a 24-character address', $t22_addressed );
+	foreach ( array( 'answers' => 'the application with long answers, a blank one', 'history' => 'twelve rows, a 40-character name', 'empty' => 'nothing kept, nothing recorded', 'krakow' => 'three rows', 'escaping' => 'hostile words', 'crowded' => 'the latest hundred' ) as $t22_key => $t22_case ) {
+		wpcpm_layout_keep( 'For Administrators: ' . $t22_case, $t22_new[ $t22_key ] );
+	}
+}
 
 echo "\n=== House rules ===\n";
 

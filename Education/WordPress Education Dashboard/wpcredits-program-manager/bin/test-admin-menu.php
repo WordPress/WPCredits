@@ -858,7 +858,7 @@ $resend_src    = str_replace( "\\'", "'", (string) file_get_contents( WPCPM_PLUG
 
 ck( 'a student\'s name opens their card only when the student has an account on the site, and the guide says what a school sees for one who has none: the name without a link, and no card',
     array(
-		false !== strpos( $roster_src, '<span class="wpcpm-roster__student">%s</span>' ),
+		false !== strpos( $roster_src, "\$title = \$user_id > 0\n\t\t\t? '<a href=\"' . esc_url( add_query_arg( self::ARG_STUDENT, \$user_id, \$here ) ) . '\">' . esc_html( \$name ) . '</a>'\n\t\t\t: esc_html( \$name );" ),
 		substr_count( $students_part, 'has an account on this site' ) >= 2,
 		false !== strpos( $students_part, 'the name is not a link and there is no card of their own' ),
 		false !== strpos( $students_part, 'A student without an account has none of this: no correction form, no **Finishing this placement** and no download of their own.' ),
@@ -897,7 +897,8 @@ $shared_sentence = array();
 foreach ( array( 'students', 'mentors', 'administrators', 'sponsors', 'institutions' ) as $built_guide ) {
 	$built_text = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'docs/' . $built_guide . '.md' );
 
-	if ( false === strpos( $built_text, "A company's people share one Sponsor Dashboard, and an\ninstitution's people share one Institution Dashboard: everyone attached to the company or the\ninstitution sees the same page." ) ) {
+	// Task 25, fix round 2 (M2): one shared page, of which a tutor sees less.
+	if ( false === strpos( $built_text, "A company's people share one Sponsor Dashboard, and an\ninstitution's people share one Institution Dashboard, though a tutor sees less of it." ) ) {
 		$shared_sentence[] = $built_guide;
 	}
 }

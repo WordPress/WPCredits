@@ -496,10 +496,18 @@ if ( ! class_exists( 'WPCPM_Institutions' ) ) {
 	}
 }
 
+require_once __DIR__ . '/stubs/institution-card-url.php';
 if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
 	/** Where a refusal lands when the request carried no referer. */
 	class WPCPM_Institutions_Dashboard {
 		public static function page_url() { return 'https://example.test/institution-dashboard/'; }
+		// The page's addresses, as the real class builds them (bin/stubs/institution-card-url.php, checked against it
+		// in bin/test-institution-ways-back.php).
+		public static function view_url( $view = 'overview', $record = '', array $args = array() ) { return wpcpm_test_institution_view_url( self::page_url(), $view, $record, $args ); }
+		public static function view_of( $card ) { return wpcpm_test_institution_view_of( $card ); }
+		public static function card_url( $card, $record = '', $item = '', array $args = array() ) { return wpcpm_test_institution_card_url( self::page_url(), $card, $record, $item, $args ); }
+		public static function requested_record() { return wpcpm_test_institution_requested_record(); }
+		public static function way_back( $card ) { return wpcpm_test_institution_way_back( self::page_url(), $card ); }
 	}
 }
 
@@ -1245,7 +1253,7 @@ try {
 	$outcome = $e->getMessage();
 }
 
-ck( 'a refusal with no referer lands on the dashboard', $outcome, 'redirect: https://example.test/institution-dashboard/' );
+ck( 'a refusal with no referer lands on the dashboard', $outcome, 'redirect: https://example.test/institution-dashboard/?wpcpm_view=agreement#wpcpm-agreement' );
 
 $GLOBALS['referer'] = 'https://example.test/institution-dashboard/';
 
@@ -1854,26 +1862,108 @@ sort( $slugs );
 ck( 'the panel has words for every outcome this piece flashes, bar the four being handed to it', array_values( array_diff( $slugs, $owed ) ), array() );
 ck( 'and those four are flashed by this file, so the names the panel is given are these', $handed, $owed );
 // The other half of the one mechanism, read off the panel: both forms that post to this
-// route hand `form_start()` the record, which is what puts the switcher on the action URL,
-// and neither of them prints the field this class stopped reading. The panel's own suite
-// asserts the markup that comes out; what is asserted here is that the two files chose the
-// same mechanism, which is the thing Phase 3 got wrong and no single-file test could see.
-$generate_form   = method_body( $panel, 'render_generate_form' );
-$regenerate_form = method_body( $panel, 'render_regenerate_form' );
+// route hand the parts' form opener the record, which is what puts the switcher on the action URL
+// (`form_url()`), and neither of them prints the field this class stopped reading. The panel's own
+// suite asserts the markup that comes out; what is asserted here is that the two files chose the
+// same mechanism, which is the thing Phase 3 got wrong and no single-file test could see. The
+// Institution Dashboard draws both on the parts since Task 23.
+$generate_form   = method_body( $panel, 'generate_form_parts' );
+$regenerate_form = method_body( $panel, 'regenerate_form_parts' );
 
-ck( 'both forms posting to this route hand the record to form_start()',
+ck( 'both forms posting to this route hand the record to the form opener',
     array(
-		substr_count( $generate_form, "\t\t\t\$record_id\n" ),
-		substr_count( $regenerate_form, "\t\t\t\$record_id\n" ),
+		substr_count( $generate_form, ", false, \$record_id )" ),
+		substr_count( $regenerate_form, ", false, \$record_id )" ),
 	),
     array( 1, 1 ) );
 ck( 'and neither prints the field this route no longer reads',
     array( strpos( $generate_form, 'wpcpm_agreement_record' ), strpos( $regenerate_form, 'wpcpm_agreement_record' ) ),
     array( false, false ) );
-ck( 'form_start() is what turns that argument into the switcher on the action URL',
-    false !== strpos( method_body( $panel, 'form_start' ), 'add_query_arg( array( WPCPM_Institution_Roster::ARG_VIEW => $record )' ),
-    true );
+// Institution Dashboard, Task 21: the address is built by form_url(), which form_start() and the parts' forms both open
+// with, so the two drawings of the generate forms carry the switcher by one rule.
+ck( 'form_start() is what turns that argument into the switcher on the action URL, through form_url(), as the parts\' forms do',
+    array(
+		false !== strpos( method_body( $panel, 'form_start' ), '$url = self::form_url( $record );' ),
+		false !== strpos( method_body( $panel, 'form_url' ), 'add_query_arg( array( WPCPM_Institution_Roster::ARG_VIEW => $record )' ),
+		false !== strpos( method_body( $panel, 'form_open_parts' ), 'esc_url( self::form_url( $record ) )' ),
+	),
+    array( true, true, true ) );
+ck( 'on the parts both forms posting to this route hand the record too, and neither prints the field this route no longer reads',
+    array(
+		substr_count( method_body( $panel, 'generate_form_parts' ), "__( 'Generating...', 'wpcredits-program-manager' ), false, \$record_id )" ),
+		substr_count( method_body( $panel, 'regenerate_form_parts' ), "__( 'Generating...', 'wpcredits-program-manager' ), false, \$record_id )" ),
+		strpos( method_body( $panel, 'generate_form_parts' ), 'wpcpm_agreement_record' ),
+		strpos( method_body( $panel, 'regenerate_form_parts' ), 'wpcpm_agreement_record' ),
+	),
+    array( 1, 1, false, false ) );
 ck( 'and the flash goes to the channel the panel reads', substr_count( $source, 'WPCPM_Flash::set( WPCPM_Institutions::FLASH,' ), 2 );
+
+// Institution Dashboard, Task 21, fix round 1: a refused generate keeps the name as typed for the form's one redraw,
+// through `WPCPM_Flash::keep()` (the mechanism the invite form keeps its typing by), under the form's own name; the
+// status, the redirect and what is written do not move. A generate that goes through keeps nothing and drops what an
+// earlier refusal kept.
+echo "\n=== A refused generate keeps the name typed (Task 21, fix round 1) ===\n";
+
+/**
+ * What a form kept for the signed-in account, read from the meta without taking it.
+ *
+ * @param string $form The form, as `keep()` was given it.
+ * @return array|null
+ */
+function kept_for( $form ) {
+	$pending = $GLOBALS['umeta'][ $GLOBALS['uid'] ]['wpcpm_flash'] ?? array();
+	return isset( $pending[ 'kept:' . $form ]['values'] ) ? $pending[ 'kept:' . $form ]['values'] : null;
+}
+
+/** The flash's per-request memo, emptied between two requests of one process (the real `take()` keeps it for a request). */
+function t21_new_request() {
+	$taken = new ReflectionProperty( 'WPCPM_Flash', 'taken' );
+	if ( PHP_VERSION_ID < 80100 ) {
+		$taken->setAccessible( true );
+	}
+	$taken->setValue( null, array() );
+}
+$kept_cases = array();
+foreach ( array(
+	'brackets' => array( "Universidad \"Ejemplo\" [Sede] & <b>Norte</b>", 'agreement-name-brackets' ),
+	'blank'    => array( '   ', 'agreement-name' ),
+	// Fix round 2: cut where the handler cuts the name (`clean_name()`, MAX_NAME).
+	'too long' => array( '[Norte] ' . str_repeat( 'x', 300 ), 'agreement-name-brackets' ),
+) as $kept_case => $kept_pair ) {
+	reset_world();
+	seed_index( 'recMEMBEROWN00001' );
+	sign_in( 31, false, 'recMEMBEROWN00001' );
+	t21_new_request();
+	$_POST[ WPCPM_Agreement_Generate::FIELD_NAME ] = $kept_pair[0];
+	try {
+		WPCPM_Agreement_Generate::generate();
+		$outcome = 'nothing';
+	} catch ( Exception $e ) {
+		$outcome = $e->getMessage();
+	}
+	$kept_cases[ $kept_case ] = array( $outcome, flashed(), kept_for( WPCPM_Agreement_Generate::KEPT_GENERATE . 'recMEMBEROWN00001' ), count( $GLOBALS['posts'] ) );
+}
+reset_world();
+seed_index( 'recMEMBEROWN00001' );
+sign_in( 31, false, 'recMEMBEROWN00001' );
+t21_new_request();
+WPCPM_Flash::keep( WPCPM_Agreement_Generate::KEPT_GENERATE . 'recMEMBEROWN00001', array( WPCPM_Agreement_Generate::FIELD_NAME => 'An earlier try' ) );
+t21_new_request();
+$_POST[ WPCPM_Agreement_Generate::FIELD_NAME ] = 'Universidad Example';
+try {
+	WPCPM_Agreement_Generate::generate();
+	$outcome = 'nothing';
+} catch ( Exception $e ) {
+	$outcome = $e->getMessage();
+}
+$kept_cases['generated'] = array( $outcome, flashed(), kept_for( WPCPM_Agreement_Generate::KEPT_GENERATE . 'recMEMBEROWN00001' ), count( $GLOBALS['posts'] ) );
+ck( 'a refused generate keeps the name exactly as typed, the status and the redirect unchanged; one that goes through keeps nothing and drops the earlier one', $kept_cases, array(
+	'brackets'  => array( 'redirect: https://example.test/institution-dashboard/', 'agreement-name-brackets', array( WPCPM_Agreement_Generate::FIELD_NAME => "Universidad \"Ejemplo\" [Sede] & <b>Norte</b>" ), 0 ),
+	'blank'     => array( 'redirect: https://example.test/institution-dashboard/', 'agreement-name', array( WPCPM_Agreement_Generate::FIELD_NAME => '   ' ), 0 ),
+	'too long'  => array( 'redirect: https://example.test/institution-dashboard/', 'agreement-name-brackets', array( WPCPM_Agreement_Generate::FIELD_NAME => mb_substr( '[Norte] ' . str_repeat( 'x', 300 ), 0, WPCPM_Agreement_Generate::MAX_NAME ) ), 0 ),
+	'generated' => array( 'nothing', '', null, 1 ),
+) );
+ck( 'the kept form\'s name', WPCPM_Agreement_Generate::KEPT_GENERATE, 'agreement-generate:' );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

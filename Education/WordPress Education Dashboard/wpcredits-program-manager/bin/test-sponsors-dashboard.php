@@ -2599,7 +2599,7 @@ ck( 'under the real switch (the Administrator Dashboard on) every view of the Sp
 	$real_views === $switch_off_views,
 	count( $real_views ) > 0,
 	preg_match( '/wpcpm-ui-/', implode( '', $real_views ) ),
-), array( array( 'administrator' ), true, true, 0 ) );
+), array( array( 'administrator', 'institution' ), true, true, 0 ) );
 
 // Counted by ck() itself: a literal here read 45 while the file carried 49 (1.93.2), and a count
 // nobody maintains is a count nobody should trust.

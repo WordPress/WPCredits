@@ -309,14 +309,25 @@ final class WPCPM_Dashboard_Card {
 	 *                     by default.
 	 * @param string $lead The id of the box the sentence refused, '' for none: the sentence is then a link
 	 *                     to it, as `WPCPM_Form_Errors::summary()` links its problems (`lead_to()`).
+	 * @param array  $named A name the sentence holds at its one marked spot, the first `%s` of the text: `words` (the name,
+	 *                      plain text) and optionally `url` (its address, plain; http or https only, any other prints the name
+	 *                      without a link). The renderer escapes both (`esc_html()`, `esc_url()`) and puts the name, linked
+	 *                      when it has an address, into the escaped sentence, which is never run through `sprintf()`, so any
+	 *                      other percent sign stays as it is; with no marked spot the sentence prints alone. In place of the
+	 *                      lead. An empty array, the default, prints the message as before (Institution Dashboard, Task 20: an
+	 *                      address already in use names the account, linked to its profile for an Administrator).
 	 * @return string
 	 */
-	public static function message( $tone, $text, $base = 'wpcpm-dashboard__message', $lead = '' ) {
+	public static function message( $tone, $text, $base = 'wpcpm-dashboard__message', $lead = '', $named = array() ) {
 		$tone = isset( self::TONES[ $tone ] ) ? (string) $tone : 'info';
 		$base = sanitize_html_class( (string) $base );
 		$said = '' !== (string) $lead && class_exists( 'WPCPM_Form_Errors' )
 			? WPCPM_Form_Errors::link( (string) $lead, (string) $text )
 			: esc_html( (string) $text );
+
+		if ( is_array( $named ) && isset( $named['words'] ) && is_scalar( $named['words'] ) && '' !== (string) $named['words'] ) {
+			$said = self::named_sentence( (string) $text, (string) $named['words'], isset( $named['url'] ) && is_scalar( $named['url'] ) ? (string) $named['url'] : '' );
+		}
 
 		return sprintf(
 			'<p class="%1$s %1$s--%2$s is-%2$s" role="%3$s" tabindex="-1" data-wpcpm-card-message>%4$s</p>',
@@ -325,6 +336,32 @@ final class WPCPM_Dashboard_Card {
 			esc_attr( self::TONES[ $tone ] ),
 			$said
 		);
+	}
+
+	/**
+	 * A sentence with a name at its one marked spot (`message()`'s `named`): the sentence escaped, its first `%s` the name
+	 * escaped, inside a link to its address when the address is http or https. Nothing else of the sentence is read as a
+	 * placeholder.
+	 *
+	 * @param string $text  The sentence, plain text.
+	 * @param string $words The name, plain text.
+	 * @param string $url   Its address, plain, or ''.
+	 * @return string Escaped markup.
+	 */
+	private static function named_sentence( $text, $words, $url ) {
+		$name = esc_html( $words );
+
+		if ( 1 === preg_match( '#^https?://#i', trim( $url ) ) ) {
+			$name = '<a href="' . esc_url( trim( $url ) ) . '">' . $name . '</a>';
+		}
+
+		$at = strpos( $text, '%s' );
+
+		if ( false === $at ) {
+			return esc_html( $text );
+		}
+
+		return esc_html( substr( $text, 0, $at ) ) . $name . esc_html( substr( $text, $at + 2 ) );
 	}
 
 	/**

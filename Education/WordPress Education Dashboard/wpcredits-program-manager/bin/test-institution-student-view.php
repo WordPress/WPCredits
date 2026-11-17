@@ -134,7 +134,7 @@ function remove_query_arg( $key, $query = false ) {
 	return str_replace( '/?&', '/?', $url );
 }
 function rest_url( $path = '' ) { return 'https://example.test/wp-json/' . ltrim( (string) $path, '/' ); }
-function wp_create_nonce( $a = -1 ) { return 'nonce'; }
+function wp_create_nonce( $a = -1 ) { return 'nonce-' . $a; }
 function wp_enqueue_script( $handle ) { $GLOBALS['enqueued'][] = (string) $handle; }
 function wp_enqueue_style( $handle ) { $GLOBALS['styles'][] = (string) $handle; }
 function wp_localize_script( $handle, $object_name, $l10n ) { $GLOBALS['localized'][ (string) $object_name ] = $l10n; }
@@ -144,6 +144,7 @@ define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 // Declares add_filter(), apply_filters() and get_option(): the program map is made of filters,
 // over the options a compile writes, and this suite's own three read no filter and no option.
 require_once __DIR__ . '/stubs/compiled-seeds.php';
+require_once __DIR__ . '/stubs/view-faults.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
@@ -160,6 +161,15 @@ class WPCPM_Mentors_Sync {
 	const RECORD_ID_PATTERN = '/^rec[A-Za-z0-9]{14}$/';
 	public static function is_record_id( $value ) { return (bool) preg_match( self::RECORD_ID_PATTERN, trim( (string) $value ) ); }
 	public static function resolve_stored( $value, $type ) { return trim( (string) $value ); }
+	/** The status card's two reads (Task 16): the Students table's status column and the tracked statuses. */
+	public static function fields() { return array( 'student_status' => 'Status' ); }
+	public static function tracked_statuses( $settings = null ) {
+		return array(
+			'active' => array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation' ),
+			'past'   => array( 'Graduate', 'Dropped out' ),
+			'all'    => array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation', 'Graduate', 'Dropped out' ),
+		);
+	}
 }
 
 /** Stands in for the students sync: the meta keys and the two cached rows. */
@@ -266,6 +276,8 @@ class WPCPM_Contribution_Teams {
 /** Stands in for the icon set. */
 class WPCPM_Icons {
 	public static function svg( $name, $size = 16 ) { return '<svg class="wpcpm-icon wpcpm-icon--' . $name . '"></svg>'; }
+	/** The parts' chevron (Task 16), at its size. */
+	public static function ui( $name, $size = 16 ) { return '<svg class="wpcpm-icon wpcpm-icon--' . $name . '" width="' . (int) $size . '" height="' . (int) $size . '" aria-hidden="true" focusable="false"></svg>'; }
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-policy.php';
@@ -312,10 +324,20 @@ class WPCPM_Institution_Roster {
 		);
 	}
 
+	const TYPE_STUDENT = 'student';
+	const TYPE_REPORT  = 'report';
+
 	public static function cached_subject( $record, $type ) {
 		foreach ( $GLOBALS['umeta'] as $id => $meta ) {
 			if ( isset( $meta[ WPCPM_Students_Sync::META_RECORD_ID ] ) && (string) $meta[ WPCPM_Students_Sync::META_RECORD_ID ] === (string) $record ) {
 				return WPCPM_Institution_Policy::subject_student_account( $id );
+			}
+		}
+
+		// A Students record (the status card's, Task 16): the roster index row it is on, as the shipped one reads it.
+		foreach ( $GLOBALS['roster'] as $institution => $rows ) {
+			if ( isset( $rows[ $record ] ) ) {
+				return WPCPM_Institution_Policy::subject_index_row( $institution, $record );
 			}
 		}
 
@@ -325,6 +347,88 @@ class WPCPM_Institution_Roster {
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-student-view.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-report-form.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
+
+// What the four controls the card hangs off need, drawn by their own classes here (each pinned in its own suite): the
+// flash and the kept typing read from this suite's globals, the sign-in record, the last invitation, the export's address.
+$GLOBALS['flash']       = array();
+$GLOBALS['kept_typing'] = array();
+$GLOBALS['kept_flash']  = array();
+$GLOBALS['signed_in']   = array();
+function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
+function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
+function wp_slash( $v ) { return $v; }
+function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
+function is_email( $e ) { return filter_var( (string) $e, FILTER_VALIDATE_EMAIL ) ? (string) $e : false; }
+function wp_date( $f, $t = null ) { return gmdate( (string) $f, null === $t ? time() : (int) $t ); }
+function selected( $a, $b, $echo = true ) { $out = ( (string) $a === (string) $b ) ? ' selected="selected"' : ''; if ( $echo ) { echo $out; } return $out; }
+function is_admin() { return false; }
+// Each date as this suite's format_dates() stand-in prints it, so the parts' dates, drawn one at a time, read the same.
+function date_i18n( $f, $t = false ) { return gmdate( 'Y-m-d', false === $t ? time() : (int) $t ); }
+function _doing_it_wrong( $f, $m, $v ) { $GLOBALS['wrong'][] = $f; }
+function wp_script_is( $h, $l = 'enqueued' ) { return false; }
+function wp_register_script() {}
+function wp_referer_field( $display = true ) {
+	$field = '<input type="hidden" name="_wp_http_referer" value="/institution-dashboard/?wpcpm_view=students&amp;wpcpm_institution_student=10" />';
+	if ( $display ) { echo $field; }
+	return $field;
+}
+function wp_nonce_field( $a = -1, $n = '_wpnonce', $r = true, $e = true ) {
+	$field = '<input type="hidden" id="' . esc_attr( $n ) . '" name="' . esc_attr( $n ) . '" value="' . esc_attr( wp_create_nonce( $a ) ) . '" />' . ( $r ? wp_referer_field( false ) : '' );
+	if ( $e ) { echo $field; }
+	return $field;
+}
+if ( ! class_exists( 'WPCPM_Flash' ) ) {
+	/** The flash, read from `$GLOBALS['flash']` by channel and from `$GLOBALS['kept_flash']` for a refused form. */
+	class WPCPM_Flash {
+		public static function take( $channel, $user_id = 0 ) { return isset( $GLOBALS['flash'][ $channel ] ) ? $GLOBALS['flash'][ $channel ] : ''; }
+		public static function kept( $form ) {
+			return array( 'values' => array(), 'problems' => isset( $GLOBALS['kept_flash']['problems'] ) ? $GLOBALS['kept_flash']['problems'] : array() );
+		}
+	}
+}
+if ( ! class_exists( 'WPCPM_Typed_Text' ) ) {
+	/** What a refused post typed, from `$GLOBALS['kept_typing']`, and the box's value as the real one writes it. */
+	class WPCPM_Typed_Text {
+		public static function kept( $form ) { return $GLOBALS['kept_typing']; }
+		public static function kept_attr( $value ) { return str_replace( '&', '&amp;', (string) $value ); }
+	}
+}
+if ( ! class_exists( 'WPCPM_Sign_Ins' ) ) {
+	/** The sign-in record began on 15 October 2026; a student has signed in where the fixture says so. */
+	class WPCPM_Sign_Ins {
+		public static function since() { return 1792022400; }
+		public static function has_signed_in( $user_id ) { return ! empty( $GLOBALS['signed_in'][ (int) $user_id ] ); }
+	}
+}
+if ( ! class_exists( 'WPCPM_Mail' ) ) {
+	/** The last invitation went on 1 November 2026, and none is held. */
+	class WPCPM_Mail {
+		public static function last_invited( $user_id ) { return 1793491200; }
+		public static function is_held( $user_id ) { return false; }
+		/** The three sentences the line's outcomes quote, in the mail layer's words. */
+		public static function too_soon_message() { return 'An invitation was sent a few minutes ago.'; }
+		public static function invite_failed_message() { return 'The invitation could not be sent.'; }
+		public static function invite_refused_message( $who = '' ) { return 'The invitation could not be sent.'; }
+	}
+}
+if ( ! class_exists( 'WPCPM_Institution_Export' ) ) {
+	/** The single-student export's address, keyed to the account on screen. */
+	class WPCPM_Institution_Export {
+		public static function student_url( $user_id ) { return 'https://example.test/wp-admin/admin-post.php?action=wpcpm_export_student&user=' . (int) $user_id . '&_wpnonce=nonce-export'; }
+	}
+}
+define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
+define( 'WPCPM_VERSION', 'test' );
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
+if ( ! function_exists( 'sanitize_html_class' ) ) {
+	/** Core's: a class name with anything but letters, digits, hyphens and underscores taken out. */
+	function sanitize_html_class( $c, $f = '' ) { $c = preg_replace( '|%[a-fA-F0-9][a-fA-F0-9]|', '', (string) $c ); $c = preg_replace( '/[^A-Za-z0-9_-]/', '', $c ); return '' === $c ? (string) $f : $c; }
+}
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-resend.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-student-form.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-students.php';
 
 // The program map and the report forms are the compiled tracks' (bin/stubs/compiled-seeds.php).
 WPCPM_Tracks::init();
@@ -391,7 +495,7 @@ function card( $institution, $user_id, array $context = array() ) {
  * @return string The cell's markup, or an empty string when the card has no such row.
  */
 function row_of( $html, $label ) {
-	$pattern = '#>' . preg_quote( $label, '#' ) . '</span>.*?<td class="wpcpm-mentee__value"[^>]*>(.*?)</td>#s';
+	$pattern = '#<th scope="row" role="rowheader" class="wpcpm-ui-cell--text">' . preg_quote( $label, '#' ) . '</th><td class="[^"]*" role="cell">(.*?)</td>#s';
 
 	return preg_match( $pattern, (string) $html, $m ) ? $m[1] : '';
 }
@@ -527,16 +631,23 @@ ck( 'shows() says yes for a student on their roster', WPCPM_Institution_Student_
 $html = card( $inst_a, 10, array( 'read' => 1756800000 ) );
 
 ck( 'the card names the student', false !== strpos( $html, 'Ana Lopez' ), true );
+
+// Task 9: on the Institution Dashboard the side menu leads back to the roster (the Students item), so the card draws
+// no way back of its own there; drawn on any other surface it keeps the one it always drew.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
+WPCPM_UI::enter( 'institution' );
+$on_dashboard = card( $inst_a, 10, array( 'read' => 1756800000 ) );
+WPCPM_UI::leave();
+ck( 'drawn on the Institution Dashboard, the card has no Back to the roster, and is still the card', array( strpos( $on_dashboard, 'Back to the roster' ), strpos( $on_dashboard, 'wpcpm-institution__back' ), false !== strpos( $on_dashboard, 'Ana Lopez' ) ), array( false, false, true ) );
+ck( 'nor drawn with no surface named: the side menu\'s Students item is the way back', array( strpos( $html, 'Back to the roster' ), strpos( $html, 'wpcpm-institution__back' ) ), array( false, false ) );
 ck( 'and names the program rather than the Airtable status', false !== strpos( $html, 'WordPress Credits Program 150h' ), true );
 ck( 'the status is never printed raw', false === strpos( $html, '>In Sensei<' ), true );
-ck( 'the dates print as one period', false !== strpos( $html, '2026-02-16 to 2026-06-30' ), true );
+ck( 'the dates print as one period, each date whole', false !== strpos( $html, '<span class="wpcpm-ui-whole">2026-02-16</span> to <span class="wpcpm-ui-whole">2026-06-30</span>' ), true );
 ck( 'the cohort is derived from the start date', false !== strpos( $html, 'January to June 2026' ), true );
 ck( 'the field of study prints', false !== strpos( $html, 'Computer Science' ), true );
 ck( 'the WordPress.org profile links to the handle', false !== strpos( $html, 'https://profiles.wordpress.org/student-one/' ), true );
 ck( "the student's own address is not a row", row_of( $html, 'Email' ), '' );
 ck( 'and is nowhere else on the card either', false === strpos( $html, 'ana@example.test' ), true );
-ck( 'the way back to the roster keeps the filters', false !== strpos( $html, 'wpcpm_status=current' ), true );
-ck( 'and does not carry the student argument', false === strpos( $html, 'wpcpm_institution_student=' ), true );
 
 /* ---- 2. the mentor: a name and an address, and nothing else --------------- */
 
@@ -584,7 +695,7 @@ ck( "while the mentor's is still a cell", in_array( 'mentors|Email', $keys, true
 
 echo "\n=== Every row prints, even when it is empty ===\n";
 
-$rows_full = substr_count( $html, '<tr class="wpcpm-mentee__row' );
+$rows_full = substr_count( $html, '<tr role="row">' );
 
 ck( 'the complete card has one row per cell', $rows_full, count( $keys ) );
 ck( 'an empty tutor still has a row', false !== strpos( $html, 'Tutor' ), true );
@@ -595,7 +706,7 @@ $bare           = card( $inst_b, 11, array() );
 
 // A student with no mentor reads as normal (Institutions release 2): the Mentor row says "No mentor yet",
 // as the roster's mentor cell does, and the Mentor email row is left out, since there is nobody to write to.
-ck( 'a student the sync has barely seen has every row but the mentor\'s address', substr_count( $bare, '<tr class="wpcpm-mentee__row' ), $rows_full - 1 );
+ck( 'a student the sync has barely seen has every row but the mentor\'s address', substr_count( $bare, '<tr role="row">' ), $rows_full - 1 );
 ck( 'the mentor row says what its blank means, in the roster\'s words', row_of( $bare, 'Mentor' ), 'No mentor yet' );
 ck( 'and the old words are gone', false !== strpos( $bare, 'No mentor assigned yet' ), false );
 ck( 'there is no Mentor email row for a student with no mentor', array( row_of( $bare, 'Mentor email' ), false !== strpos( $bare, 'Mentor email' ) ), array( '', false ) );
@@ -647,7 +758,7 @@ $GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ]['program'] = '';
 
 $stray_key = card( $inst_a, 10, array() );
 
-ck( 'a cached row with only that key reads "Not set"', row_of( $stray_key, 'Program' ), '<span class="wpcpm-mentee__missing">Not set</span>' );
+ck( 'a cached row with only that key reads "Not set", the empty kind', array( row_of( $stray_key, 'Program' ), false !== strpos( $stray_key, 'Program</th><td class="wpcpm-ui-cell--text wpcpm-ui-cell--empty" role="cell">Not set</td>' ) ), array( 'Not set', true ) );
 
 // And with the stray key gone the index row is the last thing left to read, which is the
 // branch that put a pipeline status on a school's screen in the first place.
@@ -655,9 +766,9 @@ unset( $GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ]['status'] );
 
 $unknown_program = card( $inst_a, 10, array() );
 
-ck( 'with no reports status the Program row reads "Not set"', row_of( $unknown_program, 'Program' ), '<span class="wpcpm-mentee__missing">Not set</span>' );
+ck( 'with no reports status the Program row reads "Not set"', row_of( $unknown_program, 'Program' ), 'Not set' );
 ck( 'the index row is not read for it', false === strpos( $unknown_program, 'Not moving forward' ), true );
-ck( 'and the badge is dropped rather than painted from it', false === strpos( $unknown_program, 'wpcpm-badge' ), true );
+ck( 'and the tag is dropped rather than painted from it', false === strpos( $unknown_program, 'wpcpm-status' ), true );
 
 $GLOBALS['roster'][ $inst_a ][ $row_a ]['status']                     = 'In Sensei';
 $GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ]['program'] = 'In Sensei';
@@ -669,13 +780,13 @@ $GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ]['program'] = 'Pending
 $GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_COURSE ]             = 'Developer Track';
 
 $pending_card  = card( $inst_a, 10, array() );
-$pending_badge = '<span class="wpcpm-badge wpcpm-badge--pending">Pending graduation</span>';
+$pending_badge = '<span class="wpcpm-status wpcpm-status--amber">Pending graduation</span>';
 
-ck( 'a pending student\'s Program row names and links the course she took, with the Pending graduation badge beside it',
+ck( 'a pending student\'s Program row names and links the course she took, with the Pending graduation tag beside it',
 	row_of( $pending_card, 'Program' ),
 	'<a href="' . WPCPM_Program::course_url( 'Developer Track' ) . '" target="_blank" rel="noopener noreferrer">Developer Track</a> ' . $pending_badge );
-ck( 'and the badge beside her name still says Pending graduation',
-	1 === preg_match( '#<p class="wpcpm-institution__student-name">[^<]*</p>' . preg_quote( $pending_badge, '#' ) . '#', $pending_card ), true );
+ck( 'and the tag under her name still says Pending graduation',
+	1 === preg_match( '#<h2 class="wpcpm-ui-item__title">[^<]*</h2><p class="wpcpm-ui-item__facts">' . preg_quote( $pending_badge, '#' ) . '#', $pending_card ), true );
 
 // No course known: the row says what it always said, the status alone, and links nowhere.
 $GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_COURSE ] = '';
@@ -699,10 +810,10 @@ foreach ( $plain_words as $raw => $printed ) {
 	$GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ]['program'] = $raw;
 
 	$words_card = card( $inst_a, 10, array() );
-	$badge_html = '<span class="wpcpm-badge' . ( '' === WPCPM_Program::badge( $raw ) ? '' : ' wpcpm-badge--' . WPCPM_Program::badge( $raw ) ) . '">' . $printed . '</span>';
+	$badge_html = '<span class="wpcpm-status' . ( '' === WPCPM_Program::tone( $raw ) ? '' : ' wpcpm-status--' . WPCPM_Program::tone( $raw ) ) . '">' . $printed . '</span>';
 
-	ck( "a student whose status is {$raw} has a badge beside the name that says {$printed}",
-		1 === preg_match( '#<p class="wpcpm-institution__student-name">[^<]*</p>' . preg_quote( $badge_html, '#' ) . '#', $words_card ), true );
+	ck( "a student whose status is {$raw} has a tag under the name that says {$printed}",
+		1 === preg_match( '#<h2 class="wpcpm-ui-item__title">[^<]*</h2><p class="wpcpm-ui-item__facts">' . preg_quote( $badge_html, '#' ) . '#', $words_card ), true );
 	ck( "and a Program row that says {$printed}", row_of( $words_card, 'Program' ), $printed );
 }
 
@@ -719,8 +830,8 @@ $track_card = card( $inst_a, 10, array() );
 ck( "a compiled track's name is still what the Program row says, linked to its course",
 	row_of( $track_card, 'Program' ),
 	'<a href="' . WPCPM_Program::course_url( 'Developer Track' ) . '" target="_blank" rel="noopener noreferrer">Developer Track</a>' );
-ck( 'and what the badge beside the name says',
-	1 === preg_match( '#<p class="wpcpm-institution__student-name">[^<]*</p><span class="wpcpm-badge wpcpm-badge--dev">Developer Track</span>#', $track_card ), true );
+ck( 'and what the tag under the name says',
+	1 === preg_match( '#<h2 class="wpcpm-ui-item__title">[^<]*</h2><p class="wpcpm-ui-item__facts"><span class="wpcpm-status wpcpm-status--green">Developer Track</span>#', $track_card ), true );
 
 $GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ]['program'] = 'In Sensei';
 
@@ -762,22 +873,14 @@ $dashboard_css   = css_rules( 'assets/css/dashboard.css' );
 // The row the stylesheet lays out has to be the element the card prints. It was not: the
 // avatar sat in an outer wrapper the stylesheet had no rule for, so it stacked above the
 // name instead of standing beside it.
-ck( 'the avatar opens the row the stylesheet paints', false !== strpos( $html, '<div class="wpcpm-institution__student-identity"><img class="wpcpm-avatar"' ), true );
+ck( 'the avatar opens the item header the parts lay out', 0 === strpos( $html, '<section class="wpcpm-ui-block"><div class="wpcpm-ui-item__head"><span class="wpcpm-ui-item__media"><img class="wpcpm-avatar"' ), true );
 // The Gravatar fallback is a URL carrying a hash of the student's address: an identifier of the
 // student handed to a third party's page and a third party's server. The card asks for the
 // WordPress.org portrait only.
 ck( 'the card never hands the student\'s address to the avatar service', array_unique( (array) ( $GLOBALS['avatar_emails'] ?? array() ) ), array( '' ) );
 ck( 'and no wrapper the stylesheet has never heard of', false === strpos( $html, 'wpcpm-institution__student-card' ), true );
 
-foreach ( array( 'wpcpm-institution__student-identity', 'wpcpm-institution__student-name' ) as $class ) {
-	ck( sprintf( 'the page stylesheet has a rule for .%s', $class ), has_rule( $institution_css, $class ), true );
-}
 
-// The name and its badge are the mentor page's own group, so the two headers read the same
-// and neither stylesheet defines that group twice.
-ck( "the name and the badge reuse the mentor page's group", false !== strpos( $html, '<div class="wpcpm-mentee__identity">' ), true );
-ck( 'which the mentor stylesheet defines', has_rule( $dashboard_css, 'wpcpm-mentee__identity' ), true );
-ck( 'and the page stylesheet does not define it again', has_rule( $institution_css, 'wpcpm-mentee__identity' ), false );
 
 /* ---- 7. a stranger's user ID falls back to the roster --------------------- */
 
@@ -815,7 +918,11 @@ $GLOBALS['users'][25]       = new WP_User( 25, 'Tess Tutor', 'tess@example.test'
 $GLOBALS['memberships'][25] = array( $inst_a );
 $GLOBALS['levels']          = array( 25 => 'tutor' );
 $GLOBALS['uid']             = 25;
-ck( 'a tutor of the student\'s institution opens the student and is drawn the card, as a representative of it is', array( WPCPM_Institution_Student_View::shows( 10 ), '' !== card( $inst_a, 10, array() ), card( $inst_a, 10, array() ) === ( function () use ( $inst_a ) { $GLOBALS['uid'] = 20; return card( $inst_a, 10, array() ); } )() ), array( true, true, true ) );
+// The same facts: the header and the table (the controls hung off the card are each their own class's, per reader).
+$facts_of = static function ( $html ) {
+	return preg_match( '#^.*?</table>#s', (string) $html, $m ) ? (string) preg_replace( '#<div class="wpcpm-ui-block" id="wpcpm-student-invite">.*?</div>(?=<table)#s', '', $m[0] ) : '';
+};
+ck( 'a tutor of the student\'s institution opens the student and is drawn the card\'s facts, as a representative of it is', array( WPCPM_Institution_Student_View::shows( 10 ), '' !== card( $inst_a, 10, array() ), $facts_of( card( $inst_a, 10, array() ) ) === ( function () use ( $inst_a, $facts_of ) { $GLOBALS['uid'] = 20; return $facts_of( card( $inst_a, 10, array() ) ); } )() ), array( true, true, true ) );
 ck( 'a tutor of A may read the Student Report Card of A\'s student, and not B\'s', array( may_read( 25, $report_a ), may_read( 25, $report_b ) ), array( true, false ) );
 $GLOBALS['uid']     = 25;
 $GLOBALS['settled'] = array( $inst_b );
@@ -858,8 +965,6 @@ foreach ( array( 'wpcpm-report__disclosure', 'wpcpm-report__toggle', 'wpcpm-repo
 // page happened to print last. Everything else about the report stays in one file.
 preg_match_all( '/\.wpcpm-report__[a-zA-Z0-9_-]+/', $institution_css, $named );
 
-ck( 'the page stylesheet names the report markup once', array_values( array_unique( $named[0] ) ), array( '.wpcpm-report__disclosure' ) );
-ck( 'and always compounded with its own class', false !== strpos( $institution_css, '.wpcpm-report__disclosure.wpcpm-institution__report' ), true );
 
 // The note class is not this page's own either. It comes with that same markup, and the
 // stylesheet defining it is the student dashboard's whole dress, which this page has no other
@@ -982,6 +1087,380 @@ if ( file_exists( $roster_view ) ) {
 	ck( "the roster's student links carry this argument", $declared, WPCPM_Institution_Student_View::ARG );
 } else {
 	echo "     the roster view is not in this checkout, so its links were not read\n";
+}
+
+/* ---- 13. the card on the parts (Institution Dashboard, Task 16) ----------- */
+
+echo "\n=== A student's card on the parts (Institution Dashboard, Task 16) ===\n";
+
+
+// The long fixture: a 40-character unbroken word in the student's name, a 48-character mentor address, a long website, a
+// long tutor's name, on institution A, with every row filled.
+$long      = 70;
+$report_l  = rid( 'REPORTLONG' );
+$row_l     = rid( 'ROWLONG' );
+$GLOBALS['users'][ $long ] = new WP_User( $long, 'Ama Exampleunbrokenstudentnamewithfortychars', 'ama@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['users'][22]     = new WP_User( 22, 'Tom Tutor', 'tom@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) );
+$GLOBALS['memberships'][22] = array( $inst_a );
+$GLOBALS['umeta'][ $long ] = array(
+	WPCPM_Students_Sync::META_RECORD_ID   => $report_l,
+	WPCPM_Students_Sync::META_INSTITUTION => $inst_a,
+	WPCPM_Students_Sync::META_UPDATED     => 1756800000,
+	WPCPM_Students_Sync::META_PROGRAM     => array(
+		'name'           => 'Ama Exampleunbrokenstudentnamewithfortychars',
+		'program'        => 'In Sensei',
+		'start'          => '2026-02-16',
+		'end'            => '2026-09-30',
+		'username'       => 'unbrokenusernamewithfortycharsofexample',
+		'team'           => 'Documentation',
+		'website'        => 'https://averyveryveryverylongsubdomainnameofthe.example.org/a/long/path/to/the/page',
+		'field_of_study' => 'Technology & Engineering',
+		'tutor'          => 'Dr Exampleunbrokentutornamewithfortycharss',
+		'accessibility'  => 'Needs captions on every call',
+	),
+	WPCPM_Students_Sync::META_MENTOR      => array(
+		'name'  => 'Mia Exampleunbrokenmentornamewithfortycharss',
+		'email' => 'averyveryveryverylongmailboxname1234@example.org',
+	),
+);
+$GLOBALS['roster'][ $inst_a ][ $row_l ] = array(
+	'record_id'      => $row_l,
+	'name'           => 'Ama Exampleunbrokenstudentnamewithfortychars',
+	'email'          => 'ama@example.test',
+	'email_key'      => 'ama@example.test',
+	'status'         => 'In Sensei',
+	'institution'    => $inst_a,
+	'start'          => '2026-02-16',
+	'end'            => '2026-09-30',
+	'username'       => 'unbrokenusernamewithfortycharsofexample',
+	'field_of_study' => 'Technology & Engineering',
+	'tutor'          => 'Dr Exampleunbrokentutornamewithfortycharss',
+	'reports'        => array( $report_l ),
+	'user_id'        => $long,
+);
+$GLOBALS['roster'][ $inst_a ][ $row_a ]['email_key'] = 'ana@example.test';
+$GLOBALS['opts']['date_format']                       = 'F j, Y';
+
+/** Whether a needle is in a haystack. */
+function has( $haystack, $needle ) { return false !== strpos( (string) $haystack, (string) $needle ); }
+
+/** One card as one reader, with a fresh flash, kept typing and enqueue log. */
+function card_as( $viewer, $institution, $user_id, array $context = array( 'read' => 1756800000 ) ) {
+	$GLOBALS['uid']       = (int) $viewer;
+	$GLOBALS['enqueued']  = array();
+	$GLOBALS['localized'] = array();
+	return card( $institution, $user_id, $context );
+}
+
+/** The refused correction: its sentence, the boxes it refused, and the typing it kept. */
+function refuse_correction( $report ) {
+	$GLOBALS['flash']['institution_student'] = array( 'status' => 'student-partly', 'detail' => 'Start date, End date.', 'record' => $report );
+	$GLOBALS['kept_flash']                   = array( 'problems' => array(
+		'wpcpm-student-' . WPCPM_Institution_Student_Form::key( 'students', 'Start Date' ) => 'An end date is at most a year after the start date.',
+		'wpcpm-student-' . WPCPM_Institution_Student_Form::key( 'students', 'End Date' )   => 'An end date is at most a year after the start date.',
+	) );
+	$GLOBALS['kept_typing'] = array( 'students|End Date' => '2036-06-30', 'reports|Name' => 'Ama & <b>Q&amp;A</b>' );
+}
+
+/** Forget what the last case set. */
+function forget_case() {
+	$GLOBALS['flash']       = array();
+	$GLOBALS['kept_flash']  = array();
+	$GLOBALS['kept_typing'] = array();
+	$GLOBALS['levels']      = array();
+	unset( $GLOBALS['wpcpm_stub_filters']['wpcpm_institution_graduation_offered'] );
+}
+
+/**
+ * The cards the suite pins on both branches: a representative's, an Administrator's and a tutor's, the long student's
+ * with every row, a student with no mentor, the correction refused, and the status card with graduating on.
+ *
+ * @return string[] By case.
+ */
+function student_cases() {
+	global $inst_a, $inst_b, $long, $report_l;
+	$cases = array();
+	forget_case();
+	$cases['a representative']                = card_as( 20, $inst_a, 10 );
+	$cases['an Administrator']                = card_as( 30, $inst_a, 10 );
+	$GLOBALS['levels']                        = array( 22 => 'tutor' );
+	$cases['a tutor']                         = card_as( 22, $inst_a, 10 );
+	forget_case();
+	$cases['the long student']                = card_as( 20, $inst_a, $long );
+	$cases['no mentor']                       = card_as( 21, $inst_b, 11 );
+	refuse_correction( $report_l );
+	$cases['the correction refused']          = card_as( 20, $inst_a, $long );
+	forget_case();
+	add_filter( 'wpcpm_institution_graduation_offered', '__return_true' );
+	$cases['graduating on']                   = card_as( 20, $inst_a, $long );
+	forget_case();
+	return $cases;
+}
+function __return_true() { return true; }
+
+$sv_digest = static function ( array $cases ) {
+	return array_map(
+		static function ( $html ) {
+			return md5( $html );
+		},
+		$cases
+	);
+};
+
+// What the old card offered and said, read from the classes at db850661 (the last commit that drew it) before it was
+// deleted (Task 23): every reader's facts (a digest of `card_facts()` by case), and each case's controls as
+// `card_actions()` reads them (the forms, the export, the report, the photo). The parts are held to them.
+$old_facts_digest = '862fc0f22c87a66b796c624ad9a950e6';
+$old_tutor_facts  = '835b7db0e61f93e33ebb928862afefaa';
+$sv_forms_a       = array( 'wpcpm_change_student_status:withdrawn', 'wpcpm_institution_resend_invite', 'wpcpm_save_student' );
+$sv_export        = 'https://example.test/wp-admin/admin-post.php?action=wpcpm_export_student&user=%d&_wpnonce=nonce-export';
+$sv_ana           = 'https://wordpress.org/grav-redirect.php?user=student-one';
+$sv_ama           = 'https://wordpress.org/grav-redirect.php?user=unbrokenusernamewithfortycharsofexample';
+$old_actions      = array(
+	'a representative'       => array( $sv_forms_a, sprintf( $sv_export, 10 ), 'recREPORTA0000000', $sv_ana ),
+	'an Administrator'       => array( $sv_forms_a, sprintf( $sv_export, 10 ), 'recREPORTA0000000', $sv_ana ),
+	'a tutor'                => array( array(), '', 'recREPORTA0000000', $sv_ana ),
+	'the long student'       => array( $sv_forms_a, sprintf( $sv_export, 70 ), 'recREPORTLONG0000', $sv_ama ),
+	'no mentor'              => array( array( 'wpcpm_institution_resend_invite', 'wpcpm_save_student' ), sprintf( $sv_export, 11 ), 'recREPORTB0000000', '' ),
+	'the correction refused' => array( $sv_forms_a, sprintf( $sv_export, 70 ), 'recREPORTLONG0000', $sv_ama ),
+	'graduating on'          => array( array_merge( array( 'wpcpm_change_student_status:graduated' ), $sv_forms_a ), sprintf( $sv_export, 70 ), 'recREPORTLONG0000', $sv_ama ),
+);
+// What the old card enqueued and handed its script.
+$enqueue_old = array(
+	array( 'wpcpm-mentor-dashboard' ),
+	array(
+		'wpcpmDashboard' => array(
+			'reportEndpoint' => 'https://example.test/wp-json/wpcpm/v1/report/',
+			'nonce'          => 'nonce-wp_rest',
+			'strings'        => array( 'failed' => 'That report could not be loaded just now. Close this and open it again to retry.' ),
+		),
+	),
+);
+WPCPM_UI::set_live( array( 'administrator', 'institution' ) );
+WPCPM_UI::enter( 'institution' );
+$new_student = student_cases();
+$GLOBALS['avatar_emails'] = array();
+$enqueue_check            = array( card_as( 20, $inst_a, 10 ), $GLOBALS['enqueued'], $GLOBALS['styles'], $GLOBALS['localized'] );
+$avatar_emails_new        = $GLOBALS['avatar_emails'];
+WPCPM_UI::leave();
+WPCPM_UI::set_live( null );
+
+/** Everything between two markers, the first included. */
+function between( $html, $from, $to = null ) {
+	$start = strpos( (string) $html, $from );
+	if ( false === $start ) {
+		return '';
+	}
+	$end = null === $to ? false : strpos( (string) $html, $to, $start + strlen( $from ) );
+	return false === $end ? substr( (string) $html, $start ) : substr( (string) $html, $start, $end - $start );
+}
+
+/** The table's rows as a reader reads them: each label to its value's words. */
+function card_facts( $html ) {
+	$facts = array();
+	preg_match_all( '#<tr\b[^>]*>\s*<th\b[^>]*>(.*?)</th>\s*<td\b[^>]*>(.*?)</td>#s', (string) $html, $rows, PREG_SET_ORDER );
+	foreach ( $rows as $row ) {
+		$words = static function ( $cell ) {
+			return trim( (string) preg_replace( '/\s+/', ' ', html_entity_decode( strip_tags( $cell ), ENT_QUOTES ) ) );
+		};
+		$facts[ $words( $row[1] ) ] = $words( $row[2] );
+	}
+	return $facts;
+}
+
+/** What a card offers: each form's action and state, the export's address, the report it fetches, the portrait's address. */
+function card_actions( $html ) {
+	preg_match_all( '#<form\b[^>]*>(.*?)</form>#s', (string) $html, $forms );
+	$offers = array();
+	foreach ( $forms[1] as $form ) {
+		preg_match( '/name="action" value="([^"]*)"/', $form, $action );
+		preg_match( '/name="state" value="([^"]*)"/', $form, $state );
+		$offers[] = ( $action[1] ?? '' ) . ( isset( $state[1] ) ? ':' . $state[1] : '' );
+	}
+	sort( $offers );
+	preg_match( '#href="([^"]*wpcpm_export_student[^"]*)"#', (string) $html, $export );
+	preg_match( '#data-wpcpm-report="([^"]*)"#', (string) $html, $report );
+	preg_match( '#<img class="wpcpm-avatar" src="([^"]*)"#', (string) $html, $portrait );
+	return array( $offers, $export[1] ?? '', $report[1] ?? '', $portrait[1] ?? '' );
+}
+
+$nc = $new_student['the long student'];
+$sk = 'Exampleunbrokenstudentnamewithfortychars';
+ck( 'on the parts: a block with no inset of its own, the item header first: the photo, the name as plain words as the one heading, the program\'s tag, the dates and the cohort as facts', array(
+	0 === strpos( $nc, '<section class="wpcpm-ui-block"><div class="wpcpm-ui-item__head"><span class="wpcpm-ui-item__media"><img class="wpcpm-avatar" src="https://wordpress.org/grav-redirect.php?user=unbrokenusernamewithfortycharsofexample" width="44" height="44" alt="" loading="lazy" decoding="async" /></span><div class="wpcpm-ui-item__lead"><h2 class="wpcpm-ui-item__title">Ama ' . $sk . '</h2>' ),
+	has( $nc, '<p class="wpcpm-ui-item__facts"><span class="wpcpm-status wpcpm-status--green">WordPress Credits Program 150h</span><span class="wpcpm-ui-item__run"><span class="wpcpm-ui-item__fact"><span class="wpcpm-ui-whole">2026-02-16</span> to <span class="wpcpm-ui-whole">2026-09-30</span></span><span class="wpcpm-ui-item__fact">January to June 2026</span></span></p></div></div>' ),
+), array( true, true ) );
+ck( 'one name per page: no heading but the item header holds it, no first-level heading, and no old class', array(
+	preg_match_all( '#<h[1-6][^>]*>[^<]*Ama #', $nc ),
+	has( $nc, '<h1' ),
+	preg_match( '#class="[^"]*wpcpm-(?:institution|mentee|badge|student__|report__)#', $nc ),
+	has( $nc, 'wpcpm-button' ),
+), array( 1, false, 0, false ) );
+ck( 'and no Back to the roster: the menu\'s Students item leads back', array( has( $nc, 'Back to the roster' ), has( $nc, 'wpcpm-institution__back' ) ), array( false, false ) );
+ck( 'with no username, the name\'s first letter in the photo\'s box, as the roster draws it', has( $new_student['no mentor'], '<span class="wpcpm-ui-item__media"><span class="wpcpm-ui-item__initials" aria-hidden="true">B</span></span>' ), true );
+ck( 'the photo is the WordPress.org one, keyed on the username, never on the address, for exactly the readers and students it shows for today', array(
+	array_map( static function ( $html ) { return card_actions( $html )[3]; }, $new_student ),
+	array_values( array_unique( $avatar_emails_new ) ),
+), array( array_map( static function ( $actions ) { return $actions[3]; }, $old_actions ), array( '' ) ) );
+
+ck( 'the sign-in line follows the header, under its anchor, Resend invitation secondary', 1 === preg_match( '#</div></div><div class="wpcpm-ui-block" id="wpcpm-student-invite"><p class="wpcpm-ui-intro">No sign-in on record since <span class="wpcpm-ui-whole">October 15, 2026</span>\. Invitation last sent <span class="wpcpm-ui-whole">November 1, 2026</span>\.</p><form method="post" [^>]*>.*?<button type="submit" class="wpcpm-btn wpcpm-btn--secondary">Resend invitation</button></div></form></div><table class="wpcpm-ui-table wpcpm-ui-table--keyvalue" role="table"><caption class="screen-reader-text">Program details for Ama Exampleunbrokenstudentnamewithfortychars</caption><tbody role="rowgroup">#s', $nc ), true );
+ck( 'the key and value table: today\'s ten rows in today\'s order', array_keys( card_facts( $nc ) ), array( 'Program', 'Internship duration', 'Cohort', 'Field of study', 'Tutor', 'WordPress.org', 'Contribution teams', 'Personal website', 'Mentor', 'Mentor email' ) );
+ck( 'the address, the profile and the website are token cells; the names are plain words the key and value table breaks (no `<wbr>`, Task 22b); the dates whole', array(
+	has( $nc, '<td class="wpcpm-ui-cell--token" role="cell"><a href="mailto:averyveryveryverylongmailboxname1234@example.org">averyveryveryverylongmailboxname1234@example.org</a></td>' ),
+	has( $nc, '<td class="wpcpm-ui-cell--token" role="cell"><a href="https://profiles.wordpress.org/unbrokenusernamewithfortycharsofexample/" target="_blank" rel="noopener noreferrer">@unbrokenusernamewithfortycharsofexample</a></td>' ),
+	has( $nc, '<td class="wpcpm-ui-cell--token" role="cell"><a href="https://averyveryveryverylongsubdomainnameofthe.example.org/a/long/path/to/the/page" target="_blank" rel="noopener noreferrer">averyveryveryverylongsubdomainnameofthe.example.org/a/long/path/to/the/page</a></td>' ),
+	has( $nc, '<td class="wpcpm-ui-cell--text" role="cell">Mia Exampleunbrokenmentornamewithfortycharss</td>' ),
+	has( $nc, '<td class="wpcpm-ui-cell--text" role="cell">Dr Exampleunbrokentutornamewithfortycharss</td>' ),
+	has( $nc, '<th scope="row" role="rowheader" class="wpcpm-ui-cell--text">Internship duration</th><td class="wpcpm-ui-cell--text" role="cell"><span class="wpcpm-ui-whole">2026-02-16</span> to <span class="wpcpm-ui-whole">2026-09-30</span></td>' ),
+	substr_count( implode( '', $new_student ), '<wbr>' ),
+), array( true, true, true, true, true, true, 0 ) );
+ck( '"Not set" and "No mentor yet" are kept in words, muted (the empty kind); a student with no mentor has no Mentor email row', array(
+	has( $new_student['a representative'], '<th scope="row" role="rowheader" class="wpcpm-ui-cell--text">Tutor</th><td class="wpcpm-ui-cell--text wpcpm-ui-cell--empty" role="cell">Not set</td>' ),
+	has( $new_student['no mentor'], '<th scope="row" role="rowheader" class="wpcpm-ui-cell--text">Mentor</th><td class="wpcpm-ui-cell--text wpcpm-ui-cell--empty" role="cell">No mentor yet</td>' ),
+	isset( card_facts( $new_student['no mentor'] )['Mentor email'] ),
+), array( true, true, false ) );
+ck( 'every reader reads the facts the old card said', md5( serialize( array_map( 'card_facts', $new_student ) ) ), $old_facts_digest );
+ck( 'and is offered the controls the old card offered: the same forms, the same export, the same report, the same photo', array_map( 'card_actions', $new_student ), $old_actions );
+ck( 'what was disclosed to the program, and the student\'s own address, are on no card', array(
+	array_sum( array_map( static function ( $html ) { return (int) has( $html, 'Needs captions' ) + (int) has( $html, 'ama@example.test' ) + (int) has( $html, 'ana@example.test' ); }, $new_student ) ),
+), array( 0 ) );
+
+ck( 'the Student Report Card is an inner fold carrying today\'s fetch hook, its body the one the script replaces, with today\'s two sentences', has( $nc, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" data-wpcpm-report="' . $report_l . '"><summary class="wpcpm-ui-fold__head"><span class="wpcpm-ui-fold__lead"><span class="wpcpm-ui-fold__title">Student Report Card</span></span>' ) && has( $nc, '</summary><div class="wpcpm-ui-fold__body"><div data-wpcpm-report-body><p class="wpcpm-ui-intro wpcpm-ui-intro--muted">Loading…</p><noscript><p class="wpcpm-ui-intro wpcpm-ui-intro--muted">This one needs JavaScript' ), true );
+ck( 'fetched as today: the same script, its settings and the report\'s sheet', array( $enqueue_check[1], $enqueue_check[3], in_array( 'wpcpm-call-calendar', $enqueue_check[2], true ) ), array( $enqueue_old[0], $enqueue_old[1], true ) );
+ck( 'a student with a progress record is never told there is none (the sentence for one with none is pinned above)', array(
+	has( $new_student['no mentor'], '<p class="wpcpm-ui-intro wpcpm-ui-intro--muted">This student has no progress record yet, so there is no Student Report Card to show.</p>' ),
+	has( $new_student['no mentor'], 'no progress record yet' ),
+), array( false, false ) );
+ck( 'Correct this student\'s details is an inner fold under the form\'s anchor, closed, the form inside it', 1 === preg_match( '#<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" id="wpcpm-student-form"><summary class="wpcpm-ui-fold__head"><span class="wpcpm-ui-fold__lead"><span class="wpcpm-ui-fold__title">Correct this student&\#039;s details</span></span>.*?</summary><div class="wpcpm-ui-fold__body"><p class="wpcpm-ui-intro">These five details are yours to correct\.#s', $nc ), true );
+$refused_new = $new_student['the correction refused'];
+ck( 'and open when its save left a sentence: the refusal tied to its box, the typing kept', array(
+	has( $refused_new, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id="wpcpm-student-form">' ),
+	has( $refused_new, 'aria-invalid="true" aria-describedby="wpcpm-student-' . WPCPM_Institution_Student_Form::key( 'students', 'End Date' ) . '-problem"' ),
+	has( $refused_new, 'value="2036-06-30"' ),
+	has( $refused_new, 'value="Ama &amp;amp; &lt;b&gt;Q&amp;amp;amp;A&lt;/b&gt;"' ) || has( $refused_new, 'value="Ama &amp; &lt;b&gt;Q&amp;amp;A&lt;/b&gt;"' ),
+), array( true, true, true, true ) );
+ck( 'the download is a quiet link, a line of its own that wraps, after the folds, then the read line, muted', 1 === preg_match( '#</details><p class="wpcpm-ui-intro"><a href="https://example\.test/wp-admin/admin-post\.php\?action=wpcpm_export_student&user=70&_wpnonce=nonce-export">Download this student&\#039;s details and course grades as a CSV file</a></p><p class="wpcpm-ui-intro wpcpm-ui-intro--muted">The roster this student is on was read 2 hours ago\. Their own details were synced 2 hours ago\. The Student Report Card is read when you open it\.</p></section>#', $nc ), true );
+ck( 'then Finishing this placement, its own card after the student\'s block, with one Decide row', array(
+	has( $nc, '</section><section class="wpcpm-ui-fold-card" id="wpcpm-student-status"><details class="wpcpm-ui-fold" open>' ),
+	substr_count( $new_student['graduating on'], 'wpcpm-ui-decide' ),
+	has( $new_student['graduating on'], '>Mark as graduated</button>' ),
+	has( $nc, '>Mark as graduated</button>' ),
+	has( $nc, '<button type="submit" class="wpcpm-btn wpcpm-btn--danger" data-wpcpm-confirm="Mark Ama Exampleunbrokenstudentnamewithfortychars as dropped out?' ),
+), array( true, 1, true, false, true ) );
+ck( 'the three anchors a mail, a redirect or a link lands on are each on the page once', array( substr_count( $nc, 'id="wpcpm-student-form"' ), substr_count( $nc, 'id="wpcpm-student-status"' ), substr_count( $nc, 'id="wpcpm-student-invite"' ) ), array( 1, 1, 1 ) );
+ck( 'every form on the card carries the referer it posts, as the old card\'s four did', array( substr_count( $new_student['graduating on'], '<form' ), substr_count( $new_student['graduating on'], 'name="_wp_http_referer"' ) ), array( 4, 4 ) );
+ck( 'no two ids on the parts\' card are the same', count( array_unique( preg_match_all( '/\sid="([^"]+)"/', $new_student['graduating on'], $ids ) ? $ids[1] : array() ) ), count( $ids[1] ) );
+ck( 'the tutor\'s card is the tutor\'s: the old card\'s facts and no control the tutor is not given', array( md5( serialize( card_facts( $new_student['a tutor'] ) ) ), card_actions( $new_student['a tutor'] ) ), array( $old_tutor_facts, $old_actions['a tutor'] ) );
+$view_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-student-view.php' );
+ck( 'the rules the card needs are written once: the export\'s fence, the photo\'s source, whether the correction is drawn and open', array(
+	substr_count( $view_src, 'WPCPM_Institution_Policy::ACT_EXPORT' ),
+	substr_count( $view_src, 'WPCPM_Mentors_Dashboard::avatar_url(' ),
+	substr_count( $view_src, "WPCPM_Institution_Student_Form::render_form(\n" ),
+	substr_count( $view_src, 'strpos( $form, WPCPM_Institution_Student_Form::CLASS_MESSAGE )' ),
+), array( 1, 1, 1, 1 ) );
+
+// Fix round 2, Minor 4: the program's tag takes the tone that matches today's badge, for every status: a track (today's
+// blue, purple, teal or rose badge) green, as the roster's tags are; Pending graduation (today's amber badge) amber; Paused
+// (today's gray badge) and a status with no badge (Graduate, Dropped out) neutral. In the header and, for a student waiting
+// to graduate, beside the course in the Program row.
+$tone_of   = array();
+$saved_row = $GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ];
+$saved_crs = $GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_COURSE ] ?? null;
+WPCPM_UI::set_live( array( 'administrator', 'institution' ) );
+WPCPM_UI::enter( 'institution' );
+foreach ( array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation', 'Graduate', 'Dropped out' ) as $st ) {
+	$GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ]['program'] = $st;
+	$GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_COURSE ]             = 'Pending graduation' === $st ? 'Developer Track' : '';
+	$tone_html = card_as( 20, $inst_a, 10 );
+	preg_match( '#<p class="wpcpm-ui-item__facts"><span class="wpcpm-status( wpcpm-status--[a-z]+)?">#', $tone_html, $tm );
+	$tone_of[ $st ] = isset( $tm[1] ) ? substr( $tm[1], strlen( ' wpcpm-status--' ) ) : 'neutral';
+	if ( 'Pending graduation' === $st ) {
+		$tone_of['Pending graduation, in the Program row'] = 1 === preg_match( '#</a> <span class="wpcpm-status wpcpm-status--amber">Pending graduation</span></td>#', $tone_html ) ? 'amber' : 'other';
+	}
+}
+WPCPM_UI::leave();
+WPCPM_UI::set_live( null );
+$GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ] = $saved_row;
+if ( null === $saved_crs ) {
+	unset( $GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_COURSE ] );
+} else {
+	$GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_COURSE ] = $saved_crs;
+}
+ck( 'and the tone is the one map the roster asks too (WPCPM_Program::tone()), with no tone written in the card\'s class', array(
+	array_map( static function ( $st ) { return method_exists( 'WPCPM_Program', 'tone' ) ? ( '' === WPCPM_Program::tone( $st ) ? 'neutral' : WPCPM_Program::tone( $st ) ) : 'no map'; }, array( 'In Sensei' => 'In Sensei', 'In Sensei 50h' => 'In Sensei 50h', 'Developer Track' => 'Developer Track', 'Paused' => 'Paused', 'Pending graduation' => 'Pending graduation', 'Graduate' => 'Graduate', 'Dropped out' => 'Dropped out' ) ),
+	substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-student-view.php' ), "'green'" ),
+	substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-student-view.php' ), 'WPCPM_Program::tone(' ),
+), array( array_diff_key( $tone_of, array( 'Pending graduation, in the Program row' => true ) ), 0, 2 ) );
+ck( 'the program\'s tag takes the tone of today\'s badge, status by status', $tone_of, array(
+	'In Sensei'                             => 'green',
+	'In Sensei 50h'                         => 'green',
+	'Developer Track'                       => 'green',
+	'Paused'                                => 'neutral',
+	'Pending graduation'                    => 'amber',
+	'Pending graduation, in the Program row' => 'amber',
+	'Graduate'                              => 'neutral',
+	'Dropped out'                           => 'neutral',
+) );
+// Fix round 2, Minor 1: the dates' words are format_dates()'s own, each date wrapped whole.
+$dates_seen = array();
+$dates_row  = $GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ];
+$dates_idx  = $GLOBALS['roster'][ $inst_a ][ $row_a ];
+WPCPM_UI::set_live( array( 'administrator', 'institution' ) );
+WPCPM_UI::enter( 'institution' );
+foreach ( array( array( '2026-02-16', '2026-09-30' ), array( '2026-02-16', '' ), array( '', '2026-09-30' ) ) as $pair ) {
+	$GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ]['start'] = $pair[0];
+	$GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ]['end']   = $pair[1];
+	$GLOBALS['roster'][ $inst_a ][ $row_a ]['start']                    = $pair[0];
+	$GLOBALS['roster'][ $inst_a ][ $row_a ]['end']                      = $pair[1];
+	$dates_html = card_as( 20, $inst_a, 10 );
+	preg_match( '#>Internship duration</th><td[^>]*>(.*?)</td>#', $dates_html, $dm );
+	$dates_seen[] = array( html_entity_decode( strip_tags( $dm[1] ?? '' ) ), substr_count( $dm[1] ?? '', 'wpcpm-ui-whole' ) );
+}
+WPCPM_UI::leave();
+WPCPM_UI::set_live( null );
+$GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_PROGRAM ] = $dates_row;
+$GLOBALS['roster'][ $inst_a ][ $row_a ]                    = $dates_idx;
+ck( 'the parts\' dates read as format_dates() words them, each date whole, for both dates, the start alone and the end alone', $dates_seen, array(
+	array( WPCPM_Mentors_Dashboard::format_dates( '2026-02-16', '2026-09-30' ), 2 ),
+	array( WPCPM_Mentors_Dashboard::format_dates( '2026-02-16', '' ), 1 ),
+	array( WPCPM_Mentors_Dashboard::format_dates( '', '2026-09-30' ), 1 ),
+) );
+$dates_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-student-view.php' );
+ck( 'and the words are never written a second time in the card\'s class', array( substr_count( $dates_src, "'%1\$s to %2\$s'" ), substr_count( $dates_src, "'From %s'" ), substr_count( $dates_src, 'WPCPM_Mentors_Dashboard::format_dates( $' ) ), array( 0, 0, 2 ) );
+
+// Fix round 2, Important 1: the card's three outcomes are the dashboards' shared message in their own classes: a saved
+// correction and a sent invitation polite, a refused status press alerting, each the focus target forms.js moves to.
+WPCPM_UI::set_live( array( 'administrator', 'institution' ) );
+WPCPM_UI::enter( 'institution' );
+forget_case();
+$GLOBALS['flash']['institution_student']        = array( 'status' => 'student-saved', 'detail' => '', 'record' => $report_l );
+$GLOBALS['flash']['institution_resend']         = array( 'outcome' => 'invite-resent', 'user' => $long, 'detail' => 'a***@example.test' );
+$GLOBALS['flash']['institution_student_status'] = array( 'outcome' => 'status-paused', 'detail' => 'Paused', 'record' => $row_l );
+$said_card = card_as( 20, $inst_a, $long );
+forget_case();
+WPCPM_UI::leave();
+WPCPM_UI::set_live( null );
+ck( 'on the parts the card\'s outcomes are the shared message: the save and the invitation polite, the refused press alerting, all three focus targets', array(
+	1 === preg_match( '#<p class="wpcpm-institution__edit-message wpcpm-institution__edit-message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>Saved\.#', $said_card ),
+	1 === preg_match( '#<p class="wpcpm-institution__invite-message wpcpm-institution__invite-message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>#', $said_card ),
+	1 === preg_match( '#<p class="wpcpm-institution__status-message wpcpm-institution__status-message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>Nothing was changed\.#', $said_card ),
+	has( $said_card, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id="wpcpm-student-form">' ),
+), array( true, true, true, true ) );
+
+// The whole view on the real card (Task 23, fix round 1): every reader's and state's card, and the card holding
+// three messages, under the Students view's own head (`bin/stubs/view-faults.php`).
+ck( 'the whole Students view on a student\'s real card, every reader and state: one H1, the headings in order, no id twice, the lede once, no title again', wpcpm_view_faults_of( 'Students', $new_student + array( 'three messages at once' => $said_card ) ), array() );
+
+if ( function_exists( 'wpcpm_layout_keep' ) ) {
+	$status_of = static function ( $html ) {
+		return between( $html, '<section class="wpcpm-ui-fold-card" id="wpcpm-student-status">' );
+	};
+	wpcpm_layout_keep( 'Student card, parts: a representative, every fold, a 40-character name, a 48-character mentor email, a long website', $nc );
+	wpcpm_layout_keep( 'Student card, parts: the correction refused and its typing kept', $new_student['the correction refused'] );
+	wpcpm_layout_keep( 'Finishing this placement, parts: both buttons', $status_of( $new_student['graduating on'] ) );
+	wpcpm_layout_keep( 'Finishing this placement, parts: Mark as graduated switched off', $status_of( $nc ) );
+	wpcpm_layout_keep( 'Student card, parts: a tutor', $new_student['a tutor'] );
+	wpcpm_layout_keep( 'Student card, parts: a saved correction, a sent invitation and a refused press, as the shared message', $said_card );
 }
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );

@@ -53,7 +53,7 @@ Where to start:
 2. Choose **Institution Dashboard**, **Mentor Report Card**, **Student Report Card** or **Sponsor Dashboard**.
 3. At the top of that page, find **Viewing as institution**, **Viewing as mentor**, **Viewing as student** or **Viewing as sponsor**.
 4. Type part of the name in the field, then choose the name from the list.
-5. Press **Show**.
+5. Press **Show**. On the Institution Dashboard there is no **Show**: picking the school opens its page.
 
 **What happens next**
 
@@ -63,6 +63,7 @@ Where to start:
 
 - Shorter ways in: a school's name on an **Overview** card such as **Collaboration Agreements**; **Open its page** on `Institutions > Pipeline`; a sponsor's name on `Sponsors > Sponsors`; **View page** on a row of the Students, Mentors or Sponsors **Accounts** tab.
 - The control shows only when there are two names or more.
+- Since 1.123.96 the Institution Dashboard asks for a school first, while you belong to no school and two or more schools exist, and opens the school as soon as you pick it, with no **Show**.
 - If **Dashboards** is missing in the toolbar, the page may not be published, or the toolbar may be switched off in your profile.
 
 ### If you are stuck
@@ -169,8 +170,8 @@ Where to start:
 
 1. In Airtable, set the school's Current Stage to a stage listed in **Institution pipeline stages** on `Settings > Advanced`.
 2. Open `WPCredits Program > Institutions`, tab **Sync and storage**, and press **Sync institutions now**. The sync also runs by itself every three hours.
-3. Open the **Pipeline** tab, find the school under its stage, and press its name. Its Institution Dashboard opens.
-4. Read **Assigned Administrator** on its details card. If it says *Nobody yet*, see [Assign a school to another Administrator, or to nobody](#assign-a-school-to-another-administrator-or-to-nobody).
+3. Open the **Pipeline** tab, find the school under its stage, and press its name. Its Institution Dashboard opens on its **Overview**.
+4. Open **Your institution** and read **Assigned Administrator** on the details card. If it says *Nobody yet*, see [Assign a school to another Administrator, or to nobody](#assign-a-school-to-another-administrator-or-to-nobody).
 5. Give the school its first account. See [Give a school its first account](#give-a-school-its-first-account).
 6. Then the agreement: the school uploads it, or you upload it for them, or you record one on file. See [A signed Collaboration Agreement arrived](#a-signed-collaboration-agreement-arrived) and [Record an agreement the program already holds](#record-an-agreement-the-program-already-holds).
 
@@ -190,7 +191,7 @@ Where to start:
 *When:* a school has no account on the site. Its **Representatives and tutors** card says "Nobody can act for this institution on this site...". An approved school already has one.
 
 1. Open the school's Institution Dashboard. See [Open a school's Institution Dashboard](#open-a-school-s-institution-dashboard).
-2. In **Representatives and tutors**, press **Add or re-add an account on the Institutions screen**.
+2. Open **Your institution**. In **Representatives and tutors**, press **Add or re-add an account on the Institutions screen**.
 3. Under **Add an account**, type the person's **Name** and **Email address**.
 4. Press **Add account**.
 
@@ -226,16 +227,16 @@ Where to start:
 **Good to know**
 
 - **Accept it** is refused while Airtable's Current Stage is *Not Moving Forward*, *SPAM* or *Revisit Later*. Change the stage in Airtable first.
-- A signed copy that came by email: open the school's Institution Dashboard, press **Add or re-add an account on the Institutions screen**, and use **Upload a signed agreement on the institution's behalf**. It lands on the card, tagged **Awaiting review**, like the school's own.
+- A signed copy that came by email: open the school's Institution Dashboard, open **Your institution**, press **Add or re-add an account on the Institutions screen**, and use **Upload a signed agreement on the institution's behalf**. It lands on the card, tagged **Awaiting review**, like the school's own.
 - An agreement is marked *Overdue* after the days set in **Agreement review** (3 unless changed).
 
 ### Record an agreement the program already holds
 
 *When:* the school signed before the site existed, and the program holds the signed copy. `Institutions > Agreements`, card **Agreements on file**, lists the *Confirmed* schools with no agreement recorded.
 
-1. Open `WPCredits Program > Institutions`, tab **Agreements**, and press the school's name under **Agreements on file**. Its Institution Dashboard opens at the agreement.
-2. Under **Record an agreement the program already holds**, paste the link in **Drive link to the folder or the file (required)**.
-3. Fill in **Date signed (optional)** and **Where it is, in one line (optional)** if you know them.
+1. Open `WPCredits Program > Institutions`, tab **Agreements**, and press the school's name under **Agreements on file**. Its Institution Dashboard opens on **Agreement**.
+2. Under **Record an agreement the program already holds**, paste the link in **Drive link to the folder or the file**. It is required.
+3. Fill in **Date signed** and **Where it is, in one line** if you know them. Both are optional.
 4. Press **Record it** and confirm.
 
 **What happens next**
@@ -247,7 +248,7 @@ Where to start:
 
 - The link must be an https address on drive.google.com or docs.google.com.
 - The form is there only while the school's agreement is not settled. It refuses a school that already has an accepted agreement.
-- You can record one for any school this way, from its Institution Dashboard, not only those on the list.
+- You can record one for any school this way, from the **Agreement** view of its Institution Dashboard, not only those on the list.
 
 ### Take an agreement out of force, or put it back
 
@@ -262,7 +263,7 @@ Where to start:
 
 **What happens next**
 
-- Revoke: the school's people keep their accounts but see only the Collaboration Agreement card. Waiting invitations are canceled. Everybody there gets your note in "Your agreement has been revoked".
+- Revoke: the school's people keep their accounts. Since 1.123.96 its representatives reach only **Overview** and **Agreement**, and its tutors no page. Waiting invitations are canceled. Everybody there gets your note in "Your agreement has been revoked".
 - Reinstate asks "Reinstate the agreement with {school}? It is back in force at once, and everybody at the institution is emailed." Once you confirm, the account opens again, and everybody at the school gets "Your agreement is in force again". You land back on the **Agreements** tab.
 
 **Good to know**
@@ -276,7 +277,7 @@ Where to start:
 
 *When:* someone else should follow a school up, or it has *Nobody yet*.
 
-1. Open the school's Institution Dashboard.
+1. Open the school's Institution Dashboard, then **Your institution**.
 2. On the details card, find **Assigned Administrator**.
 3. Open **Change who follows it up**.
 4. In **Administrator**, type part of the name and pick the person, or pick **Nobody**.
@@ -340,24 +341,26 @@ Where to start:
 
 *When:* you need to act for a school, or see what it sees.
 
-1. In the WordPress toolbar, point to **Dashboards** and choose **Institution Dashboard**.
-2. In **Viewing as institution**, type part of the school's name and pick it.
-3. Press **Show**.
+1. In the WordPress toolbar, point to **Dashboards** and choose **Institution Dashboard**. While you belong to no school and two or more schools exist, the page asks which school: its head reads **Choose an institution**.
+2. In **Viewing as institution**, type part of the school's name and pick it. The school's page opens on its **Overview**.
 
 **What happens next**
 
-- You see the school's whole page, even before its agreement is settled. A banner then says "This institution's agreement is not settled: {state}. Members see only the Collaboration Agreement card."
-- A section **For Administrators** holds the school's **History**: what was done, when and by whom.
+- You see every view the school's representatives see but **Events**, even before its agreement is settled.
+- While it is not settled, the **Overview** has the row *The agreement is not settled*, saying "This institution's agreement is not settled: {state}. Its representatives see only the Overview and the Agreement, and its tutors no page." It is tagged **Waits** when you are the one to act, and **With the school** otherwise. **Agreement** opens with the same sentence.
+- **For Administrators**, the last item in the menu, holds the school's **History**: what was done, when and by whom.
+- **Viewing as institution** stays at the end of the page's first line on every view. Picking another school keeps the view you are on.
 
 **Good to know**
 
+- Since 1.123.96 the page asks for a school before it draws one, while you belong to no school and two or more schools exist, and does not remember the choice: an address that names no school asks again. With JavaScript off, press **Show** after picking.
 - Other ways in: a school's name on the **Pipeline** tab, **Find an institution** with **Open its page** on the same tab, or a school's name on an Administrator Dashboard card. On the **Institution applications** card, a name opens the application on the Institutions screen instead.
 
 ### Correct a school's details yourself, and set the tracks it offers
 
 *When:* a school's details are wrong, or it offers a new track.
 
-1. Open the school's Institution Dashboard and find the details card.
+1. Open the school's Institution Dashboard, then **Your institution**. The details card comes first.
 2. Under **Contact and agreement** or **Name and address**, open **Correct these**.
 3. Change the details and press **Save the details**.
 4. For tracks: under **Tracks**, open **Change the tracks**.
@@ -378,11 +381,11 @@ Where to start:
 
 *When:* a school asks you to add a colleague, or its tutor list needs a name.
 
-1. Open the school's Institution Dashboard and find **Representatives and tutors**.
-2. Under **Invite a colleague**, type the address in **Their email address**.
+1. Open the school's Institution Dashboard, then **Your institution**, and find **Representatives and tutors**.
+2. Open **Invite a colleague** and type the address in **Email address**.
 3. Under **Level**, choose **Representative** or **Tutor**.
 4. Press **Send invitation**.
-5. For the tutor list: under **Tutors**, in **Add a tutor**, type the **Name** and **Email**, then press **Add**.
+5. For the tutor list: under **Tutors**, open **Add a tutor**, type the **Name** and **Email**, then press **Add**.
 6. To take a tutor off the list, press **Remove** beside them.
 
 **What happens next**
@@ -401,8 +404,8 @@ Where to start:
 
 *When:* a school sends you its students. **Enrollment lists from institutions** ("Let an institution send a list of students to enroll") must be on in `Settings > Institutions`. It is off unless changed.
 
-1. Open the school's Institution Dashboard and find **Enroll students**.
-2. Choose the **Program** and the **Start date**, and the end date if you know it.
+1. Open the school's Institution Dashboard, then **Enroll students** in its menu, or press **Enroll students** on its **Overview**.
+2. Choose the **Program** and the **Start date**, and the **End date** if you know it.
 3. Tick the box that says the students have been notified.
 4. Fill in **One student**, or give **Or a list** as a CSV file or pasted text.
 5. Press **Check the list** and read what it says for each row.
@@ -426,7 +429,7 @@ Where to start:
 
 1. For a semester under **Due for drafting**, press **Draft now**.
 2. For any other semester: open `Institutions > Semester reports`, under **Draft any semester** pick the **Institution** and the semester, and press **Draft now**.
-3. Under **To review**, press **Review** on the draft. It opens on the school's Institution Dashboard.
+3. Under **To review**, press **Review** on the draft. It opens on the school's Institution Dashboard, in its **Semester reports** view.
 4. Write what you want in the sections and press **Save the report**.
 5. Press **Approve this report**.
 6. To change an approved report, press **Reopen for editing**.
@@ -1804,7 +1807,7 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 2. Run `wp wpcredits institutions_seed --dry-run` and read the summary. Nothing is written.
 3. Run `wp wpcredits institutions_seed` and answer the question "Write this to the site?".
 4. Read the lines that start with "Not assigned:" and "Not resolved:".
-5. Assign each school that is left on its details card on the Institution Dashboard.
+5. Assign each school that is left on its details card, on the Institution Dashboard's **Your institution** view.
 
 **What happens next**
 
@@ -2174,7 +2177,8 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 
 **What happens next**
 
-- It is listed under **Program updates and announcements** on the Student Report Card, the Mentor Report Card and the Institution Dashboard of the people who can read it. Each lists the five newest, with **All updates** when there are more.
+- It is listed under **Program updates and announcements** on the Student Report Card and the Mentor Report Card of the people who can read it. Each lists the five newest, with **All updates** when there are more.
+- Since 1.123.96 the Institution Dashboard lists it under **Program updates** in its menu, as the Sponsor Dashboard does.
 - Each of these lists **Public** posts and posts at its own level. Students and mentors also get **Students and mentors** posts.
 - On the Administrator Dashboard, **Program updates** in the side menu lists **Public** and **Administrators only** posts. On the Sponsor Dashboard, it lists **Public** and **Sponsor level** posts. The item appears only while there is a post to list.
 
@@ -2199,7 +2203,7 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 **What happens next**
 
 - The answer under **Try a question** is exactly what somebody on the program would see.
-- People ask from [Need help?](#need-help) in the site header and from **Resources** on the Mentor Report Card, the Student Report Card and the Institution Dashboard, when **Who can ask** includes them.
+- People ask from [Need help?](#need-help) in the site header and from **Resources** on the Mentor Report Card and the Student Report Card, when **Who can ask** includes them. Since 1.123.96 a school's people ask from the Ask box under **Help** in the Institution Dashboard's menu.
 - Each question, and the pages found for it, go to the provider's company. Nothing is stored on this site.
 
 **Good to know**
@@ -2214,7 +2218,7 @@ Each table follows one path from first contact to the end. Find the words you se
 
 ### Where a school stands
 
-A school's state shows on the Administrator Dashboard's **Overview** cards, on `Institutions > Pipeline` and, for you alone, at the top of its Institution Dashboard.
+A school's state shows on the Administrator Dashboard's **Overview** cards, on `Institutions > Pipeline` and, for you alone, on its Institution Dashboard: a row on the **Overview**, and the first line of **Agreement**.
 
 | What you see | What it means | What to do next |
 |---|---|---|
@@ -2229,10 +2233,10 @@ A school's state shows on the Administrator Dashboard's **Overview** cards, on `
 | *Template generated* in the **Agreement** column | The school generated the template and has not uploaded a signed copy. | Wait for the upload. |
 | **Awaiting review** on the **Collaboration Agreements** card, *Overdue* once it is late | A signed copy waits for you. | See [A signed Collaboration Agreement arrived](#a-signed-collaboration-agreement-arrived). |
 | "1 returned, waiting for a new upload" on the **Collaboration Agreements** card; *Returned* in the **Agreement** column | You returned the copy with a note. The school must upload again. | Wait for the new upload. |
-| *Accepted* or *On file* in the **Agreement** column; "Accepted on the site" or "Recorded on file" under **Agreements in force** on `Institutions > Agreements` | The site holds an accepted agreement. It is in force once Airtable also records it as Accepted or On file, and then the school can enroll students and invite colleagues. If Airtable does not agree, the Institution Dashboard says so and the school's members see only the Collaboration Agreement card. **Agreements in force** lists only agreements in force. | See [Enroll students for a school](#enroll-students-for-a-school) and [Invite a representative or a tutor for a school, and keep its tutor list](#invite-a-representative-or-a-tutor-for-a-school-and-keep-its-tutor-list). |
+| *Accepted* or *On file* in the **Agreement** column; "Accepted on the site" or "Recorded on file" under **Agreements in force** on `Institutions > Agreements` | The site holds an accepted agreement. It is in force once Airtable also records it as Accepted or On file, and then the school can enroll students and invite colleagues. If Airtable does not agree, the Institution Dashboard says so, and the school's representatives reach only **Overview** and **Agreement**. **Agreements in force** lists only agreements in force. | See [Enroll students for a school](#enroll-students-for-a-school) and [Invite a representative or a tutor for a school, and keep its tutor list](#invite-a-representative-or-a-tutor-for-a-school-and-keep-its-tutor-list). |
 | "3 students now" on its row in `Institutions > Pipeline` | The school has students on the program. | Follow its semester reports. |
 | A row under **Due for drafting** or **To review** on the **Semester reports** card | A finished semester has no report yet, or a draft waits for you. | See [A semester report: draft, review, approve, reopen](#a-semester-report-draft-review-approve-reopen). |
-| "1 revoked agreement" on the **Collaboration Agreements** card, with **Reinstate**; *Revoked* in the **Agreement** column | The agreement was taken out of force. The school's members see only the Collaboration Agreement card. | See [Take an agreement out of force, or put it back](#take-an-agreement-out-of-force-or-put-it-back). |
+| "1 revoked agreement" on the **Collaboration Agreements** card, with **Reinstate**; *Revoked* in the **Agreement** column | The agreement was taken out of force. The school's representatives reach only **Overview** and **Agreement**, and its tutors no page. | See [Take an agreement out of force, or put it back](#take-an-agreement-out-of-force-or-put-it-back). |
 
 ### Where a student stands
 
@@ -2879,7 +2883,7 @@ One institution's people, under **Representatives and tutors**, with **Back to t
 - An account invited before is not sent another invitation.
 - **Upload a signed agreement on the institution's behalf**, for a copy sent by email. It joins the queue, and the school is emailed. While one is waiting for review, **Download the copy waiting for review** and a withdraw control replace it.
 
-Pending invitations are on the Institution Dashboard. An invitation from someone no longer a member, or no longer an Administrator, cannot be accepted.
+Pending invitations are on the school's Institution Dashboard, in **Representatives and tutors** on **Your institution**. An invitation from someone no longer a member, or no longer an Administrator, cannot be accepted.
 
 #### The Semester reports tab
 
@@ -2903,7 +2907,7 @@ Step by step: [A semester report: draft, review, approve, reopen](#a-semester-re
 
 **Revoke this agreement**, under an agreement in force:
 - It needs **Why it is revoked, in your own words**: 20 to 2,000 characters, emailed to every member.
-- Members keep their accounts but reach only the agreement panel. Pending invitations are canceled.
+- Members keep their accounts. Since 1.123.96 a representative reaches only the **Overview** and **Agreement** views, and a tutor no page. Pending invitations are canceled.
 - Airtable is updated first. If that fails, nothing changes.
 - The stage stays. If the partnership ended, change it in Airtable.
 - A refused note comes back to its box.
@@ -3400,7 +3404,7 @@ How schools join and who follows them up, at `WPCredits Program > Settings`, tab
 Headed **Applications and enrollment** on the screen.
 
 - **Applications from institutions**: **Take applications through the form on this site** opens the public form at /institution-application/. Default: off.
-- **Enrollment lists from institutions**: **Let an institution send a list of students to enroll** adds an **Enroll students** section to the Institution Dashboard. A school chooses the program and the term, then adds one student or sends a CSV. Default: off.
+- **Enrollment lists from institutions**: **Let an institution send a list of students to enroll** adds an **Enroll students** view to the Institution Dashboard's menu. A school chooses the program and the term, then adds one student or sends a CSV. Default: off.
 - **Create accounts automatically**: **Let the sync create the first account for a Confirmed institution**, from the Contact Email in Airtable. Default: off.
 
 Rules:
@@ -3444,7 +3448,7 @@ A person who logs in from a link that names a page, such as an invitation, goes 
 
 What the sync does when an institution's stage is no longer ticked under **Institution pipeline stages** on the **Advanced** tab.
 
-- **Its people**: Choices: **Remove its people, so they lose access to its students**, **Leave its people in place, able to open only its agreement**. Default: **Remove its people, so they lose access to its students**. The accounts are never deleted.
+- **Its people**: Choices: **Remove its people, so they lose access to its students**, **Leave its people in place, its representatives seeing only the Overview and the Agreement**. Default: **Remove its people, so they lose access to its students**. The accounts are never deleted.
 
 Either way, the agreement stops counting as recorded. People left in place can open the agreement, but nothing else of the institution, until it counts again. A school with no stage at all has not left: the sync leaves it and its people alone. A school that left and whose stage is then emptied reopens at the next sync for whoever is still attached.
 
@@ -4422,7 +4426,7 @@ Step by step: [Publish a new track](#publish-a-new-track); [Change a track that 
 
 A question box answered from the WordPress documentation, at `WPCredits Program > Tools > Need help?`. Below **Settings** come **How answers are produced** and **Try a question**, which shows exactly what a person would get.
 
-People ask from **Need help?** in the site header, and from **Resources** on the Mentor and Student Report Cards and the institution page, where **Who can ask** allows it and a provider is set.
+People ask from **Need help?** in the site header, and from **Resources** on the Mentor and Student Report Cards, where **Who can ask** allows it and a provider is set. Since 1.123.96 a school's people ask from the Ask box under **Help** in the Institution Dashboard's menu, on the same terms.
 
 Step by step: [Set up Need help?](#set-up-need-help).
 
@@ -4479,7 +4483,7 @@ The program's news is ordinary posts in a category named *Updates*, or one under
 | --- | --- |
 | Student Report Card, column **Program updates and announcements** | **Public**, **Student level**, **Students and mentors** |
 | Mentor Report Card, the same column at the top | **Public**, **Mentor level**, **Students and mentors** |
-| Institution Dashboard, the same column | **Public**, **Institution level** |
+| Institution Dashboard, **Program updates** in the menu | **Public**, **Institution level** |
 | Administrator Dashboard, **Program updates** in the menu | **Public**, **Administrators only**, private posts included |
 | Sponsor Dashboard, **Program updates** in the menu | **Public**, **Sponsor level** |
 
@@ -4487,10 +4491,11 @@ Rules:
 - A page lists only its own levels, even for an Administrator.
 - The column shows the newest five, with **All updates** when there are more.
 - A private post shows on the Administrator Dashboard alone, such as a biweekly site update set to Private.
-- While no *Updates* category exists, the three columns read *Nothing new right now.* and the two menus have no **Program updates** item.
+- While no *Updates* category exists, the two columns read *Nothing new right now.* and the three menus have no **Program updates** item.
 - **Program updates** in a menu opens the newest update. It is there only while an update exists.
 - The update opens in the dashboard's frame, with up to twenty listed beside it, only where the site's theme supports that page. Otherwise it opens as an ordinary post. The list needs two or more updates.
 - An Administrator viewing a sponsor opens a **Sponsor level** update in that sponsor's frame. Its menu and list keep that sponsor.
+- Since 1.123.96 the Institution Dashboard has no column: **Program updates** is in its menu. An Administrator viewing a school opens an **Institution level** update in that school's frame, and its menu keeps that school.
 
 Step by step: [Publish a program update](#publish-a-program-update).
 
@@ -4506,11 +4511,17 @@ Rules:
 - Type to narrow it to names that hold what you typed, anywhere in the name.
 - Press Enter or click a name to pick it. Escape puts back the name picked last.
 
+Since 1.123.96, on the Institution Dashboard, **Viewing as institution** is one small field at the end of the page's first line, on every view:
+- Picking a school opens its page at once, on the view you are on. There is no **Show** unless JavaScript is off.
+- Every link in the menu keeps the school.
+- With no school in the address, an Administrator who belongs to no school is asked for one first, while two or more schools exist. The page's head then reads **Choose an institution**, and the menu lists the views without counts. With one school only, or for an Administrator who is also a school's member, the page opens on that school.
+- The page does not remember the school. An address that names none asks again.
+
 Step by step: [Open someone's page as they see it](#open-someone-s-page-as-they-see-it).
 
 ### The details card on an institution's page
 
-The card **Your institution's details** is at the head of the **Representatives and agreement** module of the Institution Dashboard. A school's representatives see it once the agreement is settled; Administrators see it on any school's page. Before that, the school sees the agreement panel alone.
+The card **Your institution's details** is the first card of the Institution Dashboard's **Your institution** view. A school's representatives see it once the agreement is settled, and its tutors never; Administrators see it on any school's page. Before that, the school's representatives have **Overview** and **Agreement** alone, and its tutors see no page.
 
 | Part | What it holds |
 | --- | --- |
@@ -4579,7 +4590,7 @@ Step by step: [Correct a school's details yourself, and set the tracks it offers
 
 ### A student's card on an institution's page
 
-A school's representatives and tutors open a student's card from the roster. An Administrator opens it from the school's roster, reached through the switcher.
+A school's representatives and tutors open a student's card from the roster on **Students**. An Administrator opens it from the school's roster, reached through **Viewing as institution**. The card opens in place of the roster, and **Students** in the menu leads back to it.
 
 - The student's name and program. Representatives and Administrators also read "No sign-in on record" while the student has not signed in, with a way to send the invitation again.
 - **Internship duration**, **Cohort**, **Field of study**, **Tutor**, **WordPress.org**, **Contribution teams**, **Personal website**.
@@ -4602,7 +4613,7 @@ Step by step: [Open a school's Institution Dashboard](#open-a-school-s-instituti
 
 ### The For Administrators section of an institution's page
 
-**For Administrators** is the last section of every Institution Dashboard. Nobody who acts for the institution sees it. It holds two folded cards.
+**For Administrators** is the last view in the menu of every school's Institution Dashboard. Nobody who acts for the institution sees it. It holds two cards.
 
 - **From the application**: the application's answers that Airtable has no column for, such as who signs the agreement. They stay after the application is removed. An institution approved before the site kept these answers has none: **Nothing kept from the application.**
 - **History**: the latest 100 things that happened to the institution, newest first.
@@ -4610,7 +4621,7 @@ Step by step: [Open a school's Institution Dashboard](#open-a-school-s-instituti
 A History row gives when, who and what. Member rows and closed requests read in today's words; other rows show the sentence they were recorded with. A row recorded under an older name for Administrators reads in today's words too. Who is the account's name now. It reads **The site** when the site did it, and **A removed account** when the account is gone.
 
 - Rows cover members, invitations with the address each went to, the application, the Collaboration Agreement, details, tracks, the assigned Administrator, tutors, requests, imports, students and roster refusals.
-- A member row says how the account joined, in the People card's words such as **Joined by invitation**, or why it left, such as **They removed their own access**.
+- A member row says how the account joined, in the words of **Representatives and tutors**, such as **Joined by invitation**, or why it left, such as **They removed their own access**.
 - A closed request says how it was closed, with the Administrator's note when it can be shown.
 
 Step by step: [Open a school's Institution Dashboard](#open-a-school-s-institution-dashboard).
@@ -4644,13 +4655,17 @@ A student or a mentor can pick the language of their own Report Card. The switch
 - Text only Administrators, institutions or sponsors read stays in English.
 - WordPress's own words and dates follow only when that language is installed on the site.
 
-### Arranging an institution's page
+### The views of an institution's page
 
-The Institution Dashboard has three sections: **Students**, **Semester report** and **Representatives and agreement**. Each has two small arrows, such as **Move Students up**.
+Since 1.123.96 the Institution Dashboard has nothing to arrange. A menu down the side opens one view per part: **Overview**, **Students**, **Enroll students** (while **Enrollment lists from institutions** is on), **Semester reports**, **Your institution**, **Agreement**, **Events** and, for you alone, **For Administrators**.
 
-- The order is the institution's, the same for everyone who signs in for it. A section with nothing to show is left out.
-- Only its representatives and Administrators see the arrows. A tutor cannot move anything.
-- Through the switcher you can arrange it for the institution.
+- **Events** is for the school's own representatives, while an event is listed. Tutors and Administrators do not have it.
+- A tutor has no **Enroll students**. A school whose agreement is not settled has **Overview** and **Agreement** alone. Its tutors see no page.
+- The menu also holds **Program updates** while there is an update for institutions, and **Institution guide** under **Help**.
+- A red tag beside a view counts what waits there for the reader, such as *1 waits*. Beside **Overview**, the tag counts all of it.
+- Through **Viewing as institution**, the school stays as you change views, and the view stays as you change schools.
+- The order a school saved with the old arrows stays stored and unused.
+- On the **Overview** you see *Stage:* in the head, and no news under **Good to know**: news is the school's own.
 
 The Sponsor Dashboard has nothing to arrange. A menu down the side opens one view per part: **Overview**, **Your sponsorship** (while **Sponsor tiers** is on), **Offers**, **Students reached**, **Mentors to sponsor**, **Your company** and **Agreement**. It also holds **Program updates** while there is an update for sponsors, and **Sponsor guide** while its page is published. Through the switcher, the sponsor stays as you change views, and the view stays as you change sponsors.
 
@@ -4832,7 +4847,7 @@ The **Activated** view of the Mentors screen's **Waiting for review** tab says w
 
 #### A student's invitation from the Institution Dashboard
 
-A student with no sign-in on record has a line on their card. It says when the last invitation went, with **Resend invitation** (**Send invitation** when none went).
+A student with no sign-in on record has a line on their card, on the school's **Students** view. It says when the last invitation went, with **Resend invitation** (**Send invitation** when none went).
 
 - The school's representatives can press it, and so can an Administrator who opened the dashboard. Tutors cannot. No Administrator is emailed.
 - The 15 minutes apply, and each school can send 20 a day. A press that sends nothing does not count.
@@ -4909,7 +4924,7 @@ The plugin makes no page for the Student Interest Form: add the **Student Intere
 
 The Administrator guide is at `/administrator-guide/`, and `/program-manager-guide/` leads there.
 
-The Institution Dashboard's guide button follows a published page at `institution-guide` on this site when there is one, and the handbook's institutions page until that page exists. The Sponsor Dashboard's guide button follows a published page at `sponsor-guide` on this site when there is one, and the handbook's sponsor guide until that page exists. Each release republishes both pages from the built Institution guide and Sponsor guide, so a change made to either page by hand lasts only until the next release.
+The Institution Dashboard's guide button follows a published page at `institution-guide` on this site when there is one, and the handbook's institutions page until that page exists. The Sponsor Dashboard's guide button follows a published page at `sponsor-guide` on this site when there is one, and the handbook's sponsor guide until that page exists. Each release republishes both pages from the built Institution guide and Sponsor guide, so a change made to either page by hand lasts only until the next release. Since 1.123.96 the Institution Dashboard's button is **Institution guide** under **Help** in its menu, and this site's page opens in the dashboard's frame.
 
 The Mentor Report Card's button does the same with `mentor-guide` and the handbook's Mentor guide. The Student Report Card's does so with `student-guide` and the Student guide.
 
@@ -4960,7 +4975,7 @@ The site drafts each institution's report for a semester once it has ended.
 - A job's draft is emailed to **Who reviews reports**, or every Administrator when it is empty.
 - These settings are in `WPCredits Program > Settings`, tab **Institutions**, section **Semester reports**.
 
-You review the draft on the school's Institution Dashboard, then press **Approve this report**.
+You review the draft on the school's Institution Dashboard, in its **Semester reports** view, then press **Approve this report**.
 
 - The school sees it from then, with **Download PDF**, and its accounts are emailed. With no account, the screen says so: send the PDF yourself.
 - Approval is refused while the students' consent answers cannot be read.
@@ -5691,13 +5706,13 @@ Step by step: [Plan or cancel an event of the program's own](#plan-or-cancel-an-
 
 #### Where people see and join an event
 
-Once approved, an event is listed under **Events from our sponsors** for the people it is for. The heading is **Events from our sponsors and the program** while one of the program's own is listed.
+Once approved, an event is listed for the people it is for, in the places below. On the two Report Cards the list is headed **Events from our sponsors**, or **Events from our sponsors and the program** while one of the program's own is listed. On the Institution Dashboard the **Events** view lists them under its own name, with no heading, and Administrators see them on the card **Events**.
 
 | Who | Where |
 |---|---|
 | Current students | Student Report Card, under the group sessions in **My mentor call** |
 | Active mentors | Mentor Report Card, under the sessions panel |
-| Institution contacts, but not tutors | Institution Dashboard, after its sections |
+| Institution contacts, but not tutors | Institution Dashboard, the **Events** view |
 | Administrators | The card **Events**, on each event tagged **Coming up**, while that card shows |
 
 A current student holds a status in **Currently mentoring** and not in **Past students** (`WPCredits Program > Settings`, tab **Students and mentors**).
@@ -5948,7 +5963,7 @@ It lists many of the names the plugin stores things under, each with the name it
 | `wpcpm_handbook_page_visible` | `WPCPM_Handbook_Assistant::OPT_APPLIED` |
 | `wpcpm_institution_announce_lock` | `WPCPM_Institution_Announce::LOCK` (the lock one announcement holds while it reads the record IDs already announced, posts and writes them back, so two syncs finishing together cannot announce the same institution twice; it holds for two minutes at most and a run that cannot take it announces nothing) |
 | `wpcpm_institution_announced` | `WPCPM_Institution_Announce::OPT_ANNOUNCED` (the record IDs of the institutions whose arrival at Confirmed has been announced on Slack, so none is announced a second time) |
-| `wpcpm_institution_modules_` | `WPCPM_Institutions_Dashboard::OPT_MODULES_PREFIX` (each institution's module order) |
+| `wpcpm_institution_modules_` | None since 1.123.96 (each institution's module order, saved with the arrows before 1.123.96; since then nothing writes or reads it, the constant that named it is gone, and uninstall deletes it by this name; the Student Report Card keeps its own order in user meta, `wpcpm_student_modules`) |
 | `wpcpm_institution_page_id` | `WPCPM_Institutions_Dashboard::OPT_PAGE` |
 | `wpcpm_institution_page_title_fixed` | `WPCPM_Institutions_Dashboard::OPT_TITLE_FIXED` |
 | `wpcpm_institutions_index` | `WPCPM_Institutions_Index::OPT_NAME` |
@@ -6176,8 +6191,7 @@ Your page is drawn for whoever is signed in, so the same address shows each pers
 page, and no change to a link shows anybody else's. The
 program's Administrators are the one exception: to help, they can open anyone's page, through a
 switcher only they are shown. A company's people share one Sponsor Dashboard, and an
-institution's people share one Institution Dashboard: everyone attached to the company or the
-institution sees the same page.
+institution's people share one Institution Dashboard, though a tutor sees less of it.
 
 ## The Student guide and the Mentor guide
 

@@ -29,6 +29,16 @@
  * select stays in the form as what it sends, hidden, which takes it out of sight, of the tab order
  * and of the accessibility tree; without the script it is the switcher, as before.
  *
+ * A pick is announced, and only announced: one bubbling `wpcpm:picked` event on the form, whose
+ * detail holds the value picked (`value`) and the value of the name the page is about (`own`), on
+ * every form, marked or not. Listeners, not this file, decide what a pick does: the parts' script
+ * (assets/js/parts.js) sends a form marked `data-wpcpm-pick-submits`, the Institution Dashboard's
+ * compact Viewing as institution, and hides its Show; every other form is left as it is.
+ *
+ * An option marked `data-wpcpm-blank` (the compact control's "Choose an institution", while no
+ * school is chosen) names nobody: it is never listed, and while it is chosen the field is empty,
+ * under its placeholder.
+ *
  * PHP owns the words: the field's placeholder, the count's sentence and the sentence for no match
  * are in the markup.
  */
@@ -113,6 +123,19 @@
 		}
 
 		var count = status.getAttribute( 'data-wpcpm-count' ) || '';
+		var form = combo.parentNode;
+		var blank = -1; // The place of the option that names nobody; -1 for none.
+
+		// The form the pick is announced on.
+		while ( form && 'FORM' !== form.tagName ) {
+			form = form.parentNode;
+		}
+
+		Array.prototype.forEach.call( select.options, function ( option, index ) {
+			if ( -1 === blank && option.hasAttribute( 'data-wpcpm-blank' ) ) {
+				blank = index;
+			}
+		} );
 		var none = status.getAttribute( 'data-wpcpm-none' ) || '';
 
 		// One row for each of the select's options, in its order, which is A to Z. A row's place is
@@ -262,6 +285,13 @@
 				return index;
 			} );
 
+			// The option that names nobody is never a row of the list.
+			if ( blank >= 0 ) {
+				shown = shown.filter( function ( index ) {
+					return index !== blank;
+				} );
+			}
+
 			shown.forEach( function ( index ) {
 				list.appendChild( rows[ index ] );
 			} );
@@ -307,7 +337,7 @@
 			var option = select.options[ select.selectedIndex ];
 
 			typed = false;
-			input.value = option ? option.text : '';
+			input.value = option && select.selectedIndex !== blank ? option.text : '';
 			close();
 		}
 
@@ -358,6 +388,21 @@
 			mark( index );
 			restore();
 			input.select();
+			announce();
+		}
+
+		/**
+		 * Say on the form that a name was picked: what was picked and the name the page is about. A page
+		 * with no such event, or a field outside a form, is told nothing.
+		 */
+		function announce() {
+			var drawn = select.options[ own() ];
+
+			if ( ! form || 'function' !== typeof form.dispatchEvent || 'function' !== typeof window.CustomEvent ) {
+				return;
+			}
+
+			form.dispatchEvent( new window.CustomEvent( 'wpcpm:picked', { bubbles: true, detail: { value: select.value, own: drawn ? drawn.value : '' } } ) );
 		}
 
 		/**

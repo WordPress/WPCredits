@@ -329,49 +329,145 @@ final class WPCPM_Institution_Student_Form {
 		// the one that was not is the one that leaks.
 		$drawn = WPCPM_Institution_Policy::scope( $decision, $values );
 
-		printf( '<section class="wpcpm-institution__card wpcpm-institution__edit" id="%s">', esc_attr( self::ANCHOR ) );
+		// Which boxes are drawn, with what in them, whether each may be used and why a refused one was refused: asked once.
+		$controls = self::controls( $drawn, $kept, $problems, $settled );
 
-		printf(
-			'<h3 class="wpcpm-institution__heading">%s</h3>',
-			esc_html__( 'Correct this student\'s details', 'wpcredits-program-manager' )
-		);
+		$map = array();
 
-		printf(
-			'<p class="wpcpm-institution__edit-lede">%s</p>',
-			esc_html__( 'These five details are yours to correct. Everything else on this card - the program, the status, the hours, the mentor and the grades - is written by the program or by the student, and a change to any of them goes through your program contact.', 'wpcredits-program-manager' )
-		);
+		foreach ( $controls as $control ) {
+			$map[ $control['id'] ] = array(
+				'id'    => $control['id'],
+				'label' => self::label( $control['table'] . '|' . $control['name'] ),
+			);
+		}
+
+		self::render_form_parts( $record, $controls, $problems, $map, $settled );
+	}
+
+	/**
+	 * The form on the shared parts (Institution Dashboard, design 6.1), drawn inside the student's card's inner fold
+	 * "Correct this student's details", which carries this form's anchor (`ANCHOR`) and is titled by it, so the form prints
+	 * no card and no heading of its own: today's lede as the parts' intro, the outcome of the last save in today's markup
+	 * (the card opens its fold on `CLASS_MESSAGE`), then the one form: the same address, the same hidden fields
+	 * (`nonce_action()`, `render_hidden()`), today's summary of what was refused, the five boxes as the parts' fields (label above, the dates
+	 * 200px, Field of study a select, each refusal under its own box, a kept typing as it was typed), today's note while the
+	 * Students half cannot be used, and Save changes, primary.
+	 *
+	 * @param string $record   Students Reports record ID.
+	 * @param array  $controls What `controls()` returned.
+	 * @param array  $problems Why each refused box was refused, by its id.
+	 * @param array  $map      The summary's boxes, by id.
+	 * @param bool   $settled  Whether the site can tell which Students row this student is.
+	 */
+	private static function render_form_parts( $record, array $controls, array $problems, array $map, $settled ) {
+		echo WPCPM_UI::intro( self::lede() ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
 
 		self::render_message( $record );
 
 		printf(
-			'<form class="wpcpm-institution__edit-form" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
 			esc_attr__( 'Saving...', 'wpcredits-program-manager' )
 		);
 
-		// Keyed to the record this form edits, which is also what the handler keys its check
-		// to. A manager acting through the switcher needs nothing added to this URL: the form
-		// names its subject with a record ID, and the handler resolves the institution from
-		// that record rather than from anything the form says about it.
-		wp_nonce_field( self::ACTION_SAVE . '_' . $record );
+		echo WPCPM_UI::nonce( self::nonce_action( $record ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::nonce().
+		self::render_hidden( $record );
 
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
-		printf( '<input type="hidden" name="record" value="%s" />', esc_attr( $record ) );
+		echo WPCPM_Form_Errors::summary( $problems, $map, array( 'level' => 3 ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::summary() escapes every value it prints.
 
-		$map = array();
+		foreach ( $controls as $control ) {
+			echo self::field_parts( $control ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::field().
+		}
 
-		foreach ( self::fields() as $table => $columns ) {
-			foreach ( $columns as $name => $spec ) {
-				if ( array_key_exists( $table . '|' . $name, $drawn ) ) {
-					$map[ self::control_id( $table, $name ) ] = array(
-						'id'    => self::control_id( $table, $name ),
-						'label' => self::label( $table . '|' . $name ),
-					);
-				}
+		if ( ! $settled ) {
+			echo WPCPM_UI::intro( self::unsettled_note(), 'muted' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
+		}
+
+		$html = WPCPM_UI::actions(
+			array(
+				WPCPM_UI::button(
+					array(
+						'label' => __( 'Save changes', 'wpcredits-program-manager' ),
+						'side'  => 'front',
+					)
+				),
+			)
+		);
+
+		echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::actions() and button().
+
+		echo '</form>';
+	}
+
+	/**
+	 * One box on the shared parts: the field part with today's id, name and label, the value the caches hold or a kept
+	 * typing exactly as it was typed (`WPCPM_Typed_Text`), today's length on a name, and the refusal under it. A select
+	 * holds "Not set", then a stored value the program no longer offers, selected and named for what it is (a school
+	 * looking at a record should see what it says; posting it back is refused, since it is not one of the program's
+	 * choices), then the program's choices.
+	 *
+	 * @param array $control One of `controls()`.
+	 * @return string Escaped markup.
+	 */
+	private static function field_parts( array $control ) {
+		$labels = self::labels();
+		$slot   = $control['table'] . '|' . $control['name'];
+		$spec   = $control['spec'];
+		$type   = isset( $spec['type'] ) ? (string) $spec['type'] : 'text';
+		$typed  = $control['typed'];
+		$args   = array(
+			'id'       => $control['id'],
+			'name'     => self::FIELD_GROUP . '[' . self::key( $control['table'], $control['name'] ) . ']',
+			'label'    => isset( $labels[ $slot ] ) ? $labels[ $slot ] : $control['name'],
+			'type'     => in_array( $type, array( 'date', 'select' ), true ) ? $type : 'text',
+			'problem'  => $control['problem'],
+			'disabled' => ! $control['enabled'],
+			'side'     => 'front',
+		);
+
+		if ( 'select' === $type ) {
+			$value   = null === $typed ? $control['value'] : (string) $typed;
+			$choices = self::choices( isset( $spec['choices'] ) ? $spec['choices'] : '' );
+			$options = array( '' => __( 'Not set', 'wpcredits-program-manager' ) );
+
+			if ( '' !== $value && ! in_array( $value, $choices, true ) ) {
+				$options[ $value ] = sprintf(
+					/* translators: %s: the value stored in the program records. */
+					__( '%s (not one of the program\'s choices)', 'wpcredits-program-manager' ),
+					$value
+				);
+			}
+
+			foreach ( $choices as $choice ) {
+				$options[ $choice ] = $choice;
+			}
+
+			$args['value']   = $value;
+			$args['options'] = $options;
+		} else {
+			$args['value'] = null === $typed ? $control['value'] : WPCPM_Typed_Text::kept_attr( $typed );
+
+			if ( isset( $spec['maxlength'] ) ) {
+				$args['attrs'] = array( 'maxlength' => (string) (int) $spec['maxlength'] );
 			}
 		}
 
-		echo WPCPM_Form_Errors::summary( $problems, $map, array( 'level' => 4 ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::summary() escapes every value it prints.
+		return WPCPM_UI::field( $args );
+	}
+
+	/**
+	 * The boxes the form draws, in the allowlist's order: only the cells the decision lets
+	 * this reader see, each with what the caches hold, what a refused post kept for it, whether it may be used (the
+	 * Students half only while the site can tell which Students row this student is) and why a refused post refused it.
+	 *
+	 * @param array $drawn    The cells the decision permits, slot to value.
+	 * @param array $kept     What the last refused post kept, slot to typing.
+	 * @param array $problems Why each refused box was refused, by its id.
+	 * @param bool  $settled  Whether the site can tell which Students row this student is.
+	 * @return array[] Each: table, name, spec, id, value, typed (string or null), enabled, problem.
+	 */
+	private static function controls( array $drawn, array $kept, array $problems, $settled ) {
+		$controls = array();
 
 		foreach ( self::fields() as $table => $columns ) {
 			foreach ( $columns as $name => $spec ) {
@@ -381,137 +477,71 @@ final class WPCPM_Institution_Student_Form {
 					continue;
 				}
 
-				// The Students half is drawn without its controls when the site cannot say
-				// which Students row this student is: a form that took a date it could not
-				// file would be a promise it cannot keep.
-				self::render_field(
-					$table,
-					$name,
-					$spec,
-					(string) $drawn[ $slot ],
-					isset( $kept[ $slot ] ) && is_string( $kept[ $slot ] ) ? $kept[ $slot ] : null,
-					'reports' === $table || $settled,
-					isset( $problems[ self::control_id( $table, $name ) ] ) ? (string) $problems[ self::control_id( $table, $name ) ] : ''
+				$id = self::control_id( $table, $name );
+
+				$controls[] = array(
+					'table'   => $table,
+					'name'    => $name,
+					'spec'    => $spec,
+					'id'      => $id,
+					'value'   => (string) $drawn[ $slot ],
+					'typed'   => isset( $kept[ $slot ] ) && is_string( $kept[ $slot ] ) ? $kept[ $slot ] : null,
+					'enabled' => 'reports' === $table || $settled,
+					'problem' => isset( $problems[ $id ] ) ? (string) $problems[ $id ] : '',
 				);
 			}
 		}
 
-		if ( ! $settled ) {
-			printf(
-				'<p class="wpcpm-institution__edit-note">%s</p>',
-				esc_html__( 'This student has more than one entry in the program\'s records, so the site cannot tell which of them a change belongs to. An Administrator needs to merge them first. The name on the Student Report Card can still be corrected.', 'wpcredits-program-manager' )
-			);
-		}
-
-		printf(
-			'<p><button type="submit" class="wpcpm-button">%s</button></p>',
-			esc_html__( 'Save changes', 'wpcredits-program-manager' )
-		);
-
-		echo '</form>';
-		echo '</section>';
+		return $controls;
 	}
 
 	/**
-	 * One control, with its label and its current value.
+	 * The form's nonce action: keyed to the record this form edits, which is also what the
+	 * handler keys its check to.
 	 *
-	 * A select prints only the choices this site holds, so an option that is not one of them
-	 * cannot be picked; a value already stored that is not among them is still shown, and
-	 * marked, because a school looking at a record should see what it says rather than a
-	 * blank where a value is. A choice a refused post kept is shown the same way.
-	 *
-	 * A box a refused post kept a typing for is drawn with that typing, exactly as it was typed
-	 * (`WPCPM_Typed_Text::kept_attr()`), and every other box with what the caches hold.
-	 *
-	 * A refused box is marked (1.123.58): `aria-invalid` and the sentence that says why, beside it.
-	 *
-	 * @param string      $table   `reports` or `students`.
-	 * @param string      $name    The base's own column name.
-	 * @param array       $spec    The field spec from `fields()`.
-	 * @param string      $value   The current value, as the caches hold it.
-	 * @param string|null $typed   What a refused post kept for this box, or null.
-	 * @param bool        $enabled Whether this control may be used.
-	 * @param string      $problem Why a refused post refused this box, or ''.
+	 * @param string $record Students Reports record ID.
+	 * @return string
 	 */
-	private static function render_field( $table, $name, array $spec, $value, $typed, $enabled, $problem = '' ) {
-		$slot   = $table . '|' . $name;
-		$labels = self::labels();
-		$label  = isset( $labels[ $slot ] ) ? $labels[ $slot ] : $name;
-		$id     = self::control_id( $table, $name );
-		$marks  = WPCPM_Form_Errors::attrs( $id, $problem );
-		$field  = self::FIELD_GROUP . '[' . self::key( $table, $name ) . ']';
-		$off    = $enabled ? '' : ' disabled="disabled"';
-		$type   = isset( $spec['type'] ) ? (string) $spec['type'] : 'text';
-		$value  = null === $typed ? $value : (string) $typed;
-		$shown  = null === $typed ? $value : WPCPM_Typed_Text::kept_attr( $typed );
-
-		echo '<p class="wpcpm-institution__edit-field">';
-
-		printf( '<label for="%1$s">%2$s</label>', esc_attr( $id ), esc_html( $label ) );
-
-		if ( 'select' === $type ) {
-			printf(
-				'<select class="wpcpm-institution__edit-input" id="%1$s" name="%2$s"%3$s%4$s>',
-				esc_attr( $id ),
-				esc_attr( $field ),
-				$off, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two fixed attribute strings above.
-				$marks // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
-			);
-
-			printf( '<option value="">%s</option>', esc_html__( 'Not set', 'wpcredits-program-manager' ) );
-
-			$choices = self::choices( isset( $spec['choices'] ) ? $spec['choices'] : '' );
-
-			if ( '' !== $value && ! in_array( $value, $choices, true ) ) {
-				// Shown, selected, named for what it is and **carrying the stored value**, so
-				// that posting it back is refused by `clean()` like any other value the column
-				// does not offer - which is what the sentence above promises: the school can
-				// see what the record says without being able to re-save it. An empty value
-				// here would do the exact opposite. `clean()` reads an empty select as
-				// "cleared" and clearing is allowed, so a school correcting the name on a card
-				// like this one would wipe the column it was only being shown.
-				printf(
-					'<option value="%1$s" selected="selected">%2$s</option>',
-					esc_attr( $value ),
-					esc_html(
-						sprintf(
-							/* translators: %s: the value stored in the program records. */
-							__( '%s (not one of the program\'s choices)', 'wpcredits-program-manager' ),
-							$value
-						)
-					)
-				);
-			}
-
-			foreach ( $choices as $choice ) {
-				printf(
-					'<option value="%1$s"%2$s>%3$s</option>',
-					esc_attr( $choice ),
-					selected( $choice, $value, false ),
-					esc_html( $choice )
-				);
-			}
-
-			echo '</select>';
-		} else {
-			printf(
-				'<input class="wpcpm-institution__edit-input" type="%1$s" id="%2$s" name="%3$s" value="%4$s"%5$s%6$s%7$s />',
-				esc_attr( 'date' === $type ? 'date' : 'text' ),
-				esc_attr( $id ),
-				esc_attr( $field ),
-				esc_attr( $shown ),
-				isset( $spec['maxlength'] ) ? ' maxlength="' . esc_attr( (string) (int) $spec['maxlength'] ) . '"' : '',
-				$off, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two fixed attribute strings above.
-				$marks // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
-			);
-		}
-
-		echo WPCPM_Form_Errors::problem( $id, $problem ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
-		echo '</p>';
+	private static function nonce_action( $record ) {
+		return self::ACTION_SAVE . '_' . $record;
 	}
 
 	/**
-	 * The outcome of the last save, on the card it happened on.
+	 * The form's hidden fields after its nonce: the action and the record. A manager acting through the switcher needs
+	 * nothing added: the form names its subject with a record ID, and the handler resolves the institution from that
+	 * record rather than from anything the form says about it. The nonce before them has core's name and value with no id
+	 * (`WPCPM_UI::nonce()`), since the student's card holds other forms' nonces too.
+	 *
+	 * @param string $record Students Reports record ID.
+	 */
+	private static function render_hidden( $record ) {
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
+		printf( '<input type="hidden" name="record" value="%s" />', esc_attr( $record ) );
+	}
+
+	/**
+	 * The line over the form: what is the school's to correct and what is not. Both branches print it.
+	 *
+	 * @return string
+	 */
+	private static function lede() {
+		return __( 'These five details are yours to correct. Everything else on this card is written by the program or by the student: the program, the status, the hours, the mentor and the grades. A change to any of them goes through your program contact.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * Why the Students half cannot be used while the site cannot tell which entry a change belongs to.
+	 *
+	 * @return string
+	 */
+	private static function unsettled_note() {
+		return __( 'This student has more than one entry in the program\'s records, so the site cannot tell which of them a change belongs to. An Administrator needs to merge them first. The name on the Student Report Card can still be corrected.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The outcome of the last save, on the card it happened on: the dashboards' shared outcome (`WPCPM_Dashboard_Card::message()`) in today's class: a success
+	 * is heard politely, a refusal alerts, and either is the focus target assets/js/forms.js moves to on load, as the
+	 * Administrator Dashboard draws its outcomes. The class is
+	 * still `CLASS_MESSAGE`, so the card still opens its fold on it.
 	 *
 	 * @param string $record The Students Reports record this card is about.
 	 */
@@ -532,13 +562,7 @@ final class WPCPM_Institution_Student_Form {
 			return;
 		}
 
-		printf(
-			'<p class="%1$s is-%2$s" role="status">%3$s%4$s</p>',
-			esc_attr( self::CLASS_MESSAGE ),
-			esc_attr( $messages[ $status ][0] ),
-			esc_html( $messages[ $status ][1] ),
-			'' === $detail ? '' : ' ' . esc_html( $detail )
-		);
+		echo WPCPM_Dashboard_Card::message( $messages[ $status ][0], $messages[ $status ][1] . ( '' === $detail ? '' : ' ' . $detail ), self::CLASS_MESSAGE ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Dashboard_Card::message().
 	}
 
 	/**
@@ -1737,7 +1761,9 @@ final class WPCPM_Institution_Student_Form {
 			)
 		);
 
-		wp_safe_redirect( WPCPM_Request::back( WPCPM_Institutions_Dashboard::page_url(), home_url( '/' ) ) . '#' . self::ANCHOR );
+		// Back where the press was made, the student's card on the Students view; with no referer, that view
+		// (`way_back()`), with the school an Administrator's request names, and then the card's anchor as before.
+		wp_safe_redirect( WPCPM_Request::back( WPCPM_Institutions_Dashboard::way_back( substr( self::ANCHOR, strlen( 'wpcpm-' ) ) ), home_url( '/' ) ) . '#' . self::ANCHOR );
 		exit;
 	}
 }

@@ -318,6 +318,45 @@ ck( 'an inner fold, closed', WPCPM_UI::inner_open( array( 'title' => 'Consent' )
 $io = WPCPM_UI::inner_open( array( 'title' => 'Consent', 'open' => true, 'id' => 'c-1' ) );
 ck( 'an inner fold with open prints open and its id', 0 === strpos( $io, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id="c-1">' ), true );
 ck( 'inner_close', WPCPM_UI::inner_close(), '</div></details>' );
+// Task 28, W6: a run of inner folds as a list, an item per fold.
+ck( 'a run of inner folds as a list', method_exists( 'WPCPM_UI', 'inner_list' ) ? WPCPM_UI::inner_list() . WPCPM_UI::inner_item() . WPCPM_UI::inner_open( array( 'title' => 'Ada' ) ) . WPCPM_UI::inner_close() . WPCPM_UI::inner_item_close() . WPCPM_UI::inner_list_close() : '', '<ul class="wpcpm-ui-folds" role="list"><li class="wpcpm-ui-folds__item">' . WPCPM_UI::inner_open( array( 'title' => 'Ada' ) ) . '</div></details></li></ul>' );
+// Institution Dashboard, Task 15, fix round 1: inner_open() takes a portrait (or initials), a title and a second piece as
+// markup, and a tag; with none of them it prints what it printed before (digests taken at aeb8875c).
+ck( 'inner_open: today\'s arguments print today\'s bytes (digests)', array_map( static function ( $a ) {
+	return md5( WPCPM_UI::inner_open( $a ) );
+}, array( array( 'title' => 'Consent' ), array( 'title' => 'Consent', 'second' => 'Given <b>' ), array( 'title' => 'A & <b>', 'open' => true, 'id' => 'c-1' ), array( 'title' => 'Plan', 'open' => false, 'second' => '' ), array(), array( 'title' => 'Consent', 'portrait' => '', 'initials' => '', 'title_html' => '', 'second_html' => '', 'tag' => '' ) ) ), array( '3ad3688cd97615e1d78df62711d2ae4e', '22c515601aa2e9aa285e82c0b184b2a3', '9eb7711d2670b25d01e6a72e988500d0', 'd553de71b89063f965e8f344df9559df', '0d5a384c9ed3d09f9ac1b92cb671e821', '3ad3688cd97615e1d78df62711d2ae4e' ) );
+// Fix round 2: row() takes its name as markup the caller escaped (name_html); without it, today's bytes (digests taken at
+// cb3efde4). The initials are the name's first character as a reader sees it, a letter and its combining mark kept.
+$row_all = array( 'name' => 'Ada', 'href' => 'https://example.test/?a=1&b=2', 'mark' => '<i>m</i>', 'tag' => array( 'words' => 'Waits', 'tone' => 'red' ), 'facts' => array( 'one', array( 'html' => '<a href="x">two</a>' ) ), 'actions' => array( '<button>Go</button>' ), 'note' => 'A note', 'form' => '<form></form>', 'form_id' => 'f-1', 'media' => '<img alt="">', 'level' => 'h4', 'id' => 'r-1' );
+ck( 'row: today\'s arguments print today\'s bytes (digests), and an empty name_html changes nothing', array_map( static function ( $a ) {
+	return md5( WPCPM_UI::row( $a ) );
+}, array( array( 'name' => 'Ada <b> & Co' ), $row_all, array(), array( 'name' => 'Bo', 'level' => 'h5' ), array( 'name' => 'Ada <b> & Co', 'name_html' => '' ) ) ), array( 'a3c41aea7eae7273743193d8d7ed1b35', '9fb1046c6f7124ff97ed782b749ce509', 'b9f1d46fc2156383521ddb3e85a22b2e', '0762bf1edee0083b39f8542dc08110bd', 'a3c41aea7eae7273743193d8d7ed1b35' ) );
+ck( 'row: name_html is printed as given in place of the name, inside the link when there is one', array(
+	WPCPM_UI::row( array( 'name' => 'ignored', 'name_html' => 'Abc<wbr>def' ) ),
+	false !== strpos( WPCPM_UI::row( array( 'name_html' => 'A<wbr>b', 'href' => 'https://example.test/' ) ), '<span class="wpcpm-ui-list__name"><a href="https://example.test/">A<wbr>b</a></span>' ),
+), array( '<li class="wpcpm-ui-list__row"><div class="wpcpm-ui-list__line"><span class="wpcpm-ui-list__name">Abc<wbr>def</span><span class="wpcpm-ui-list__facts"></span></div></li>', true ) );
+ck( 'initials: the first character a reader sees, a letter and its combining mark together', array(
+	WPCPM_UI::initials( "E\u{0301}va Example" ),
+	WPCPM_UI::initials( 'Ada' ),
+	WPCPM_UI::initials( '' ),
+	WPCPM_UI::initials( "\u{0141}ukasz" ),
+), array( "E\u{0301}", 'A', '', "\u{0141}" ) );
+// Institution Dashboard, Task 16: a name that starts with a combining mark or a zero-width joiner (a typing slip, a pasted
+// name) gives its first letter, never a lone mark in the box; a name of marks alone gives none.
+ck( 'initials: leading combining marks and zero-width joiners are skipped', array(
+	WPCPM_UI::initials( "\u{0301}Eva" ),
+	WPCPM_UI::initials( "\u{200D}Ola" ),
+	WPCPM_UI::initials( "\u{200D}\u{0301}\u{0308}A\u{0301}na" ),
+	WPCPM_UI::initials( "\u{0301}\u{200D}" ),
+	WPCPM_UI::initials( "\u{0301} Bo" ),
+), array( 'E', 'O', "A\u{0301}", '', 'B' ) );
+ck( 'inner_open: a portrait, a title and a second piece as markup, and a tag, in the head', array(
+	WPCPM_UI::inner_open( array( 'title' => 'ignored', 'title_html' => '<a href="x">Ada</a>', 'second_html' => '<span class="wpcpm-ui-whole">2026</span>', 'portrait' => '<img src="p" alt="">', 'tag' => WPCPM_UI::tag( 'On', 'green' ), 'open' => true ) ),
+	WPCPM_UI::inner_open( array( 'title' => 'B <b>', 'initials' => 'B<' ) ),
+), array(
+	'<details class="wpcpm-ui-fold wpcpm-ui-fold--inner wpcpm-ui-fold--portrait" open><summary class="wpcpm-ui-fold__head"><span class="wpcpm-ui-fold__portrait"><img src="p" alt=""></span><span class="wpcpm-ui-fold__lead"><span class="wpcpm-ui-fold__title"><a href="x">Ada</a></span><span class="wpcpm-ui-fold__second"><span class="wpcpm-ui-whole">2026</span></span></span><span class="wpcpm-ui-fold__end"><span class="wpcpm-status wpcpm-status--green">On</span></span><span class="wpcpm-ui-fold__chev" aria-hidden="true">' . $chev . '</span></summary><div class="wpcpm-ui-fold__body">',
+	'<details class="wpcpm-ui-fold wpcpm-ui-fold--inner wpcpm-ui-fold--portrait"><summary class="wpcpm-ui-fold__head"><span class="wpcpm-ui-fold__portrait"><span class="wpcpm-ui-fold__initials" aria-hidden="true">B&lt;</span></span><span class="wpcpm-ui-fold__lead"><span class="wpcpm-ui-fold__title">B &lt;b&gt;</span></span><span class="wpcpm-ui-fold__chev" aria-hidden="true">' . $chev . '</span></summary><div class="wpcpm-ui-fold__body">',
+) );
 
 ck( 'a heading is never printed inside a span (it is a direct child of the summary)', array(
 	1 === preg_match( '/<span[^>]*>(?:(?!<\/span>).)*<h[1-6]/s', $h ), 1 === preg_match( '/<span[^>]*>(?:(?!<\/span>).)*<h[1-6]/s', $hc ), 0 === strpos( $h, '<h3 ' ),
@@ -345,6 +384,70 @@ ck( 'an empty name_html or id is as none: the header is the one drawn without th
 ), array(
 	WPCPM_UI::item_header( array( 'name' => 'S', 'href' => 'https://example.org/s' ) ),
 	'<h4 class="wpcpm-ui-item__title" id="a&quot;b">S</h4>',
+) );
+
+// Institution Dashboard, Task 16: the item header takes a photo's markup (media) or the name's first letter (initials), in a
+// 44px box before the name and its facts, as a student's card leads with the student's photo; with neither (or each ''),
+// today's bytes (digests taken at 7eb5745e, before the change).
+ck( 'item_header: today\'s arguments print today\'s bytes (digests), and an empty media or initials changes nothing', array_map( static function ( $a ) {
+	return md5( WPCPM_UI::item_header( $a ) );
+}, array(
+	array( 'name' => 'Example School', 'ref' => 'MAPP-2026-1', 'tag' => array( 'words' => 'New', 'tone' => 'amber' ), 'facts' => array( 'Poland', array( 'html' => '<a href="https://example.org/">Site</a>' ), 'A & B' ) ),
+	array( 'name' => 'S', 'href' => 'https://example.org/s', 'mark' => '<span class="m">T</span>', 'level' => 'h3' ),
+	array( 'name_html' => '<a href="https://example.org/s">S</a> asks', 'id' => 'r-7', 'ref' => 'R-1' ),
+	array(),
+	array( 'name' => 'Example School', 'ref' => 'MAPP-2026-1', 'tag' => array( 'words' => 'New', 'tone' => 'amber' ), 'facts' => array( 'Poland', array( 'html' => '<a href="https://example.org/">Site</a>' ), 'A & B' ), 'media' => '', 'initials' => '' ),
+) ), array( 'efcf0c124b5a8d5772564f6c7c5dbd2e', '12594e7340a8030b2c6a15d94b5686c3', 'bc153cfcdf8d833605ae24c8c96d750b', '190a9e6c44cc5cd4a73ae3584b3b6784', 'efcf0c124b5a8d5772564f6c7c5dbd2e' ) );
+ck( 'item_header: a photo, or the initials when there is none, in its box before the name and the facts', array(
+	WPCPM_UI::item_header( array( 'name_html' => 'Ada<wbr>Example', 'level' => 'h2', 'media' => '<img src="p" alt="">', 'tag' => array( 'words' => 'On', 'tone' => 'green' ), 'facts' => array( 'From May' ) ) ),
+	WPCPM_UI::item_header( array( 'name' => 'B <b>', 'initials' => 'B<' ) ),
+	WPCPM_UI::item_header( array( 'name' => 'C', 'media' => '<img src="c" alt="">', 'initials' => 'C' ) ),
+), array(
+	'<div class="wpcpm-ui-item__head"><span class="wpcpm-ui-item__media"><img src="p" alt=""></span><div class="wpcpm-ui-item__lead"><h2 class="wpcpm-ui-item__title">Ada<wbr>Example</h2><p class="wpcpm-ui-item__facts"><span class="wpcpm-status wpcpm-status--green">On</span><span class="wpcpm-ui-item__run"><span class="wpcpm-ui-item__fact">From May</span></span></p></div></div>',
+	'<div class="wpcpm-ui-item__head"><span class="wpcpm-ui-item__media"><span class="wpcpm-ui-item__initials" aria-hidden="true">B&lt;</span></span><div class="wpcpm-ui-item__lead"><h4 class="wpcpm-ui-item__title">B &lt;b&gt;</h4></div></div>',
+	'<div class="wpcpm-ui-item__head"><span class="wpcpm-ui-item__media"><img src="c" alt=""></span><div class="wpcpm-ui-item__lead"><h4 class="wpcpm-ui-item__title">C</h4></div></div>',
+) );
+// Fix round 2 of Task 16: the same, for argument sets copied from the Administrator Dashboard's own calls (an application's
+// and a school's request's header in class-wpcpm-administrators-cards.php, its "Read the application" and "Recently
+// closed" folds, the agreement's return note and the request's note in the panel and the request class it draws): digests
+// taken with the base's class-wpcpm-ui.php (7eb5745e).
+ck( 'item_header, inner_open, field: the Administrator Dashboard\'s own calls print the base\'s bytes (digests)', array(
+	md5( WPCPM_UI::item_header( array( 'name' => 'Example Institute of Applied Web', 'href' => 'https://example.org/wp-admin/admin.php?page=wpcpm-institutions&tab=queue&application=42', 'mark' => '<span class="wpcpm-test-mark">Test</span>', 'ref' => 'MAPP-2026-1922', 'tag' => array( 'words' => 'Awaiting review', 'tone' => '' ), 'facts' => array( 'Poland', 'Assigned to admin@example.org', 'Received 3 days ago' ) ) ) ),
+	md5( WPCPM_UI::item_header( array( 'name' => 'Example School', 'href' => 'https://example.org/wp-admin/admin.php?page=wpcpm-institutions&institution=recEXAMPLE0000001', 'mark' => '', 'tag' => array( 'words' => 'Overdue', 'tone' => 'red' ), 'facts' => array( 'A new tutor', 'Opened 9 days ago' ) ) ) ),
+	md5( WPCPM_UI::inner_open( array( 'title' => 'Read the application' ) ) ),
+	md5( WPCPM_UI::inner_open( array( 'title' => 'Recently closed' ) ) ),
+	md5( WPCPM_UI::field( array( 'id' => 'wpcpm-agreement-review-7-note', 'name' => 'wpcpm_agreement_note', 'label' => 'What has to change', 'hint' => 'In your own words. It is emailed to everybody at the institution exactly as you write it, with your address to reply to.', 'need' => 'required', 'type' => 'textarea', 'rows' => 4, 'value' => '', 'attrs' => array( 'minlength' => 20, 'maxlength' => 2000 ), 'problem' => '' ) ) ),
+	md5( WPCPM_UI::field( array( 'id' => 'wpcpm-request-9-note', 'name' => 'wpcpm_request_note', 'label' => 'Note', 'hint' => 'For the log. It is not sent to the institution.', 'need' => 'optional', 'type' => 'textarea', 'rows' => 2, 'value' => 'Kept & typed', 'attrs' => array( 'maxlength' => 1000 ), 'problem' => 'Too long.' ) ) ),
+), array( '5a8d21143fddeb4bdd72ed71b5cc3134', '2bb737c68d8334b7103c19142bc2800e', 'bb1f6b92808cb768ee38c9939293cdc6', '7fbc0a4b75823b433e623889653ea101', '54797ebd8ec1a81b4f295fdb927a7378', '432e03eea1fbd483dfa29f4ed6741d7e' ) );
+// Task 16: inner_open() carries the plugin's own data attributes on its disclosure (the Student Report Card's fetch hook,
+// `data-wpcpm-report`, which assets/js/dashboard.js reads on open); with none, today's bytes.
+ck( 'inner_open: data attributes on the disclosure, and none prints today\'s bytes', array(
+	WPCPM_UI::inner_open( array( 'title' => 'Student Report Card', 'data' => array( 'wpcpm-report' => 'rec"1', 'Bad Name' => 'x', 'wpcpm-off' => false ) ) ),
+	md5( WPCPM_UI::inner_open( array( 'title' => 'Consent', 'data' => array() ) ) ),
+	0 === strpos( WPCPM_UI::inner_open( array( 'title' => 'T', 'open' => true, 'id' => 'f-1', 'data' => array( 'wpcpm-x' => true ) ) ), '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id="f-1" data-wpcpm-x>' ),
+), array(
+	'<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" data-wpcpm-report="rec&quot;1"><summary class="wpcpm-ui-fold__head">' . WPCPM_UI::fold_head( array( 'size' => 'inner', 'title' => 'Student Report Card' ) ) . '</summary><div class="wpcpm-ui-fold__body">',
+	'3ad3688cd97615e1d78df62711d2ae4e',
+	true,
+) );
+// Task 16: field() draws a box the form may not use (today's correction form draws the Students half disabled when the
+// site cannot tell which entry a change belongs to); without `disabled`, or with false, today's bytes.
+ck( 'field: today\'s arguments print today\'s bytes (digests), and disabled false changes nothing', array_map( static function ( $a ) {
+	return md5( WPCPM_UI::field( $a ) );
+}, array(
+	array( 'id' => 'f1', 'name' => 'student[f1]', 'label' => 'Full name', 'value' => 'A & B', 'attrs' => array( 'maxlength' => 200 ), 'problem' => 'Too long.' ),
+	array( 'id' => 'f2', 'name' => 'student[f2]', 'label' => 'Start date', 'type' => 'date', 'value' => '2026-02-16' ),
+	array( 'id' => 'f3', 'name' => 'student[f3]', 'label' => 'Field of study', 'type' => 'select', 'value' => 'b', 'options' => array( '' => 'Not set', 'a' => 'A', 'b' => 'B' ) ),
+	array( 'id' => 'f1', 'name' => 'student[f1]', 'label' => 'Full name', 'value' => 'A & B', 'attrs' => array( 'maxlength' => 200 ), 'problem' => 'Too long.', 'disabled' => false ),
+) ), array( 'fa32343af1c41ca9562eddd4d89202ef', '76a653720883d7f337697c7933b1d253', '3dbf70bc4fc5f8a0b51dd50f5f29b4f5', 'fa32343af1c41ca9562eddd4d89202ef' ) );
+ck( 'field: disabled prints the attribute on the box, a select and a date alike', array(
+	WPCPM_UI::field( array( 'id' => 'f1', 'name' => 'student[f1]', 'label' => 'Full name', 'value' => 'v', 'attrs' => array( 'maxlength' => 200 ), 'disabled' => true ) ),
+	false !== strpos( WPCPM_UI::field( array( 'id' => 'f3', 'name' => 's', 'label' => 'L', 'type' => 'select', 'options' => array( '' => 'Not set' ), 'disabled' => true ) ), '<select class="wpcpm-ui-field__control wpcpm-ui-field__control--select" id="f3" name="s" disabled>' ),
+	false !== strpos( WPCPM_UI::field( array( 'id' => 'f2', 'name' => 'd', 'label' => 'L', 'type' => 'date', 'disabled' => true ) ), ' name="d" disabled value=""' ),
+), array(
+	'<div class="wpcpm-ui-field"><label class="wpcpm-ui-field__label" for="f1">Full name</label><input type="text" class="wpcpm-ui-field__control" id="f1" name="student[f1]" maxlength="200" disabled value="v"></div>',
+	true,
+	true,
 ) );
 
 // The table (design 2.7).
@@ -574,6 +677,38 @@ ck( 'choices: one checkbox not checked is clear; a checked value that is no opti
 	WPCPM_UI::choices( array( 'id' => 'x', 'name' => 'x', 'options' => array( '1' => 'One' ), 'need' => 'required' ) ),
 ), array( false, false, '<div class="wpcpm-ui-choices wpcpm-ui-choices--alone"><label class="wpcpm-ui-choice" for="x"><input type="checkbox" class="wpcpm-ui-choice__input" id="x" name="x" value="1" required><span class="wpcpm-ui-choice__text"><span class="wpcpm-ui-choice__words" id="x-words">One <span class="wpcpm-ui-field__need">Required</span></span></span></label></div>' ) );
 ck( 'choices: every id is unique and every for, aria-describedby and aria-labelledby resolves, the three kinds drawn on one page', $ch_resolves( $ch_radios . $ch_boxes . $ch_alone ), array( true, array() ) );
+// Institution Dashboard, Task 17: choices() takes the refusal of one checkbox alone (`problem`), tied to it as field() ties
+// a box's; with none, or an empty one, or on a group, today's bytes (digests taken at 63a50750, before the change), the
+// Administrator Dashboard's own call among them (a sponsor application's Approve box, ticked and not).
+$ch_digest = static function ( array $a ) {
+	return md5( WPCPM_UI::choices( $a ) );
+};
+ck( 'choices: with no problem, an empty one, or a problem on a group, the bytes it printed before', array_map( $ch_digest, array(
+	'approve, ticked'     => array( 'id' => 'wpcpm_test-41', 'name' => 'wpcpm_test', 'type' => 'checkbox', 'options' => array( '1' => 'Test sponsor: not listed publicly' ), 'checked' => '1' ),
+	'approve, not ticked' => array( 'id' => 'wpcpm_test-41', 'name' => 'wpcpm_test', 'type' => 'checkbox', 'options' => array( '1' => 'Test sponsor: not listed publicly' ), 'checked' => '' ),
+	'radios'              => array( 'id' => 'tier-7', 'legend' => 'Which level?', 'name' => 'wpcpm_tier', 'type' => 'radio', 'options' => array( 'a' => 'Supporter', 'b' => 'Backer' ), 'checked' => 'b', 'need' => 'required' ),
+	'boxes with a hint'   => array( 'id' => 'aud-7', 'legend' => 'Who sees it', 'name' => 'wpcpm_aud[]', 'type' => 'checkbox', 'options' => array( 'students' => array( 'label' => 'Students <all>', 'hint' => 'Every "student" & graduate.' ), 'mentors' => 'Mentors' ), 'checked' => array( 'students', 'mentors' ), 'need' => 'optional' ),
+	'alone, required'     => array( 'id' => 'x', 'name' => 'x', 'options' => array( '1' => 'One' ), 'need' => 'required' ),
+	'alone, empty problem' => array( 'id' => 'x', 'name' => 'x', 'options' => array( '1' => 'One' ), 'need' => 'required', 'problem' => '' ),
+	'alone with a hint, empty problem' => array( 'id' => 'y', 'name' => 'y', 'options' => array( '1' => array( 'label' => 'One', 'hint' => 'Why.' ) ), 'problem' => '' ),
+	'group, a problem'    => array( 'id' => 'tier-7', 'legend' => 'Which level?', 'name' => 'wpcpm_tier', 'type' => 'radio', 'options' => array( 'a' => 'Supporter', 'b' => 'Backer' ), 'checked' => 'b', 'need' => 'required', 'problem' => 'Choose one.' ),
+) ), array(
+	'approve, ticked'     => '5e0594a9a521c9dac94924fa210f4a85',
+	'approve, not ticked' => 'b82d03f31ec839d590f5211a44ce2d3c',
+	'radios'              => 'f7de81e67d29e54e7d90347308f36144',
+	'boxes with a hint'   => '6d211b1a3d26314669bd1a97c616baa2',
+	'alone, required'     => '285eca76d9a7d3394ca9ced9bcfde144',
+	'alone, empty problem' => '285eca76d9a7d3394ca9ced9bcfde144',
+	'alone with a hint, empty problem' => '98b31081eca040762ab442d43ba8980c',
+	'group, a problem'    => 'f7de81e67d29e54e7d90347308f36144',
+) );
+$ch_refused = WPCPM_UI::choices( array( 'id' => 'wpcpm-import-notified', 'name' => 'notified', 'options' => array( '1' => 'They were told.' ), 'need' => 'required', 'problem' => 'Confirm it <first>.' ) );
+$ch_refused_hint = WPCPM_UI::choices( array( 'id' => 'z', 'name' => 'z', 'options' => array( '1' => array( 'label' => 'One', 'hint' => 'Why.' ) ), 'problem' => 'No.' ) );
+ck( 'choices: one checkbox alone, refused: aria-invalid and its sentence named, before its hint when it has one; the sentence under it, escaped, in a field\'s wrapper', array( $ch_refused, $ch_refused_hint ), array(
+	'<div class="wpcpm-ui-choices wpcpm-ui-choices--alone wpcpm-ui-field"><label class="wpcpm-ui-choice" for="wpcpm-import-notified"><input type="checkbox" class="wpcpm-ui-choice__input" id="wpcpm-import-notified" name="notified" value="1" required aria-invalid="true" aria-describedby="wpcpm-import-notified-problem"><span class="wpcpm-ui-choice__text"><span class="wpcpm-ui-choice__words" id="wpcpm-import-notified-words">They were told. <span class="wpcpm-ui-field__need">Required</span></span></span></label><p class="wpcpm-field__problem" id="wpcpm-import-notified-problem">Confirm it &lt;first&gt;.</p></div>',
+	'<div class="wpcpm-ui-choices wpcpm-ui-choices--alone wpcpm-ui-field"><label class="wpcpm-ui-choice" for="z"><input type="checkbox" class="wpcpm-ui-choice__input" id="z" name="z" value="1" aria-labelledby="z-words" aria-invalid="true" aria-describedby="z-problem z-hint"><span class="wpcpm-ui-choice__text"><span class="wpcpm-ui-choice__words" id="z-words">One</span><span class="wpcpm-ui-choice__hint" id="z-hint">Why.</span></span></label><p class="wpcpm-field__problem" id="z-problem">No.</p></div>',
+) );
+ck( 'choices: refused, every id is unique and every reference resolves', $ch_resolves( $ch_refused . $ch_refused_hint ), array( true, array() ) );
 
 // Task 16, fix round 1: a cell's second line, and a row's media box.
 // Task 17, fix round 1: one ordinary space before the span, so a screen reader hears the value and the line apart ("4 3 In
@@ -762,8 +897,20 @@ ck( 'the part classes written by hand outside the helpers are only those no help
 	'includes/modules/class-wpcpm-administrators-dashboard.php' => array( 'wpcpm-ui-fold', 'wpcpm-ui-fold--row', 'wpcpm-ui-fold-card', 'wpcpm-ui-fold__head', 'wpcpm-ui-fold__help', 'wpcpm-ui-group__note' ),
 	// Task V1: an agreement's review is a block of its item (ruling 12); a code in a cell (ruling 8). The Tools section draws
 	// today's offers on the parts (ruling 5), so it builds no row media by hand any more.
-	'includes/modules/class-wpcpm-institution-panel.php'        => array( 'wpcpm-ui-item__part' ),
+	// Institution Dashboard, Task 17: Enroll students is the view's content, a block with no head (M22); its two field sets
+	// are the choice group's fieldset with an in-card heading as their legend, 24px under the field above (no part prints
+	// a set of fields).
+	'includes/modules/class-wpcpm-institution-import-form.php'  => array( 'wpcpm-ui-block', 'wpcpm-ui-choices', 'wpcpm-ui-choices--set', 'wpcpm-ui-h' ),
+	'includes/modules/class-wpcpm-institution-panel.php'        => array( 'wpcpm-ui-block', 'wpcpm-ui-item__part' ),
+	// Institution Dashboard, Task 16: the sign-in line is a block of the student's card, and so is the card itself.
+	'includes/modules/class-wpcpm-institution-resend.php'       => array( 'wpcpm-ui-block' ),
+	// Institution Dashboard, Task 15: the roster's groups print the card fold's section, disclosure, head and body by hand (planner's P7: a card shell would be drawn open); the filter bar's row of fields; a view's blocks. Each student is inner_open().
+	'includes/modules/class-wpcpm-institution-roster-view.php'  => array( 'wpcpm-ui-block', 'wpcpm-ui-fields', 'wpcpm-ui-fold', 'wpcpm-ui-fold-card', 'wpcpm-ui-fold__body', 'wpcpm-ui-fold__head' ),
+	'includes/modules/class-wpcpm-institution-student-view.php' => array( 'wpcpm-ui-block' ),
+	// Institution Dashboard, Task 18: Semester reports is the view's content, a block with no head (M22); the report's document, as it prints, in a block that lets a long word break.
+	'includes/modules/class-wpcpm-semester-report-screen.php'   => array( 'wpcpm-ui-block', 'wpcpm-ui-doc' ),
 	'includes/modules/class-wpcpm-sponsor-application.php'      => array( 'wpcpm-ui-logo', 'wpcpm-ui-logo--white', 'wpcpm-ui-logo__caption', 'wpcpm-ui-logo__img', 'wpcpm-ui-logos' ),
+	'includes/modules/class-wpcpm-sponsor-event-list.php'       => array( 'wpcpm-ui-block' ), // Institution Dashboard, Task 22: the Events view's content, a block with no head.
 	'includes/modules/class-wpcpm-sponsor-offer-review.php'     => array( 'wpcpm-ui-code' ),
 ) );
 
@@ -804,10 +951,64 @@ ck( 'cell_sub: with markup it prints the markup the caller escaped; with none, t
 	WPCPM_UI::cell_sub( 'ignored', '<a href="x">School</a> <span class="wpcpm-badge wpcpm-badge--test">Test</span>' ),
 	WPCPM_UI::cell_sub( 'A <b>' ) === WPCPM_UI::cell_sub( 'A <b>', '' ),
 ), array( ' <span class="wpcpm-ui-cell__sub"><a href="x">School</a> <span class="wpcpm-badge wpcpm-badge--test">Test</span></span>', true ) );
-// Only the table of Students waiting to graduate prints the helper this release.
-ck( 'breakable: called by the Students waiting to graduate table alone', array_values( array_filter( array_map( static function ( $file ) {
+// The table of Students waiting to graduate prints the helper, the Institution Dashboard's Enroll students check
+// table (a data table's cell) and the head's title (the layout harness faults without it, Task 22b); no other file. A later task that needs it elsewhere changes this pin
+// on purpose and says so.
+ck( 'breakable: called by the Students waiting to graduate table, the Enroll students check table and the Institution Dashboard head alone', array_values( array_filter( array_map( static function ( $file ) {
 	return preg_match( '/WPCPM_UI::breakable\(/', (string) file_get_contents( $file ) ) ? basename( $file ) : '';
-}, array_merge( glob( __DIR__ . '/../includes/*.php' ), glob( __DIR__ . '/../includes/modules/*.php' ) ) ) ) ), array( 'class-wpcpm-administrators-cards.php' ) );
+}, array_merge( glob( __DIR__ . '/../includes/*.php' ), glob( __DIR__ . '/../includes/modules/*.php' ) ) ) ) ), array( 'class-wpcpm-administrators-cards.php', 'class-wpcpm-institution-import-form.php', 'class-wpcpm-institutions-dashboard.php' ) );
+
+// Institution Dashboard, Task 18 fix round 2: note() may print a quotation (a student's released words) and intro() may
+// carry a class of the caller's (a line the print sheet hides). Without the new argument each prints the bytes it printed
+// before, pinned by digests taken at 24db6e4b with real Administrator Dashboard arguments.
+ck( 'note() and intro() without the new argument: the base\'s bytes', array(
+	md5( WPCPM_UI::note( 'Held by the anti-spam checks. Open it on the Institutions screen to read which.' ) ),
+	md5( WPCPM_UI::note( "A note <b>&\"x\"\nline two" ) ),
+	md5( WPCPM_UI::intro( 'Approved sponsors by tier, as the tiers stand today.' ) ),
+	md5( WPCPM_UI::intro( 'Two waiting & <i>more</i>', 'muted' ) ),
+	md5( WPCPM_UI::intro( 'ignored', '', 'wpcpm-x-id', '<a href="#">Link</a> after' ) ),
+	WPCPM_UI::note( 'x', 'p' ) === WPCPM_UI::note( 'x' ),
+	WPCPM_UI::note( 'x', 'div' ) === WPCPM_UI::note( 'x' ),
+	WPCPM_UI::intro( 'x', 'muted', '', '', '' ) === WPCPM_UI::intro( 'x', 'muted' ),
+), array( 'f5e90f6c5f94ee0db85304a6107c72e3', '38cd0e8282c5534e2373b14d4682c5f0', '6e6e417063e0ee4879f180ba81408c40', 'a22e9e7d0526614a2adf097c92466d53', 'dae59293860c41b573ce060dc249a299', true, true, true ) );
+ck( 'note() as a quotation, and intro() with a class of the caller\'s', array(
+	WPCPM_UI::note( 'Said <b>"so"</b> & more', 'blockquote' ),
+	WPCPM_UI::intro( 'Kept & <i>hint</i>', 'muted', '', '', 'wpcpm-report-hint' ),
+	WPCPM_UI::intro( 'Kept', '', 'an-id', '', 'a-b "c"' ),
+), array(
+	'<blockquote class="wpcpm-ui-note">Said &lt;b&gt;&quot;so&quot;&lt;/b&gt; &amp; more</blockquote>',
+	'<p class="wpcpm-ui-intro wpcpm-ui-intro--muted wpcpm-report-hint">Kept &amp; &lt;i&gt;hint&lt;/i&gt;</p>',
+	'<p class="wpcpm-ui-intro a-b &quot;c&quot;" id="an-id">Kept</p>',
+) );
+
+// Institution Dashboard, Task 19: field() takes the box's `inputmode` (the details card's website and email, as today's form
+// draws them), and choices() takes a group's hint, a group's refusal (`group_problem`) and `columns` (the application's
+// languages). Without them each prints the base's bytes, pinned by digests taken at eb42e70a with the Administrator
+// Dashboard's own arguments (the agreement's return note; a sponsor application's Approve box) and a group of each kind.
+ck( 'field() and choices() without the new arguments: the base\'s bytes', array(
+	md5( WPCPM_UI::field( array( 'id' => 'wpcpm-agreement-review-7-note', 'name' => 'wpcpm_agreement_note', 'label' => 'What has to change', 'hint' => 'In your own words. It is emailed to everybody at the institution exactly as you write it, with your address to reply to.', 'need' => 'required', 'type' => 'textarea', 'rows' => 4, 'value' => '', 'attrs' => array( 'minlength' => 20, 'maxlength' => 2000 ), 'problem' => '' ) ) ),
+	md5( WPCPM_UI::field( array( 'id' => 'w', 'name' => 'w', 'label' => 'Website', 'value' => 'example.org', 'attrs' => array( 'maxlength' => 200, 'autocomplete' => 'url' ), 'hint' => 'For example: example.edu' ) ) ),
+	md5( WPCPM_UI::choices( array( 'id' => 'wpcpm_test-41', 'name' => 'wpcpm_test', 'type' => 'checkbox', 'options' => array( '1' => 'Test sponsor: not listed publicly' ), 'checked' => '1' ) ) ),
+	md5( WPCPM_UI::choices( array( 'id' => 'aud-7', 'legend' => 'Who sees it', 'name' => 'wpcpm_aud[]', 'type' => 'checkbox', 'options' => array( 'students' => array( 'label' => 'Students <all>', 'hint' => 'Every "student" & graduate.' ), 'mentors' => 'Mentors' ), 'checked' => array( 'students', 'mentors' ), 'need' => 'optional' ) ) ),
+	md5( WPCPM_UI::choices( array( 'id' => 'tier-7', 'legend' => 'Which level?', 'name' => 'wpcpm_tier', 'type' => 'radio', 'options' => array( 'a' => 'Supporter', 'b' => 'Backer' ), 'checked' => 'b', 'need' => 'required', 'hint' => '', 'group_problem' => '', 'columns' => false ) ) ),
+), array( '54797ebd8ec1a81b4f295fdb927a7378', '4ec3f08b536eab7aae40cb4ccc62c1bf', '5e0594a9a521c9dac94924fa210f4a85', '6d211b1a3d26314669bd1a97c616baa2', 'f7de81e67d29e54e7d90347308f36144' ) );
+ck( 'field(): the box\'s inputmode, after its other attributes; a value outside the browser\'s own is not printed', array(
+	WPCPM_UI::field( array( 'id' => 'w', 'name' => 'w', 'label' => 'Website', 'value' => 'a"b', 'attrs' => array( 'maxlength' => 200, 'autocomplete' => 'url', 'inputmode' => 'url' ) ) ),
+	false === strpos( WPCPM_UI::field( array( 'id' => 'w', 'name' => 'w', 'label' => 'W', 'attrs' => array( 'inputmode' => 'x" onclick="y' ) ) ), 'inputmode' ),
+), array(
+	'<div class="wpcpm-ui-field"><label class="wpcpm-ui-field__label" for="w">Website</label><input type="text" class="wpcpm-ui-field__control" id="w" name="w" maxlength="200" autocomplete="url" inputmode="url" value="a&quot;b"></div>',
+	true,
+) );
+ck( 'choices(): a group\'s hint under its legend and its refusal under its options, both named by the group; in columns, the options in a grid', array(
+	WPCPM_UI::choices( array( 'id' => 'lang', 'legend' => 'Languages <b>', 'name' => 'lang[]', 'options' => array( 'en' => 'English', 'pl' => 'Polish & more' ), 'checked' => array( 'pl' ), 'need' => 'required', 'hint' => 'Tick "every" one.', 'group_problem' => 'Fill <this> in.', 'columns' => true ) ),
+	WPCPM_UI::choices( array( 'id' => 'tr', 'legend' => 'Tracks', 'name' => 'tr[]', 'options' => array( 'a' => 'A' ), 'hint' => 'A hint.' ) ),
+), array(
+	'<fieldset class="wpcpm-ui-choices wpcpm-ui-choices--columns wpcpm-ui-field" aria-describedby="lang-problem lang-hint"><legend class="wpcpm-ui-choices__legend">Languages &lt;b&gt; <span class="wpcpm-ui-field__need">Required</span></legend><p class="wpcpm-ui-field__hint" id="lang-hint">Tick &quot;every&quot; one.</p><div class="wpcpm-ui-choices__grid"><label class="wpcpm-ui-choice" for="lang-en"><input type="checkbox" class="wpcpm-ui-choice__input" id="lang-en" name="lang[]" value="en"><span class="wpcpm-ui-choice__text"><span class="wpcpm-ui-choice__words" id="lang-en-words">English</span></span></label><label class="wpcpm-ui-choice" for="lang-pl"><input type="checkbox" class="wpcpm-ui-choice__input" id="lang-pl" name="lang[]" value="pl" checked><span class="wpcpm-ui-choice__text"><span class="wpcpm-ui-choice__words" id="lang-pl-words">Polish &amp; more</span></span></label></div><p class="wpcpm-field__problem" id="lang-problem">Fill &lt;this&gt; in.</p></fieldset>',
+	'<fieldset class="wpcpm-ui-choices" aria-describedby="tr-hint"><legend class="wpcpm-ui-choices__legend">Tracks</legend><p class="wpcpm-ui-field__hint" id="tr-hint">A hint.</p><label class="wpcpm-ui-choice" for="tr-a"><input type="checkbox" class="wpcpm-ui-choice__input" id="tr-a" name="tr[]" value="a"><span class="wpcpm-ui-choice__text"><span class="wpcpm-ui-choice__words" id="tr-a-words">A</span></span></label></fieldset>',
+) );
+ck( 'choices(): a hint, a group refusal and columns are a group\'s alone: a checkbox alone prints as before', array(
+	md5( WPCPM_UI::choices( array( 'id' => 'x', 'name' => 'x', 'options' => array( '1' => 'One' ), 'need' => 'required', 'hint' => 'H', 'group_problem' => 'P', 'columns' => true ) ) ),
+), array( '285eca76d9a7d3394ca9ced9bcfde144' ) );
 
 echo "\n" . ( $fail ? "$fail of $checks checks failed" : "all $checks checks passed" ) . "\n";
 exit( $fail ? 1 : 0 );

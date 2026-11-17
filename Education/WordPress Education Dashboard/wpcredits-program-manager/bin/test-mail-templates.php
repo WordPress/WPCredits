@@ -194,9 +194,17 @@ class WPCPM_Students_Dashboard {
 class WPCPM_Mentors_Dashboard {
 	public static function page_url() { return 'https://example.test/mentor-report-card/'; }
 }
+require_once __DIR__ . '/stubs/institution-card-url.php';
 /** As above. */
 class WPCPM_Institutions_Dashboard {
 	public static function page_url() { return 'https://example.test/institution-dashboard/'; }
+	// The page's addresses, as the real class builds them (bin/stubs/institution-card-url.php, checked against it
+	// in bin/test-institution-ways-back.php).
+	public static function view_url( $view = 'overview', $record = '', array $args = array() ) { return wpcpm_test_institution_view_url( self::page_url(), $view, $record, $args ); }
+	public static function view_of( $card ) { return wpcpm_test_institution_view_of( $card ); }
+	public static function card_url( $card, $record = '', $item = '', array $args = array() ) { return wpcpm_test_institution_card_url( self::page_url(), $card, $record, $item, $args ); }
+	public static function requested_record() { return wpcpm_test_institution_requested_record(); }
+	public static function way_back( $card ) { return wpcpm_test_institution_way_back( self::page_url(), $card ); }
 }
 /** As above, its page unpublished in a check that says so. */
 require_once __DIR__ . '/stubs/sponsor-card-url.php';
@@ -732,10 +740,11 @@ $said       = array(
 	'institution-invite-no-sender' => array( 'You have been invited to see {institution_name}\'s students in the WordPress Credits Program on the {site_name}.', 'You are invited as a representative: you can see and add the institution\'s students, invite colleagues and correct its details.' ),
 	'institution-invite-tutor'     => array( '{inviter_name} has invited you to see {institution_name}\'s students in the WordPress Credits Program on the {site_name}.', 'You are invited as a tutor: you can see the institution\'s students, their Student Report Cards and its semester reports, and change nothing.' ),
 	'institution-invite-tutor-no-sender' => array( 'You have been invited to see {institution_name}\'s students in the WordPress Credits Program on the {site_name}.', 'You are invited as a tutor: you can see the institution\'s students, their Student Report Cards and its semester reports, and change nothing.' ),
-	'agreement-revoked'            => array( 'Until an agreement is in force again, your Institution Dashboard shows only the Collaboration Agreement card. Nothing about your students has been deleted.' ),
-	'agreement-revoked-no-contact' => array( 'Until an agreement is in force again, your Institution Dashboard shows only the Collaboration Agreement card. Nothing about your students has been deleted.' ),
-	'agreement-received'           => array( 'If it was the wrong file, withdraw it from the Collaboration Agreement card on your Institution Dashboard and upload the right one.' ),
-	'agreement-returned'           => array( 'Upload the corrected copy from the Collaboration Agreement card on your Institution Dashboard. Replying to this message reaches the Administrator who wrote the note.' ),
+	// Task 25, fix round 1, B1: the sentence says what a school with no settled agreement shows its people now.
+	'agreement-revoked'            => array( 'Until an agreement is in force again, your institution\'s representatives see only the Overview and the Agreement on the Institution Dashboard, and its tutors cannot open it. Nothing about your students has been deleted.' ),
+	'agreement-revoked-no-contact' => array( 'Until an agreement is in force again, your institution\'s representatives see only the Overview and the Agreement on the Institution Dashboard, and its tutors cannot open it. Nothing about your students has been deleted.' ),
+	'agreement-received'           => array( 'If it was the wrong file, open Agreement on your Institution Dashboard, withdraw it there and upload the right one.' ),
+	'agreement-returned'           => array( 'Upload the corrected copy under Agreement on your Institution Dashboard. Replying to this message reaches the Administrator who wrote the note.' ),
 	'agreement-template'           => array(
 		'The reason given was: {reason} (template language {language}, institution {institution_name}, name asked for "{name_asked_for}").',
 		'The template is part of the plugin, so a developer fixes it. A bracketed word other than the institution\'s name is refused on purpose: it would otherwise be printed on a document somebody signs. Nothing can be generated in this language until it is fixed.',

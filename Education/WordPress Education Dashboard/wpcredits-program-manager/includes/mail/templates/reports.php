@@ -82,7 +82,7 @@ return array(
 			'review_link'          => array(
 				'means'    => __( 'The draft on the Institution Dashboard, as an Administrator reviews it. Empty, while that page is not published, leaves its lines out.', 'wpcredits-program-manager' ),
 				'example'  => static function () {
-					return WPCPM_Semester_Report_Screen::report_url( WPCPM_Cohort::current() );
+					return WPCPM_Semester_Report_Screen::mail_url( WPCPM_Cohort::current() );
 				},
 				'required' => false,
 			),
@@ -106,7 +106,7 @@ return array(
 			'report_link' => array(
 				'means'    => __( 'The report on the Institution Dashboard. Empty, while that page is not published, leaves its line out.', 'wpcredits-program-manager' ),
 				'example'  => static function () {
-					return WPCPM_Semester_Report_Screen::report_url( WPCPM_Cohort::current() );
+					return WPCPM_Semester_Report_Screen::mail_url( WPCPM_Cohort::current() );
 				},
 				'required' => false,
 			),

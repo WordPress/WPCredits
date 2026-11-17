@@ -569,7 +569,7 @@ One institution's people, under **Representatives and tutors**, with **Back to t
 - An account invited before is not sent another invitation.
 - **Upload a signed agreement on the institution's behalf**, for a copy sent by email. It joins the queue, and the school is emailed. While one is waiting for review, **Download the copy waiting for review** and a withdraw control replace it.
 
-Pending invitations are on the Institution Dashboard. An invitation from someone no longer a member, or no longer an Administrator, cannot be accepted.
+Pending invitations are on the school's Institution Dashboard, in **Representatives and tutors** on **Your institution**. An invitation from someone no longer a member, or no longer an Administrator, cannot be accepted.
 
 #### The Semester reports tab
 
@@ -593,7 +593,7 @@ Step by step: [[A semester report: draft, review, approve, reopen]].
 
 **Revoke this agreement**, under an agreement in force:
 - It needs **Why it is revoked, in your own words**: 20 to 2,000 characters, emailed to every member.
-- Members keep their accounts but reach only the agreement panel. Pending invitations are canceled.
+- Members keep their accounts. Since 1.123.96 a representative reaches only the **Overview** and **Agreement** views, and a tutor no page. Pending invitations are canceled.
 - Airtable is updated first. If that fails, nothing changes.
 - The stage stays. If the partnership ended, change it in Airtable.
 - A refused note comes back to its box.

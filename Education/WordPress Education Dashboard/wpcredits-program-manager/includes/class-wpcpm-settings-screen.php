@@ -1822,8 +1822,8 @@ class WPCPM_Settings_Screen {
 			checked( $settings['institution_on_inactive'], 'revoke', false ),
 			esc_html__( 'Remove its people, so they lose access to its students', 'wpcredits-program-manager' ),
 			checked( $settings['institution_on_inactive'], 'keep', false ),
-			esc_html__( 'Leave its people in place, able to open only its agreement', 'wpcredits-program-manager' ),
-			esc_html__( 'Either way its agreement stops counting as recorded, and people left in place can open only the agreement until it is back at an active stage.', 'wpcredits-program-manager' )
+			esc_html__( 'Leave its people in place, its representatives seeing only the Overview and the Agreement', 'wpcredits-program-manager' ),
+			esc_html__( 'Either way its agreement stops counting as recorded, and until it is back at an active stage its representatives see only the Overview and the Agreement.', 'wpcredits-program-manager' )
 		);
 		WPCPM_Settings_Rows::close_row( $its_people, __( 'An institution leaves the pipeline when Airtable moves it to a stage outside the ones the program treats as active, which the Advanced tab lists. An institution with no stage at all has not left: the sync leaves it and its people alone. The accounts themselves are never deleted, and the agreement and the roster are kept.', 'wpcredits-program-manager' ) );
 

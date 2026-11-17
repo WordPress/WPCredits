@@ -13,7 +13,8 @@
  * - the invitation names the site after "the", and prints the day its link stops working in the
  *   site's date format;
  * - the notices that sent an institution to "the agreement panel" send it to the Collaboration
- *   Agreement card on its Institution Dashboard (received, returned, revoked);
+ *   Agreement card on its Institution Dashboard (received, returned, revoked); since Task 25's fix
+ *   round 1 (B1) the stub writes their sentences of today, which name the Agreement view;
  * - the Administrators' notice of an upload names an uploader with no name "a member of the
  *   institution", not the institution's Airtable record;
  * - the notice of a template that cannot be used names the institution as the site holds its name,
@@ -104,16 +105,19 @@ function wpcpm_mail_since_1_123_27( array $mail, array $site = array() ) {
 			break;
 
 		case 'agreement-received':
-			$body = $replace( 'received', 'withdraw it from the agreement panel on the site and upload the right one.', 'withdraw it from the Collaboration Agreement card on your Institution Dashboard and upload the right one.', $body );
+			// Task 25, fix round 1, B1: the sentence the notice says today, so it says what a school with no settled agreement shows its people.
+			$body = $replace( 'received', 'withdraw it from the agreement panel on the site and upload the right one.', 'open Agreement on your Institution Dashboard, withdraw it there and upload the right one.', $body );
 			break;
 
 		case 'agreement-returned':
-			$body = $replace( 'returned', 'Upload the corrected copy from the agreement panel on the site.', 'Upload the corrected copy from the Collaboration Agreement card on your Institution Dashboard.', $body );
+			// Task 25, fix round 1, B1: the sentence the notice says today, so it says what a school with no settled agreement shows its people.
+			$body = $replace( 'returned', 'Upload the corrected copy from the agreement panel on the site.', 'Upload the corrected copy under Agreement on your Institution Dashboard.', $body );
 			break;
 
 		case 'agreement-revoked':
+			// Task 25, fix round 1, B1: the sentence the notice says today, so it says what a school with no settled agreement shows its people.
 		case 'agreement-revoked-no-contact':
-			$body = $replace( 'revoked', 'Your account on this site is limited to the agreement panel until an agreement is in force again. Nothing about your students has been deleted.', 'Until an agreement is in force again, your Institution Dashboard shows only the Collaboration Agreement card. Nothing about your students has been deleted.', $body );
+			$body = $replace( 'revoked', 'Your account on this site is limited to the agreement panel until an agreement is in force again. Nothing about your students has been deleted.', 'Until an agreement is in force again, your institution\'s representatives see only the Overview and the Agreement on the Institution Dashboard, and its tutors cannot open it. Nothing about your students has been deleted.', $body );
 			break;
 
 		case 'agreement-landed':

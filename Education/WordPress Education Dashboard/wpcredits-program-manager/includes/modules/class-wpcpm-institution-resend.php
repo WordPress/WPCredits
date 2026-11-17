@@ -155,14 +155,13 @@ final class WPCPM_Institution_Resend {
 			return;
 		}
 
-		printf( '<div class="wpcpm-institution__invite" id="%s">', esc_attr( self::ANCHOR ) );
+		// The line is a block of the student's card (the Institution Dashboard, design 6.1), under its anchor.
+		printf( '<div class="wpcpm-ui-block" id="%s">', esc_attr( self::ANCHOR ) );
 
 		if ( ! empty( $flash ) ) {
-			printf(
-				'<p class="wpcpm-institution__invite-message is-%1$s" role="status">%2$s</p>',
-				esc_attr( $flash['tone'] ),
-				esc_html( $flash['text'] )
-			);
+			// The dashboards' shared outcome: a success polite, a refusal alerting, either the focus target
+			// assets/js/forms.js moves to on load, as the Administrator Dashboard draws its outcomes.
+			echo WPCPM_Dashboard_Card::message( $flash['tone'], $flash['text'], 'wpcpm-institution__invite-message' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Dashboard_Card::message().
 		}
 
 		// After a press refused for a held invitation the notice says who sends it, so the line does not
@@ -185,6 +184,8 @@ final class WPCPM_Institution_Resend {
 	 * and says it is sending, as the plugin's other one-press forms do, and its nonce is keyed to
 	 * the student's account, so a form drawn for one student is no use for another.
 	 *
+	 * The sentence is the parts' intro line with each date whole, and the button is the secondary one in an action row.
+	 *
 	 * @param int  $user_id The student's account.
 	 * @param bool $said    Whether the notice above says who sends a held invitation already.
 	 */
@@ -192,51 +193,84 @@ final class WPCPM_Institution_Resend {
 		$user_id = (int) $user_id;
 		$last    = WPCPM_Mail::last_invited( $user_id );
 		$format  = (string) get_option( 'date_format' );
-		$since   = wp_date( $format, WPCPM_Sign_Ins::since() );
+		$dates   = array( wp_date( $format, WPCPM_Sign_Ins::since() ) );
 
 		if ( $last > 0 ) {
-			$note = sprintf(
-				/* translators: 1: the day the site began recording sign-ins, 2: the date the last invitation was sent, both in the site's date format. */
-				__( 'No sign-in on record since %1$s. Invitation last sent %2$s.', 'wpcredits-program-manager' ),
-				$since,
-				wp_date( $format, $last )
-			);
+			/* translators: 1: the day the site began recording sign-ins, 2: the date the last invitation was sent, both in the site's date format. */
+			$note    = __( 'No sign-in on record since %1$s. Invitation last sent %2$s.', 'wpcredits-program-manager' );
+			$dates[] = wp_date( $format, $last );
 		} else {
-			$note = sprintf(
-				/* translators: %s: the day the site began recording sign-ins, in the site's date format. */
-				__( 'No sign-in on record since %s. No invitation sent yet.', 'wpcredits-program-manager' ),
-				$since
-			);
+			/* translators: %s: the day the site began recording sign-ins, in the site's date format. */
+			$note = __( 'No sign-in on record since %s. No invitation sent yet.', 'wpcredits-program-manager' );
 		}
 
-		printf( '<p class="wpcpm-institution__invite-note">%s</p>', esc_html( $note ) );
+		$whole = array_map(
+			static function ( $date ) {
+				return WPCPM_UI::whole( (string) $date );
+			},
+			$dates
+		);
+
+		echo WPCPM_UI::intro( '', '', '', vsprintf( esc_html( $note ), $whole ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The sentence through esc_html(), each date through WPCPM_UI::whole().
 
 		// The press refuses a held invitation, so the card offers none and says who sends it.
 		if ( WPCPM_Mail::is_held( $user_id ) ) {
 			if ( ! $said ) {
-				printf( '<p class="wpcpm-institution__invite-note">%s</p>', esc_html( self::held_line() ) );
+				echo WPCPM_UI::intro( self::held_line() ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
 			}
 
 			return;
 		}
 
+		$label = $last > 0 ? __( 'Resend invitation', 'wpcredits-program-manager' ) : __( 'Send invitation', 'wpcredits-program-manager' );
+
 		printf(
-			'<form class="wpcpm-institution__invite-form" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
 			esc_attr__( 'Sending...', 'wpcredits-program-manager' )
 		);
 
-		wp_nonce_field( self::ACTION . '_' . $user_id );
+		// The same name and value as core's nonce field, with no id: the student's card holds other forms' nonces too.
+		echo WPCPM_UI::nonce( self::nonce_action( $user_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::nonce().
 
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION ) );
-		printf( '<input type="hidden" name="%1$s" value="%2$d" />', esc_attr( self::FIELD_USER ), (int) $user_id );
+		self::render_hidden( $user_id );
 
-		printf(
-			'<button type="submit" class="wpcpm-button">%s</button>',
-			esc_html( $last > 0 ? __( 'Resend invitation', 'wpcredits-program-manager' ) : __( 'Send invitation', 'wpcredits-program-manager' ) )
+		$html = WPCPM_UI::actions(
+			array(
+				WPCPM_UI::button(
+					array(
+						'label' => $label,
+						'kind'  => 'secondary',
+						'side'  => 'front',
+					)
+				),
+			)
 		);
 
+		echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::actions() and button().
+
 		echo '</form>';
+	}
+
+	/**
+	 * The form's nonce action: keyed to the student's account, so a form drawn for one
+	 * student is no use for another.
+	 *
+	 * @param int $user_id The student's account.
+	 * @return string
+	 */
+	private static function nonce_action( $user_id ) {
+		return self::ACTION . '_' . (int) $user_id;
+	}
+
+	/**
+	 * The form's hidden fields after its nonce: the action and the account.
+	 *
+	 * @param int $user_id The student's account.
+	 */
+	private static function render_hidden( $user_id ) {
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION ) );
+		printf( '<input type="hidden" name="%1$s" value="%2$d" />', esc_attr( self::FIELD_USER ), (int) $user_id );
 	}
 
 	/**
@@ -548,7 +582,9 @@ final class WPCPM_Institution_Resend {
 			)
 		);
 
-		wp_safe_redirect( WPCPM_Request::back( WPCPM_Institutions_Dashboard::page_url(), home_url( '/' ) ) . '#' . self::ANCHOR );
+		// Back where the press was made, the student's card on the Students view; with no referer, that view
+		// (`way_back()`), with the school an Administrator's request names, and then the card's anchor as before.
+		wp_safe_redirect( WPCPM_Request::back( WPCPM_Institutions_Dashboard::way_back( substr( self::ANCHOR, strlen( 'wpcpm-' ) ) ), home_url( '/' ) ) . '#' . self::ANCHOR );
 		exit;
 	}
 }

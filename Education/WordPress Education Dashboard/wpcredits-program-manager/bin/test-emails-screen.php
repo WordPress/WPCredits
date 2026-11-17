@@ -485,7 +485,7 @@ ck( 'under the real switch the Emails tool\'s Log tab is its off drawing, byte f
 	'' !== trim( (string) $tab_real ),
 	preg_match( '/wpcpm-ui-/', (string) $tab_real ),
 	WPCPM_UI::surface(),
-), array( array( 'administrator' ), true, true, 0, '' ) );
+), array( array( 'administrator', 'institution' ), true, true, 0, '' ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

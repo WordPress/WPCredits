@@ -31,7 +31,7 @@ The program's news is ordinary posts in a category named *Updates*, or one under
 | --- | --- |
 | Student Report Card, column **Program updates and announcements** | **Public**, **Student level**, **Students and mentors** |
 | Mentor Report Card, the same column at the top | **Public**, **Mentor level**, **Students and mentors** |
-| Institution Dashboard, the same column | **Public**, **Institution level** |
+| Institution Dashboard, **Program updates** in the menu | **Public**, **Institution level** |
 | Administrator Dashboard, **Program updates** in the menu | **Public**, **Administrators only**, private posts included |
 | Sponsor Dashboard, **Program updates** in the menu | **Public**, **Sponsor level** |
 
@@ -39,10 +39,11 @@ Rules:
 - A page lists only its own levels, even for an Administrator.
 - The column shows the newest five, with **All updates** when there are more.
 - A private post shows on the Administrator Dashboard alone, such as a biweekly site update set to Private.
-- While no *Updates* category exists, the three columns read *Nothing new right now.* and the two menus have no **Program updates** item.
+- While no *Updates* category exists, the two columns read *Nothing new right now.* and the three menus have no **Program updates** item.
 - **Program updates** in a menu opens the newest update. It is there only while an update exists.
 - The update opens in the dashboard's frame, with up to twenty listed beside it, only where the site's theme supports that page. Otherwise it opens as an ordinary post. The list needs two or more updates.
 - An Administrator viewing a sponsor opens a **Sponsor level** update in that sponsor's frame. Its menu and list keep that sponsor.
+- Since 1.123.96 the Institution Dashboard has no column: **Program updates** is in its menu. An Administrator viewing a school opens an **Institution level** update in that school's frame, and its menu keeps that school.
 
 Step by step: [[Publish a program update]].
 
@@ -58,11 +59,17 @@ Rules:
 - Type to narrow it to names that hold what you typed, anywhere in the name.
 - Press Enter or click a name to pick it. Escape puts back the name picked last.
 
+Since 1.123.96, on the Institution Dashboard, **Viewing as institution** is one small field at the end of the page's first line, on every view:
+- Picking a school opens its page at once, on the view you are on. There is no **Show** unless JavaScript is off.
+- Every link in the menu keeps the school.
+- With no school in the address, an Administrator who belongs to no school is asked for one first, while two or more schools exist. The page's head then reads **Choose an institution**, and the menu lists the views without counts. With one school only, or for an Administrator who is also a school's member, the page opens on that school.
+- The page does not remember the school. An address that names none asks again.
+
 Step by step: [[Open someone's page as they see it]].
 
 ### The details card on an institution's page
 
-The card **Your institution's details** is at the head of the **Representatives and agreement** module of the Institution Dashboard. A school's representatives see it once the agreement is settled; Administrators see it on any school's page. Before that, the school sees the agreement panel alone.
+The card **Your institution's details** is the first card of the Institution Dashboard's **Your institution** view. A school's representatives see it once the agreement is settled, and its tutors never; Administrators see it on any school's page. Before that, the school's representatives have **Overview** and **Agreement** alone, and its tutors see no page.
 
 | Part | What it holds |
 | --- | --- |
@@ -131,7 +138,7 @@ Step by step: [[Correct a school's details yourself, and set the tracks it offer
 
 ### A student's card on an institution's page
 
-A school's representatives and tutors open a student's card from the roster. An Administrator opens it from the school's roster, reached through the switcher.
+A school's representatives and tutors open a student's card from the roster on **Students**. An Administrator opens it from the school's roster, reached through **Viewing as institution**. The card opens in place of the roster, and **Students** in the menu leads back to it.
 
 - The student's name and program. Representatives and Administrators also read "No sign-in on record" while the student has not signed in, with a way to send the invitation again.
 - **Internship duration**, **Cohort**, **Field of study**, **Tutor**, **WordPress.org**, **Contribution teams**, **Personal website**.
@@ -154,7 +161,7 @@ Step by step: [[Open a school's Institution Dashboard]]; [[A school's other requ
 
 ### The For Administrators section of an institution's page
 
-**For Administrators** is the last section of every Institution Dashboard. Nobody who acts for the institution sees it. It holds two folded cards.
+**For Administrators** is the last view in the menu of every school's Institution Dashboard. Nobody who acts for the institution sees it. It holds two cards.
 
 - **From the application**: the application's answers that Airtable has no column for, such as who signs the agreement. They stay after the application is removed. An institution approved before the site kept these answers has none: **Nothing kept from the application.**
 - **History**: the latest 100 things that happened to the institution, newest first.
@@ -162,7 +169,7 @@ Step by step: [[Open a school's Institution Dashboard]]; [[A school's other requ
 A History row gives when, who and what. Member rows and closed requests read in today's words; other rows show the sentence they were recorded with. A row recorded under an older name for Administrators reads in today's words too. Who is the account's name now. It reads **The site** when the site did it, and **A removed account** when the account is gone.
 
 - Rows cover members, invitations with the address each went to, the application, the Collaboration Agreement, details, tracks, the assigned Administrator, tutors, requests, imports, students and roster refusals.
-- A member row says how the account joined, in the People card's words such as **Joined by invitation**, or why it left, such as **They removed their own access**.
+- A member row says how the account joined, in the words of **Representatives and tutors**, such as **Joined by invitation**, or why it left, such as **They removed their own access**.
 - A closed request says how it was closed, with the Administrator's note when it can be shown.
 
 Step by step: [[Open a school's Institution Dashboard]].
@@ -196,13 +203,17 @@ A student or a mentor can pick the language of their own Report Card. The switch
 - Text only Administrators, institutions or sponsors read stays in English.
 - WordPress's own words and dates follow only when that language is installed on the site.
 
-### Arranging an institution's page
+### The views of an institution's page
 
-The Institution Dashboard has three sections: **Students**, **Semester report** and **Representatives and agreement**. Each has two small arrows, such as **Move Students up**.
+Since 1.123.96 the Institution Dashboard has nothing to arrange. A menu down the side opens one view per part: **Overview**, **Students**, **Enroll students** (while **Enrollment lists from institutions** is on), **Semester reports**, **Your institution**, **Agreement**, **Events** and, for you alone, **For Administrators**.
 
-- The order is the institution's, the same for everyone who signs in for it. A section with nothing to show is left out.
-- Only its representatives and Administrators see the arrows. A tutor cannot move anything.
-- Through the switcher you can arrange it for the institution.
+- **Events** is for the school's own representatives, while an event is listed. Tutors and Administrators do not have it.
+- A tutor has no **Enroll students**. A school whose agreement is not settled has **Overview** and **Agreement** alone. Its tutors see no page.
+- The menu also holds **Program updates** while there is an update for institutions, and **Institution guide** under **Help**.
+- A red tag beside a view counts what waits there for the reader, such as *1 waits*. Beside **Overview**, the tag counts all of it.
+- Through **Viewing as institution**, the school stays as you change views, and the view stays as you change schools.
+- The order a school saved with the old arrows stays stored and unused.
+- On the **Overview** you see *Stage:* in the head, and no news under **Good to know**: news is the school's own.
 
 The Sponsor Dashboard has nothing to arrange. A menu down the side opens one view per part: **Overview**, **Your sponsorship** (while **Sponsor tiers** is on), **Offers**, **Students reached**, **Mentors to sponsor**, **Your company** and **Agreement**. It also holds **Program updates** while there is an update for sponsors, and **Sponsor guide** while its page is published. Through the switcher, the sponsor stays as you change views, and the view stays as you change sponsors.
 

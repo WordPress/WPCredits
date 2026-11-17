@@ -16,6 +16,8 @@
  *               target, one with a 40-character unbroken word in the name; an invented mentor whose Mentor
  *               Report Card lists the first
  *            p60 p2 and fifty-seven more over five institutions with mixed stamps, one roster row with no account
+ *   accounts (Gate B, `{"accounts":true}`, run by seed.mjs once its forms are done, before ui-ready is saved, instead of a
+ *            state): two of the design school's students given accounts, one signed in, one invited and not signed in
  *   round 7b: the second real student is at an invented school whose name is a 40-character unbroken word, the test
  *   school's name has eight words or more, the test student's mentor a name of two long words, and p60 holds one
  *   more pending row under an invented school the pipeline index does not list (a roster of its own only)
@@ -57,6 +59,104 @@ remove_all_actions( 'set_user_role' );
 remove_all_actions( 'add_user_role' );
 remove_all_actions( 'added_user_meta' );
 remove_all_actions( 'updated_user_meta' );
+
+// ------------------------------------------------------------------ accounts (Gate B, at the end of seed.mjs's forms)
+// Two of the design school's enrolled students given accounts, so a student's card exists on the copy: Drew Example signed
+// in, Sky Example invited and not signed in (the card's Send the invitation again). No form makes a student's account (the
+// program records' sync does, and the rig starts none), so each is written as the pending students are below: the account
+// with no hook of a new account, its stamps in user meta, and its roster row given the account. Runs instead of a state.
+if ( ! empty( $in['accounts'] ) ) {
+	$design = isset( $schools['Example School of Design'] ) ? (string) $schools['Example School of Design'] : '';
+	if ( ! WPCPM_Mentors_Sync::is_record_id( $design ) ) {
+		echo "refusing: the design school's record was not handed over\n";
+		return;
+	}
+	$rows = WPCPM_Roster_Index::rows( $design );
+	$made = array();
+	foreach ( array( 'drew.example@example.org' => 'signed-in', 'sky.example@example.org' => 'invited' ) as $email => $how ) {
+		$row = null;
+		foreach ( $rows as $r ) {
+			if ( is_array( $r ) && isset( $r['email'] ) && strtolower( trim( (string) $r['email'] ) ) === $email ) {
+				$row = $r;
+				break;
+			}
+		}
+		if ( null === $row || ! isset( $row['record_id'] ) || ! WPCPM_Mentors_Sync::is_record_id( (string) $row['record_id'] ) ) {
+			echo "not made account {$email}: no roster row of the design school holds it\n";
+			continue;
+		}
+		$name = isset( $row['name'] ) && '' !== trim( (string) $row['name'] ) ? trim( (string) $row['name'] ) : $email;
+		$u    = get_user_by( 'email', $email );
+		if ( $u ) {
+			$uid = (int) $u->ID;
+		} else {
+			$parts = explode( ' ', $name, 2 );
+			$uid   = wp_insert_user(
+				array(
+					'user_login'   => strtok( $email, '@' ),
+					'user_email'   => $email,
+					'user_pass'    => wp_generate_password( 32 ),
+					'display_name' => $name,
+					'first_name'   => $parts[0],
+					'last_name'    => isset( $parts[1] ) ? $parts[1] : '',
+					'role'         => WPCPM_Roles::ROLE_STUDENT,
+				)
+			);
+			if ( is_wp_error( $uid ) ) {
+				echo "not made account {$email}: " . $uid->get_error_code() . "\n";
+				continue;
+			}
+			$uid = (int) $uid;
+		}
+		$record = (string) $row['record_id'];
+		update_user_meta( $uid, WPCPM_Students_Sync::META_RECORD_ID, $record );
+		update_user_meta( $uid, WPCPM_Students_Sync::META_INSTITUTION, $design );
+		update_user_meta( $uid, 'wpcpm_student_active', '1' );
+		update_user_meta(
+			$uid,
+			'wpcpm_student_program',
+			array(
+				'record_id'      => $record,
+				'name'           => $name,
+				'email'          => $email,
+				'program'        => isset( $row['status'] ) ? (string) $row['status'] : '',
+				'is_past'        => false,
+				'start'          => isset( $row['start'] ) ? (string) $row['start'] : '',
+				'end'            => isset( $row['end'] ) ? (string) $row['end'] : '',
+				'institution'    => 'Example School of Design',
+				'profile'        => '',
+				'username'       => '',
+				'slack'          => '',
+				'team'           => '',
+				'website'        => '',
+				'link'           => '',
+				'tutor'          => '',
+				'field_of_study' => '',
+				'accessibility'  => '',
+			)
+		);
+		update_user_meta( $uid, 'wpcpm_student_updated', $now );
+		if ( 'signed-in' === $how ) {
+			update_user_meta( $uid, WPCPM_Sign_Ins::META_SIGN_IN, $now - 3 * DAY_IN_SECONDS );
+		} else {
+			delete_user_meta( $uid, WPCPM_Sign_Ins::META_SIGN_IN );
+			update_user_meta( $uid, WPCPM_Mail::STAMPS[ WPCPM_Roles::ROLE_STUDENT ], $now - 2 * DAY_IN_SECONDS );
+		}
+		$row['user_id'] = $uid;
+		WPCPM_Roster_Index::insert( $design, $row );
+		$made[ $email ] = $uid;
+		echo "made account {$email} ({$how})\n";
+	}
+	// The card's line speaks of sign-ins since the day the site began recording them; a copy that holds no such day is given
+	// one, a month before the frozen moment (the plugin writes it once, on its upgrade, never through a form).
+	if ( WPCPM_Sign_Ins::since() <= 0 ) {
+		update_option( WPCPM_Sign_Ins::OPT_SINCE, $now - 30 * DAY_IN_SECONDS );
+		echo "made the day sign-ins are recorded from\n";
+	}
+	wp_cache_flush();
+	echo wp_json_encode( array( 'accounts' => $made ) ) . "\n";
+	return;
+}
 
 // ------------------------------------------------------------------ events
 if ( 'a' !== $events ) {

@@ -299,7 +299,17 @@ if ( ! class_exists( 'WPCPM_Mail' ) ) {
 }
 
 
-class WPCPM_Institutions_Dashboard { public static function page_url() { return 'https://example.test/institution-dashboard/'; } }
+require_once __DIR__ . '/stubs/institution-card-url.php';
+class WPCPM_Institutions_Dashboard {
+	public static function page_url() { return 'https://example.test/institution-dashboard/'; }
+	// The page's addresses, as the real class builds them (bin/stubs/institution-card-url.php, checked against it
+	// in bin/test-institution-ways-back.php).
+	public static function view_url( $view = 'overview', $record = '', array $args = array() ) { return wpcpm_test_institution_view_url( self::page_url(), $view, $record, $args ); }
+	public static function view_of( $card ) { return wpcpm_test_institution_view_of( $card ); }
+	public static function card_url( $card, $record = '', $item = '', array $args = array() ) { return wpcpm_test_institution_card_url( self::page_url(), $card, $record, $item, $args ); }
+	public static function requested_record() { return wpcpm_test_institution_requested_record(); }
+	public static function way_back( $card ) { return wpcpm_test_institution_way_back( self::page_url(), $card ); }
+}
 require_once __DIR__ . '/stubs/tutor-list.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
@@ -311,6 +321,11 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-record
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-invite.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-people.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-tutors.php';
+// The parts every card of this page is drawn with (Institution Dashboard, Task 23: the old markup is gone).
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
 
 $fail = 0;
 function ck( $label, $actual, $expected ) {
@@ -324,6 +339,7 @@ function ck( $label, $actual, $expected ) {
 	}
 }
 function has( $haystack, $needle ) { return false !== strpos( $haystack, $needle ); }
+function before( $body, $first, $second ) { $one = strpos( (string) $body, $first ); $two = strpos( (string) $body, $second ); return false !== $one && false !== $two && $one < $two; }
 function flash_status() {
 	$f = $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ]['institution_tutors'] ?? null;
 	return is_array( $f ) ? $f['status'] : $f;
@@ -448,7 +464,7 @@ ck( 'a removal names the person and the address as they were listed', array( $go
 echo "\n=== The People card draws the section ===\n";
 
 $rep = card( 7, $A );
-ck( 'a representative sees the Tutors subtitle after the members', array( has( $rep, '<h4 class="wpcpm-people__subtitle">Tutors</h4>' ), strpos( $rep, 'Tess Tutor' ) < strpos( $rep, '>Tutors</h4>' ) ), array( true, true ) );
+ck( 'a representative sees the Tutors heading after the members', array( has( $rep, '<h4 class="wpcpm-ui-h" id="wpcpm-tutors">Tutors</h4>' ), strpos( $rep, 'Tess Tutor' ) < strpos( $rep, '>Tutors</h4>' ) ), array( true, true ) );
 ck( 'each tutor with name and address', array( has( $rep, 'Adam Adamski' ), has( $rep, 'adam@example.test' ), has( $rep, 'Zofia Zielinska' ), has( $rep, 'zofia@example.test' ) ), array( true, true, true, true ) );
 ck( 'a Remove control on each, asking the sentence of the brief', array(
 	substr_count( $rep, 'name="action" value="wpcpm_institution_tutor_remove"' ),
@@ -459,8 +475,8 @@ ck( 'and an Add a tutor form: Name, Email, Add', array(
 	has( $rep, 'Add a tutor' ),
 	has( $rep, 'name="action" value="wpcpm_institution_tutor_add"' ),
 	has( $rep, 'value="nonce-wpcpm_institution_tutor_add_' . $A . '"' ),
-	1 === preg_match( '/<label for="wpcpm-tutor-name-' . $A . '">Name<\/label>/', $rep ),
-	1 === preg_match( '/<label for="wpcpm-tutor-email-' . $A . '">Email<\/label>/', $rep ),
+	1 === preg_match( '/<label class="wpcpm-ui-field__label" for="wpcpm-tutor-name-' . $A . '">Name <span class="wpcpm-ui-field__need">Required<\/span><\/label>/', $rep ),
+	1 === preg_match( '/<label class="wpcpm-ui-field__label" for="wpcpm-tutor-email-' . $A . '">Email <span class="wpcpm-ui-field__need">Required<\/span><\/label>/', $rep ),
 	has( $rep, 'name="name"' ),
 	has( $rep, 'type="email"' ),
 	1 === preg_match( '/<button type="submit"[^>]*>Add<\/button>/', $rep ),
@@ -486,7 +502,7 @@ echo "\n=== A representative adds and removes through the handlers ===\n";
 $GLOBALS['locks'] = array();
 $GLOBALS['released'] = array();
 $lock_name        = WPCPM_Institution_Request::school_lock_name( $A );
-$ret              = 'redirect:https://example.test/institution-dashboard/#wpcpm-tutors';
+$ret              = 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution#wpcpm-tutors';
 ck( 'an add ends on the card', press( 7, 'handle_add', array( 'record' => $A, 'name' => 'Ewa Nowak', 'email' => 'Ewa@example.test' ) ), $ret );
 ck( 'the tutor is listed and the add ran under the school\'s lock', array( in_array( 'ewa@example.test', array_column( WPCPM_Institution_Tutors::list_for( $A ), 'email' ), true ), $GLOBALS['locks'], $GLOBALS['released'] ), array( true, array( $lock_name ), array( $lock_name ) ) );
 ck( 'and the card says so', flash_status(), 'added' );
@@ -497,8 +513,10 @@ ck( 'in the words of the card, on the card of that school only', array( has( car
 WPCPM_Institution_Tutors::remove( $A, 'robtutor@example.test', 8, 'member' );
 ck( 'the row\'s ground is the one the policy gave', row_for( $A, 'tutor_added', 'ewa@example.test' )['ground'], 'member' );
 ck( 'an add of a listed address is told so, and writes nothing', array( press( 7, 'handle_add', array( 'record' => $A, 'name' => 'Ewa Again', 'email' => 'ewa@example.test' ) ), flash_status(), count( rows_of( $A, 'tutor_added' ) ) ), array( $ret, 'already', 7 ) );
-ck( 'an empty name is told so', array( press( 7, 'handle_add', array( 'record' => $A, 'name' => '', 'email' => 'e2@example.test' ) ), flash_status() ), array( $ret, 'name' ) );
-ck( 'a bad address is told so', array( press( 7, 'handle_add', array( 'record' => $A, 'name' => 'E Two', 'email' => 'nope' ) ), flash_status() ), array( $ret, 'email' ) );
+// Gate B round 2, F3: Add's own refusals land on its fold, where they are drawn; the list's outcomes on Tutors.
+$ret_add          = 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution#wpcpm-tutors-add';
+ck( 'an empty name is told so, on Add a tutor', array( press( 7, 'handle_add', array( 'record' => $A, 'name' => '', 'email' => 'e2@example.test' ) ), flash_status() ), array( $ret_add, 'name' ) );
+ck( 'a bad address is told so, on Add a tutor', array( press( 7, 'handle_add', array( 'record' => $A, 'name' => 'E Two', 'email' => 'nope' ) ), flash_status() ), array( $ret_add, 'email' ) );
 clear_flash();
 $GLOBALS['lock_held'] = $lock_name;
 ck( 'with the school\'s lock held by another request nothing is added, and it is said', array( press( 7, 'handle_add', array( 'record' => $A, 'name' => 'Late Comer', 'email' => 'late@example.test' ) ), flash_status(), in_array( 'late@example.test', array_column( WPCPM_Institution_Tutors::list_for( $A ), 'email' ), true ) ), array( $ret, 'busy', false ) );
@@ -513,7 +531,7 @@ clear_flash();
 ck( 'an Administrator adds too, on the manager ground, and returns to the school\'s view', array(
 	press( 1, 'handle_add', array( 'record' => $A, 'name' => 'Ola Admin', 'email' => 'ola@example.test' ) ),
 	row_for( $A, 'tutor_added', 'ola@example.test' )['ground'],
-), array( 'redirect:https://example.test/institution-dashboard/?wpcpm_institution_view=' . $A . '#wpcpm-tutors', 'manager' ) );
+), array( 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution&wpcpm_institution_view=' . $A . '#wpcpm-tutors', 'manager' ) );
 WPCPM_Institution_Tutors::remove( $A, 'ola@example.test', 1, 'manager' );
 
 echo "\n=== Hand-made posts are refused, and nothing is written ===\n";
@@ -569,6 +587,169 @@ WPCPM_Institution_People::init();
 ck( 'the two handlers are registered from the People card\'s init, after its own three', array_slice( $GLOBALS['hooks'], 3 ), array( 'admin_post_wpcpm_institution_tutor_add', 'admin_post_wpcpm_institution_tutor_remove' ) );
 ck( 'the file reads nothing from Airtable', array( has( $src, 'WPCPM_Airtable' ), has( $src, 'fetch_all' ) ), array( false, false ) );
 ck( 'and holds no dash but the plain hyphen', preg_match( '/\x{2013}|\x{2014}/u', $src . (string) file_get_contents( __FILE__ ) ), 0 );
+
+echo "\n=== Stage B (Task 20): the Tutors section on the shared parts ===\n";
+
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
+function wp_create_nonce( $a = -1 ) { return 'nonce-' . $a; }
+function wp_referer_field( $display = true ) { return ''; }
+function sanitize_html_class( $c, $f = '' ) { $c = preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); return '' === $c ? (string) $f : $c; }
+
+/** The section drawn by one reader in a new request, on the parts (the Institution Dashboard on) or under a named surface. */
+function t20t_section( $viewer, $record, $parts, $surface = null, $live = null ) {
+	$taken = new ReflectionProperty( 'WPCPM_Flash', 'taken' );
+	if ( PHP_VERSION_ID < 80100 ) {
+		$taken->setAccessible( true );
+	}
+	$taken->setValue( null, array() );
+	WPCPM_UI::set_live( $parts ? array( 'administrator', 'institution' ) : $live );
+	if ( $parts || null !== $surface ) {
+		WPCPM_UI::enter( $parts ? 'institution' : (string) $surface );
+	}
+	$html = section( $viewer, $record );
+	if ( $parts || null !== $surface ) {
+		WPCPM_UI::leave();
+	}
+	WPCPM_UI::set_live( null );
+	return $html;
+}
+/** What each form posts: its action, each hidden name=value, and the question its submit asks. */
+function t20t_posts( $html ) {
+	$out = array();
+	preg_match_all( '#<form\b[^>]*\baction="([^"]*)"[^>]*>(.*?)</form>#s', (string) $html, $forms, PREG_SET_ORDER );
+	foreach ( $forms as $form ) {
+		preg_match_all( '#<input type="hidden" name="([^"]*)" value="([^"]*)"#', $form[2], $fields, PREG_SET_ORDER );
+		preg_match( '/data-wpcpm-confirm="([^"]*)"/', $form[2], $q );
+		$out[] = array( $form[1], array_map( static function ( $f ) { return $f[1] . '=' . $f[2]; }, $fields ), $q[1] ?? '' );
+	}
+	return $out;
+}
+
+// What the old section posted, read from the class at db850661 (the last commit that drew it) before it was deleted (Task 23).
+$t20t_remove = static function ( $email, $name ) use ( $A ) {
+	return array( 'https://example.test/wp-admin/admin-post.php', array( '_wpnonce=nonce-wpcpm_institution_tutor_remove_' . $A, 'action=wpcpm_institution_tutor_remove', 'record=' . $A, 'email=' . $email ), 'Remove ' . $name . ' from the tutors? Their account, if they have one, stays until you remove it above.' );
+};
+$t20t_old_posts = array(
+	$t20t_remove( 'adam@example.test', 'Adam Adamski' ),
+	$t20t_remove( 'nameless@example.test', 'nameless' ),
+	$t20t_remove( 'tara@example.test', 'Tara Tutor' ),
+	$t20t_remove( 'zofia@example.test', 'Zofia Zielinska' ),
+	array( 'https://example.test/wp-admin/admin-post.php', array( '_wpnonce=nonce-wpcpm_institution_tutor_add_' . $A, 'action=wpcpm_institution_tutor_add', 'record=' . $A ), '' ),
+);
+$t20t_new = t20t_section( 7, $A, true );
+ck( 'every form posts what today\'s posts: a Remove per tutor (the action, the school, the address) with today\'s question, and Add (the action, the school)', array( t20t_posts( $t20t_new ) === $t20t_old_posts, count( t20t_posts( $t20t_new ) ) ), array( true, count( WPCPM_Institution_Tutors::list_for( $A ) ) + 1 ) );
+ck( 'the section on the parts: its heading on today\'s anchor, a row per tutor, Remove quiet red, Add a tutor an inner fold, closed, with Name and Email Required and Add the primary', array(
+	0 === strpos( $t20t_new, '<h4 class="wpcpm-ui-h" id="wpcpm-tutors">Tutors</h4>' ),
+	substr_count( $t20t_new, '<li class="wpcpm-ui-list__row">' ),
+	substr_count( $t20t_new, 'class="wpcpm-btn wpcpm-btn--quiet wpcpm-btn--danger"' ),
+	has( $t20t_new, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" id="wpcpm-tutors-add">' ),
+	has( $t20t_new, 'name="name" required maxlength="100" value=""' ),
+	has( $t20t_new, 'name="email" required value=""' ),
+	has( $t20t_new, '<button type="submit" class="wpcpm-btn">Add</button>' ),
+	has( $t20t_new, 'wpcpm-people__' ),
+), array( true, count( WPCPM_Institution_Tutors::list_for( $A ) ), count( WPCPM_Institution_Tutors::list_for( $A ) ), true, true, true, true, false ) );
+ck( 'a tutor reads the same list on both branches and is drawn no Remove and no Add', array( t20t_posts( t20t_section( 50, $A, true ) ), substr_count( t20t_section( 50, $A, true ), '<li class="wpcpm-ui-list__row">' ), has( t20t_section( 50, $A, true ), 'Add a tutor' ) ), array( array(), count( WPCPM_Institution_Tutors::list_for( $A ) ), false ) );
+ck( 'a stranger is drawn nothing on either branch', array( t20t_section( 60, $A, false ), t20t_section( 60, $A, true ) ), array( '', '' ) );
+WPCPM_Flash::set( WPCPM_Institution_Tutors::FLASH, array( 'status' => 'name', 'record' => $A ), 7 );
+$t20t_refused = t20t_section( 7, $A, true );
+// Gate B, B7: Add's own refusal is said at its form, the open fold's first block, no longer under the Tutors heading.
+ck( 'Add refused for its name: the outcome at the top of Add a tutor as the shell\'s message, a link to the box, the fold drawn open and the sentence under Name', array(
+	1 === preg_match( '#<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id="wpcpm-tutors-add">.*?</summary><div class="wpcpm-ui-fold__body"><p class="wpcpm-people__message wpcpm-people__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message><a href="\#wpcpm-tutor-name-' . $A . '">Give the tutor&\#039;s name, up to 100 characters\.</a></p><form #s', $t20t_refused ),
+	has( $t20t_refused, '<h4 class="wpcpm-ui-h" id="wpcpm-tutors">Tutors</h4><p class="wpcpm-people__message' ),
+	has( $t20t_refused, 'id="wpcpm-tutor-name-' . $A . '-problem">Give the tutor&#039;s name, up to 100 characters.</' ),
+), array( true, false, true ) );
+
+echo "\n=== Task 20, follow-up: a refused Add keeps its typing on the parts ===\n";
+
+/** What one person has kept for one school's Add, or null. */
+function t20k_kept( $uid, $record ) {
+	return $GLOBALS['umeta'][ (int) $uid ][ WPCPM_Flash::META ][ WPCPM_Flash::KEPT_CHANNEL . 'tutor-add:' . $record ]['values'] ?? null;
+}
+/** A post as one person in a request of its own. */
+function t20k_press( $uid, array $post ) {
+	$taken = new ReflectionProperty( 'WPCPM_Flash', 'taken' );
+	if ( PHP_VERSION_ID < 80100 ) {
+		$taken->setAccessible( true );
+	}
+	$taken->setValue( null, array() );
+	return press( $uid, 'handle_add', $post );
+}
+$t20k_bad  = '<script>alert(1)</script> "q" & Co';
+$t20k_name = 'Exampleinstituteforappliedwebengineerings';
+$t20k_mail = 'averyveryveryverylongmailboxname1234@example.org';
+
+ck( 'the handler names the form it keeps, for the school\'s record', defined( 'WPCPM_Institution_Tutors::KEPT_ADD' ) ? WPCPM_Institution_Tutors::KEPT_ADD : null, 'tutor-add:' );
+
+// A refusal of the address: both values kept, as typed, for this person and this school.
+t20k_press( 7, array( 'record' => $A, 'name' => 'Ann ' . $t20k_bad, 'email' => 'nope ' . $t20k_bad ) );
+ck( 'a refused add keeps the name and the address as they were typed', array( flash_status(), t20k_kept( 7, $A ) ), array( 'email', array( 'name' => 'Ann ' . $t20k_bad, 'email' => 'nope ' . $t20k_bad ) ) );
+$t20k_saved    = $GLOBALS['umeta'][7];
+$GLOBALS['umeta'][7] = $t20k_saved;
+$t20k_drawn    = t20t_section( 7, $A, true );
+ck( 'the parts\' form comes back open with both values, escaped once, the problem under Email', array(
+	has( $t20k_drawn, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id="wpcpm-tutors-add">' ),
+	has( $t20k_drawn, 'name="name" required maxlength="100" value="Ann &lt;script&gt;alert(1)&lt;/script&gt; &quot;q&quot; &amp; Co">' ),
+	1 === preg_match( '#name="email" required aria-invalid="true" aria-describedby="wpcpm-tutor-email-' . $A . '-problem" value="nope &lt;script&gt;alert\(1\)&lt;/script&gt; &quot;q&quot; &amp; Co">#', $t20k_drawn ),
+	has( $t20k_drawn, '<script' ) || has( $t20k_drawn, '&amp;amp;' ),
+), array( true, true, true, false ) );
+ck( 'read once: the next drawing is the empty form', has( t20t_section( 7, $A, true ), 'value="Ann ' ), false );
+
+// An over-long name is cut where the handler bounds it.
+t20k_press( 7, array( 'record' => $A, 'name' => str_repeat( 'n', WPCPM_Institution_Tutors::NAME_MAX + 50 ), 'email' => 'long@example.test' ) );
+ck( 'an over-long name is refused and kept cut to the handler\'s bound, the address whole', array( flash_status(), mb_strlen( (string) ( t20k_kept( 7, $A )['name'] ?? '' ) ), t20k_kept( 7, $A )['email'] ?? null ), array( 'name', WPCPM_Institution_Tutors::NAME_MAX, 'long@example.test' ) );
+t20t_section( 7, $A, true );
+
+// Kept for one school and one person only.
+t20k_press( 1, array( 'record' => $A, 'name' => '', 'email' => 'admin-a@example.test' ) );
+ck( 'an Administrator\'s values kept for one school do not show on another school\'s card, and do on the school\'s own', array(
+	has( t20t_section( 1, $B, true ), 'admin-a@example.test' ),
+	has( t20t_section( 1, $A, true ), 'value="admin-a@example.test"' ),
+), array( false, true ) );
+t20k_press( 7, array( 'record' => $A, 'name' => '', 'email' => 'anna-typed@example.test' ) );
+ck( 'one person\'s values are not shown to another reading the same card', array( has( t20t_section( 8, $A, true ), 'anna-typed@example.test' ), t20k_kept( 8, $A ) ), array( false, null ) );
+
+// A success leaves nothing kept; "busy" keeps nothing and opens nothing.
+t20k_press( 7, array( 'record' => $A, 'name' => 'Kept Then Added', 'email' => 'kept-added@example.test' ) );
+ck( 'a success drops what an earlier refusal kept, and keeps nothing', array( flash_status(), t20k_kept( 7, $A ) ), array( 'added', null ) );
+WPCPM_Institution_Tutors::remove( $A, 'kept-added@example.test', 7, 'member' );
+$GLOBALS['lock_held'] = WPCPM_Institution_Request::school_lock_name( $A );
+t20k_press( 7, array( 'record' => $A, 'name' => 'Busy Day', 'email' => 'busy@example.test' ) );
+unset( $GLOBALS['lock_held'] );
+$t20k_busy_status = flash_status();
+$t20k_busy_kept   = t20k_kept( 7, $A );
+$t20k_busy        = t20t_section( 7, $A, true );
+ck( 'the busy outcome keeps nothing and still opens nothing', array( $t20k_busy_status, $t20k_busy_kept, has( $t20k_busy, 'open id="wpcpm-tutors-add"' ), has( $t20k_busy, 'busy@example.test' ) ), array( 'busy', null, false, false ) );
+
+// A post without the right changes nothing kept.
+WPCPM_Flash::keep( 'tutor-add:' . $A, array( 'name' => 'Mine' ) );
+$GLOBALS['uid'] = 50;
+WPCPM_Flash::keep( 'tutor-add:' . $A, array( 'name' => 'Tutor kept' ) );
+$GLOBALS['uid'] = 60;
+WPCPM_Flash::keep( 'tutor-add:' . $A, array( 'name' => 'Stranger kept' ) );
+$t20k_before = array( serialize( $GLOBALS['umeta'][50] ?? null ), serialize( $GLOBALS['umeta'][60] ?? null ) );
+$t20k_out    = array( t20k_press( 50, array( 'record' => $A, 'name' => '', 'email' => 'x@example.test' ) ), t20k_press( 60, array( 'record' => $A, 'name' => '', 'email' => 'x@example.test' ) ) );
+ck( 'a tutor\'s and a stranger\'s posts are refused and change nothing kept', array( $t20k_out, serialize( $GLOBALS['umeta'][50] ?? null ), serialize( $GLOBALS['umeta'][60] ?? null ) ), array( array_fill( 0, 2, $refusal ), $t20k_before[0], $t20k_before[1] ) );
+
+ck( 'the handler forgets after its nonce and its policy, and keeps only on a refusal of the form', array(
+	before( (string) method_body( $src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-tutors.php' ), 'handle_add' ), 'WPCPM_Institution_Policy::decide(', 'WPCPM_Flash::forget(' ),
+	before( (string) method_body( $src, 'handle_add' ), 'WPCPM_Flash::forget(', 'self::add(' ),
+	substr_count( $src, 'WPCPM_Flash::kept(' ),
+	has( (string) method_body( $src, 'render_add_form' ), 'WPCPM_Flash::kept(' ),
+), array( true, true, 1, false ) );
+
+// Task 22b: a tutor's name and address are plain words the sheet breaks, no `<wbr>`.
+$t22b_name    = 'Exampleunbrokenpersonnamewithfortychars1';
+$t22b_address = 'abcdefgh1234@example.org';
+WPCPM_Institution_Tutors::add( $A, $t22b_name, $t22b_address, 7, 'member' );
+$t22b_section = t20t_section( 7, $A, true );
+ck(
+	'Task 22b: a 40-character tutor name and a 24-character address are printed whole on the parts, no `<wbr>`',
+	array( strlen( $t22b_name ), strlen( $t22b_address ), has( $t22b_section, '>' . $t22b_name . '<' ), has( $t22b_section, '>' . $t22b_address . '<' ), substr_count( $t22b_section, '<wbr>' ) ),
+	array( 40, 24, true, true, 0 )
+);
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

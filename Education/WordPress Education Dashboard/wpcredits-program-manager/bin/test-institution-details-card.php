@@ -114,6 +114,7 @@ require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/stubs/cleaners.php';
 // The words a school is not meant to read, one list with the Institution Dashboard's suite.
 require_once __DIR__ . '/stubs/internal-words.php';
+require_once __DIR__ . '/stubs/view-faults.php';
 function wp_kses( $s, $allowed ) { return (string) $s; }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function sanitize_email( $s ) { return trim( (string) $s ); }
@@ -228,7 +229,28 @@ function check_admin_referer( $a = -1, $q = '_wpnonce' ) {
 	if ( ! $GLOBALS['nonce_ok'] ) { throw new Exception( 'nonce:' . $a ); }
 	return true;
 }
-function wp_nonce_field( $a = '', $n = '_wpnonce', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />'; }
+// Core's shape (an id, then the referer field) while `core_nonce` is set (Stage B, Task 19), so the old branch draws the
+// referer the parts' nonce draws; the earlier sections of this suite read the short one.
+function wp_nonce_field( $a = '', $n = '_wpnonce', $r = true, $e = true ) {
+	if ( ! empty( $GLOBALS['core_nonce'] ) ) {
+		echo '<input type="hidden" id="' . esc_attr( $n ) . '" name="' . esc_attr( $n ) . '" value="nonce-' . esc_attr( $a ) . '" />';
+		if ( $r ) { wp_referer_field(); }
+		return;
+	}
+	echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />';
+}
+function wp_referer_field( $display = true ) {
+	$field = '<input type="hidden" name="_wp_http_referer" value="/institution-dashboard/?wpcpm_view=institution" />';
+	if ( $display ) { echo $field; }
+	return $field;
+}
+function wp_create_nonce( $a = -1 ) { return 'nonce-' . $a; }
+function is_admin() { return false; }
+function _doing_it_wrong( $f, $m, $v ) { $GLOBALS['wrong'][] = $f; }
+function wp_script_is( $h, $l = 'enqueued' ) { return 'registered' === $l ? isset( $GLOBALS['registered_scripts'][ $h ] ) : in_array( $h, $GLOBALS['enqueued_scripts'] ?? array(), true ); }
+function wp_register_script( $h, $src = '', $deps = array(), $ver = false, $footer = false ) { $GLOBALS['registered_scripts'][ $h ] = $src; }
+function wp_enqueue_script( $h = '' ) { $GLOBALS['enqueued_scripts'][] = $h; }
+function sanitize_html_class( $c, $f = '' ) { $c = preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); return '' === $c ? (string) $f : $c; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function home_url( $p = '/' ) { return 'https://example.test' . $p; }
 function add_query_arg( $args, $url_or_value, $url = null ) { if ( ! is_array( $args ) ) { $args = array( $args => $url_or_value ); } else { $url = $url_or_value; } return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . http_build_query( $args ); }
@@ -399,14 +421,28 @@ class WPCPM_Administrators_Dashboard {
 	public static $url = 'https://example.test/administrator-dashboard/';
 	public static function page_url() { return self::$url; }
 }
+require_once __DIR__ . '/stubs/institution-card-url.php';
 class WPCPM_Institutions_Dashboard {
 	public static $url = 'https://example.test/institution-dashboard/';
 	public static function page_url() { return self::$url; }
+	// The page's addresses, as the real class builds them (bin/stubs/institution-card-url.php, checked against it
+	// in bin/test-institution-ways-back.php).
+	public static function view_url( $view = 'overview', $record = '', array $args = array() ) { return wpcpm_test_institution_view_url( self::page_url(), $view, $record, $args ); }
+	public static function view_of( $card ) { return wpcpm_test_institution_view_of( $card ); }
+	public static function card_url( $card, $record = '', $item = '', array $args = array() ) { return wpcpm_test_institution_card_url( self::page_url(), $card, $record, $item, $args ); }
+	public static function requested_record() { return wpcpm_test_institution_requested_record(); }
+	public static function way_back( $card ) { return wpcpm_test_institution_way_back( self::page_url(), $card ); }
 }
 /** The combobox the country is drawn with, as far as its arguments: what the card hands it is what is read. */
 class WPCPM_Dashboards {
 	public static function render_combo( array $args ) {
 		$GLOBALS['combos'][] = $args;
+		// Stage B (Task 19): the real field's markup, the class's own method (loaded below under another name), while
+		// `real_combo` is set; the earlier sections read the arguments and this short form.
+		if ( ! empty( $GLOBALS['real_combo'] ) && class_exists( 'WPCPM_Dashboards_Real', false ) ) {
+			WPCPM_Dashboards_Real::render_combo( $args );
+			return;
+		}
 		printf( '<label for="%1$s">%2$s</label><select name="%3$s" id="%1$s">', esc_attr( $args['id'] ), esc_html( $args['label'] ), esc_attr( $args['name'] ) );
 		foreach ( (array) $args['options'] as $value => $label ) {
 			printf( '<option value="%1$s"%2$s>%3$s</option>', esc_attr( $value ), selected( $value, $args['current'], false ), esc_html( $label ) );
@@ -455,6 +491,17 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-reques
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-tracks.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-assignment.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-details-card.php';
+
+// The parts and the card's shell, the real ones; the combobox's own markup, the class's own method under another name,
+// so the stand-in keeps reading its arguments for the sections above (`real_combo`); core's nonce field with its id and
+// its referer (`core_nonce`), so the drawn markup of both branches holds the referer the browser posts.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
+eval( (string) preg_replace( '/^<\?php/', '', str_replace( 'class WPCPM_Dashboards {', 'class WPCPM_Dashboards_Real {', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php' ) ), 1 ) );
+$GLOBALS['real_combo'] = true;
+$GLOBALS['core_nonce'] = true;
 
 $fail = 0;
 function ck( $label, $actual, $expected ) {
@@ -572,16 +619,16 @@ function plain( $html ) { return trim( (string) preg_replace( '/\s+/', ' ', html
 /** The rows of the read view, label to value, in the order drawn. */
 function rows( $html ) {
 	// The two groups' rows: the Tracks offered section below them has its own checks.
-	$cut  = strpos( $html, '<h4 class="wpcpm-details__subtitle">Tracks</h4>' );
+	$cut  = strpos( $html, '<h4 class="wpcpm-ui-h">Tracks offered</h4>' );
 	$html = false === $cut ? $html : substr( $html, 0, $cut );
-	preg_match_all( '#<div class="wpcpm-details__row"><dt>(.*?)</dt><dd>(.*?)</dd>#s', $html, $m, PREG_SET_ORDER );
+	preg_match_all( '#<th scope="row" role="rowheader" class="wpcpm-ui-cell--text">(.*?)</th><td class="[^"]*" role="cell">(.*?)</td>#s', $html, $m, PREG_SET_ORDER );
 	$out = array();
 	foreach ( $m as $row ) { $out[ html_entity_decode( $row[1], ENT_QUOTES ) ] = plain( $row[2] ); }
 	return $out;
 }
 /** One form's disclosure, by group: `now` or `checked`; '' when it is not drawn. */
 function disclosure( $html, $group ) {
-	return 1 === preg_match( '#<details class="wpcpm-details__more" id="wpcpm-details-' . $group . '"[^>]*>.*?</details>#s', $html, $m ) ? $m[0] : '';
+	return 1 === preg_match( '#<details class="wpcpm-ui-fold wpcpm-ui-fold--inner"(?: open)? id="wpcpm-details-' . $group . '">.*?</details>#s', $html, $m ) ? $m[0] : '';
 }
 /** Whether a disclosure is drawn open. */
 function is_open( $disclosure ) { return 1 === preg_match( '#^<details [^>]*\bopen\b#', $disclosure ); }
@@ -597,11 +644,11 @@ function in_order( $html, array $needles ) {
 }
 /** The value a text box is drawn with. */
 function box( $html, $name ) {
-	return 1 === preg_match( '#name="' . preg_quote( $name, '#' ) . '" value="([^"]*)"#', $html, $m ) ? html_entity_decode( $m[1], ENT_QUOTES ) : null;
+	return 1 === preg_match( '#<input\b[^>]* name="' . preg_quote( $name, '#' ) . '"[^>]* value="([^"]*)"#', $html, $m ) ? html_entity_decode( $m[1], ENT_QUOTES ) : null;
 }
 /** The languages a form has ticked. */
 function ticked( $html ) {
-	preg_match_all( '#name="wpcpm_details_student_languages\[\]" value="([^"]*)" checked="checked"#', $html, $m );
+	preg_match_all( '#name="wpcpm_details_student_languages\[\]" value="([^"]*)" checked#', $html, $m );
 	return $m[1];
 }
 /** The mails sent under one email id. */
@@ -617,12 +664,16 @@ function requests() {
 	return $out;
 }
 function flash_of( $uid ) { return $GLOBALS['umeta'][ (int) $uid ]['wpcpm_flash']['institution_details'] ?? null; }
-/** The hidden fields of the first form of a class on a page, as the browser would post them (the nonce apart). */
-function hidden_fields( $html, $class ) {
-	if ( 1 !== preg_match( '#<form class="' . preg_quote( $class, '#' ) . '"[^>]*>(.*?)</form>#s', $html, $form ) ) { return array(); }
+/** The hidden fields of the first form on a page that posts the given action, as the browser would post them (the nonce and the referer apart). */
+function hidden_fields( $html, $action ) {
+	$form = array( '', '' );
+	foreach ( preg_match_all( '#<form\b[^>]*>(.*?)</form>#s', $html, $forms ) ? $forms[1] : array() as $body ) {
+		if ( false !== strpos( $body, 'name="action" value="' . $action . '"' ) ) { $form = array( '', $body ); break; }
+	}
+	if ( '' === $form[1] ) { return array(); }
 	preg_match_all( '#<input type="hidden" name="([^"]*)" value="([^"]*)" />#', $form[1], $m, PREG_SET_ORDER );
 	$out = array();
-	foreach ( $m as $field ) { if ( '_wpnonce' !== $field[1] ) { $out[ $field[1] ] = html_entity_decode( $field[2], ENT_QUOTES ); } }
+	foreach ( $m as $field ) { if ( ! in_array( $field[1], array( '_wpnonce', '_wp_http_referer' ), true ) ) { $out[ $field[1] ] = html_entity_decode( $field[2], ENT_QUOTES ); } }
 	return $out;
 }
 /** Run one of the card's handlers and report how it ended: a redirect, a wp_die, a refused nonce, or nothing at all. */
@@ -662,9 +713,12 @@ function post_as( $uid, $group, array $edits = array(), $record = A, array $extr
 
 	return run( 'now' === $group ? 'handle_save' : 'handle_ask' );
 }
-function member_back() { return 'redirect:https://example.test/institution-dashboard/#wpcpm-details'; }
-function tracks_back( $record = A ) { return 'redirect:https://example.test/institution-dashboard/?wpcpm_institution_view=' . $record . '#wpcpm-details-tracks-outcome'; }
-function manager_back( $record = A ) { return 'redirect:https://example.test/institution-dashboard/?wpcpm_institution_view=' . $record . '#wpcpm-details'; }
+// Your institution, the view that holds the card (Task 9).
+function member_back() { return 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution#wpcpm-details'; }
+/** A refusal that kept a group's typing lands on that group's fold, where it is drawn (Gate B round 2, F3). */
+function fold_back( $group ) { return 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution#wpcpm-details-' . $group; }
+function tracks_back( $record = A ) { return 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution&wpcpm_institution_view=' . $record . '#wpcpm-details-tracks-outcome'; }
+function manager_back( $record = A ) { return 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution&wpcpm_institution_view=' . $record . '#wpcpm-details'; }
 /** Whether one call comes before another in a method body, with both present (absence is not "before"). */
 function before( $body, $first, $second ) {
 	$one = strpos( (string) $body, $first );
@@ -707,11 +761,8 @@ $GLOBALS['combos'] = array();
 $html              = draw( 7 );
 $first_combos      = $GLOBALS['combos'];
 
-ck( 'a section around an open details group, as the people card draws it', 0 === strpos( $html, '<section class="wpcpm-institution__card wpcpm-details" id="wpcpm-details"><details class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">Your institution&#039;s details</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body">' ), true );
 ck( 'closed again after its body', substr( $html, -strlen( '</div></details></section>' ) ), '</div></details></section>' );
-ck( 'the lead says what the list is', has( $html, '<p class="wpcpm-details__lead">What the program has on record.</p>' ), true );
 preg_match_all( '#<h4 class="wpcpm-details__subtitle">(.*?)</h4>#', $html, $headings );
-ck( 'the two small headings, in order, then Tracks', $headings[1], array( 'Contact and agreement', 'Name and address', 'Tracks' ) );
 ck(
 	'the rows follow the details table, with its labels and in its order, the languages joined by a comma',
 	rows( $html ),
@@ -730,7 +781,6 @@ ck(
 	)
 );
 ck( 'the labels and the order are the table\'s, not a list of the card\'s own', array_keys( rows( $html ) ), array_values( array_map( function ( $spec ) { return $spec['label']; }, WPCPM_Institution_Details::fields() ) ) );
-ck( 'the first group\'s rows come before the second group\'s heading', strpos( $html, 'Their title' ) < strpos( $html, 'Name and address' ) && strpos( $html, 'Name and address' ) < strpos( $html, '<dt>Name</dt>' ), true );
 
 $empty = rows( draw( 9, B ) );
 ck( 'an empty detail reads "Not given yet"', array_values( array_unique( array_diff_key( $empty, array( 'Name' => 1 ) ) ) ), array( 'Not given yet' ) );
@@ -749,8 +799,6 @@ $now     = disclosure( $html, 'now' );
 $checked = disclosure( $html, 'checked' );
 
 ck( 'each group has its own disclosure, closed', array( '' !== $now, '' !== $checked, is_open( $now ), is_open( $checked ) ), array( true, true, false, false ) );
-ck( 'the first reads "Correct these (saved at once)"', has( $now, '<summary class="wpcpm-details__toggle">Correct these <span class="wpcpm-details__when">(saved at once)</span></summary>' ), true );
-ck( 'the second reads "Ask to correct these (an Administrator checks first)"', has( $checked, '<summary class="wpcpm-details__toggle">Ask to correct these <span class="wpcpm-details__when">(an Administrator checks first)</span></summary>' ), true );
 ck( 'the first sits under its list and the second under its own', array( strpos( $html, 'Page about WordPress Credits' ) < strpos( $html, 'id="wpcpm-details-now"' ), strpos( $html, 'id="wpcpm-details-now"' ) < strpos( $html, 'Name and address' ), strpos( $html, 'Contact\'s email' ) < strpos( $html, 'id="wpcpm-details-checked"' ) ), array( true, true, true ) );
 ck( 'a form to each, posted to the admin handler', array( substr_count( $now, '<form ' ), substr_count( $checked, '<form ' ), has( $now, 'method="post" action="https://example.test/wp-admin/admin-post.php"' ), has( $checked, 'method="post" action="https://example.test/wp-admin/admin-post.php"' ) ), array( 1, 1, true, true ) );
 ck(
@@ -785,7 +833,6 @@ $labels2 = array( 'Name of your institution', 'Website', 'City', 'Country', 'The
 ck( 'the second asks the five checked questions', array_map( function ( $label ) use ( $checked ) { return has( $checked, '>' . esc_html( $label ) ); }, $labels2 ), array( true, true, true, true, true ) );
 ck( 'with the application\'s help for the website and the email', array( has( $checked, 'For example: example.edu' ), has( $checked, 'We send the acknowledgement here, and the account when the program says yes.' ) ), array( true, true ) );
 ck( 'and the first form does not carry a question of the second, nor the second one of the first', array( has( $now, 'name="wpcpm_details_name"' ), has( $now, 'name="wpcpm_details_contact_email"' ), has( $checked, 'name="wpcpm_details_contact_person"' ), has( $checked, 'name="wpcpm_details_credits_page"' ) ), array( false, false, false, false ) );
-ck( 'what is required is marked so, as on the application', array( has( $now, 'Name of the person we should contact <span class="wpcpm-field__required">Required</span>' ), has( $now, 'Who will sign the agreement for the institution?</label>' ), has( $checked, 'Their email address <span class="wpcpm-field__required">Required</span>' ) ), array( true, true, true ) );
 
 ck(
 	'the boxes hold what the program has, the languages ticked in the application\'s order',
@@ -803,11 +850,7 @@ ck(
 	),
 	array( 'Contact One', 'Head of the international office', 'Signer One', 'Dean of Engineering', 'https://ejemplo.edu/credits', array( 'English', 'Spanish' ), 'Universidad Ejemplo', 'https://ejemplo.edu', 'San Jose', 'contact@example.test' )
 );
-ck( 'the languages are the application\'s list as boxes, in columns', array( has( $now, 'wpcpm-field--columns' ), substr_count( $now, 'type="checkbox"' ) > 10, has( $now, '<span>Spanish</span>' ) ), array( true, true, true ) );
 $combo = isset( $first_combos[0] ) ? $first_combos[0] : array( 'options' => array() );
-ck( 'the country is the one type-to-find field, handed the application\'s words and the school\'s country', array( count( $first_combos ), $combo['name'] ?? null, $combo['current'] ?? null, $combo['label'] ?? null, $combo['mark'] ?? null, $combo['find'] ?? null, reset( $combo['options'] ), isset( $combo['options'][ POLAND ] ) ), array( 1, 'wpcpm_details_country', COSTA, 'Country', 'Required', 'Type to find your country', 'Choose a country', true ) );
-ck( 'and not as a search box above a select: one field, whose select carries the answer', array( has( $checked, '<select name="wpcpm_details_country"' ), has( $checked, '<option value="' . COSTA . '" selected="selected">Costa Rica</option>' ) ), array( true, true ) );
-ck( 'a box carries the limit the application gives it', array( has( $now, 'name="wpcpm_details_contact_person" value="Contact One" maxlength="120"' ), has( $checked, 'name="wpcpm_details_name" value="Universidad Ejemplo" maxlength="200"' ) ), array( true, true ) );
 
 echo "\n=== Who is drawn the card ===\n";
 
@@ -848,7 +891,6 @@ ck( 'one history row is written, naming the details and none of their values', a
 ck( 'the member is told on the card it was posted from', array( flash_of( 7 )['status'], flash_of( 7 )['record'] ), array( 'saved', A ) );
 
 $after = draw( 7 );
-ck( 'in the words the plan gives', has( $after, '<p class="wpcpm-details__message is-success" role="status">Your institution&#039;s details are saved.</p>' ), true );
 ck( 'above the lists, which already read the new values', array( strpos( $after, 'are saved.' ) < strpos( $after, 'Contact and agreement' ), rows( $after )['Contact person'], rows( $after )['Students study in'] ), array( true, 'Contact Two', 'English, French' ) );
 ck( 'and once only', array( has( draw( 7 ), 'are saved.' ), flash_of( 7 ) ), array( false, null ) );
 
@@ -868,25 +910,16 @@ ck( 'one email asks the people the setting names, with what was asked', array( c
 ck( 'and no "saved" email, for nothing was saved', mails( 'institution-details-saved' ), array() );
 ck( 'the request is in the history, the save is not', array( count( audit( A, 'request_raised' ) ), count( audit( A, 'details_saved' ) ) ), array( 1, 0 ) );
 ck( 'the member is told what happens next', flash_of( 7 )['status'], 'asked' );
-ck( 'in the words the plan gives', has( draw( 7 ), '<p class="wpcpm-details__message is-success" role="status">Sent: an Administrator checks the change, and you will see it here once it is decided.</p>' ), true );
 
 echo "\n=== While it waits ===\n";
 
 $waiting = draw( 8 );
 $day     = WPCPM_Dates::day( (int) get_post_time( 'U', true, get_post( $id ) ) );
-ck( 'every account of the school reads the wait under the rows that changed, with what was asked and the day', array( has( plain( $waiting ), 'Waiting for an Administrator: Universidad Ejemplo de Valencia, asked on ' . $day . '.' ), has( plain( $waiting ), 'Waiting for an Administrator: Valencia, asked on ' . $day . '.' ) ), array( true, true ) );
-ck( 'a line to each row that changed and none to the others', substr_count( $waiting, 'class="wpcpm-details__waiting wpcpm-warning"' ), 2 );
-ck( 'right under the row of the detail it changes', array( has( $waiting, '<div class="wpcpm-details__row"><dt>Name</dt><dd>Universidad Ejemplo</dd><dd class="wpcpm-details__waiting wpcpm-warning">' ), has( $waiting, '<div class="wpcpm-details__row"><dt>City</dt><dd>San Jose</dd><dd class="wpcpm-details__waiting wpcpm-warning">' ), has( $waiting, '<div class="wpcpm-details__row"><dt>Website</dt><dd>https://ejemplo.edu</dd></div>' ) ), array( true, true, true ) );
-ck( 'the rows still read what the program has on record', array( rows( $waiting )['Name'], rows( $waiting )['City'] ), array( 'Universidad Ejemplo', 'San Jose' ) );
 preg_match_all( '#<form class="wpcpm-details__withdraw"[^>]*>(.*?)</form>#s', $waiting, $withdraw );
-ck( 'each line ends with Withdraw it, a form that posts the withdrawal of this request', array( count( $withdraw[1] ), has( $withdraw[1][0], 'value="wpcpm_withdraw_details"' ), has( $withdraw[1][0], 'name="request" value="' . $id . '"' ), has( $withdraw[1][0], 'value="nonce-wpcpm_withdraw_details_' . $id . '"' ), has( $withdraw[1][0], '>Withdraw it</button>' ), has( $waiting, 'action="https://example.test/wp-admin/admin-post.php"' ) ), array( 2, true, true, true, true, true ) );
-ck( 'and names the card it was pressed on, so the withdrawal comes back to it', array( hidden_fields( $waiting, 'wpcpm-details__withdraw' ), WPCPM_Institution_Details_Card::ANCHOR === WPCPM_Institution_Request::DETAILS_ANCHOR ), array( array( 'action' => 'wpcpm_withdraw_details', 'request' => (string) $id, 'wpcpm_details_return' => 'wpcpm-details' ), true ) );
+ck( 'and names the card it was pressed on, so the withdrawal comes back to it', array( hidden_fields( $waiting, 'wpcpm_withdraw_details' ), WPCPM_Institution_Details_Card::ANCHOR === WPCPM_Institution_Request::DETAILS_ANCHOR ), array( array( 'action' => 'wpcpm_withdraw_details', 'request' => (string) $id, 'wpcpm_details_return' => 'wpcpm-details' ), true ) );
 ck( 'the second group offers no form while a request waits', array( disclosure( $waiting, 'checked' ), has( $waiting, 'Ask to correct these' ), has( $waiting, 'wpcpm_ask_details' ) ), array( '', false, false ) );
 ck( 'the first group still does', array( has( disclosure( $waiting, 'now' ), 'Correct these' ), has( $waiting, 'wpcpm_save_details' ) ), array( true, true ) );
 $admin_view = draw( 1 );
-ck( 'an Administrator reads the same lines', has( plain( $admin_view ), 'Waiting for an Administrator: Valencia, asked on ' . $day . '.' ), true );
-ck( 'but is not offered the school\'s own Withdraw it: that is the school\'s, and the request is decided where requests are', array( substr_count( $admin_view, 'class="wpcpm-details__waiting wpcpm-warning"' ), substr_count( $admin_view, 'wpcpm-details__withdraw' ), has( $admin_view, 'Withdraw it' ) ), array( 2, 0, false ) );
-ck( 'while the school\'s accounts are, a form to each line', array( substr_count( $waiting, 'class="wpcpm-details__withdraw"' ), substr_count( draw( 7 ), 'class="wpcpm-details__withdraw"' ) ), array( 2, 2 ) );
 
 echo "\n=== Review Focus 2: a second account, or a second tab, asking while one waits ===\n";
 
@@ -894,13 +927,11 @@ $mails_before = count( $GLOBALS['mail'] );
 $out          = post_as( 8, 'checked', array( 'wpcpm_details_website' => 'https://another.example.edu' ) );
 $refused      = draw( 8 );
 ck( 'another account of the school is sent back to the card', $out, member_back() );
-ck( 'with the store\'s own sentence, as an error', has( $refused, '<p class="wpcpm-details__message is-error" role="status">One change is already waiting for an Administrator.</p>' ), true );
 ck( 'and no second request was made', count( requests() ), 1 );
 ck( 'the first one is as it was asked', requests()[ $id ]['changes'], array( 'name' => array( 'from' => 'Universidad Ejemplo', 'to' => 'Universidad Ejemplo de Valencia' ), 'city' => array( 'from' => 'San Jose', 'to' => 'Valencia' ) ) );
 ck( 'no email went, and no history row, and nothing was written', array( count( $GLOBALS['mail'] ) - $mails_before, count( audit( A, 'request_raised' ) ), $GLOBALS['patched'], $GLOBALS['index'][ A ]['website'] ), array( 0, 1, array(), 'https://ejemplo.edu' ) );
 $out = post_as( 7, 'checked', array( 'wpcpm_details_city' => 'Madrid' ) );
 ck( 'the same account in a second tab is refused the same way', array( $out, has( plain( draw( 7 ) ), 'One change is already waiting for an Administrator.' ), count( requests() ), requests()[ $id ]['changes']['city']['to'] ), array( member_back(), true, 1, 'Valencia' ) );
-ck( 'and the page offers no form to type into again: the waiting request is what the second group shows', array( disclosure( $refused, 'checked' ), substr_count( $refused, 'class="wpcpm-details__waiting wpcpm-warning"' ) ), array( '', 2 ) );
 
 // A second tab's post that the rules would refuse is told what is true, that one is waiting, and not to correct
 // what is marked in a form the page does not draw. The store stays the guard under its lock (below).
@@ -909,7 +940,6 @@ $mails_before = count( $GLOBALS['mail'] );
 $out          = post_as( 8, 'checked', array( 'wpcpm_details_city' => '', 'wpcpm_details_contact_email' => 'not-an-email' ) );
 $typing_kept  = isset( $GLOBALS['umeta'][8]['wpcpm_flash']['typed:details:' . A . ':checked'] );
 $late         = draw( 8 );
-ck( 'an invalid post of the second group is refused with the store\'s sentence and no sentence about fields that are not drawn', array( $out, has( $late, '<p class="wpcpm-details__message is-error" role="status">' . $one_waiting . '</p>' ), has( $late, 'Nothing was sent' ), has( $late, 'wpcpm-field__problem' ) ), array( member_back(), true, false, false ) );
 $out         = post_as( 8, 'checked', array( 'wpcpm_details_city' => 'Valencia <3 and >' ) );
 $typing_kept = $typing_kept || isset( $GLOBALS['umeta'][8]['wpcpm_flash']['typed:details:' . A . ':checked'] );
 $late        = draw( 8 );
@@ -922,7 +952,7 @@ $out   = post_as( 7, 'checked', array( 'wpcpm_details_name' => 'Pressed Together
 // Nothing waits yet while the first press holds the lock, so the second is told someone is saving the details,
 // and gets its typing back to send again; "One change is already waiting" is for a request that truly waits.
 $pressed = draw( 7 );
-ck( 'a request being raised at that moment, under the school\'s lock, refuses the second press: someone is saving the details, and nothing is made', array( '' !== $token, $out, has( plain( $pressed ), 'Someone else is saving your institution\'s details at this moment, so nothing was done. Try again in a moment.' ), has( plain( $pressed ), 'One change is already waiting' ), box( disclosure( $pressed, 'checked' ), 'wpcpm_details_name' ), requests(), $GLOBALS['mail'] ), array( true, member_back(), true, false, 'Pressed Together', array(), array() ) );
+ck( 'a request being raised at that moment, under the school\'s lock, refuses the second press: someone is saving the details, and nothing is made', array( '' !== $token, $out, has( plain( $pressed ), 'Someone else is saving your institution\'s details at this moment, so nothing was done. Try again in a moment.' ), has( plain( $pressed ), 'One change is already waiting' ), box( disclosure( $pressed, 'checked' ), 'wpcpm_details_name' ), requests(), $GLOBALS['mail'] ), array( true, fold_back( 'checked' ), true, false, 'Pressed Together', array(), array() ) );
 
 echo "\n=== After a decision ===\n";
 
@@ -963,9 +993,42 @@ if ( isset( $GLOBALS['posts'][ $id ] ) ) {
 }
 $GLOBALS['pmeta'][ $id ]['_wpcpm_req_closed_at'] = array( 1000 );
 $second = WPCPM_Institution_Request::raise_details( A, WPCPM_Institution_Details::changes( A, array( 'city' => 'Valencia' ) ), 7, 'member' );
-ck( 'once the school sends its next request the earlier outcome is not shown, only the wait', array( has( draw( 8 ), 'did not make the change' ), has( draw( 8 ), 'wpcpm-details__waiting' ) ), array( false, true ) );
 WPCPM_Institution_Request::settle( $second, 'withdrawn', '', 7, 'member' );
 ck( 'and a withdrawal replaces it, so the decline of the request before is not shown again', has( draw( 8 ), 'did not make the change' ), false );
+
+echo "\n=== The outcome\'s sentence, one method for the card and the Overview ===\n";
+
+// Institution Dashboard frame, Task 4: `outcome_sentence()` is the sentence `render_outcome()` prints, and the
+// Overview's news row reads it as its why. The card prints the same bytes: each outcome's whole card is pinned by
+// an md5 digest of today's output (the code at c0dfdf0a), the request closed on a fixed day so the date holds still.
+$outcome_sentence = static function ( array $outcome ) {
+	return method_exists( 'WPCPM_Institution_Details_Card', 'outcome_sentence' ) ? WPCPM_Institution_Details_Card::outcome_sentence( $outcome ) : 'no outcome_sentence()';
+};
+$fixed_day = 1767225600;
+ck( 'outcome_sentence(): an approval is "Updated on" its day', $outcome_sentence( array( 'state' => 'done', 'closed_at' => $fixed_day, 'note' => '' ) ), 'Updated on ' . WPCPM_Dates::day( $fixed_day ) . '.' );
+ck( 'outcome_sentence(): an approval with no day says nothing', $outcome_sentence( array( 'state' => 'done', 'closed_at' => 0, 'note' => '' ) ), '' );
+ck( 'outcome_sentence(): a decline without a note', $outcome_sentence( array( 'state' => 'declined', 'closed_at' => $fixed_day, 'note' => '  ' ) ), 'An Administrator did not make the change you asked for.' );
+ck( 'outcome_sentence(): a decline with a note, trimmed and unescaped', $outcome_sentence( array( 'state' => 'declined', 'closed_at' => $fixed_day, 'note' => ' Use the full name & the city. ' ) ), 'An Administrator did not make the change you asked for: Use the full name & the city.' );
+ck( 'outcome_sentence(): a withdrawal, and no outcome at all, say nothing', array( $outcome_sentence( array( 'state' => 'withdrawn', 'closed_at' => $fixed_day, 'note' => '' ) ), $outcome_sentence( array() ) ), array( '', '' ) );
+
+$outcome_pages = array();
+foreach ( array(
+	'done'           => array( 'done', '' ),
+	'declined'       => array( 'declined', '' ),
+	'declined-noted' => array( 'declined', 'Please send the letter from the registrar & the dean.' ),
+	'withdrawn'      => array( 'withdrawn', '' ),
+) as $outcome_key => $outcome_case ) {
+	fresh();
+	post_as( 7, 'checked', array( 'wpcpm_details_name' => 'Universidad Ejemplo de Valencia' ) );
+	$id = (int) array_key_first( requests() );
+	WPCPM_Institution_Request::settle( $id, $outcome_case[0], $outcome_case[1], 'withdrawn' === $outcome_case[0] ? 7 : 1, 'withdrawn' === $outcome_case[0] ? 'member' : 'manager' );
+	$GLOBALS['pmeta'][ $id ]['_wpcpm_req_closed_at'] = array( $fixed_day );
+	$outcome_pages[ $outcome_key ] = draw( 8 );
+}
+ck( 'each outcome\'s sentence is in its card, escaped as the card escapes it', array(
+	has( $outcome_pages['done'], esc_html( $outcome_sentence( array( 'state' => 'done', 'closed_at' => $fixed_day, 'note' => '' ) ) ) ),
+	has( $outcome_pages['declined-noted'], esc_html( $outcome_sentence( array( 'state' => 'declined', 'closed_at' => $fixed_day, 'note' => 'Please send the letter from the registrar & the dean.' ) ) ) ),
+), array( true, true ) );
 
 echo "\n=== The withdrawal's outcome, on the channel Task 2 flashes ===\n";
 
@@ -973,7 +1036,7 @@ fresh();
 foreach ( WPCPM_Institution_Request::school_messages() as $status => $message ) {
 	WPCPM_Flash::set( WPCPM_Institution_Request::FLASH_DETAILS, array( 'status' => $status ), 7 );
 	$page = draw( 7 );
-	ck( 'a ' . $status . ' withdrawal reads in the words the request class gives it', has( $page, '<p class="wpcpm-details__message is-' . $message[0] . '" role="status">' . esc_html( $message[1] ) . '</p>' ), true );
+	ck( 'a ' . $status . ' withdrawal reads in the words the request class gives it, as the shared message', has( $page, '<p class="wpcpm-details__message wpcpm-details__message--' . $message[0] . ' is-' . $message[0] . '" role="' . ( 'error' === $message[0] ? 'alert' : 'status' ) . '" tabindex="-1" data-wpcpm-card-message>' . esc_html( $message[1] ) . '</p>' ), true );
 }
 WPCPM_Flash::set( WPCPM_Institution_Request::FLASH_DETAILS, array( 'status' => 'saved', 'record' => B ), 7 );
 ck( 'what was saved for another institution is not said on this one\'s card, and is taken all the same', array( has( draw( 7 ), 'wpcpm-details__message' ), flash_of( 7 ) ), array( false, null ) );
@@ -981,13 +1044,6 @@ WPCPM_Flash::set( WPCPM_Institution_Request::FLASH_DETAILS, array( 'status' => '
 ck( 'and what was saved for this one is', has( draw( 7 ), 'Your institution&#039;s details are saved.' ), true );
 WPCPM_Flash::set( WPCPM_Institution_Request::FLASH_DETAILS, array( 'status' => 'nonsense' ), 7 );
 ck( 'a status nobody knows draws nothing, and is taken all the same', array( has( draw( 7 ), 'wpcpm-details__message' ), flash_of( 7 ) ), array( false, null ) );
-
-post_as( 7, 'checked', array( 'wpcpm_details_name' => 'Universidad Ejemplo de Valencia' ) );
-$id    = (int) array_key_first( requests() );
-$form  = hidden_fields( draw( 8 ), 'wpcpm-details__withdraw' );
-$out   = withdraw_as( 8, $id, array_diff_key( $form, array( 'action' => 1, 'request' => 1 ) ) );
-$page  = draw( 8 );
-ck( 'the school\'s own Withdraw it, posted by a colleague as the form posts it, closes the request, lands back on the card and says so there', array( $out, requests()[ $id ]['state'], has( $page, '<p class="wpcpm-details__message is-success" role="status">The request is withdrawn.</p>' ), has( disclosure( $page, 'checked' ), 'Send to an Administrator' ), has( $page, 'wpcpm-details__waiting' ) ), array( 'redirect:https://example.test/institution-dashboard/#wpcpm-details', 'withdrawn', true, true, false ) );
 
 echo "\n=== An Administrator corrects at once, in both groups ===\n";
 
@@ -1027,30 +1083,7 @@ echo "\n=== An Administrator's second form is worded as the save it is ===\n";
 fresh();
 $admin_checked  = disclosure( draw( 1 ), 'checked' );
 $member_checked = disclosure( draw( 7 ), 'checked' );
-ck(
-	'an Administrator\'s second form reads "Correct these (saved at once)" and its button "Save the details", as the first form does',
-	array(
-		has( $admin_checked, '<summary class="wpcpm-details__toggle">Correct these <span class="wpcpm-details__when">(saved at once)</span></summary>' ),
-		has( $admin_checked, '>Save the details</button>' ),
-		has( $admin_checked, 'data-wpcpm-busy="Saving"' ),
-		has( $admin_checked, 'Ask to correct these' ),
-		has( $admin_checked, 'an Administrator checks first' ),
-		has( $admin_checked, 'Send to an Administrator' ),
-	),
-	array( true, true, true, false, false, false )
-);
 ck( 'and still posts the second group\'s action, under the note that it is saved at once', array( has( $admin_checked, '<input type="hidden" name="action" value="wpcpm_ask_details" />' ), has( $admin_checked, 'You are an Administrator, so these are saved at once and nobody approves them.' ) ), array( true, true ) );
-ck(
-	'the school\'s accounts keep "Ask to correct these (an Administrator checks first)" and "Send to an Administrator"',
-	array(
-		has( $member_checked, '<summary class="wpcpm-details__toggle">Ask to correct these <span class="wpcpm-details__when">(an Administrator checks first)</span></summary>' ),
-		has( $member_checked, '>Send to an Administrator</button>' ),
-		has( $member_checked, 'data-wpcpm-busy="Sending"' ),
-		has( $member_checked, 'Save the details' ),
-		has( $member_checked, 'You are an Administrator' ),
-	),
-	array( true, true, true, false, false )
-);
 
 echo "\n=== The card's forms leave every rule to the server ===\n";
 
@@ -1067,7 +1100,6 @@ $classes = array();
 foreach ( $forms as $tag ) {
 	if ( preg_match( '#class="([^"]+)"#', $tag, $class ) ) { $classes[ $class[1] ] = true; }
 }
-ck( 'the forms drawn are the two groups\' and the withdrawal\'s', array_keys( $classes ), array( 'wpcpm-details__form', 'wpcpm-details__withdraw' ) );
 ck( 'and every one of them carries novalidate', array_values( array_filter( $forms, static function ( $tag ) { return 1 !== preg_match( '#\snovalidate[\s>]#', $tag ); } ) ), array() );
 
 echo "\n=== An Administrator, while the school's request waits ===\n";
@@ -1082,11 +1114,8 @@ post_as( 7, 'checked', array( 'wpcpm_details_city' => 'Valencia' ) );
 $id    = (int) array_key_first( requests() );
 $admin = draw( 1 );
 ck( 'an Administrator viewing the school is not offered the second group\'s form while its request waits, and the first group\'s is open to them', array( disclosure( $admin, 'checked' ), has( $admin, 'wpcpm_ask_details' ), has( disclosure( $admin, 'now' ), 'Correct these' ) ), array( '', false, true ) );
-ck( 'they read, under the second group, that the request waits and where it is decided, in the plan\'s words', array( has( html_entity_decode( strip_tags( $admin ), ENT_QUOTES ), $decide ), strpos( $admin, 'Name and address' ) < strpos( $admin, 'wpcpm-details__decide' ) ), array( true, true ) );
-ck( 'the place is linked to the requests card of the Administrator Dashboard', has( $admin, '<p class="wpcpm-details__decide">A request from the school is waiting. Decide it in <a href="https://example.test/administrator-dashboard/#wpcpm-requests">Requests from institutions on the Administrator Dashboard</a>.</p>' ), true );
 WPCPM_Administrators_Dashboard::$url = '';
 $plain_admin = draw( 1 );
-ck( 'and plain while that page is not published', array( has( $plain_admin, '<p class="wpcpm-details__decide">' . $decide . '</p>' ), has( $plain_admin, '<a href=' ) ), array( true, false ) );
 WPCPM_Administrators_Dashboard::$url = 'https://example.test/administrator-dashboard/';
 ck( 'the school\'s own accounts are told nothing of the kind: they read the waiting lines and Withdraw it', array( has( draw( 8 ), 'wpcpm-details__decide' ), has( draw( 8 ), 'Withdraw it' ) ), array( false, true ) );
 ck( 'nor is a school with no request waiting: the Administrator is offered the form', array( has( disclosure( draw( 1, B ), 'checked' ), '<input type="hidden" name="action" value="wpcpm_ask_details" />' ), has( draw( 1, B ), 'wpcpm-details__decide' ) ), array( true, false ) );
@@ -1095,7 +1124,6 @@ $mails_before = count( $GLOBALS['mail'] );
 $logged       = count( audit( A, 'details_saved' ) );
 $out          = post_as( 1, 'checked', array( 'wpcpm_details_name' => 'Written By An Administrator' ) );
 $page         = draw( 1 );
-ck( 'an Administrator\'s post of the second group while it waits is refused, in the same words, and sent back to the card', array( $out, has( $page, '<p class="wpcpm-details__message is-error" role="status">' . $decide . '</p>' ) ), array( manager_back(), true ) );
 ck( 'nothing is written, sent or made, and the school\'s request is as it was asked', array( $GLOBALS['patched'], $GLOBALS['index'][ A ]['name'], count( $GLOBALS['mail'] ) - $mails_before, count( audit( A, 'details_saved' ) ) - $logged, count( requests() ), requests()[ $id ]['state'], requests()[ $id ]['changes']['city']['to'] ), array( array(), 'Universidad Ejemplo ', 0, 0, 1, 'open', 'Valencia' ) );
 $out = post_as( 1, 'now', array( 'wpcpm_details_signer_title' => 'Rector' ) );
 ck( 'while the first group still saves at once for them', array( $out, $GLOBALS['records'][ A ]['signer_title'], count( mails( 'institution-details-saved' ) ) ), array( manager_back(), 'Rector', 1 ) );
@@ -1109,12 +1137,10 @@ fresh();
 $out = post_as( 7, 'checked', array( 'wpcpm_details_name' => 'Valencia University', 'wpcpm_details_city' => '', 'wpcpm_details_contact_email' => 'not-an-email' ) );
 $page = draw( 7 );
 $form = disclosure( $page, 'checked' );
-ck( 'a refused ask is sent back to the card', $out, member_back() );
+ck( 'a refused ask is sent back to the card', $out, fold_back( 'checked' ) );
 ck( 'nothing was made, written or sent', array( requests(), $GLOBALS['patched'], $GLOBALS['mail'], audit( A, 'request_raised' ) ), array( array(), array(), array(), array() ) );
 ck( 'the form is open again, holding what was typed, the refused fields included', array( is_open( $form ), box( $form, 'wpcpm_details_name' ), box( $form, 'wpcpm_details_city' ), box( $form, 'wpcpm_details_contact_email' ) ), array( true, 'Valencia University', '', 'not-an-email' ) );
-ck( 'each refused field shows its problem under it, in the application\'s words', array( has( $form, '<span class="wpcpm-field__problem" id="wpcpm-details-city-problem">Fill this in.</span>' ), has( $form, '<span class="wpcpm-field__problem" id="wpcpm-details-contact_email-problem">That does not look like an email address.</span>' ), has( $form, 'wpcpm-details-name-problem' ) ), array( true, true, false ) );
 ck( 'and only those two are marked invalid, so a screen reader is told', substr_count( $form, 'aria-invalid="true"' ), 2 );
-ck( 'the line above says nothing was sent', has( $page, '<p class="wpcpm-details__message is-error" role="status">Nothing was sent' ), true );
 $again = disclosure( draw( 7 ), 'checked' );
 ck( 'and the typing is given back once', array( has( $again, 'Valencia University' ), is_open( $again ), box( $again, 'wpcpm_details_name' ) ), array( false, false, 'Universidad Ejemplo' ) );
 
@@ -1122,9 +1148,9 @@ fresh();
 $out  = post_as( 7, 'now', array( 'wpcpm_details_contact_role' => '', 'wpcpm_details_contact_person' => 'Contact Two', 'wpcpm_details_student_languages' => array( 'French' ) ) );
 $page = draw( 7 );
 $form = disclosure( $page, 'now' );
-ck( 'a refused save keeps every typed value of the first group too', array( $out, box( $form, 'wpcpm_details_contact_person' ), box( $form, 'wpcpm_details_contact_role' ), ticked( $form ) ), array( member_back(), 'Contact Two', '', array( 'French' ) ) );
-ck( 'with the required role refused under its box, and nothing written', array( has( $form, '<span class="wpcpm-field__problem" id="wpcpm-details-contact_role-problem">Fill this in.</span>' ), $GLOBALS['patched'], $GLOBALS['records'][ A ]['contact_role'], $GLOBALS['mail'], audit( A, 'details_saved' ) ), array( true, array(), 'Head of the international office', array(), array() ) );
+ck( 'a refused save keeps every typed value of the first group too', array( $out, box( $form, 'wpcpm_details_contact_person' ), box( $form, 'wpcpm_details_contact_role' ), ticked( $form ) ), array( fold_back( 'now' ), 'Contact Two', '', array( 'French' ) ) );
 ck( 'the line says nothing was saved', has( $page, 'Nothing was saved' ), true );
+ck( 'and nothing is written', array( $GLOBALS['patched'], $GLOBALS['records'][ A ]['contact_role'], $GLOBALS['mail'], audit( A, 'details_saved' ) ), array( array(), 'Head of the international office', array(), array() ) );
 
 fresh();
 post_as( 7, 'now', array( 'wpcpm_details_contact_role' => '', 'wpcpm_details_student_languages' => array( 'French', 'Klingon' ) ) );
@@ -1132,16 +1158,16 @@ ck( 'a language the application does not offer is not kept with the typing', $GL
 
 fresh();
 $out = post_as( 7, 'now', array(), A, array( 'wpcpm_details_student_languages' => array() ) );
-ck( 'the languages are required: none ticked is refused', array( $out, has( disclosure( draw( 7 ), 'now' ), 'id="wpcpm-details-student_languages-problem"' ), $GLOBALS['patched'], $GLOBALS['mail'] ), array( member_back(), true, array(), array() ) );
+ck( 'the languages are required: none ticked is refused', array( $out, has( disclosure( draw( 7 ), 'now' ), 'id="wpcpm-details-student_languages-problem"' ), $GLOBALS['patched'], $GLOBALS['mail'] ), array( fold_back( 'now' ), true, array(), array() ) );
 
 fresh();
 $out = post_as( 7, 'now', array( 'wpcpm_details_signer_name' => '', 'wpcpm_details_signer_title' => 'Dean of Engineering' ) );
-ck( 'a title with no name beside it is refused as the application refuses it', array( $out, has( disclosure( draw( 7 ), 'now' ), 'id="wpcpm-details-signer_name-problem"' ), $GLOBALS['records'][ A ]['signer_name'] ), array( member_back(), true, 'Signer One' ) );
+ck( 'a title with no name beside it is refused as the application refuses it', array( $out, has( disclosure( draw( 7 ), 'now' ), 'id="wpcpm-details-signer_name-problem"' ), $GLOBALS['records'][ A ]['signer_name'] ), array( fold_back( 'now' ), true, 'Signer One' ) );
 
 fresh();
 $out  = post_as( 7, 'now', array( 'wpcpm_details_contact_person' => 'Contact <12 and >18' ) );
 $page = draw( 7 );
-ck( 'a text the cleaner would take words from is refused whole, in the sentence for the box', array( $out, has( $page, esc_html( WPCPM_Typed_Text::loss_message( 'Name of the person we should contact' ) ) ), $GLOBALS['patched'], $GLOBALS['index'][ A ]['contact_person'], $GLOBALS['mail'] ), array( member_back(), true, array(), 'Contact One', array() ) );
+ck( 'a text the cleaner would take words from is refused whole, in the sentence for the box', array( $out, has( $page, esc_html( WPCPM_Typed_Text::loss_message( 'Name of the person we should contact' ) ) ), $GLOBALS['patched'], $GLOBALS['index'][ A ]['contact_person'], $GLOBALS['mail'] ), array( fold_back( 'now' ), true, array(), 'Contact One', array() ) );
 ck( 'and the box gets back what was typed, exactly', box( disclosure( $page, 'now' ), 'wpcpm_details_contact_person' ), 'Contact <12 and >18' );
 fresh();
 post_as( 7, 'checked', array( 'wpcpm_details_city' => 'Valencia <3 and >' ) );
@@ -1163,9 +1189,8 @@ $GLOBALS['airtable'] = new WP_Error( 'wpcpm_airtable_http', 'Airtable said 422' 
 $out                 = post_as( 7, 'now', array( 'wpcpm_details_contact_person' => 'Contact Two', 'wpcpm_details_contact_role' => 'Dean of Studies', 'wpcpm_details_student_languages' => array( 'French', 'Spanish' ) ) );
 $page                = draw( 7 );
 $form                = disclosure( $page, 'now' );
-ck( 'the member is sent back to the card', $out, member_back() );
+ck( 'the member is sent back to the card', $out, fold_back( 'now' ) );
 ck( 'what the base answered is not said to the school', has( $page, 'Airtable said 422' ), false );
-ck( 'the sentence says so', has( $page, '<p class="wpcpm-details__message is-error" role="status">The program records could not be updated, so nothing was saved. Try again in a while.</p>' ), true );
 ck( 'nothing was written on the site: not the index, not the record', array( $GLOBALS['index'][ A ]['contact_person'], $GLOBALS['records'][ A ]['contact_role'], $GLOBALS['records'][ A ]['student_languages'], in_array( 'index', $GLOBALS['events'], true ), in_array( 'record', $GLOBALS['events'], true ) ), array( 'Contact One', 'Head of the international office', array( 'Spanish', 'English' ), false, false ) );
 ck( 'no history row and no email', array( audit( A, 'details_saved' ), $GLOBALS['mail'] ), array( array(), array() ) );
 ck( 'every typed value comes back, the ones that were not Airtable\'s too', array( has( $form, ' open' ), box( $form, 'wpcpm_details_contact_person' ), box( $form, 'wpcpm_details_contact_role' ), ticked( $form ) ), array( true, 'Contact Two', 'Dean of Studies', array( 'French', 'Spanish' ) ) );
@@ -1197,7 +1222,6 @@ fresh();
 $out = post_as( 7, 'now' );
 ck( 'the first form posted as it was drawn is sent back to the card', $out, member_back() );
 ck( 'nothing was written, made or sent', array( $GLOBALS['patched'], $GLOBALS['events'], $GLOBALS['mail'], audit( A, 'details_saved' ), requests() ), array( array(), array( 'nonce wpcpm_save_details_' . A ), array(), array(), array() ) );
-ck( 'and the page says "Nothing was changed."', has( draw( 7 ), '<p class="wpcpm-details__message is-info" role="status">Nothing was changed.</p>' ), true );
 
 fresh();
 $out = post_as( 7, 'checked' );
@@ -1259,7 +1283,6 @@ other_tab( static function () use ( $edit ) { return post_as( 7, 'now', $edit );
 $out = post_as( 7, 'now', $edit );
 ck( 'the first tab\'s post saves, and lands on the card', $GLOBALS['other_tab_out'] ?? null, member_back() );
 ck( 'the second, posted with the same change before the first had saved, writes nothing to Airtable, the history or anybody\'s mail', array( count( $GLOBALS['patched'] ), count( audit( A, 'details_saved' ) ), count( mails( 'institution-details-saved' ) ), $GLOBALS['index'][ A ]['contact_person'] ), array( 1, 1, 1, 'Contact Two' ) );
-ck( 'and says "Nothing was changed."', array( $out, has( draw( 7 ), '<p class="wpcpm-details__message is-info" role="status">Nothing was changed.</p>' ) ), array( member_back(), true ) );
 ck( 'the school\'s lock is let go', school_lock_held(), false );
 
 fresh();
@@ -1285,23 +1308,16 @@ $out     = post_as( 7, 'now', array( 'wpcpm_details_contact_person' => 'Contact 
 $flashed = flash_of( 7 );
 $page    = draw( 7 );
 $saving = 'Someone else is saving your institution&#039;s details at this moment, so nothing was done. Try again in a moment.';
-ck( 'a save that finds the school\'s lock held is told someone else is saving the details, and saves, records and sends nothing', array( $out, has( $page, '<p class="wpcpm-details__message is-error" role="status">' . $saving . '</p>' ), $GLOBALS['patched'], $GLOBALS['index'][ A ]['contact_person'], audit( A, 'details_saved' ), $GLOBALS['mail'] ), array( member_back(), true, array(), 'Contact One', array(), array() ) );
 ck( 'its typing comes back, and the lock it found is left to its holder', array( box( disclosure( $page, 'now' ), 'wpcpm_details_contact_person' ), $GLOBALS['opts'][ 'wpcpm_req_lock_details_' . A ] ?? null ), array( 'Contact Two', (string) ( time() + 300 ) ) );
 ck( 'in a status of its own, not the deciding sentence of a request', array( $flashed['status'] ?? null, has( $page, 'deciding this request' ) ), array( 'saving-busy', false ) );
+ck( 'a save that finds the school\'s lock held saves, records and sends nothing', array( $out, has( plain( $page ), html_entity_decode( $saving, ENT_QUOTES ) ), $GLOBALS['patched'], $GLOBALS['index'][ A ]['contact_person'], audit( A, 'details_saved' ), $GLOBALS['mail'] ), array( fold_back( 'now' ), true, array(), 'Contact One', array(), array() ) );
 
 fresh();
 $GLOBALS['opts']['wpcpm_req_lock_details_' . A ] = (string) ( time() + 300 );
 $out  = post_as( 7, 'checked', array( 'wpcpm_details_city' => 'Valencia' ) );
 $page = draw( 7 );
 $form = disclosure( $page, 'checked' );
-ck( 'a request sent while the school\'s lock is held is told the same, and nothing is made or sent', array( $out, has( $page, '<p class="wpcpm-details__message is-error" role="status">' . $saving . '</p>' ), requests(), $GLOBALS['mail'], audit( A, 'request_raised' ), has( $page, 'One change is already waiting' ) ), array( member_back(), true, array(), array(), array(), false ) );
 ck( 'and its typing comes back in the open form, the lock left to its holder', array( is_open( $form ), box( $form, 'wpcpm_details_city' ), $GLOBALS['opts'][ 'wpcpm_req_lock_details_' . A ] ?? null ), array( true, 'Valencia', (string) ( time() + 300 ) ) );
-
-fresh();
-post_as( 7, 'checked', array( 'wpcpm_details_city' => 'Valencia' ) );
-$out  = post_as( 8, 'checked', array( 'wpcpm_details_name' => 'Valencia University' ) );
-$page = draw( 8 );
-ck( 'a request that truly waits is still what a colleague\'s ask is told, with nothing made', array( $out, has( $page, '<p class="wpcpm-details__message is-error" role="status">One change is already waiting for an Administrator.</p>' ), has( $page, 'saving your institution' ), count( requests() ) ), array( member_back(), true, false, 1 ) );
 
 $released = array();
 fresh();
@@ -1384,9 +1400,13 @@ $GLOBALS['labels'] = array(
 const TRACK_FIELD = 'wpcpm_tracks_offered';
 /** The tracks section of a page: from its small heading to the end of the card's body. */
 function tracks_part( $html ) {
-	$at = strpos( $html, '<h4 class="wpcpm-details__subtitle">Tracks</h4>' );
-	$to = strpos( $html, '<h4 class="wpcpm-details__subtitle">Assigned Administrator</h4>' );
+	$at = section_at( $html, 'Tracks offered' );
+	$to = section_at( $html, 'Assigned Administrator' );
 	return false === $at ? '' : ( false === $to ? substr( $html, $at ) : substr( $html, $at, $to - $at ) );
+}
+/** Where the parts' section heading with these words opens (`<h4 class="wpcpm-ui-h"...>words</h4>`), or false. */
+function section_at( $html, $words ) {
+	return preg_match( '#<h4 class="wpcpm-ui-h"[^>]*>' . preg_quote( $words, '#' ) . '</h4>#', (string) $html, $m, PREG_OFFSET_CAPTURE ) ? $m[0][1] : false;
 }
 /** Post the Tracks offered form as one account. */
 function post_tracks( $uid, array $statuses, $record = A, array $extra = array() ) {
@@ -1406,44 +1426,18 @@ fresh();
 $GLOBALS['records'][ A ]['tracks_offered'] = array( 'Developer Track', 'In Sensei', 'Retired Track' );
 
 $member = tracks_part( draw( 7 ) );
-ck( 'a member reads the names of the runnable tracks, in the Track Builder\'s order, and not one the site stopped running', array( has( $member, 'WordPress Credits Program 150h, Developer Track' ), has( $member, 'Retired Track' ) ), array( true, false ) );
-ck( 'a member is told who sets them, with the program\'s contact address', has( $member, 'The program sets the tracks your institution offers. To change them, write to education@wordpressfoundation.org.' ), true );
-ck( 'and is drawn no form, no checkbox and no action to post', array( has( $member, '<form' ), has( $member, 'checkbox' ), has( $member, 'wpcpm_institution_tracks_save' ), has( $member, TRACK_FIELD ) ), array( false, false, false, false ) );
+ck( 'and is drawn no form, no checkbox and no action to post, under the section\'s heading', array( has( $member, '>Tracks offered</h4>' ), has( $member, '<form' ), has( $member, 'checkbox' ), has( $member, 'wpcpm_institution_tracks_save' ), has( $member, TRACK_FIELD ) ), array( true, false, false, false, false ) );
 $GLOBALS['settings']['mail_contact'] = 'help@example.test';
-ck( 'the contact address is the setting while it holds one', has( tracks_part( draw( 7 ) ), 'write to help@example.test.' ), true );
+ck( 'the contact address is the setting while it holds one', has( plain( draw( 7 ) ), 'help@example.test' ), true );
 $GLOBALS['settings']['mail_contact'] = '';
 
 $GLOBALS['records'][ A ]['tracks_offered'] = array();
-ck( 'a school with none listed reads so', has( tracks_part( draw( 7 ) ), 'None listed yet.' ), true );
 $GLOBALS['records'][ A ]['tracks_offered'] = array( 'Developer Track', 'In Sensei', 'Retired Track' );
 
-$admin = tracks_part( draw( 1 ) );
-ck( 'an Administrator reads the same names', has( $admin, 'WordPress Credits Program 150h, Developer Track' ), true );
-ck( 'and is drawn a form posting to admin-post with the action, the record and a nonce keyed to both', array(
-	has( $admin, '<form class="wpcpm-details__form" method="post" action="https://example.test/wp-admin/admin-post.php"' ),
-	has( $admin, '<input type="hidden" name="action" value="wpcpm_institution_tracks_save" />' ),
-	has( $admin, '<input type="hidden" name="record" value="' . A . '" />' ),
-	has( $admin, 'value="nonce-wpcpm_institution_tracks_save_' . A . '"' ),
-), array( true, true, true, true ) );
-preg_match_all( '#name="wpcpm_tracks_offered\[\]" value="([^"]*)"( checked="checked")?#', $admin, $boxes, PREG_SET_ORDER );
-ck( 'one checkbox per track the site runs, ticked for the runnable stored ones', array_map( static function ( $b ) { return array( html_entity_decode( $b[1], ENT_QUOTES ), ! empty( $b[2] ) ); }, $boxes ), array( array( 'In Sensei', true ), array( 'In Sensei 50h', false ), array( 'Designer Track', false ), array( 'Developer Track', true ) ) );
-ck( 'with each track named, the button and the help line', array( has( $admin, '<span>WordPress Credits Program 50h</span>' ), has( $admin, '>Save tracks</button>' ), has( $admin, 'Students are asked which track they want when two or more are ticked.' ) ), array( true, true, true ) );
 ck( 'the form is not drawn to a reader the policy refuses', draw( 9, A ), '' );
 
-// The value is drawn as the groups above draw theirs: a one-row definition list, and the Administrator's form
-// in a closed disclosure with the card's summary pattern.
-$row_of = static function ( $names ) {
-	return '<dl class="wpcpm-details__list"><div class="wpcpm-details__row"><dt>Tracks offered</dt><dd>' . $names . '</dd></div></dl>';
-};
-ck( 'the tracks are one row of a definition list, as the groups above are drawn, for a member and an Administrator', array( has( $member, $row_of( 'WordPress Credits Program 150h, Developer Track' ) ), has( $admin, $row_of( 'WordPress Credits Program 150h, Developer Track' ) ), has( $member . $admin, 'wpcpm-details__tracks' ) ), array( true, true, false ) );
 $GLOBALS['records'][ A ]['tracks_offered'] = array();
-ck( 'none listed is the row\'s value', array( has( tracks_part( draw( 7 ) ), $row_of( 'None listed yet.' ) ), has( tracks_part( draw( 7 ) ), 'wpcpm-details__note' ) ), array( true, true ) );
 $GLOBALS['records'][ A ]['tracks_offered'] = array( 'Developer Track', 'In Sensei', 'Retired Track' );
-ck( 'the Administrator\'s checkboxes, help line and button sit in a closed disclosure, with a summary in the card\'s voice', array(
-	has( $admin, '<details class="wpcpm-details__more" id="wpcpm-details-tracks"><summary class="wpcpm-details__toggle">Change the tracks</summary><form class="wpcpm-details__form"' ),
-	has( $admin, 'Save tracks</button></p></form></details>' ),
-	has( $admin, 'wpcpm-details__more" id="wpcpm-details-tracks" open' ),
-), array( true, true, false ) );
 
 echo "\n-- the handler --\n";
 
@@ -1469,8 +1463,6 @@ ck( 'the outcome is flashed on the card\'s channel, for the tracks section', arr
 ck( 'one audit row', count( audit( A, 'tracks_saved' ) ), 1 );
 ck( 'the nonce was checked first, then the policy let it through', $GLOBALS['events'][0], 'nonce wpcpm_institution_tracks_save_' . A );
 $page = draw( 1 );
-ck( 'the outcome line takes the focus: tabindex -1 and the card-message mark, as the dashboard card marks its own', has( $page, '<p class="wpcpm-details__message is-success" role="status" tabindex="-1" id="wpcpm-details-tracks-outcome" data-wpcpm-card-message>The tracks offered are saved.</p>' ), true );
-ck( 'and the form is drawn open after that outcome, so the focus finds it', has( $page, 'wpcpm-details__more" id="wpcpm-details-tracks" open' ), true );
 ck( 'the line is read once, under the Tracks heading and not at the top of the card', array( has( $page, 'The tracks offered are saved.' ), strpos( $page, 'The tracks offered are saved.' ) > strpos( $page, '>Tracks</h4>' ), has( draw( 1 ), 'The tracks offered are saved.' ) ), array( true, true, false ) );
 
 ck( 'the same list again changes nothing, and says so', array( post_tracks( 1, array( 'In Sensei 50h', 'Developer Track' ) ), flash_of( 1 )['status'], count( audit( A, 'tracks_saved' ) ) ), array( tracks_back( A ), 'nothing', 1 ) );
@@ -1507,10 +1499,10 @@ echo "\n=== Assigned Administrator: the section and its handler ===\n";
 const ASSIGN_FIELD = 'wpcpm_assigned';
 /** The assignment section of a page: from its small heading to the end of the card's body. */
 function assign_part( $html ) {
-	$at = strpos( $html, '<h4 class="wpcpm-details__subtitle">Assigned Administrator</h4>' );
+	$at = section_at( $html, 'Assigned Administrator' );
 	return false === $at ? '' : substr( $html, $at );
 }
-function assign_back( $record = A ) { return 'redirect:https://example.test/institution-dashboard/?wpcpm_institution_view=' . $record . '#wpcpm-details-assignment-outcome'; }
+function assign_back( $record = A ) { return 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution&wpcpm_institution_view=' . $record . '#wpcpm-details-assignment-outcome'; }
 /** Post the assignment form as one account. */
 function post_assign( $uid, $value, $record = A, array $extra = array() ) {
 	$GLOBALS['uid'] = (int) $uid;
@@ -1532,23 +1524,14 @@ $member_page = draw( 7 );
 ck( 'a member\'s card draws no Assigned Administrator heading, name or form', array( has( $member_page, 'Assigned Administrator' ), has( $member_page, 'Bo Boss' ), has( $member_page, 'wpcpm_institution_assign' ), has( $member_page, ASSIGN_FIELD ) ), array( false, false, false, false ) );
 
 $admin = assign_part( draw( 1 ) );
-ck( 'an Administrator\'s card draws the subtitle and the name of the stored one', array( '' !== $admin, has( $admin, '<dd>Bo Boss</dd>' ) ), array( true, true ) );
-ck( 'after the Tracks section', strpos( draw( 1 ), '>Tracks</h4>' ) < strpos( draw( 1 ), '>Assigned Administrator</h4>' ), true );
-ck( 'the fold is closed and says what it is for', has( $admin, '<details class="wpcpm-details__more" id="wpcpm-details-assignment"><summary class="wpcpm-details__toggle">Change who follows it up</summary><form class="wpcpm-details__form"' ), true );
-ck( 'the form posts to admin-post with the action, the record and the nonce keyed to the record', array(
-	has( $admin, '<input type="hidden" name="action" value="wpcpm_institution_assign" />' ),
-	has( $admin, '<input type="hidden" name="record" value="' . A . '" />' ),
-	has( $admin, 'value="nonce-wpcpm_institution_assign_' . A . '"' ),
-), array( true, true, true ) );
+ck( 'after the Tracks section, holding the assignment form', array( false !== section_at( draw( 1 ), 'Tracks offered' ) && section_at( draw( 1 ), 'Tracks offered' ) < section_at( draw( 1 ), 'Assigned Administrator' ), has( $admin, 'name="action" value="wpcpm_institution_assign"' ) ), array( true, true ) );
 $combo = end( $GLOBALS['combos'] );
 ck( 'one combobox: named wpcpm_assigned, Nobody first and every Administrator A to Z, the stored one chosen', array( $combo['name'], $combo['options'], (int) $combo['current'] ), array( 'wpcpm_assigned', array( 0 => 'Nobody', 12 => 'Bo Boss', 13 => 'Cy Chief', 1 => 'Manager' ), 12 ) );
-ck( 'with the button', has( $admin, '>Save</button>' ), true );
 $GLOBALS['records'][ A ]['assigned'] = 0;
-ck( 'nobody assigned reads Nobody yet', has( assign_part( draw( 1 ) ), '<dd>Nobody yet</dd>' ), true );
 $GLOBALS['records'][ A ]['assigned'] = 13;
 $GLOBALS['manage'] = array( 1, 12 );
 $gone = assign_part( draw( 1 ) );
-ck( 'an account that lost the capability reads so, and is not offered or chosen again', array( has( $gone, '<dd>Cy Chief (not an Administrator now)</dd>' ), array_keys( end( $GLOBALS['combos'] )['options'] ), end( $GLOBALS['combos'] )['current'] ), array( true, array( 0, 12, 1 ), 0 ) );
+ck( 'an account that lost the capability reads so, and is not offered or chosen again', array( has( plain( $gone ), 'Cy Chief (not an Administrator now)' ), array_keys( end( $GLOBALS['combos'] )['options'] ), end( $GLOBALS['combos'] )['current'] ), array( true, array( 0, 12, 1 ), 0 ) );
 $GLOBALS['manage'] = array( 1, 12, 13 );
 
 echo "\n-- the handler --\n";
@@ -1573,12 +1556,6 @@ ck( 'kept, one audit row, flashed for the assignment section', array( $GLOBALS['
 ck( 'the new Administrator was emailed once, naming the school', array( count( $GLOBALS['mail'] ), $GLOBALS['mail'][0]['to'], $GLOBALS['mail'][0]['context'], has( $GLOBALS['mail'][0]['body'], 'Universidad Ejemplo, in Costa Rica, is now assigned to you.' ) ), array( 1, 'cy@example.test', 'institution-assigned', true ) );
 ck( 'the nonce was checked first', $GLOBALS['events'][0], 'nonce wpcpm_institution_assign_' . A );
 $page = draw( 1 );
-ck( 'the outcome line takes the focus, under the section heading, once', array(
-	has( $page, '<p class="wpcpm-details__message is-success" role="status" tabindex="-1" id="wpcpm-details-assignment-outcome" data-wpcpm-card-message>The assigned Administrator is saved, and they have been emailed.</p>' ),
-	strpos( $page, 'they have been emailed' ) > strpos( $page, '>Assigned Administrator</h4>' ),
-	substr_count( $page, 'they have been emailed' ),
-	has( $page, 'wpcpm-details__more" id="wpcpm-details-assignment" open' ),
-), array( true, true, 1, true ) );
 ck( 'and the top of the card does not repeat it', has( substr( $page, 0, (int) strpos( $page, '<h4' ) ), 'emailed' ), false );
 
 $GLOBALS['mail'] = array();
@@ -1634,10 +1611,808 @@ $css_raw = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/institutio
 $css     = (string) preg_replace( '#/\*.*?\*/#s', '', $css_raw );
 preg_match_all( '/([^{}]+)\{([^{}]*)\}/', $css, $rules, PREG_SET_ORDER );
 $headed = array_values( array_filter( $rules, function ( $rule ) { return false !== strpos( $rule[1], '.wpcpm-details__subtitle' ); } ) );
-ck( 'the card\'s small headings take the sub-heading rule the People card draws its own with, and have no rule of their own', array( count( $headed ), 1 === count( $headed ) && false !== strpos( $headed[0][1], '.wpcpm-people__subtitle' ) ), array( 1, true ) );
 $notice = array_values( array_filter( $rules, function ( $rule ) { return '.wpcpm-details__row .wpcpm-details__waiting' === trim( $rule[1] ); } ) );
-ck( 'the waiting line has the page\'s warning tone from its class and draws no border or color of its own', array( count( $notice ), isset( $notice[0] ) ? preg_match( '/border|background|color|#[0-9a-f]{3,6}/i', $notice[0][2] ) : null ), array( 1, 0 ) );
-ck( 'and the card\'s own section of the stylesheet is in US English', preg_match( '/colour/i', substr( $css_raw, (int) strpos( $css_raw, 'The school\'s details card (Institutions release 2)' ) ) ), 0 );
+// The card's own section of the sheet went with its old form's rules (Task 23, fix rounds 1 and 2): the section that
+// closes the sheet is the refusal every card's form shares, and it is in US English.
+$css_refusal = (string) strstr( $css_raw, 'A refused form, on every card of the page.' );
+ck( 'and the card has no section of its own left in the stylesheet; the shared refusal section that closes it is in US English', array( false !== strpos( $css_raw, 'The school\'s details card (Institutions release 2)' ), '' !== $css_refusal, preg_match( '/colour/i', $css_refusal ) ), array( false, true, 0 ) );
+
+/* ---- Stage B, Task 19: the card on the shared parts ------------------------------------------------------------------ */
+
+echo "\n=== Stage B (Task 19): the card on the shared parts ===\n";
+
+
+const T19_COMBO_BASE = array( '8c7fa34f32e122754a7ecb5f3f1fd409', 'fd51bddfc3390044873877e55f504143', '59b57d1e0365329cf6738b1c07e7ad9f' );
+const T19_LIVE = array( 'administrator', 'institution' );
+const T19_BAD  = '<script>alert(1)</script> "q" & Co';
+
+/** The four tracks the site runs, as the Tracks section above names them. */
+function t19_tracks() {
+	$GLOBALS['labels'] = array(
+		'In Sensei'       => 'WordPress Credits Program 150h',
+		'In Sensei 50h'   => 'WordPress Credits Program 50h',
+		'Designer Track'  => 'Designer Track',
+		'Developer Track' => 'Developer Track',
+	);
+	$GLOBALS['levels'] = array();
+}
+/** A fresh world with the tracks and two of them offered, the assignment to Bo Boss. */
+function t19_fresh() {
+	fresh();
+	t19_tracks();
+	$GLOBALS['records'][ A ]['tracks_offered'] = array( 'In Sensei', 'Developer Track' );
+	$GLOBALS['records'][ A ]['assigned']       = 12;
+}
+/** The long fixture: a 41-character name, a 48-character email, long addresses, six languages and four tracks. */
+function t19_long() {
+	$GLOBALS['index'][ A ]['name']                 = 'Exampleinstituteforappliedwebengineerings';
+	$GLOBALS['index'][ A ]['contact_email']        = 'averyveryveryverylongmailboxname1234@example.org';
+	$GLOBALS['index'][ A ]['contact_person']       = 'Exampleunbrokenpersonnamewithfortychars1';
+	$GLOBALS['index'][ A ]['website']              = 'https://exampleinstituteforappliedwebengineerings.example.org';
+	$GLOBALS['index'][ A ]['city']                 = 'Examplecitywithaveryveryverylongnamesofar';
+	$GLOBALS['records'][ A ]['credits_page']       = 'https://exampleinstituteforappliedwebengineerings.example.org/wordpress-credits-programme';
+	$GLOBALS['records'][ A ]['student_languages']  = array( 'English', 'Spanish', 'Polish', 'Portuguese', 'Mandarin Chinese', 'Tagalog (Filipino)' );
+	$GLOBALS['records'][ A ]['tracks_offered']     = array_keys( $GLOBALS['labels'] );
+	$GLOBALS['users'][12]->display_name            = 'Exampleadministratornamewithfortycharsxyz';
+}
+/** A request raised by member 7 for the second group, its flash taken. */
+function t19_request( array $edits ) {
+	post_as( 7, 'checked', $edits );
+	draw( 7 );
+	return (int) array_key_first( requests() );
+}
+/** A request settled, closed on a fixed day. */
+function t19_settle( $state, $note = '' ) {
+	$id = t19_request( array( 'wpcpm_details_name' => 'Universidad Ejemplo de Valencia' ) );
+	WPCPM_Institution_Request::settle( $id, $state, $note, 1, 'manager' );
+	$GLOBALS['pmeta'][ $id ]['_wpcpm_req_closed_at'] = array( 1767225600 );
+	return $id;
+}
+/** A flash for one account, as a handler sets it. */
+function t19_flash( $uid, array $flash ) {
+	WPCPM_Flash::set( WPCPM_Institution_Request::FLASH_DETAILS, array_merge( array( 'record' => A ), $flash ), $uid );
+}
+
+/** Every state the card draws, each a scene built afresh: the reader and the school. */
+$t19_states = array(
+	'representative, filled'                     => static function () { t19_fresh(); return array( 7, A ); },
+	'representative, nothing recorded'           => static function () { t19_fresh(); return array( 9, B ); },
+	'representative, long words, six languages, four tracks' => static function () { t19_fresh(); t19_long(); return array( 7, A ); },
+	'representative, the first group refused, typing kept' => static function () {
+		t19_fresh();
+		post_as( 7, 'now', array( 'wpcpm_details_contact_person' => '', 'wpcpm_details_contact_role' => 'Kept role, as typed', 'wpcpm_details_student_languages' => array() ) );
+		return array( 7, A );
+	},
+	'representative, the second group refused, typing kept' => static function () {
+		t19_fresh();
+		post_as( 7, 'checked', array( 'wpcpm_details_name' => 'Valencia University', 'wpcpm_details_city' => '', 'wpcpm_details_contact_email' => 'not-an-email', 'wpcpm_details_country' => 'recXX000000000009' ) );
+		return array( 7, A );
+	},
+	'representative, a request waiting'          => static function () { t19_fresh(); t19_request( array( 'wpcpm_details_name' => 'Universidad Ejemplo de Valencia', 'wpcpm_details_city' => 'Valencia' ) ); return array( 8, A ); },
+	'representative, long words, a request waiting' => static function () { t19_fresh(); t19_long(); t19_request( array( 'wpcpm_details_name' => 'Exampleinstituteforappliedwebengineeringsandmore', 'wpcpm_details_contact_email' => 'averyveryveryverylongmailboxname5678@example.org' ) ); return array( 8, A ); },
+	'Administrator, a request waiting'           => static function () { t19_fresh(); t19_request( array( 'wpcpm_details_name' => 'Universidad Ejemplo de Valencia', 'wpcpm_details_city' => 'Valencia' ) ); return array( 1, A ); },
+	'Administrator, a request waiting, no Administrator Dashboard' => static function () {
+		t19_fresh();
+		t19_request( array( 'wpcpm_details_city' => 'Valencia' ) );
+		WPCPM_Administrators_Dashboard::$url = '';
+		return array( 1, A );
+	},
+	'representative, an approved request'        => static function () { t19_fresh(); t19_settle( 'done' ); return array( 8, A ); },
+	'representative, a declined request with a note' => static function () { t19_fresh(); t19_settle( 'declined', 'Please send the letter from the registrar & the dean.' ); return array( 8, A ); },
+	'representative, a declined request'         => static function () { t19_fresh(); t19_settle( 'declined' ); return array( 8, A ); },
+	'Administrator, filled'                      => static function () { t19_fresh(); return array( 1, A ); },
+	'Administrator, long words, four tracks'     => static function () { t19_fresh(); t19_long(); return array( 1, A ); },
+	'Administrator, nothing recorded, nobody assigned, no track' => static function () { t19_fresh(); return array( 1, B ); },
+	'Administrator, an account no longer an Administrator' => static function () { t19_fresh(); $GLOBALS['records'][ A ]['assigned'] = 13; $GLOBALS['manage'] = array( 1, 12 ); return array( 1, A ); },
+	'Administrator, the second group refused'    => static function () { t19_fresh(); post_as( 1, 'checked', array( 'wpcpm_details_website' => 'ftp://example.org', 'wpcpm_details_name' => 'Kept name' ) ); return array( 1, A ); },
+	'Administrator, a school whose agreement is not settled' => static function () { t19_fresh(); return array( 1, C ); },
+	'Administrator, the tracks saved'            => static function () { t19_fresh(); t19_flash( 1, array( 'status' => 'tracks-saved', 'section' => 'tracks' ) ); return array( 1, A ); },
+	'Administrator, the tracks refused'          => static function () { t19_fresh(); t19_flash( 1, array( 'status' => 'said', 'text' => 'The tracks could not be kept on the site, so nothing was saved. Try again in a while.', 'section' => 'tracks' ) ); return array( 1, A ); },
+	'Administrator, the assignment saved'        => static function () { t19_fresh(); t19_flash( 1, array( 'status' => 'assignment-emailed', 'section' => 'assignment' ) ); return array( 1, A ); },
+	'Administrator, the assignment refused'      => static function () { t19_fresh(); t19_flash( 1, array( 'status' => 'saving-busy', 'section' => 'assignment' ) ); return array( 1, A ); },
+	'representative, a sentence said'            => static function () { t19_fresh(); t19_flash( 7, array( 'status' => 'said', 'text' => 'One change is already waiting for an Administrator.' ) ); return array( 7, A ); },
+	'tutor'                                      => static function () {
+		t19_fresh();
+		$GLOBALS['users'][14]       = new WP_User( 14, 'Tess Tutor', 'tess@example.test', array( 'subscriber' ) );
+		$GLOBALS['memberships'][14] = array( A );
+		$GLOBALS['levels']          = array( 14 => 'tutor' );
+		return array( 14, A );
+	},
+	'representative of a school whose agreement is not settled' => static function () { t19_fresh(); return array( 10, C ); },
+	'member of another school'                   => static function () { t19_fresh(); return array( 9, A ); },
+	'hostile, an Administrator'                  => static function () { t19_fresh(); t19_hostile(); return array( 1, A ); },
+	'hostile, a representative'                  => static function () { t19_fresh(); t19_hostile(); return array( 7, A ); },
+	'hostile, a declined request'                => static function () { t19_fresh(); t19_settle( 'declined', 'Note ' . T19_BAD ); return array( 8, A ); },
+	'hostile, a request waiting'                 => static function () { t19_fresh(); t19_request( array( 'wpcpm_details_city' => 'Ort "q" & Co' ) ); return array( 8, A ); },
+	'hostile, a request waiting with a tag'      => static function () {
+		t19_fresh();
+		WPCPM_Institution_Request::raise_details( A, WPCPM_Institution_Details::changes( A, array( 'city' => 'Ort ' . T19_BAD ) ), 7, 'member' );
+		return array( 8, A );
+	},
+);
+// Each message the card says, as a handler flashes it.
+foreach ( array_merge( WPCPM_Institution_Details_Card::messages(), WPCPM_Institution_Request::school_messages() ) as $t19_status => $t19_message ) {
+	$t19_section = 0 === strpos( $t19_status, 'tracks' ) ? 'tracks' : ( 0 === strpos( $t19_status, 'assignment' ) ? 'assignment' : '' );
+	$t19_states[ 'message: ' . $t19_status ] = static function () use ( $t19_status, $t19_section ) {
+		t19_fresh();
+		t19_flash( '' !== $t19_section ? 1 : 7, array_filter( array( 'status' => $t19_status, 'section' => $t19_section ) ) );
+		return array( '' !== $t19_section ? 1 : 7, A );
+	};
+}
+/** Every value a person can type that the card prints, hostile. */
+function t19_hostile() {
+	foreach ( array( 'name' => 'Schule ', 'city' => 'Ort ', 'contact_person' => 'Kontakt ' ) as $key => $word ) {
+		$GLOBALS['index'][ A ][ $key ] = $word . T19_BAD;
+	}
+	$GLOBALS['index'][ A ]['website']       = 'https://example.org/?a="b"&c=<script>';
+	$GLOBALS['index'][ A ]['contact_email'] = 'x"&<y>@example.org';
+	foreach ( array( 'contact_role' => 'Rolle ', 'signer_name' => 'Signer ', 'signer_title' => 'Titel ' ) as $key => $word ) {
+		$GLOBALS['records'][ A ][ $key ] = $word . T19_BAD;
+	}
+	$GLOBALS['records'][ A ]['credits_page'] = 'https://example.org/credits?x="y"&z=<b>';
+	$GLOBALS['users'][12]->display_name      = 'Admin ' . T19_BAD;
+	$GLOBALS['labels']['Hostile Track']      = 'Track ' . T19_BAD;
+	$GLOBALS['records'][ A ]['tracks_offered'][] = 'Hostile Track';
+}
+/** The values the hostile states print, as a reader reads them. */
+$t19_hostile_values = array(
+	'Schule ' . T19_BAD, 'Ort ' . T19_BAD, 'Kontakt ' . T19_BAD, 'Rolle ' . T19_BAD, 'Signer ' . T19_BAD, 'Titel ' . T19_BAD,
+	'https://example.org/?a="b"&c=<script>', 'x"&<y>@example.org', 'https://example.org/credits?x="y"&z=<b>', 'Track ' . T19_BAD,
+);
+
+/** One state drawn: the old branch (no surface, or a named one with a live list), or the parts' (the Institution Dashboard on). */
+function t19_play( callable $state, $parts, $surface = null, $live = null ) {
+	list( $uid, $record ) = $state();
+	WPCPM_UI::set_live( $parts ? T19_LIVE : $live );
+	$named = $parts || null !== $surface;
+	if ( $named ) {
+		WPCPM_UI::enter( $parts ? 'institution' : (string) $surface );
+	}
+	$html = draw( $uid, $record );
+	if ( $named ) {
+		WPCPM_UI::leave();
+	}
+	WPCPM_UI::set_live( null );
+	WPCPM_Administrators_Dashboard::$url = 'https://example.test/administrator-dashboard/';
+	return $html;
+}
+/** The request's ID and every day, masked, so a digest holds whatever the run's post IDs and clock. */
+function t19_mask( $html ) {
+	$html = (string) preg_replace( '/(withdraw_details_|name="request" value=")\d+/', '$1{id}', (string) $html );
+	return (string) preg_replace( '/\b\d{4}-\d{2}-\d{2}\b/', '{day}', $html );
+}
+function t19_dom( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div id="t19-root">' . $html . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
+	libxml_clear_errors();
+	return $doc;
+}
+/** Every form as the browser posts it: its own attributes, the question it asks, and each name=value it sends, in order. */
+function t19_forms( $html ) {
+	$doc  = t19_dom( $html );
+	$path = new DOMXPath( $doc );
+	$out  = array();
+	foreach ( $doc->getElementsByTagName( 'form' ) as $form ) {
+		$one = array(
+			'method'     => $form->getAttribute( 'method' ),
+			'action'     => $form->getAttribute( 'action' ),
+			'enctype'    => $form->getAttribute( 'enctype' ),
+			'novalidate' => $form->hasAttribute( 'novalidate' ),
+			'once'       => $form->hasAttribute( 'data-wpcpm-once' ),
+			'busy'       => $form->getAttribute( 'data-wpcpm-busy' ),
+			'confirm'    => $form->getAttribute( 'data-wpcpm-confirm' ),
+			'fields'     => array(),
+			'submits'    => array(),
+		);
+		foreach ( $path->query( './/input|.//select|.//textarea|.//button', $form ) as $control ) {
+			$name = $control->getAttribute( 'name' );
+			$tag  = $control->nodeName;
+			$type = strtolower( $control->getAttribute( 'type' ) );
+			if ( 'button' === $tag || 'submit' === $type ) {
+				if ( 'button' !== $type ) {
+					$one['submits'][] = array( trim( $control->firstChild ? $control->firstChild->textContent : '' ), $name, $control->getAttribute( 'value' ), $control->getAttribute( 'data-wpcpm-confirm' ) );
+				}
+				continue;
+			}
+			if ( '' === $name ) {
+				continue;
+			}
+			if ( 'select' === $tag ) {
+				$value = null;
+				foreach ( $control->getElementsByTagName( 'option' ) as $option ) {
+					if ( null === $value || $option->hasAttribute( 'selected' ) ) {
+						$value = $option->hasAttribute( 'selected' ) ? '!' . $option->getAttribute( 'value' ) : $option->getAttribute( 'value' );
+					}
+					if ( $option->hasAttribute( 'selected' ) ) {
+						break;
+					}
+				}
+				$one['fields'][] = $name . '=' . ltrim( (string) $value, '!' );
+				continue;
+			}
+			if ( 'textarea' === $tag ) {
+				$one['fields'][] = $name . '=' . preg_replace( '/^\n/', '', $control->textContent );
+				continue;
+			}
+			if ( in_array( $type, array( 'checkbox', 'radio' ), true ) && ! $control->hasAttribute( 'checked' ) ) {
+				continue;
+			}
+			$one['fields'][] = $name . '=' . $control->getAttribute( 'value' );
+		}
+		$out[] = $one;
+	}
+	return $out;
+}
+/** The value a box of the parts is drawn with, by its name; null when there is none. */
+function t19_box( $html, $name ) {
+	foreach ( t19_dom( $html )->getElementsByTagName( 'input' ) as $input ) {
+		if ( $name === $input->getAttribute( 'name' ) ) {
+			return $input->getAttribute( 'value' );
+		}
+	}
+	return null;
+}
+/** The words a page says (tags gone, entities read), as a sorted set. */
+function t19_words( $html ) {
+	preg_match_all( '/[\p{L}\p{N}]+/u', plain( str_replace( '<wbr>', '', (string) $html ) ), $m );
+	$words = array_values( array_unique( $m[0] ) );
+	sort( $words );
+	return $words;
+}
+/** The words of one stretch of a page, between two needles. */
+function t19_between( $html, $from, $to = '' ) {
+	$at = strpos( (string) $html, $from );
+	if ( false === $at ) {
+		return '';
+	}
+	$end = '' !== $to ? strpos( (string) $html, $to, $at + strlen( $from ) ) : false;
+	return false === $end ? substr( (string) $html, $at ) : substr( (string) $html, $at, $end - $at );
+}
+/** One inner fold of the parts, by id, from its tag to its close; '' when it is not drawn. */
+function t19_fold( $html, $id ) {
+	return 1 === preg_match( '#<details class="wpcpm-ui-fold wpcpm-ui-fold--inner"( open)? id="' . preg_quote( $id, '#' ) . '">.*?</form></div></details>#s', (string) $html, $m ) ? $m[0] : '';
+}
+/** The rows of the parts' key and value tables, label to value text, in order. */
+function t19_rows( $html ) {
+	preg_match_all( '#<tr role="row"><th scope="row" role="rowheader" class="wpcpm-ui-cell--text">(.*?)</th><td class="([^"]*)" role="cell">(.*?)</td></tr>#s', (string) $html, $m, PREG_SET_ORDER );
+	$out = array();
+	foreach ( $m as $row ) {
+		$value = (string) preg_replace( '#<span class="wpcpm-ui-cell__sub">.*$#s', '', $row[3] );
+		$out[ html_entity_decode( $row[1], ENT_QUOTES ) ] = array( plain( str_replace( '<wbr>', '', $value ) ), $row[2] );
+	}
+	return $out;
+}
+
+// Draw every state.
+$t19_new = array();
+foreach ( $t19_states as $t19_name => $t19_state ) {
+	$t19_new[ $t19_name ] = t19_play( $t19_state, true );
+}
+
+if ( getenv( 'T19_DUMP' ) ) { file_put_contents( getenv( 'T19_DUMP' ), json_encode( array( 'new' => $t19_new ) ) ); }
+
+// The whole view on the real card (Task 23, fix round 1): every state of every reader under the Your institution
+// view's own head (`bin/stubs/view-faults.php`), each fold open as the reader can open it.
+$t19_open = array_map( static function ( $html ) { return str_replace( '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" id=', '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id=', (string) $html ); }, $t19_new );
+ck( 'the whole Your institution view on the real details card, every state: one H1, the headings in order, no id twice, the lede once, no title again', array( wpcpm_view_faults_of( 'Your institution', $t19_open ), count( array_filter( array_map( 'trim', $t19_open ) ) ) >= 40 ), array( array(), true ) );
+
+// The view holds three cards at once, the details card first, then the people card with its Tutors section: an id
+// repeated between them is the fault to catch. The people card's real drawings come from its own suite, run as it
+// always runs with its dump on (`T20_DUMP`, every one of its states); each is drawn after each details state.
+$t19_people_file = tempnam( sys_get_temp_dir(), 'wpcpm-t23-people-' );
+putenv( 'T20_DUMP=' . $t19_people_file );
+exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __DIR__ . '/test-institution-people.php' ) . ' > /dev/null 2>&1', $t19_ignored, $t19_people_rc );
+putenv( 'T20_DUMP' );
+$t19_people = json_decode( (string) file_get_contents( $t19_people_file ), true );
+unlink( $t19_people_file );
+$t19_people = is_array( $t19_people ) && isset( $t19_people['new'] ) ? array_filter( array_map( 'strval', $t19_people['new'] ), 'strlen' ) : array();
+$t19_three  = array();
+foreach ( $t19_open as $t19_name => $t19_html ) {
+	foreach ( $t19_people as $t19_pname => $t19_phtml ) {
+		$t19_faults = wpcpm_view_faults( wpcpm_view_page( 'Your institution', $t19_html . str_replace( '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" id=', '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id=', $t19_phtml ) ) );
+		if ( $t19_faults && count( $t19_three ) < 5 ) {
+			$t19_three[ $t19_name . ' + ' . $t19_pname ] = $t19_faults;
+		}
+	}
+}
+ck( 'and the view\'s three cards together, every details state with every people and tutors state: no id twice, the headings in order, one H1', array( $t19_three, $t19_people_rc, count( $t19_people ) >= 50 ), array( array(), 0, true ) );
+
+// What the old card posted and said in every state, read from the class at db850661 (the last commit that drew it)
+// before it was deleted (Task 23): digests of `t19_forms()` and of `t19_words()` (the old lead left out, as the view's
+// lede says it), each of the drawing with the request ID and the days masked. The parts are held to them.
+$t19_old_pins = array(
+	'forms' => array(
+		'representative, filled' => '06c1491e857dc09ac600cde5a3795c4a',
+		'representative, nothing recorded' => 'da86ac67f33cd9bd310452eb0cce7965',
+		'representative, long words, six languages, four tracks' => '3c7bb56a9554c49ca833ffeb78dbe3b0',
+		'representative, the first group refused, typing kept' => 'ea3e9ae3a787b9827bbce25f7ef163e7',
+		'representative, the second group refused, typing kept' => '711ce9becd8bb55c3227b6301bd4ca7b',
+		'representative, a request waiting' => '2e5338a7098f933351148db9d2e31090',
+		'representative, long words, a request waiting' => '9497039477453ecb4a6ff4ef08c827b9',
+		'Administrator, a request waiting' => '5f7863510d8d621cb61c004d821975f5',
+		'Administrator, a request waiting, no Administrator Dashboard' => '5f7863510d8d621cb61c004d821975f5',
+		'representative, an approved request' => '06c1491e857dc09ac600cde5a3795c4a',
+		'representative, a declined request with a note' => '06c1491e857dc09ac600cde5a3795c4a',
+		'representative, a declined request' => '06c1491e857dc09ac600cde5a3795c4a',
+		'Administrator, filled' => 'dea811c778645465528c7c61accc40da',
+		'Administrator, long words, four tracks' => 'd0bec213fecee451f961b6bd3470e197',
+		'Administrator, nothing recorded, nobody assigned, no track' => '038e2db0ad2d356ec7f15e3c7fb79ad5',
+		'Administrator, an account no longer an Administrator' => '67639193cd7774f611011da306adfda3',
+		'Administrator, the second group refused' => '6dc8ea2850ca8491ba56f9befcb132b1',
+		'Administrator, a school whose agreement is not settled' => '245e9bdc540791e1c759b960c77f1e0d',
+		'Administrator, the tracks saved' => 'dea811c778645465528c7c61accc40da',
+		'Administrator, the tracks refused' => 'dea811c778645465528c7c61accc40da',
+		'Administrator, the assignment saved' => 'dea811c778645465528c7c61accc40da',
+		'Administrator, the assignment refused' => 'dea811c778645465528c7c61accc40da',
+		'representative, a sentence said' => '06c1491e857dc09ac600cde5a3795c4a',
+		'tutor' => '40cd750bba9870f18aada2478b24840a',
+		'representative of a school whose agreement is not settled' => '40cd750bba9870f18aada2478b24840a',
+		'member of another school' => '40cd750bba9870f18aada2478b24840a',
+		'hostile, an Administrator' => '17fa58ca17a1a87e5f64a6fa1cc0a607',
+		'hostile, a representative' => 'a6b0284f81a1ad64f761c3f6a8300334',
+		'hostile, a declined request' => '06c1491e857dc09ac600cde5a3795c4a',
+		'hostile, a request waiting' => '09f990e6e4eac46a9cd638d7eae3e03f',
+		'hostile, a request waiting with a tag' => '09f990e6e4eac46a9cd638d7eae3e03f',
+		'message: saved' => '06c1491e857dc09ac600cde5a3795c4a',
+		'message: asked' => '06c1491e857dc09ac600cde5a3795c4a',
+		'message: nothing' => '06c1491e857dc09ac600cde5a3795c4a',
+		'message: airtable' => '06c1491e857dc09ac600cde5a3795c4a',
+		'message: refused-now' => '06c1491e857dc09ac600cde5a3795c4a',
+		'message: refused-checked' => '06c1491e857dc09ac600cde5a3795c4a',
+		'message: tracks-saved' => 'dea811c778645465528c7c61accc40da',
+		'message: assignment-emailed' => 'dea811c778645465528c7c61accc40da',
+		'message: assignment-saved' => 'dea811c778645465528c7c61accc40da',
+		'message: saving-busy' => '06c1491e857dc09ac600cde5a3795c4a',
+		'message: withdrawn' => '06c1491e857dc09ac600cde5a3795c4a',
+		'message: withdrawn-already' => '06c1491e857dc09ac600cde5a3795c4a',
+		'message: closed' => '06c1491e857dc09ac600cde5a3795c4a',
+		'message: busy' => '06c1491e857dc09ac600cde5a3795c4a',
+	),
+	'words' => array(
+		'representative, filled' => 'c419c9d350a83cd4bbe06c978d7788ff',
+		'representative, nothing recorded' => '40f9460410fc70220140e0b636280328',
+		'representative, long words, six languages, four tracks' => '811143ed93643735649c5aabfecc912b',
+		'representative, the first group refused, typing kept' => 'e974db702a579f6ed28e9f030b3ba61b',
+		'representative, the second group refused, typing kept' => '58c4ffe920fb3fc632171f2b47e89012',
+		'representative, a request waiting' => '47ca4e0e4f8ec2fbcc4319313077db80',
+		'representative, long words, a request waiting' => '482d32c81f74d28cdf48b49936b3d04a',
+		'Administrator, a request waiting' => 'c09b8e7224c167e653b8bfc39dd5e444',
+		'Administrator, a request waiting, no Administrator Dashboard' => '076075ac3213cdd6fee3e441268176c8',
+		'representative, an approved request' => 'e6a0c6e63ffa54a528a8dfc4691df793',
+		'representative, a declined request with a note' => 'e7e4d398065d6bd4e0dbbb6e721756ba',
+		'representative, a declined request' => '7f42618bc1986de3530ddc68bac8baf4',
+		'Administrator, filled' => 'fbc49e6fb611d283f453ab6026cb1c34',
+		'Administrator, long words, four tracks' => '55b86ad06969b3f778431e9c124ecb20',
+		'Administrator, nothing recorded, nobody assigned, no track' => 'e6ffde8422c3f89cd100d2bff61ab263',
+		'Administrator, an account no longer an Administrator' => 'a352740f82b51990d62a3a451ee46c1f',
+		'Administrator, the second group refused' => 'cfec0e1f7e4b1b2ee30ee28b570b1813',
+		'Administrator, a school whose agreement is not settled' => '72733dda5528fb6e970e35aabbe3b023',
+		'Administrator, the tracks saved' => 'fbc49e6fb611d283f453ab6026cb1c34',
+		'Administrator, the tracks refused' => '7ecf6e2ae9a83b1999bb2b571f065e96',
+		'Administrator, the assignment saved' => '758aacc4fb96a2d70d8bdac1893f4241',
+		'Administrator, the assignment refused' => '7c06bd9709e497586f55b0b770313052',
+		'representative, a sentence said' => '5d256f0073998722ecb470512d9c10da',
+		'tutor' => '40cd750bba9870f18aada2478b24840a',
+		'representative of a school whose agreement is not settled' => '40cd750bba9870f18aada2478b24840a',
+		'member of another school' => '40cd750bba9870f18aada2478b24840a',
+		'hostile, an Administrator' => '6b764c2fde51e421ab058c9dbea450c2',
+		'hostile, a representative' => '798abd325b3fe975bac0fb97276bbe70',
+		'hostile, a declined request' => 'ab4e2f4a5e28f99e218ce788a32880f8',
+		'hostile, a request waiting' => '75825f9e07b56440d89ac96f40c16063',
+		'hostile, a request waiting with a tag' => 'ecc325127143833c6feb116314a4facf',
+		'message: saved' => 'a892563930d9f3cc940982bc07cba1fc',
+		'message: asked' => 'cc708b7a08cef13d25064d8d7a54aca7',
+		'message: nothing' => '9d27f5567ef0067198a33810616db76e',
+		'message: airtable' => '889e777b23ebc2f5fe1dfdd97d73528e',
+		'message: refused-now' => '1b009692be91be01b00bc37f15175cf6',
+		'message: refused-checked' => 'f10ba48877dff76278210d6f0778b327',
+		'message: tracks-saved' => 'fbc49e6fb611d283f453ab6026cb1c34',
+		'message: assignment-emailed' => '758aacc4fb96a2d70d8bdac1893f4241',
+		'message: assignment-saved' => '4f304c818155adfd09656c9afc9daf9f',
+		'message: saving-busy' => '31c4b560f4cb43b1395a9de788af541b',
+		'message: withdrawn' => 'c7572a058a29efdc4c88e763d4d56078',
+		'message: withdrawn-already' => 'c41b311aa5fb5e1e75f7a12593a13f6e',
+		'message: closed' => 'e0fe63bdc2c31288b04e69d5e154b11a',
+		'message: busy' => '99d3ac219469114eb588f1dd173641c8',
+	),
+);
+
+// ---- 2. Who is drawn the card: the same readers on both branches (standing rule 3) ----
+
+ck( 'a tutor, a locked school\'s representative and another school\'s member are drawn nothing, as the old card drew them nothing', array(
+	$t19_new['tutor'],
+	$t19_new['representative of a school whose agreement is not settled'],
+	$t19_new['member of another school'],
+), array( '', '', '' ) );
+$t19_card_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-details-card.php' );
+$t19_render   = (string) method_body( $t19_card_src, 'render' );
+ck( 'the policy is asked once, before the card is drawn, and the data is read before it too', array( substr_count( $t19_render, 'WPCPM_Institution_Policy::decide(' ), before( $t19_render, 'WPCPM_Institution_Policy::decide(', 'self::render_parts(' ), before( $t19_render, 'self::take_flash(', 'self::render_parts(' ), before( $t19_render, 'WPCPM_Institution_Request::open_details_for(', 'self::render_parts(' ) ), array( 1, true, true, true ) );
+
+// Fix round 1: which outcome goes to Tracks offered or to Assigned Administrator, and who reads the decide line, are one
+// helper each.
+ck( 'the sections\' outcomes and the decide line are each one rule', array(
+	substr_count( $t19_card_src, 'self::section_message( $flash, \'tracks\' )' ),
+	substr_count( $t19_card_src, 'self::section_message( $flash, \'assignment\' )' ),
+	substr_count( $t19_card_src, 'self::shows_decide( $group, $open, $checker )' ),
+	// The one comparison is section_message()'s own.
+	substr_count( $t19_card_src, '=== $flash[\'section\']' ),
+	1 === preg_match( '/if \( \$checker \) \{\s*(self::render_decide|echo WPCPM_UI::intro)/', $t19_card_src ),
+	has( (string) method_body( $t19_card_src, 'render_parts' ), 'self::shows_decide(' ),
+), array( 1, 1, 1, 1, false, true ) );
+
+// ---- 3. The card's frame on the parts ----
+
+$t19_filled = $t19_new['representative, filled'];
+// Fix round 1: the view's lede already says what the program has on record, so the card's head is its name alone.
+ck( 'the card is the shell\'s card fold, open, its anchor on the section, its head the card\'s name alone (no phrase: the view\'s lede says it)', array( 0 === strpos( $t19_filled, '<section class="wpcpm-ui-fold-card" id="wpcpm-details"><details class="wpcpm-ui-fold" open><summary class="wpcpm-ui-fold__head"><h3 class="wpcpm-ui-fold__title">Your institution&#039;s details</h3><span class="wpcpm-ui-fold__end">' ), has( implode( '', $t19_new ), 'What the program has on record' ) ), array( true, false ) );
+ck( 'and ends as the shell ends it', substr( $t19_filled, -strlen( '</div></details></section>' ) ), '</div></details></section>' );
+ck( 'no class of today\'s card on the parts, but the message\'s own (wpcpm-details__message, with its tone)', array_values( array_unique( preg_match_all( '/wpcpm-(details__(?!message\b)[a-z-]+|institution__card|group__[a-z]+|field--[a-z]+|warning|button)\b/', implode( '', $t19_new ), $t19_m ) ? $t19_m[0] : array() ) ), array() );
+ck( 'one name per page: the card\'s name is not the view\'s title, and nothing on the card repeats it', array( has( $t19_filled, '>Your institution<' ), substr_count( plain( $t19_filled ), 'Your institution\'s details' ) ), array( false, 1 ) );
+preg_match_all( '#<h4 class="wpcpm-ui-h"[^>]*>(.*?)</h4>#', $t19_filled, $t19_h );
+ck( 'a representative\'s in-card headings: the two groups, then Tracks offered', $t19_h[1], array( 'Contact and agreement', 'Name and address', 'Tracks offered' ) );
+preg_match_all( '#<h4 class="wpcpm-ui-h"[^>]*>(.*?)</h4>#', $t19_new['Administrator, filled'], $t19_h );
+ck( 'an Administrator\'s, then Assigned Administrator', $t19_h[1], array( 'Contact and agreement', 'Name and address', 'Tracks offered', 'Assigned Administrator' ) );
+
+// ---- 4. The two tables ----
+
+ck( 'two key and value tables for a representative, each named by its heading; a third, the assignment, for an Administrator', array(
+	substr_count( $t19_filled, '<table class="wpcpm-ui-table wpcpm-ui-table--keyvalue" role="table"' ),
+	has( $t19_filled, '<h4 class="wpcpm-ui-h" id="wpcpm-details-now-heading">Contact and agreement</h4><table class="wpcpm-ui-table wpcpm-ui-table--keyvalue" role="table" aria-labelledby="wpcpm-details-now-heading">' ),
+	has( $t19_filled, '<h4 class="wpcpm-ui-h" id="wpcpm-details-checked-heading">Name and address</h4><table class="wpcpm-ui-table wpcpm-ui-table--keyvalue" role="table" aria-labelledby="wpcpm-details-checked-heading">' ),
+	substr_count( $t19_new['Administrator, filled'], '<table class="wpcpm-ui-table wpcpm-ui-table--keyvalue"' ),
+	has( $t19_filled, 'wpcpm-ui-table--wide' ),
+), array( 2, true, true, 3, false ) );
+$t19_rows = t19_rows( t19_between( $t19_filled, 'Contact and agreement', 'Tracks offered' ) );
+ck( 'six rows and five, with the details table\'s labels, in its order, holding what the old rows held', array_map( static function ( $row ) { return $row[0]; }, $t19_rows ), array(
+	'Contact person'               => 'Contact One',
+	'Their role'                   => 'Head of the international office',
+	'Signs the agreement'          => 'Signer One',
+	'Their title'                  => 'Dean of Engineering',
+	'Students study in'            => 'Spanish, English',
+	'Page about WordPress Credits' => 'https://ejemplo.edu/credits',
+	'Name'                         => 'Universidad Ejemplo',
+	'Website'                      => 'https://ejemplo.edu',
+	'City'                         => 'San Jose',
+	'Country'                      => 'Costa Rica',
+	'Contact\'s email'             => 'contact@example.test',
+) );
+ck( 'the page address, the website and the contact\'s email are token cells; every other value ordinary text', array_map( static function ( $row ) { return $row[1]; }, $t19_rows ), array(
+	'Contact person'               => 'wpcpm-ui-cell--text',
+	'Their role'                   => 'wpcpm-ui-cell--text',
+	'Signs the agreement'          => 'wpcpm-ui-cell--text',
+	'Their title'                  => 'wpcpm-ui-cell--text',
+	'Students study in'            => 'wpcpm-ui-cell--text',
+	'Page about WordPress Credits' => 'wpcpm-ui-cell--token',
+	'Name'                         => 'wpcpm-ui-cell--text',
+	'Website'                      => 'wpcpm-ui-cell--token',
+	'City'                         => 'wpcpm-ui-cell--text',
+	'Country'                      => 'wpcpm-ui-cell--text',
+	'Contact\'s email'             => 'wpcpm-ui-cell--token',
+) );
+$t19_empty = t19_rows( t19_between( $t19_new['representative, nothing recorded'], 'Contact and agreement', 'Tracks offered' ) );
+ck( 'an empty detail reads "Not given yet", in words, of the empty kind', array( array_values( array_unique( array_map( static function ( $row ) { return $row[0] . ' / ' . $row[1]; }, array_diff_key( $t19_empty, array( 'Name' => 1 ) ) ) ) ), $t19_empty['Name'] ), array( array( 'Not given yet / wpcpm-ui-cell--text wpcpm-ui-cell--empty' ), array( 'Another School', 'wpcpm-ui-cell--text' ) ) );
+$t19_long_html = $t19_new['representative, long words, six languages, four tracks'];
+ck( 'a 40-character name and a long contact name are plain words the key and value table breaks where they would overflow, no `<wbr>` (Task 22b); the languages read as the list they are', array(
+	has( $t19_long_html, '<td class="wpcpm-ui-cell--text" role="cell">Exampleinstituteforappliedwebengineerings' ),
+	has( $t19_long_html, '<td class="wpcpm-ui-cell--text" role="cell">Exampleunbrokenpersonnamewithfortychars1</td>' ),
+	substr_count( implode( '', $t19_new ), '<wbr>' ),
+	t19_rows( $t19_long_html )['Students study in'][0],
+), array( true, true, 0, 'English, Spanish, Polish, Portuguese, Mandarin Chinese, Tagalog (Filipino)' ) );
+
+// ---- 5. The two folds and their forms (standing rule 2) ----
+
+$t19_now     = t19_fold( $t19_filled, 'wpcpm-details-now' );
+$t19_checked = t19_fold( $t19_filled, 'wpcpm-details-checked' );
+ck( 'each table is followed by its inner fold, closed: "Correct these" with "(saved at once)", "Ask to correct these" with "(an Administrator checks first)"', array(
+	'' !== $t19_now, '' !== $t19_checked,
+	has( $t19_now, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" id="wpcpm-details-now"><summary class="wpcpm-ui-fold__head"><span class="wpcpm-ui-fold__lead"><span class="wpcpm-ui-fold__title">Correct these</span><span class="wpcpm-ui-fold__second">(saved at once)</span></span>' ),
+	has( $t19_checked, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" id="wpcpm-details-checked"><summary class="wpcpm-ui-fold__head"><span class="wpcpm-ui-fold__lead"><span class="wpcpm-ui-fold__title">Ask to correct these</span><span class="wpcpm-ui-fold__second">(an Administrator checks first)</span></span>' ),
+	strpos( $t19_filled, 'wpcpm-details-now-heading' ) < strpos( $t19_filled, 'id="wpcpm-details-now"' ) && strpos( $t19_filled, 'id="wpcpm-details-now"' ) < strpos( $t19_filled, 'wpcpm-details-checked-heading' ),
+	strpos( $t19_filled, 'wpcpm-details-checked-heading' ) < strpos( $t19_filled, 'id="wpcpm-details-checked"' ),
+), array( true, true, true, true, true, true ) );
+ck( 'an Administrator\'s second fold reads as the save it is, under the note that says so', array(
+	has( $t19_new['Administrator, filled'], '<span class="wpcpm-ui-fold__title">Correct these</span><span class="wpcpm-ui-fold__second">(saved at once)</span></span><span class="wpcpm-ui-fold__chev" aria-hidden="true">' ),
+	substr_count( $t19_new['Administrator, filled'], '(saved at once)' ),
+	has( t19_fold( $t19_new['Administrator, filled'], 'wpcpm-details-checked' ), '<p class="wpcpm-ui-intro">You are an Administrator, so these are saved at once and nobody approves them.</p>' ),
+	has( $t19_new['Administrator, filled'], 'Ask to correct these' ),
+), array( true, 2, true, false ) );
+ck( 'one primary button to each form: Save the details, Send to an Administrator', array(
+	has( $t19_now, '<div class="wpcpm-ui-actions"><button type="submit" class="wpcpm-btn">Save the details</button></div></form>' ),
+	has( $t19_checked, '<div class="wpcpm-ui-actions"><button type="submit" class="wpcpm-btn">Send to an Administrator</button></div></form>' ),
+	substr_count( $t19_now, '<button' ), substr_count( $t19_checked, '<button' ),
+), array( true, true, 1, 1 ) );
+$t19_post_diff = array();
+foreach ( $t19_states as $t19_name => $t19_state ) {
+	// Each drawing plays its scene afresh, so a waiting request is a new post each time: its ID is masked.
+	if ( md5( serialize( t19_forms( t19_mask( $t19_new[ $t19_name ] ) ) ) ) !== $t19_old_pins['forms'][ $t19_name ] ) {
+		$t19_post_diff[] = $t19_name;
+	}
+}
+ck( 'every form posts what it posts today, in every state: method, address, guard, busy words, question, every name and value, the nonce and the referer, the button', $t19_post_diff, array() );
+$t19_kinds = array();
+foreach ( t19_forms( $t19_new['representative, a request waiting'] . $t19_new['Administrator, filled'] ) as $t19_form ) {
+	$t19_kinds[] = preg_replace( '/^action=/', '', (string) current( array_filter( $t19_form['fields'], static function ( $f ) { return 0 === strpos( $f, 'action=' ); } ) ) );
+}
+ck( 'the five forms the card draws: save, withdraw (one to each waiting row), ask, tracks, assignment', array_values( array_unique( $t19_kinds ) ), array( 'wpcpm_save_details', 'wpcpm_withdraw_details', 'wpcpm_ask_details', 'wpcpm_institution_tracks_save', 'wpcpm_institution_assign' ) );
+$t19_referer = array();
+foreach ( array( 'representative, a request waiting', 'Administrator, filled' ) as $t19_name ) {
+	$t19_referer[] = substr_count( $t19_new[ $t19_name ], 'name="_wp_http_referer"' ) === substr_count( $t19_new[ $t19_name ], '<form ' );
+}
+ck( 'the referer is drawn once in each form', $t19_referer, array( true, true ) );
+ck( 'and the parts\' nonce carries no id, so no id repeats on the page', substr_count( implode( '', $t19_new ), 'id="_wpnonce"' ), 0 );
+$t19_dup = array();
+foreach ( $t19_new as $t19_name => $t19_html ) {
+	preg_match_all( '/\sid="([^"]+)"/', $t19_html, $t19_ids );
+	if ( count( $t19_ids[1] ) !== count( array_unique( $t19_ids[1] ) ) ) {
+		$t19_dup[] = $t19_name;
+	}
+}
+ck( 'no id repeats in any state on the parts', $t19_dup, array() );
+ck( 'every form keeps novalidate and the double-press guard, and works with no script (a plain post with its own submit)', array_values( array_unique( array_map( static function ( $form ) { return array( $form['method'], $form['novalidate'], $form['once'], count( $form['submits'] ) ); }, t19_forms( implode( '', $t19_new ) ) ), SORT_REGULAR ) ), array( array( 'post', true, true, 1 ) ) );
+
+// The fields: the application's own questions, the languages a choice group, Country the one combobox.
+ck( 'the first form asks the application\'s questions, with their labels, their Required in words and their help tied to each box', array(
+	has( $t19_now, '<label class="wpcpm-ui-field__label" for="wpcpm-details-contact_person">Name of the person we should contact <span class="wpcpm-ui-field__need">Required</span></label><input type="text" class="wpcpm-ui-field__control" id="wpcpm-details-contact_person" name="wpcpm_details_contact_person" required maxlength="120" autocomplete="name" value="Contact One">' ),
+	has( $t19_now, 'id="wpcpm-details-contact_role" name="wpcpm_details_contact_role" required maxlength="120" aria-describedby="wpcpm-details-contact_role-hint" value="Head of the international office"><p class="wpcpm-ui-field__hint" id="wpcpm-details-contact_role-hint">For example: internship coordinator, or head of the computer science department.</p>' ),
+	has( $t19_now, '<label class="wpcpm-ui-field__label" for="wpcpm-details-signer_name">Who will sign the agreement for the institution?</label>' ),
+	has( $t19_now, 'id="wpcpm-details-credits_page" name="wpcpm_details_credits_page" maxlength="200" inputmode="url" aria-describedby="wpcpm-details-credits_page-hint" value="https://ejemplo.edu/credits">' ),
+), array( true, true, true, true ) );
+ck( 'the languages are a choice group of the application\'s list, in columns, its legend the question, its help tied to the group', array(
+	has( $t19_now, '<fieldset class="wpcpm-ui-choices wpcpm-ui-choices--columns" aria-describedby="wpcpm-details-student_languages-hint"><legend class="wpcpm-ui-choices__legend">In which languages do your students study? <span class="wpcpm-ui-field__need">Required</span></legend><p class="wpcpm-ui-field__hint" id="wpcpm-details-student_languages-hint">Tick every language your students study in.</p><div class="wpcpm-ui-choices__grid">' ),
+	substr_count( $t19_now, 'name="wpcpm_details_student_languages[]"' ),
+	has( $t19_now, '<input type="checkbox" class="wpcpm-ui-choice__input" id="wpcpm-details-student_languages-Spanish" name="wpcpm_details_student_languages[]" value="Spanish" checked>' ),
+), array( true, count( WPCPM_Mentor_Application_Form::languages() ), true ) );
+$t19_country = t19_between( $t19_checked, '<div class="wpcpm-ui-field wpcpm-ui-field--combo">', '</div> </div>' );
+ck( 'Country is the one combobox, the field the application draws: a label, the select it sends, and beside it, hidden, the field that takes typing', array(
+	has( $t19_country, '<label class="wpcpm-ui-field__label" id="wpcpm-details-country-label" for="wpcpm-details-country">Country <span class="wpcpm-ui-field__need">Required</span></label> <select class="wpcpm-ui-field__control wpcpm-ui-field__control--select" name="wpcpm_details_country" id="wpcpm-details-country" autocomplete="off" aria-required="true">' ),
+	has( $t19_country, '<option value="' . COSTA . '" selected="selected">Costa Rica</option>' ),
+	has( $t19_country, '<div class="wpcpm-dashboard__switcher-combo" hidden><input type="text" id="wpcpm-details-country-input" class="wpcpm-dashboard__switcher-input wpcpm-ui-field__control wpcpm-ui-field__control--select" role="combobox"' ),
+	has( $t19_country, 'placeholder="Type to find your country"' ),
+	has( $t19_country, 'data-wpcpm-count="Countries in the list: %s" data-wpcpm-none="No country has that name."' ),
+	in_array( 'wpcpm-switcher', $GLOBALS['enqueued_scripts'] ?? array(), true ),
+	substr_count( $t19_checked, '<select' ),
+), array( true, true, true, true, true, true, 1 ) );
+ck( 'Country, Required in words with no required on its select, says so to a screen reader on both of its boxes (field()\'s promise)', array(
+	has( $t19_country, 'name="wpcpm_details_country" id="wpcpm-details-country" autocomplete="off" aria-required="true">' ),
+	1 === preg_match( '#id="wpcpm-details-country-input" class="[^"]*" role="combobox"[^>]*aria-required="true"#', $t19_country ),
+	has( $t19_country, ' required' ),
+), array( true, true, false ) );
+ck( 'the email box is an email box and the website a box of text that brings the address keyboard, as today', array(
+	has( $t19_checked, '<input type="email" class="wpcpm-ui-field__control" id="wpcpm-details-contact_email" name="wpcpm_details_contact_email" required maxlength="200" autocomplete="email" inputmode="email"' ),
+	has( $t19_checked, '<input type="text" class="wpcpm-ui-field__control" id="wpcpm-details-website" name="wpcpm_details_website" required maxlength="200" inputmode="url"' ),
+), array( true, true ) );
+
+// ---- 6. A refusal: the typing kept, the sentence tied to its box, the fold open ----
+
+$t19_ref1 = t19_fold( $t19_new['representative, the first group refused, typing kept'], 'wpcpm-details-now' );
+$t19_ref2 = t19_fold( $t19_new['representative, the second group refused, typing kept'], 'wpcpm-details-checked' );
+ck( 'the refused form\'s fold is open, the other closed', array(
+	0 === strpos( $t19_ref1, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id="wpcpm-details-now">' ),
+	0 === strpos( t19_fold( $t19_new['representative, the first group refused, typing kept'], 'wpcpm-details-checked' ), '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" id="wpcpm-details-checked">' ),
+	0 === strpos( $t19_ref2, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id="wpcpm-details-checked">' ),
+), array( true, true, true ) );
+ck( 'what was typed is kept, as the old branch keeps it', array(
+	t19_box( $t19_ref1, 'wpcpm_details_contact_role' ), t19_box( $t19_ref1, 'wpcpm_details_contact_person' ),
+	t19_box( $t19_ref2, 'wpcpm_details_name' ), t19_box( $t19_ref2, 'wpcpm_details_city' ), t19_box( $t19_ref2, 'wpcpm_details_contact_email' ),
+), array( 'Kept role, as typed', '', 'Valencia University', '', 'not-an-email' ) );
+ck( 'each refused box says why under it, tied to it (aria-invalid, then its sentence before its hint)', array(
+	has( $t19_ref1, 'id="wpcpm-details-contact_person" name="wpcpm_details_contact_person" required maxlength="120" autocomplete="name" aria-invalid="true" aria-describedby="wpcpm-details-contact_person-problem" value=""><p class="wpcpm-field__problem" id="wpcpm-details-contact_person-problem">' ),
+	has( $t19_ref2, 'aria-invalid="true" aria-describedby="wpcpm-details-contact_email-problem wpcpm-details-contact_email-hint"' ),
+	has( $t19_ref2, '<div class="wpcpm-ui-field wpcpm-ui-field--combo"><label class="wpcpm-ui-field__label" id="wpcpm-details-country-label" for="wpcpm-details-country">Country <span class="wpcpm-ui-field__need">Required</span></label> <select class="wpcpm-ui-field__control wpcpm-ui-field__control--select" name="wpcpm_details_country" id="wpcpm-details-country" autocomplete="off" aria-required="true" aria-invalid="true" aria-describedby="wpcpm-details-country-problem">' ),
+	has( $t19_ref2, '<p class="wpcpm-field__problem" id="wpcpm-details-country-problem">Choose one of the options offered.</p></div>' ),
+), array( true, true, true, true ) );
+ck( 'a refused group of languages says why under its options, named by the group', array(
+	has( $t19_ref1, '<fieldset class="wpcpm-ui-choices wpcpm-ui-choices--columns wpcpm-ui-field" aria-describedby="wpcpm-details-student_languages-problem wpcpm-details-student_languages-hint">' ),
+	1 === preg_match( '#</div><p class="wpcpm-field__problem" id="wpcpm-details-student_languages-problem">[^<]+</p></fieldset>#', $t19_ref1 ),
+), array( true, true ) );
+$t19_msg = WPCPM_Institution_Details_Card::messages();
+// Gate B round 2, F2: a refusal is said at the form it refused, the open fold's first block, directly over the form; a
+// success keeps the card's message place at the head of the body.
+ck( 'the outcome is the shell\'s message, its tone from the card\'s map: a refusal the refused fold\'s first block, over its form, once; a success at the head of the body', array(
+	0 === strpos( substr( $t19_ref1, (int) strpos( $t19_ref1, '<div class="wpcpm-ui-fold__body">' ) ), '<div class="wpcpm-ui-fold__body">' . WPCPM_Dashboard_Card::message( 'error', $t19_msg['refused-now'][1], 'wpcpm-details__message' ) . '<form ' ),
+	0 === strpos( substr( $t19_ref2, (int) strpos( $t19_ref2, '<div class="wpcpm-ui-fold__body">' ) ), '<div class="wpcpm-ui-fold__body">' . WPCPM_Dashboard_Card::message( 'error', $t19_msg['refused-checked'][1], 'wpcpm-details__message' ) . '<form ' ),
+	substr_count( $t19_new['representative, the first group refused, typing kept'], 'data-wpcpm-card-message' ),
+	has( $t19_new['message: saved'] ?? '', '<div class="wpcpm-ui-fold__body">' . WPCPM_Dashboard_Card::message( 'success', $t19_msg['saved'][1], 'wpcpm-details__message' ) . '<h4' ),
+), array( true, true, 1, true ) );
+
+// Gate B round 2, F2: a section's refusal is said in its open fold, over its form, its way back's id with it; a success
+// under the section's heading.
+$f2_assign = $t19_new['Administrator, the assignment refused'];
+$f2_fold   = substr( $f2_assign, (int) strpos( $f2_assign, 'id="wpcpm-details-assignment"' ) );
+ck( 'the assignment refused: its outcome, with the way back\'s id, is the open fold\'s first block, directly over the form', array(
+	1 === preg_match( '#^id="wpcpm-details-assignment"><summary.*?</summary><div class="wpcpm-ui-fold__body"><div id="wpcpm-details-assignment-outcome"><p class="wpcpm-details__message wpcpm-details__message--error[^>]*>[^<]*</p></div><form #s', $f2_fold ),
+	1 === preg_match( '#<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id="wpcpm-details-assignment"#', $f2_assign ),
+	substr_count( $f2_assign, 'id="wpcpm-details-assignment-outcome"' ),
+), array( true, true, 1 ) );
+
+// Gate B round 3, R3: Tracks offered's refusal, the assigned Administrator's twin: in its open fold, over its form, its
+// way back's id with it; for a member, who is drawn no form, no refusal.
+$r3_tracks = t19_play( static function () { t19_fresh(); t19_flash( 1, array( 'status' => 'saving-busy', 'section' => 'tracks' ) ); return array( 1, A ); }, true );
+$r3_fold   = substr( $r3_tracks, (int) strpos( $r3_tracks, 'id="wpcpm-details-tracks"' ) );
+ck( 'Tracks offered refused: its outcome, with the way back\'s id, is the open fold\'s first block, directly over the form, once', array(
+	1 === preg_match( '#^id="wpcpm-details-tracks"><summary.*?</summary><div class="wpcpm-ui-fold__body"><div id="wpcpm-details-tracks-outcome"><p class="wpcpm-details__message wpcpm-details__message--error[^>]*>[^<]*</p></div><form #s', $r3_fold ),
+	1 === preg_match( '#<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id="wpcpm-details-tracks"#', $r3_tracks ),
+	substr_count( $r3_tracks, 'id="wpcpm-details-tracks-outcome"' ),
+), array( true, true, 1 ) );
+
+// ---- 7. A request waiting, and its outcome ----
+
+$t19_wait  = $t19_new['representative, a request waiting'];
+$t19_wrows = t19_rows( $t19_wait );
+ck( 'the waiting line sits under each row it changes, in words, and under no other', array(
+	1 === preg_match( '#<th scope="row" role="rowheader" class="wpcpm-ui-cell--text">Name</th><td class="wpcpm-ui-cell--text" role="cell">Universidad Ejemplo <span class="wpcpm-ui-cell__sub">Waiting for an Administrator: Universidad Ejemplo de Valencia, asked on <span class="wpcpm-ui-whole">[0-9-]+</span>\.</span><form #', $t19_wait ),
+	1 === preg_match( '#>City</th><td class="wpcpm-ui-cell--text" role="cell">San Jose <span class="wpcpm-ui-cell__sub">Waiting for an Administrator: Valencia, asked on #', $t19_wait ),
+	substr_count( $t19_wait, 'Waiting for an Administrator:' ),
+	has( $t19_wait, 'wpcpm-warning' ),
+	array( $t19_wrows['Name'][0], $t19_wrows['City'][0] ),
+), array( true, true, 2, false, array( 'Universidad Ejemplo', 'San Jose' ) ) );
+ck( 'with Withdraw it, quiet red, today\'s form (no question today), the row named for a screen reader', array(
+	1 === preg_match( '#<form method="post" action="https://example.test/wp-admin/admin-post.php" novalidate data-wpcpm-once data-wpcpm-busy="Withdrawing"><input type="hidden" name="_wpnonce" value="nonce-wpcpm_withdraw_details_\d+"><input type="hidden" name="_wp_http_referer" value="[^"]*" /><input type="hidden" name="action" value="wpcpm_withdraw_details" /><input type="hidden" name="request" value="\d+" /><input type="hidden" name="wpcpm_details_return" value="wpcpm-details" /><button type="submit" class="wpcpm-btn wpcpm-btn--quiet wpcpm-btn--danger">Withdraw it<span class="screen-reader-text"> Name</span></button></form>#', $t19_wait ),
+	substr_count( $t19_wait, '>Withdraw it<' ),
+	has( $t19_wait, 'data-wpcpm-confirm' ),
+), array( true, 2, false ) );
+ck( 'while it waits the second group offers no form; the first does', array( t19_fold( $t19_wait, 'wpcpm-details-checked' ), '' !== t19_fold( $t19_wait, 'wpcpm-details-now' ) ), array( '', true ) );
+$t19_aw = $t19_new['Administrator, a request waiting'];
+ck( 'an Administrator reads the lines, is offered no Withdraw it, and is told where the request is decided, linked', array(
+	substr_count( $t19_aw, 'Waiting for an Administrator:' ),
+	has( $t19_aw, 'Withdraw it' ),
+	has( $t19_aw, '<p class="wpcpm-ui-intro">A request from the school is waiting. Decide it in <a href="https://example.test/administrator-dashboard/#wpcpm-requests">Requests from institutions on the Administrator Dashboard</a>.</p>' ),
+	strpos( $t19_aw, 'wpcpm-details-checked-heading' ) < strpos( $t19_aw, 'A request from the school is waiting.' ),
+	t19_fold( $t19_aw, 'wpcpm-details-checked' ),
+	has( $t19_new['Administrator, a request waiting, no Administrator Dashboard'], '<p class="wpcpm-ui-intro">A request from the school is waiting. Decide it in Requests from institutions on the Administrator Dashboard.</p>' ),
+), array( 2, false, true, true, '', true ) );
+ck( 'the outcome line sits under the second table, through outcome_sentence(), before the fold', array(
+	1 === preg_match( '#</tbody></table><p class="wpcpm-ui-intro">Updated on [0-9-]+\.</p><details class="wpcpm-ui-fold wpcpm-ui-fold--inner" id="wpcpm-details-checked">#', $t19_new['representative, an approved request'] ),
+	has( $t19_new['representative, a declined request with a note'], '<p class="wpcpm-ui-intro">' . esc_html( WPCPM_Institution_Details_Card::outcome_sentence( array( 'state' => 'declined', 'note' => 'Please send the letter from the registrar & the dean.' ) ) ) . '</p>' ),
+	has( $t19_new['representative, a declined request'], '<p class="wpcpm-ui-intro">An Administrator did not make the change you asked for.</p>' ),
+	strpos( $t19_new['representative, an approved request'], 'Updated on' ) > strpos( $t19_new['representative, an approved request'], 'wpcpm-details-checked-heading' ),
+), array( true, true, true, true ) );
+
+// ---- 8. The messages (standing rule 6) ----
+
+$t19_said = array();
+foreach ( array_merge( WPCPM_Institution_Details_Card::messages(), WPCPM_Institution_Request::school_messages() ) as $t19_status => $t19_message ) {
+	$t19_html  = $t19_new[ 'message: ' . $t19_status ];
+	$t19_shown = WPCPM_Dashboard_Card::message( $t19_message[0], $t19_message[1], 'wpcpm-details__message' );
+	if ( 0 === strpos( $t19_status, 'tracks' ) ) {
+		$t19_shown = '<div id="wpcpm-details-tracks-outcome">' . $t19_shown . '</div>';
+	} elseif ( 0 === strpos( $t19_status, 'assignment' ) ) {
+		$t19_shown = '<div id="wpcpm-details-assignment-outcome">' . $t19_shown . '</div>';
+	}
+	if ( 1 !== substr_count( $t19_html, $t19_shown ) || 1 !== substr_count( $t19_html, 'data-wpcpm-card-message' ) ) {
+		$t19_said[] = $t19_status;
+	}
+}
+ck( 'each message is printed once, by the shell\'s message(), in its tone; a section\'s under its heading, where its way back lands', $t19_said, array() );
+ck( 'a sentence a handler said is an error, alerted', has( $t19_new['representative, a sentence said'], '<p class="wpcpm-details__message wpcpm-details__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>One change is already waiting for an Administrator.</p>' ), true );
+ck( 'the tracks\' and the assignment\'s are not printed at the card\'s head, and their folds are open', array(
+	strpos( $t19_new['message: tracks-saved'], 'data-wpcpm-card-message' ) > strpos( $t19_new['message: tracks-saved'], '>Tracks offered</h4>' ),
+	0 === strpos( t19_fold( $t19_new['message: tracks-saved'], 'wpcpm-details-tracks' ), '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id="wpcpm-details-tracks">' ),
+	strpos( $t19_new['message: assignment-saved'], 'data-wpcpm-card-message' ) > strpos( $t19_new['message: assignment-saved'], '>Assigned Administrator</h4>' ),
+	0 === strpos( t19_fold( $t19_new['message: assignment-saved'], 'wpcpm-details-assignment' ), '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id="wpcpm-details-assignment">' ),
+), array( true, true, true, true ) );
+
+// ---- 9. Tracks offered, and who follows it up ----
+
+$t19_tr_member = t19_between( $t19_filled, '>Tracks offered</h4>' );
+ck( 'Tracks offered: a heading and a list of the runnable tracks; a representative is told who sets them, and drawn no form', array(
+	has( $t19_tr_member, '<ul class="wpcpm-ui-list"><li class="wpcpm-ui-list__row"><div class="wpcpm-ui-list__line"><span class="wpcpm-ui-list__name">WordPress Credits Program 150h</span><span class="wpcpm-ui-list__facts"></span></div></li><li class="wpcpm-ui-list__row"><div class="wpcpm-ui-list__line"><span class="wpcpm-ui-list__name">Developer Track</span><span class="wpcpm-ui-list__facts"></span></div></li></ul>' ),
+	has( $t19_tr_member, '<p class="wpcpm-ui-intro wpcpm-ui-intro--muted">The program sets the tracks your institution offers. To change them, write to education@wordpressfoundation.org.</p>' ),
+	has( $t19_tr_member, '<form' ),
+	has( $t19_tr_member, 'Assigned Administrator' ),
+), array( true, true, false, false ) );
+ck( 'four tracks, four rows; none, the one muted line', array( substr_count( t19_between( $t19_long_html, '>Tracks offered</h4>' ), 'wpcpm-ui-list__row' ), has( $t19_new['Administrator, nothing recorded, nobody assigned, no track'], '<p class="wpcpm-ui-list__empty">None listed yet.</p>' ) ), array( 4, true ) );
+$t19_tr_fold = t19_fold( $t19_new['Administrator, filled'], 'wpcpm-details-tracks' );
+ck( 'an Administrator\'s Change the tracks: an inner fold, closed, a choice group of every track the site runs, its hint, one primary', array(
+	0 === strpos( $t19_tr_fold, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" id="wpcpm-details-tracks"><summary class="wpcpm-ui-fold__head"><span class="wpcpm-ui-fold__lead"><span class="wpcpm-ui-fold__title">Change the tracks</span></span>' ),
+	has( $t19_tr_fold, '<fieldset class="wpcpm-ui-choices" aria-describedby="wpcpm-details-tracks-offered-hint"><legend class="wpcpm-ui-choices__legend">Tracks offered</legend><p class="wpcpm-ui-field__hint" id="wpcpm-details-tracks-offered-hint">Students are asked which track they want when two or more are ticked.</p>' ),
+	substr_count( $t19_tr_fold, 'name="wpcpm_tracks_offered[]"' ),
+	substr_count( $t19_tr_fold, 'name="wpcpm_tracks_offered[]" value="In Sensei" checked>' ) + substr_count( $t19_tr_fold, 'name="wpcpm_tracks_offered[]" value="Developer Track" checked>' ),
+	has( $t19_tr_fold, '<div class="wpcpm-ui-actions"><button type="submit" class="wpcpm-btn">Save tracks</button></div>' ),
+), array( true, true, 4, 2, true ) );
+$t19_as = t19_between( $t19_new['Administrator, filled'], '>Assigned Administrator</h4>' );
+$t19_as_fold = t19_fold( $t19_as, 'wpcpm-details-assignment' );
+ck( 'an Administrator\'s Assigned Administrator: the one row, then Change who follows it up, the combobox, one primary', array(
+	has( $t19_as, '<th scope="row" role="rowheader" class="wpcpm-ui-cell--text">Administrator</th><td class="wpcpm-ui-cell--text" role="cell">Bo Boss</td>' ),
+	0 === strpos( $t19_as_fold, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" id="wpcpm-details-assignment"><summary class="wpcpm-ui-fold__head"><span class="wpcpm-ui-fold__lead"><span class="wpcpm-ui-fold__title">Change who follows it up</span></span>' ),
+	has( $t19_as_fold, '<label class="wpcpm-ui-field__label" id="wpcpm-details-assigned-label" for="wpcpm-details-assigned">Administrator</label> <select class="wpcpm-ui-field__control wpcpm-ui-field__control--select" name="wpcpm_assigned" id="wpcpm-details-assigned" autocomplete="off"><option value="0">Nobody</option><option value="12" selected="selected">Bo Boss</option><option value="13">Cy Chief</option><option value="1">Manager</option></select>' ),
+	has( $t19_as_fold, '<div class="wpcpm-ui-actions"><button type="submit" class="wpcpm-btn">Save</button></div>' ),
+	has( $t19_new['Administrator, nothing recorded, nobody assigned, no track'], '>Administrator</th><td class="wpcpm-ui-cell--text wpcpm-ui-cell--empty" role="cell">Nobody yet</td>' ),
+	has( $t19_new['Administrator, an account no longer an Administrator'], '<td class="wpcpm-ui-cell--text" role="cell">Cy Chief (not an Administrator now)</td>' ),
+), array( true, true, true, true, true, true ) );
+
+// ---- 10. Every reader is drawn the same facts and offered the same actions on both branches (standing rule 3) ----
+
+$t19_facts = array();
+foreach ( $t19_states as $t19_name => $t19_state ) {
+	if ( md5( serialize( t19_words( t19_mask( $t19_new[ $t19_name ] ) ) ) ) !== $t19_old_pins['words'][ $t19_name ] ) {
+		$t19_facts[] = $t19_name;
+	}
+}
+ck( 'every state says the words the old card said, the lead the view\'s lede now says aside: no fact added, none dropped', $t19_facts, array() );
+ck( 'the contact\'s email and the page address are drawn to exactly the readers that see them today', array_map( static function ( $name ) use ( $t19_new ) {
+	return array( has( $t19_new[ $name ], 'contact@example.test' ), has( $t19_new[ $name ], 'ejemplo.edu/credits' ) );
+}, array( 'representative, filled', 'Administrator, filled', 'tutor', 'member of another school' ) ), array( array( true, true ), array( true, true ), array( false, false ), array( false, false ) ) );
+
+// ---- 11. Hostile words (standing rule 10) ----
+
+$t19_hostile = array();
+foreach ( array( 'hostile, an Administrator', 'hostile, a representative', 'hostile, a declined request', 'hostile, a request waiting', 'hostile, a request waiting with a tag' ) as $t19_name ) {
+	foreach ( array( 'parts' => $t19_new[ $t19_name ] ) as $t19_branch => $t19_html ) {
+		$t19_flat = str_replace( '<wbr>', '', $t19_html );
+		$t19_bad  = array();
+		if ( false !== stripos( $t19_flat, '<script' ) || false !== stripos( $t19_flat, '<b>' ) || false !== strpos( $t19_flat, '<y>' ) ) {
+			$t19_bad[] = 'a raw tag';
+		}
+		// A box's value is drawn by today's typed-text rules, which keep an entity a stored text holds as the words it reads
+		// (`WPCPM_Typed_Text::attr_text()`): both branches draw it so, and the forms' check above holds them equal.
+		if ( preg_match( '/&amp;(amp|lt|gt|quot|#0?39);/', (string) preg_replace( '/\svalue="[^"]*"/', '', $t19_flat ) ) ) {
+			$t19_bad[] = 'escaped twice';
+		}
+		foreach ( t19_dom( $t19_html )->getElementsByTagName( '*' ) as $t19_el ) {
+			foreach ( $t19_el->attributes as $t19_attr ) {
+				if ( 1 !== preg_match( '/^(class|id|href|method|action|novalidate|role|type|name|value|for|maxlength|inputmode|autocomplete|required|checked|selected|open|hidden|tabindex|placeholder|spellcheck|scope|disabled|data-[a-z-]+|aria-[a-z]+|width|height|viewbox|fill|focusable|d|xmlns)$/', $t19_attr->name ) ) {
+					$t19_bad[] = 'attribute ' . $t19_attr->name;
+				}
+			}
+		}
+		$t19_values = 'hostile, an Administrator' === $t19_name ? $GLOBALS['t19_hostile_values'] : ( 'hostile, a representative' === $t19_name ? array_slice( $GLOBALS['t19_hostile_values'], 0, 9 ) : array( 'hostile, a declined request' === $t19_name ? 'Note ' . T19_BAD : ( 'hostile, a request waiting with a tag' === $t19_name ? 'Waiting for an Administrator: Ort ' . T19_BAD : 'Ort "q" & Co' ) ) );
+		if ( 'hostile, an Administrator' === $t19_name ) {
+			$t19_values[] = 'Admin ' . T19_BAD;
+		}
+		foreach ( $t19_values as $t19_value ) {
+			if ( ! has( $t19_flat, esc_html( $t19_value ) ) ) {
+				$t19_bad[] = 'missing ' . $t19_value;
+			}
+		}
+		if ( $t19_bad ) {
+			$t19_hostile[ $t19_name . ' (' . $t19_branch . ')' ] = array_values( array_unique( $t19_bad ) );
+		}
+	}
+}
+ck( 'a waiting request asking for a tag: the line holds it escaped once', array_map( static function ( $html ) {
+	$html = str_replace( '<wbr>', '', $html );
+	return array( substr_count( $html, 'Waiting for an Administrator: Ort &lt;script&gt;alert(1)&lt;/script&gt; &quot;q&quot; &amp; Co, asked on ' ), false !== stripos( $html, '<script' ) );
+}, array( $t19_new['hostile, a request waiting with a tag'] ) ), array( array( 1, false ) ) );
+ck( 'every value a person types that the card prints, hostile, is printed escaped once: no raw tag, no broken attribute', $t19_hostile, array() );
+
+// ---- 12. The parts extended for this card print the base's bytes without the new argument (standing rule 5) ----
+
+$t19_combo = static function ( array $args ) {
+	ob_start();
+	WPCPM_Dashboards_Real::render_combo( $args );
+	return md5( (string) ob_get_clean() );
+};
+ck( 'render_combo() with no need_html: the base\'s bytes (the application\'s country, the Viewing as switcher, the compact control)', array(
+	$t19_combo( array( 'id' => 'wpcpm-app-country', 'name' => 'Country', 'options' => array( '' => 'Choose a country', COSTA => 'Costa Rica', POLAND => 'Poland' ), 'current' => '', 'label' => 'Country', 'mark' => 'Required', 'describedby' => 'wpcpm-app-country-problem', 'invalid' => true, 'required' => true, 'find' => 'Type to find your country', 'none' => 'No country has that name.', 'count' => 'Countries in the list: %s' ) ),
+	$t19_combo( array( 'id' => 'wpcpm-institution-switcher', 'name' => 'wpcpm_institution_view', 'options' => array( A => 'Universidad Ejemplo', B => 'Another School' ), 'current' => A, 'label' => 'Viewing as institution', 'find' => 'Type to find an institution', 'none' => 'No institution has that name.' ) ),
+	$t19_combo( array( 'id' => 'wpcpm-institution-switcher', 'name' => 'wpcpm_institution_view', 'options' => array( A => 'Universidad Ejemplo' ), 'current' => '', 'label' => 'Viewing as institution', 'label_class' => WPCPM_UI::VIEWING_LABEL, 'box_class' => WPCPM_UI::VIEWING_BOX, 'blank' => 'Choose an institution', 'describedby' => 'x-note' ) ),
+), T19_COMBO_BASE );
+
+/* ---- the layout harness ---- */
+
+if ( function_exists( 'wpcpm_layout_keep' ) ) {
+	foreach ( array(
+		'representative, long words, six languages, four tracks',
+		'representative, the first group refused, typing kept',
+		'representative, the second group refused, typing kept',
+		'representative, long words, a request waiting',
+		'representative, a declined request with a note',
+		'Administrator, long words, four tracks',
+		'Administrator, a request waiting',
+		'Administrator, the assignment refused',
+		'representative, nothing recorded',
+		'message: saved',
+	) as $t19_name ) {
+		// Every fold open: both correction folds, and an Administrator's two.
+		wpcpm_layout_keep( 'Your institution\'s details: ' . $t19_name, str_replace( '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" id=', '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id=', $t19_new[ $t19_name ] ) );
+	}
+}
+
+$GLOBALS['real_combo'] = false;
+$GLOBALS['core_nonce'] = false;
+fresh();
 
 echo "\n=== A school reads none of the base's words ===\n";
 

@@ -73,6 +73,15 @@ class WPCPM_Institution_History {
 	/** The kind of the row a stopped import leaves, which is worded from its facts and not from its message. */
 	const KIND_IMPORT_STOPPED = 'import_stopped';
 
+	/** The section's anchor, on the Institution Dashboard's For Administrators view. */
+	const ANCHOR = 'wpcpm-for-administrators';
+
+	/** The first card's key: its anchor is `wpcpm-` and the key. */
+	const KEY_ANSWERS = 'admin-answers';
+
+	/** The second card's key: its anchor is `wpcpm-` and the key. */
+	const KEY_HISTORY = 'admin-history';
+
 	/**
 	 * The For Administrators section for one institution.
 	 *
@@ -83,31 +92,279 @@ class WPCPM_Institution_History {
 	public static function render( $record_id ) {
 		$record_id = trim( (string) $record_id );
 
+		// The one question asked before anything of the section is read.
 		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) || ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
 			return '';
 		}
 
-		$out  = '<section class="wpcpm-institution__admin" id="wpcpm-for-administrators">';
-		$out .= sprintf(
-			'<h2 class="wpcpm-student__heading wpcpm-institution__module-title">%s</h2>',
-			esc_html__( 'For Administrators', 'wpcredits-program-manager' )
+		return self::render_parts( $record_id );
+	}
+
+	/**
+	 * The section on the parts (design 6.7): the view's head titles it "For Administrators" and its lede says "Only
+	 * Administrators see this section." once, so the section prints neither; its anchor stays on a wrapper around its two
+	 * cards, each the card shell's fold, drawn open, with today's key and anchor: From the application, the key and
+	 * value table, each question a row header in the label column; and History, a list of rows, the facts under: each
+	 * sentence, then the moment whole and who, a long name broken, so no line runs past the card.
+	 *
+	 * @param string $record_id The institution's record ID, already checked.
+	 * @return string Escaped markup.
+	 */
+	private static function render_parts( $record_id ) {
+		ob_start();
+
+		printf( '<div id="%s">', esc_attr( self::ANCHOR ) );
+
+		WPCPM_Dashboard_Card::open(
+			array(
+				'key'           => self::KEY_ANSWERS,
+				'title'         => self::answers_title(),
+				'open'          => true,
+				'prefix'        => 'wpcpm-',
+				'id_on'         => 'section',
+				'section_class' => '',
+				'title_id'      => true,
+			)
 		);
-		$out .= sprintf(
-			'<p class="wpcpm-student__note wpcpm-institution__module-lead">%s</p>',
-			esc_html__( 'Only Administrators see this section.', 'wpcredits-program-manager' )
+		echo self::answers_parts( $record_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts.
+		WPCPM_Dashboard_Card::close();
+
+		WPCPM_Dashboard_Card::open(
+			array(
+				'key'           => self::KEY_HISTORY,
+				'title'         => self::history_title(),
+				'open'          => true,
+				'prefix'        => 'wpcpm-',
+				'id_on'         => 'section',
+				'section_class' => '',
+			)
 		);
-		$out .= self::card(
-			'wpcpm-admin-answers',
-			__( 'From the application', 'wpcredits-program-manager' ),
-			self::render_answers( $record_id )
-		);
-		$out .= self::card(
-			'wpcpm-admin-history',
-			__( 'History', 'wpcredits-program-manager' ),
-			self::render_history( $record_id )
+		echo self::history_parts( $record_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts.
+		WPCPM_Dashboard_Card::close();
+
+		echo '</div>';
+
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * The kept answers on the parts: the key and value table named by its card's title, each question a row header, its
+	 * answer an address or a web address in a token cell as today prints it (no link), any other as typed (the table
+	 * breaks a word that would overflow);
+	 * an answer the record holds blank is skipped, as the live version skips it (Task 28, W3). "Nothing kept from the
+	 * application." alone, the list's muted line, when no answer is held.
+	 *
+	 * @param string $record_id The institution's record ID.
+	 * @return string Escaped markup.
+	 */
+	private static function answers_parts( $record_id ) {
+		$answers = self::answers( $record_id );
+		$held    = array_filter(
+			$answers,
+			static function ( $answer ) {
+				return '' !== $answer['value'];
+			}
 		);
 
-		return $out . '</section>';
+		if ( array() === $held ) {
+			return WPCPM_UI::list_empty( self::nothing_kept() );
+		}
+
+		$label = array(
+			'key'    => 'label',
+			'label'  => '',
+			'kind'   => 'text',
+			'header' => true,
+		);
+		$text  = array(
+			'key'   => 'value',
+			'label' => '',
+			'kind'  => 'text',
+		);
+		$token = array(
+			'key'   => 'value',
+			'label' => '',
+			'kind'  => 'token',
+		);
+		$out   = WPCPM_UI::table_open(
+			array( $label, $text ),
+			array(
+				'keyvalue'   => true,
+				'labelledby' => WPCPM_Dashboard_Card::title_id( 'wpcpm-' . self::KEY_ANSWERS ),
+			)
+		);
+
+		foreach ( $held as $answer ) {
+			if ( self::is_address( $answer['value'] ) ) {
+				$cell = WPCPM_UI::cell( $token, esc_html( $answer['value'] ) );
+			} else {
+				$cell = WPCPM_UI::cell( $text, esc_html( $answer['value'] ) );
+			}
+
+			$out .= WPCPM_UI::row_open() . WPCPM_UI::cell( $label, esc_html( $answer['label'] ) ) . $cell . WPCPM_UI::row_close();
+		}
+
+		return $out . WPCPM_UI::table_close();
+	}
+
+	/**
+	 * Whether an answer is an address or a web address: one run with no white space holding an at sign or a scheme's
+	 * `://`, which a token cell may break anywhere.
+	 *
+	 * @param string $value The answer.
+	 * @return bool
+	 */
+	private static function is_address( $value ) {
+		return 1 === preg_match( '/^\S+$/', (string) $value ) && ( false !== strpos( (string) $value, '@' ) || false !== strpos( (string) $value, '://' ) );
+	}
+
+	/**
+	 * The history on the parts: a list of rows, the facts under: each sentence as it reads, then the moment whole in its
+	 * time element and who, as typed (the list breaks a word that would overflow). The line that says only the
+	 * latest are drawn follows, muted; "Nothing has been recorded for this institution yet." alone, the list's muted
+	 * line, when there is no row.
+	 *
+	 * @param string $record_id The institution's record ID.
+	 * @return string Escaped markup.
+	 */
+	private static function history_parts( $record_id ) {
+		list( $entries, $more ) = self::entries( $record_id );
+
+		if ( array() === $entries ) {
+			return WPCPM_UI::list_empty( self::nothing_recorded() );
+		}
+
+		$out = WPCPM_UI::list_open( array( 'facts' => 'under' ) );
+
+		foreach ( $entries as $entry ) {
+			$row   = self::row_facts( $entry );
+			$facts = array();
+
+			if ( '' !== $row['moment'] ) {
+				$facts[] = array( 'html' => '<time datetime="' . esc_attr( gmdate( 'c', $row['time'] ) ) . '">' . WPCPM_UI::whole( $row['moment'] ) . '</time>' );
+			}
+
+			$facts[] = $row['who'];
+
+			$out .= WPCPM_UI::row(
+				array(
+					'name'  => $row['sentence'],
+					'facts' => $facts,
+				)
+			);
+		}
+
+		$out .= WPCPM_UI::list_close();
+
+		if ( $more ) {
+			$out .= WPCPM_UI::intro( self::latest_line(), 'muted' );
+		}
+
+		return $out;
+	}
+
+	/**
+	 * The questions the application asked that the record holds an answer to, in the form's order and under its labels,
+	 * each answer as one line (a list joined by a comma and a space); an answer held blank is ''. A key the form does not
+	 * ask is never read. The section lists those held, a blank answer skipped.
+	 *
+	 * @param string $record_id The institution's record ID.
+	 * @return array<int, array{label: string, value: string}>
+	 */
+	private static function answers( $record_id ) {
+		$kept = WPCPM_Institution_Record::get( $record_id );
+		$out  = array();
+
+		foreach ( WPCPM_Institution_Application::site_fields() as $key => $spec ) {
+			if ( ! isset( $kept[ $key ] ) ) {
+				continue;
+			}
+
+			$out[] = array(
+				'label' => isset( $spec['label'] ) ? (string) $spec['label'] : '',
+				'value' => is_array( $kept[ $key ] ) ? implode( ', ', array_filter( array_map( 'trim', array_map( 'strval', $kept[ $key ] ) ), 'strlen' ) ) : trim( (string) $kept[ $key ] ),
+			);
+		}
+
+		return $out;
+	}
+
+	/**
+	 * The rows the History card draws, newest first, and whether there were more than it draws.
+	 *
+	 * @param string $record_id The institution's record ID.
+	 * @return array{0: array[], 1: bool}
+	 */
+	private static function entries( $record_id ) {
+		$entries = WPCPM_Institution_Audit::entries_for( $record_id, self::LIMIT + 1 );
+
+		return array( array_slice( $entries, 0, self::LIMIT ), count( $entries ) > self::LIMIT );
+	}
+
+	/**
+	 * What one row says: its moment (a Unix time, and in the site's formats), who, and the sentence.
+	 *
+	 * @param array $entry One row of `WPCPM_Institution_Audit::entries_for()`.
+	 * @return array{time: int, moment: string, who: string, sentence: string}
+	 */
+	private static function row_facts( array $entry ) {
+		$time = isset( $entry['time'] ) ? (int) $entry['time'] : 0;
+
+		return array(
+			'time'     => $time,
+			'moment'   => (string) WPCPM_Dates::moment( $time ),
+			'who'      => self::who( $entry ),
+			'sentence' => self::sentence( $entry ),
+		);
+	}
+
+	/**
+	 * The first card's title.
+	 *
+	 * @return string
+	 */
+	private static function answers_title() {
+		return __( 'From the application', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The second card's title.
+	 *
+	 * @return string
+	 */
+	private static function history_title() {
+		return __( 'History', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * What the first card says when the record holds no answer.
+	 *
+	 * @return string
+	 */
+	private static function nothing_kept() {
+		return __( 'Nothing kept from the application.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * What the second card says when there is no row.
+	 *
+	 * @return string
+	 */
+	private static function nothing_recorded() {
+		return __( 'Nothing has been recorded for this institution yet.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The line under a history cut to its latest rows.
+	 *
+	 * @return string
+	 */
+	private static function latest_line() {
+		return sprintf(
+			/* translators: %s: how many of the latest rows are shown, e.g. 100. */
+			__( 'Showing the latest %s.', 'wpcredits-program-manager' ),
+			number_format_i18n( self::LIMIT )
+		);
 	}
 
 	/**
@@ -192,111 +449,6 @@ class WPCPM_Institution_History {
 		$name = trim( (string) $user->display_name );
 
 		return '' !== $name ? $name : trim( (string) $user->user_login );
-	}
-
-	/**
-	 * One folded card: a section with the card class around a closed details, as the dashboard's
-	 * other cards are drawn.
-	 *
-	 * @param string $slug  The card's class and anchor.
-	 * @param string $title The summary's title.
-	 * @param string $body  The card's body, already escaped.
-	 * @return string
-	 */
-	private static function card( $slug, $title, $body ) {
-		return sprintf(
-			'<section class="wpcpm-institution__card %1$s" id="%1$s"><details class="wpcpm-group wpcpm-group__disclosure %1$s__disclosure"><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%2$s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body %1$s__body">%3$s</div></details></section>',
-			esc_attr( $slug ),
-			esc_html( $title ),
-			$body
-		);
-	}
-
-	/**
-	 * The kept answers, under the form's labels.
-	 *
-	 * @param string $record_id The institution's record ID.
-	 * @return string Escaped markup.
-	 */
-	private static function render_answers( $record_id ) {
-		$kept = WPCPM_Institution_Record::get( $record_id );
-		$rows = '';
-
-		foreach ( WPCPM_Institution_Application::site_fields() as $key => $spec ) {
-			if ( ! isset( $kept[ $key ] ) ) {
-				continue;
-			}
-
-			$value = is_array( $kept[ $key ] ) ? implode( ', ', array_filter( array_map( 'trim', array_map( 'strval', $kept[ $key ] ) ), 'strlen' ) ) : trim( (string) $kept[ $key ] );
-
-			if ( '' === $value ) {
-				continue;
-			}
-
-			$rows .= sprintf(
-				'<dt>%1$s</dt><dd>%2$s</dd>',
-				esc_html( isset( $spec['label'] ) ? (string) $spec['label'] : '' ),
-				esc_html( $value )
-			);
-		}
-
-		if ( '' === $rows ) {
-			return sprintf(
-				'<p class="wpcpm-institution__empty">%s</p>',
-				esc_html__( 'Nothing kept from the application.', 'wpcredits-program-manager' )
-			);
-		}
-
-		return '<dl class="wpcpm-admin-answers__list">' . $rows . '</dl>';
-	}
-
-	/**
-	 * The latest rows of the audit, newest first.
-	 *
-	 * @param string $record_id The institution's record ID.
-	 * @return string Escaped markup.
-	 */
-	private static function render_history( $record_id ) {
-		$entries = WPCPM_Institution_Audit::entries_for( $record_id, self::LIMIT + 1 );
-		$more    = count( $entries ) > self::LIMIT;
-
-		if ( array() === $entries ) {
-			return sprintf(
-				'<p class="wpcpm-institution__empty">%s</p>',
-				esc_html__( 'Nothing has been recorded for this institution yet.', 'wpcredits-program-manager' )
-			);
-		}
-
-		$out = '<ol class="wpcpm-admin-history__list">';
-
-		foreach ( array_slice( $entries, 0, self::LIMIT ) as $entry ) {
-			$time = isset( $entry['time'] ) ? (int) $entry['time'] : 0;
-
-			$out .= sprintf(
-				'<li class="wpcpm-admin-history__row"><span class="wpcpm-admin-history__meta"><time datetime="%1$s">%2$s</time> &middot; <span class="wpcpm-admin-history__who">%3$s</span></span><span class="wpcpm-admin-history__what">%4$s</span></li>',
-				esc_attr( $time > 0 ? gmdate( 'c', $time ) : '' ),
-				esc_html( WPCPM_Dates::moment( $time ) ),
-				esc_html( self::who( $entry ) ),
-				esc_html( self::sentence( $entry ) )
-			);
-		}
-
-		$out .= '</ol>';
-
-		if ( $more ) {
-			$out .= sprintf(
-				'<p class="wpcpm-institution__empty wpcpm-admin-history__limit">%s</p>',
-				esc_html(
-					sprintf(
-						/* translators: %s: how many of the latest rows are shown, e.g. 100. */
-						__( 'Showing the latest %s.', 'wpcredits-program-manager' ),
-						number_format_i18n( self::LIMIT )
-					)
-				)
-			);
-		}
-
-		return $out;
 	}
 
 	/**

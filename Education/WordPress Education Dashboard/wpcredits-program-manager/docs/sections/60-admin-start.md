@@ -45,7 +45,7 @@ Where to start:
 2. Choose **Institution Dashboard**, **Mentor Report Card**, **Student Report Card** or **Sponsor Dashboard**.
 3. At the top of that page, find **Viewing as institution**, **Viewing as mentor**, **Viewing as student** or **Viewing as sponsor**.
 4. Type part of the name in the field, then choose the name from the list.
-5. Press **Show**.
+5. Press **Show**. On the Institution Dashboard there is no **Show**: picking the school opens its page.
 
 **What happens next**
 
@@ -55,6 +55,7 @@ Where to start:
 
 - Shorter ways in: a school's name on an **Overview** card such as **Collaboration Agreements**; **Open its page** on `Institutions > Pipeline`; a sponsor's name on `Sponsors > Sponsors`; **View page** on a row of the Students, Mentors or Sponsors **Accounts** tab.
 - The control shows only when there are two names or more.
+- Since 1.123.96 the Institution Dashboard asks for a school first, while you belong to no school and two or more schools exist, and opens the school as soon as you pick it, with no **Show**.
 - If **Dashboards** is missing in the toolbar, the page may not be published, or the toolbar may be switched off in your profile.
 
 ### If you are stuck

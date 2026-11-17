@@ -74,8 +74,17 @@ final class WPCPM_Semester_Report_Screen {
 	/** The `admin_post_` action that asks students the two permission questions. */
 	const ACTION_ASK = 'wpcpm_report_ask';
 
+	/**
+	 * The class of a line on the parts that is a control's hint (the stash sentence, the sentence about asking): the
+	 * print sheet leaves it off the paper, as it leaves today's controls (`report-print.css`).
+	 */
+	const HINT = 'wpcpm-report-hint';
+
 	/** The `admin_post_` **GET** action that prints the standalone document. */
 	const ACTION_PRINT = 'wpcpm_report_print';
+
+	/** The outcome of a save a colleague's save overtook: the save form's own refusal (Gate B round 2, F2). */
+	const STALE = 'stale';
 
 	/** Where a message about a report is left for the reader. */
 	const FLASH = 'institution_report';
@@ -235,18 +244,13 @@ final class WPCPM_Semester_Report_Screen {
 
 		wp_enqueue_style( self::STYLE );
 
-		// **Read once, here, and carried down**, the way the import form reads its flash:
-		// the disclosure has to know whether there is a message before the message is
-		// printed, and `WPCPM_Flash::take()` empties the channel.
+		// **Read once, here**, at the top of the card, and printed first: `WPCPM_Flash::take()`
+		// empties the channel, so the message is taken before anything else is drawn.
 		$flash = WPCPM_Flash::take( self::FLASH );
 		$flash = is_array( $flash ) ? $flash : array();
-		$said  = ! empty( $flash['status'] ) ? (string) $flash['status'] : '';
 
 		$cohort = self::cohort_from_request();
 		$report = '' === $cohort ? null : WPCPM_Semester_Report::find( $record, $cohort );
-
-		// The reader followed a link, so the card they were sent to is open whatever it shows.
-		$asked = '' !== $cohort;
 
 		// **A draft does not exist for the institution.** An address naming its cohort lands
 		// on the list, which says the report is being prepared; the editor, the forms and the
@@ -256,33 +260,23 @@ final class WPCPM_Semester_Report_Screen {
 			$cohort = '';
 		}
 
-		echo '<section class="wpcpm-institution__card wpcpm-report-card" id="wpcpm-report">';
+		// The card is the Semester reports view's block on the shared parts (design 6.3): the view's head names it, so it
+		// prints no head of its own (M22) and keeps its anchor. Who is drawn what is decided above.
+		echo '<section class="wpcpm-ui-block" id="wpcpm-report">';
 
-		// **Folded by default, and open when there is something to answer.** Writing a
-		// semester report is a once-a-term act and this is the longest section on the page;
-		// left open it pushes the roster, the people and the agreement off the screen for
-		// every visit that came to read the list. It opens by itself when the address names
-		// a cohort or the last press left something to say, which are the two occasions the
-		// page is asking the reader for something rather than offering.
-		printf(
-			'<details class="wpcpm-group wpcpm-group__disclosure wpcpm-report-card__disclosure"%s>',
-			( $asked || '' !== $said ) ? ' open' : ''
-		);
+		// A refused save is said at the save form, after the report's header and the form's own intro and directly over
+		// it (Gate B round 2, F2); every other outcome at the block's top.
+		$at_form = $report instanceof WP_Post && $manager && isset( $flash['status'] ) && self::STALE === (string) $flash['status'];
 
-		printf(
-			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
-			esc_html__( 'Semester report', 'wpcredits-program-manager' )
-		);
-
-		echo '<div class="wpcpm-group__body wpcpm-report-card__body">';
-
-		self::render_message( $flash );
+		if ( ! $at_form ) {
+			self::render_message( $flash );
+		}
 
 		if ( $report instanceof WP_Post ) {
 			if ( $manager ) {
-				self::render_editor( $report, $record );
+				self::render_editor( $report, $record, $at_form ? $flash : array() );
 			} else {
-				self::render_reading( $report, $record );
+				self::render_reading( $report );
 			}
 		} elseif ( $manager ) {
 			self::render_index( $record, $cohort, true );
@@ -290,9 +284,39 @@ final class WPCPM_Semester_Report_Screen {
 			self::render_member_index( $record );
 		}
 
-		echo '</div>';
-		echo '</details>';
 		echo '</section>';
+	}
+
+	/**
+	 * A form's hidden fields: its nonce, then each field in the order given. Today's markup prints the nonce through
+	 * `wp_nonce_field()`; the parts' through `WPCPM_UI::nonce()`, the same name, value and referer with no id, so two
+	 * forms on one page repeat none. One rule for both, so a form posts what it posts on either.
+	 *
+	 * @param string $nonce_action The nonce's action.
+	 * @param array  $fields       Name to value; an int is printed as one.
+	 * @param bool   $parts        Whether the form is drawn on the shared parts.
+	 * @return string Escaped markup.
+	 */
+	private static function hidden_fields( $nonce_action, array $fields, $parts ) {
+		$out = $parts ? WPCPM_UI::nonce( (string) $nonce_action ) : (string) wp_nonce_field( $nonce_action, '_wpnonce', true, false );
+
+		foreach ( $fields as $name => $value ) {
+			$out .= is_int( $value )
+				? sprintf( '<input type="hidden" name="%1$s" value="%2$d" />', esc_attr( (string) $name ), $value )
+				: sprintf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( (string) $name ), esc_attr( (string) $value ) );
+		}
+
+		return $out;
+	}
+
+	/**
+	 * The tone of a report's state tag on the parts: Approved green, Draft and every other state neutral (design 6.3).
+	 *
+	 * @param string $state `draft` or `approved`.
+	 * @return string
+	 */
+	private static function state_tone( $state ) {
+		return WPCPM_Semester_Report::STATE_APPROVED === $state ? 'green' : '';
 	}
 
 	/**
@@ -310,12 +334,30 @@ final class WPCPM_Semester_Report_Screen {
 	}
 
 	/**
-	 * The address of one cohort's report on the dashboard page.
+	 * The address of one cohort's report on the dashboard page: the Semester reports view, which draws the card
+	 * (`card_url()`), at the card. Not escaped: `esc_url()` where it is printed.
 	 *
 	 * @param string $cohort A cohort key.
 	 * @return string
 	 */
 	public static function report_url( $cohort ) {
+		if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) || ! WPCPM_Cohort::is_key( $cohort ) ) {
+			return '';
+		}
+
+		return WPCPM_Institutions_Dashboard::card_url( 'report', '', '', array( self::ARG => (string) $cohort ) );
+	}
+
+	/**
+	 * The address the report's mails link, as it always was: the page with the semester, at the card. The page
+	 * opens the Semester reports view for it (`WPCPM_Institutions_Dashboard::asked_view()`), so the mails already
+	 * sent and the ones sent now read alike. Public for the mails' example values
+	 * (`includes/mail/templates/reports.php`), so a test send links what the mail links.
+	 *
+	 * @param string $cohort A cohort key.
+	 * @return string
+	 */
+	public static function mail_url( $cohort ) {
 		$page = class_exists( 'WPCPM_Institutions_Dashboard' ) ? WPCPM_Institutions_Dashboard::page_url() : '';
 
 		if ( '' === $page || ! WPCPM_Cohort::is_key( $cohort ) ) {
@@ -340,72 +382,135 @@ final class WPCPM_Semester_Report_Screen {
 	 */
 	private static function render_index( $record, $asked, $can_manage ) {
 		$may_edit = self::may_edit( $record );
+		// Kept whole under the view's head on the parts: each of its clauses is a fact the head does not say (what a
+		// report holds, and that it names a student only with their word).
+		$lede = __( 'A semester report is a snapshot of one term: how many students took part, what they worked on, and what they said about it. It names a student only if that student said it may.', 'wpcredits-program-manager' );
 
-		printf(
-			'<p class="wpcpm-report-card__lede">%s</p>',
-			esc_html__( 'A semester report is a snapshot of one term: how many students took part, what they worked on, and what they said about it. It names a student only if that student said it may.', 'wpcredits-program-manager' )
-		);
+		echo WPCPM_UI::intro( $lede ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
 
 		if ( '' !== $asked ) {
-			printf(
-				'<p class="wpcpm-report-card__empty">%s</p>',
-				esc_html(
-					sprintf(
-						/* translators: %s: a semester, e.g. "January to June 2026". */
-						__( 'There is no report for %s yet.', 'wpcredits-program-manager' ),
-						WPCPM_Cohort::label( $asked )
-					)
-				)
+			$none = sprintf(
+				/* translators: %s: a semester, e.g. "January to June 2026". */
+				__( 'There is no report for %s yet.', 'wpcredits-program-manager' ),
+				WPCPM_Cohort::label( $asked )
 			);
+
+			echo WPCPM_UI::intro( $none ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
 		}
 
-		$cohorts = self::cohorts_with_reports( $record );
+		$rows = self::index_rows( $record, $may_edit );
 
-		if ( empty( $cohorts ) ) {
-			printf(
-				'<p class="wpcpm-report-card__empty">%s</p>',
-				esc_html__( 'There are no students on this roster yet, so there is no semester to report on.', 'wpcredits-program-manager' )
-			);
+		if ( empty( $rows ) ) {
+			$empty = __( 'There are no students on this roster yet, so there is no semester to report on.', 'wpcredits-program-manager' );
+
+			echo WPCPM_UI::list_empty( $empty ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::list_empty().
 
 			return;
 		}
 
-		echo '<ul class="wpcpm-report-card__cohorts">';
+		self::render_index_parts( $rows, $record, $can_manage );
+	}
 
-		foreach ( $cohorts as $cohort ) {
+	/**
+	 * An Administrator's index, one row per semester: the semester, and either its report (its state and the address
+	 * that opens it) or, with no report, the first draft to write (`generate`) when the reader may edit, else a line
+	 * saying none is written (`none`).
+	 *
+	 * @param string $record   Institutions record ID.
+	 * @param bool   $may_edit Whether the reader may write the school's reports.
+	 * @return array[] Each: cohort, kind (report, generate, none), and for a report its post, state and url.
+	 */
+	private static function index_rows( $record, $may_edit ) {
+		$rows = array();
+
+		foreach ( self::cohorts_with_reports( $record ) as $cohort ) {
 			$post = WPCPM_Semester_Report::find( $record, $cohort );
 
-			echo '<li class="wpcpm-report-card__cohort">';
-			printf( '<span class="wpcpm-report-card__cohort-name">%s</span>', esc_html( WPCPM_Cohort::label( $cohort ) ) );
-
 			if ( $post instanceof WP_Post ) {
-				$url = self::keep_view( self::report_url( $cohort ), $record );
+				$rows[] = array(
+					'cohort' => $cohort,
+					'kind'   => 'report',
+					'post'   => $post,
+					'url'    => self::keep_view( self::report_url( $cohort ), $record ),
+					'state'  => WPCPM_Semester_Report::state( $post ),
+				);
+			} else {
+				$rows[] = array(
+					'cohort' => $cohort,
+					'kind'   => $may_edit ? 'generate' : 'none',
+				);
+			}
+		}
 
-				printf(
-					'<span class="wpcpm-report-card__state">%s</span>',
-					esc_html( WPCPM_Semester_Report::state_label( WPCPM_Semester_Report::state( $post ) ) )
+		return $rows;
+	}
+
+	/**
+	 * The word of an index row's link to a report.
+	 *
+	 * @return string
+	 */
+	private static function open_word() {
+		return __( 'Open', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The state of a semester with no report, for a reader who may not write one.
+	 *
+	 * @return string
+	 */
+	private static function unwritten_word() {
+		return __( 'Not written yet', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * An Administrator's index on the shared parts (design 2.8, 6.3): a list, each semester a row named whole, its
+	 * report's state a tag (Approved green, Draft neutral) and Open its quiet action; a semester with no report offers
+	 * Write the first draft, its form the row's action; one nobody may write says so in a neutral tag.
+	 *
+	 * @param array[] $rows       From index_rows().
+	 * @param string  $record     Institutions record ID.
+	 * @param bool    $can_manage Whether the viewer holds CAP_MANAGE.
+	 */
+	private static function render_index_parts( array $rows, $record, $can_manage ) {
+		$out = WPCPM_UI::list_open();
+
+		foreach ( $rows as $row ) {
+			$label = WPCPM_Cohort::label( $row['cohort'] );
+			$args  = array( 'name_html' => WPCPM_UI::whole( $label ) );
+
+			if ( 'report' === $row['kind'] ) {
+				$args['tag'] = array(
+					'words' => WPCPM_Semester_Report::state_label( $row['state'] ),
+					'tone'  => self::state_tone( $row['state'] ),
 				);
 
-				if ( '' !== $url ) {
-					printf(
-						'<a class="wpcpm-report-card__open" href="%1$s">%2$s</a>',
-						esc_url( $url ),
-						esc_html__( 'Open', 'wpcredits-program-manager' )
+				if ( '' !== $row['url'] ) {
+					$args['actions'] = array(
+						WPCPM_UI::button(
+							array(
+								'label'   => self::open_word(),
+								'kind'    => 'quiet',
+								'href'    => $row['url'],
+								'context' => $label,
+								'side'    => 'front',
+							)
+						),
 					);
 				}
-			} elseif ( $may_edit ) {
-				self::render_generate_form( $record, $cohort, $can_manage );
+			} elseif ( 'generate' === $row['kind'] ) {
+				$args['actions'] = array( self::generate_form( $record, $row['cohort'], $can_manage ) );
 			} else {
-				printf(
-					'<span class="wpcpm-report-card__state">%s</span>',
-					esc_html__( 'Not written yet', 'wpcredits-program-manager' )
+				$args['tag'] = array(
+					'words' => self::unwritten_word(),
+					'tone'  => '',
 				);
 			}
 
-			echo '</li>';
+			$out .= WPCPM_UI::row( $args );
 		}
 
-		echo '</ul>';
+		echo $out . WPCPM_UI::list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts; the form escaped in generate_form().
 	}
 
 	/**
@@ -438,13 +543,13 @@ final class WPCPM_Semester_Report_Screen {
 	 *
 	 * For an administrator it names that institution, because a link they follow reaches
 	 * `resolve_institution()`, which reads the switcher on that branch alone: without it the page
-	 * shows the first institution with a member, so Open on one school's semester, or Back to the
-	 * other semesters from it, lands on another school's card. A member's link is the address it
+	 * shows the first institution with a member, so Open on one school's semester lands on another
+	 * school's card. A member's link is the address it
 	 * always was, since their own membership already places them. This is the rule `post_url()`
 	 * writes for the forms, written once more for the links that are not forms, with one check
 	 * more: the record must read as a record ID, so nothing else is ever written into an address.
 	 *
-	 * `report_url()` stays the bare address and does not call this: the mails are built from it,
+	 * `mail_url()` stays the bare address and does not call this: the mails are built from it,
 	 * the mail to an institution's accounts goes to members, who need no switcher, and the mail to
 	 * the Administrators adds the institution it was drafted for itself (`drafted_message()`).
 	 *
@@ -463,41 +568,47 @@ final class WPCPM_Semester_Report_Screen {
 	}
 
 	/**
-	 * The button that reads a semester out of the program records and writes the first draft.
-	 *
-	 * The switcher travels on the action URL for a manager, and only for a manager, for the
-	 * reason `WPCPM_Institution_Panel::form_start()` records: the handler works out which
-	 * institution it is acting for from the request, and a POST to `admin-post.php` carries
-	 * the form's fields and none of the query string of the page the button was on.
+	 * The Write the first draft form: its address, lock, busy words and hidden fields, and its one button the row's
+	 * quiet action, naming the semester for a screen reader, since every such row's button says the same words.
 	 *
 	 * @param string $record     Institutions record ID.
 	 * @param string $cohort     The cohort to generate.
 	 * @param bool   $can_manage Whether the viewer holds CAP_MANAGE.
+	 * @return string Escaped markup.
 	 */
-	private static function render_generate_form( $record, $cohort, $can_manage ) {
+	private static function generate_form( $record, $cohort, $can_manage ) {
 		$url = admin_url( 'admin-post.php' );
 
 		if ( $can_manage ) {
 			$url = add_query_arg( array( WPCPM_Institution_Roster::ARG_VIEW => $record ), $url );
 		}
 
-		printf(
-			'<form class="wpcpm-report-card__generate" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+		$label = __( 'Write the first draft', 'wpcredits-program-manager' );
+		$out   = sprintf(
+			'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( $url ),
 			esc_attr__( 'Reading the program records', 'wpcredits-program-manager' )
 		);
 
-		wp_nonce_field( self::ACTION_GENERATE . '_' . $record );
-
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_GENERATE ) );
-		printf( '<input type="hidden" name="cohort" value="%s" />', esc_attr( $cohort ) );
-
-		printf(
-			'<button type="submit" class="wpcpm-button">%s</button>',
-			esc_html__( 'Write the first draft', 'wpcredits-program-manager' )
+		$out .= self::hidden_fields(
+			self::ACTION_GENERATE . '_' . $record,
+			array(
+				'action' => self::ACTION_GENERATE,
+				'cohort' => (string) $cohort,
+			),
+			true
 		);
 
-		echo '</form>';
+		$out .= WPCPM_UI::button(
+			array(
+				'label'   => $label,
+				'kind'    => 'quiet',
+				'context' => WPCPM_Cohort::label( $cohort ),
+				'side'    => 'front',
+			)
+		);
+
+		return $out . '</form>';
 	}
 
 	/**
@@ -527,94 +638,170 @@ final class WPCPM_Semester_Report_Screen {
 		// An empty half under a heading reads as something that failed to load; the Updates
 		// column learned that, and so does this card.
 		if ( empty( $approved ) && empty( $drafts ) ) {
-			printf(
-				'<p class="wpcpm-report-card__empty">%s</p>',
-				esc_html__( 'No semester report has been published for your institution yet.', 'wpcredits-program-manager' )
-			);
+			$empty = __( 'No semester report has been published for your institution yet.', 'wpcredits-program-manager' );
+
+			echo WPCPM_UI::list_empty( $empty ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::list_empty().
 
 			return;
 		}
 
-		if ( ! empty( $approved ) ) {
-			$format = get_option( 'date_format' );
+		self::render_member_index_parts( $approved, $drafts );
+	}
 
-			echo '<ul class="wpcpm-report-card__cohorts">';
+	/**
+	 * A school's index on the shared parts (design 2.8, 6.3): one list, each approved report a row named whole, its
+	 * state the green tag, "Approved on" and the day whole its fact (none where no day is stamped), View and Download
+	 * PDF its quiet actions; then each semester being prepared, a row named by its semester, today's sentence its fact,
+	 * and no action.
+	 *
+	 * @param WP_Post[] $approved The approved reports, by cohort.
+	 * @param string[]  $drafts   The cohorts whose reports are being prepared.
+	 */
+	private static function render_member_index_parts( array $approved, array $drafts ) {
+		$out = WPCPM_UI::list_open();
 
-			foreach ( $approved as $cohort => $post ) {
-				$stamp = WPCPM_Semester_Report::approved_at( $post );
-				$url   = self::report_url( $cohort );
+		foreach ( $approved as $cohort => $post ) {
+			$label   = WPCPM_Cohort::label( $cohort );
+			$day     = self::approved_day( $post );
+			$url     = self::report_url( $cohort );
+			$actions = array();
 
-				echo '<li class="wpcpm-report-card__cohort">';
-				printf( '<span class="wpcpm-report-card__cohort-name">%s</span>', esc_html( WPCPM_Cohort::label( $cohort ) ) );
-				printf(
-					'<span class="wpcpm-report-card__state">%s</span>',
-					esc_html(
-						empty( $stamp['at'] )
-							? __( 'Approved', 'wpcredits-program-manager' )
-							: sprintf(
-								/* translators: %s: a date. */
-								__( 'Approved on %s', 'wpcredits-program-manager' ),
-								wp_date( $format, (int) $stamp['at'] )
-							)
+			if ( '' !== $url ) {
+				$actions[] = WPCPM_UI::button(
+					array(
+						'label'   => self::view_word(),
+						'kind'    => 'quiet',
+						'href'    => $url,
+						'context' => $label,
+						'side'    => 'front',
 					)
 				);
-
-				if ( '' !== $url ) {
-					printf( '<a class="wpcpm-report-card__open" href="%1$s">%2$s</a>', esc_url( $url ), esc_html__( 'View', 'wpcredits-program-manager' ) );
-				}
-
-				printf( '<a class="wpcpm-report-card__print" href="%1$s">%2$s</a>', esc_url( self::print_url( $post->ID ) ), esc_html__( 'Download PDF', 'wpcredits-program-manager' ) );
-				echo '</li>';
 			}
 
-			echo '</ul>';
-		}
+			$actions[] = WPCPM_UI::button(
+				array(
+					'label'   => self::pdf_word(),
+					'kind'    => 'quiet',
+					'href'    => self::print_url( $post->ID ),
+					'context' => $label,
+					'side'    => 'front',
+				)
+			);
 
-		foreach ( $drafts as $cohort ) {
-			printf(
-				'<p class="wpcpm-report-card__note">%s</p>',
-				esc_html(
-					sprintf(
-						/* translators: %s: a semester, e.g. "January to June 2026". */
-						__( 'Your semester report for %s is being prepared by the program team.', 'wpcredits-program-manager' ),
-						WPCPM_Cohort::label( $cohort )
-					)
+			$out .= WPCPM_UI::row(
+				array(
+					'name_html' => WPCPM_UI::whole( $label ),
+					'tag'       => array(
+						'words' => WPCPM_Semester_Report::state_label( WPCPM_Semester_Report::STATE_APPROVED ),
+						'tone'  => self::state_tone( WPCPM_Semester_Report::STATE_APPROVED ),
+					),
+					'facts'     => '' === $day ? array() : array( array( 'html' => sprintf( esc_html( self::approved_on_format() ), WPCPM_UI::whole( $day ) ) ) ),
+					'actions'   => $actions,
 				)
 			);
 		}
+
+		// A semester being prepared is named by its semester, as every row is; today's sentence is its muted fact, with no
+		// tag and no action.
+		foreach ( $drafts as $cohort ) {
+			$label = WPCPM_Cohort::label( $cohort );
+			$out  .= WPCPM_UI::row(
+				array(
+					'name_html' => WPCPM_UI::whole( $label ),
+					'facts'     => array( sprintf( self::preparing_format(), $label ) ),
+				)
+			);
+		}
+
+		echo $out . WPCPM_UI::list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts and here.
+	}
+
+	/**
+	 * The day an approved report was approved, as the site writes a day, or '' when no approval is stamped.
+	 *
+	 * @param WP_Post $post The report.
+	 * @return string
+	 */
+	private static function approved_day( WP_Post $post ) {
+		$stamp = WPCPM_Semester_Report::approved_at( $post );
+
+		return empty( $stamp['at'] ) ? '' : (string) wp_date( get_option( 'date_format' ), (int) $stamp['at'] );
+	}
+
+	/**
+	 * "Approved on" and a day, as a format.
+	 *
+	 * @return string
+	 */
+	private static function approved_on_format() {
+		/* translators: %s: a date. */
+		return __( 'Approved on %s', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * A semester being prepared, as a format.
+	 *
+	 * @return string
+	 */
+	private static function preparing_format() {
+		/* translators: %s: a semester, e.g. "January to June 2026". */
+		return __( 'Your semester report for %s is being prepared by the program team.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The word of a school's link to read a report.
+	 *
+	 * @return string
+	 */
+	private static function view_word() {
+		return __( 'View', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The word of a link to a report's PDF.
+	 *
+	 * @return string
+	 */
+	private static function pdf_word() {
+		return __( 'Download PDF', 'wpcredits-program-manager' );
 	}
 
 	/**
 	 * One approved report, for the institution to read: the header, the PDF button, the document.
 	 *
 	 * The manager's ground is tried first, so a reader who holds `CAP_MANAGE` is drawn the editor
-	 * and never this view; the back link goes through `keep_view()` all the same, so that the
-	 * three links on this card keep the institution by one rule rather than two.
+	 * and never this view. The way back to the list is the view's side menu.
 	 *
-	 * @param WP_Post $post   The report.
-	 * @param string  $record Institutions record ID the page is showing.
+	 * @param WP_Post $post The report.
 	 */
-	private static function render_reading( WP_Post $post, $record ) {
-		$page = class_exists( 'WPCPM_Institutions_Dashboard' ) ? WPCPM_Institutions_Dashboard::page_url() : '';
-
-		if ( '' !== $page ) {
-			printf(
-				'<p class="wpcpm-report-card__back"><a href="%1$s">%2$s</a></p>',
-				esc_url( self::keep_view( remove_query_arg( self::ARG, $page ) . '#wpcpm-report', $record ) ),
-				esc_html__( 'Back to the other semesters', 'wpcredits-program-manager' )
-			);
-		}
-
+	private static function render_reading( WP_Post $post ) {
 		self::render_header( $post, WPCPM_Semester_Report::state( $post ), WPCPM_Semester_Report::snapshot( $post ) );
 
-		printf(
-			'<p class="wpcpm-report-card__action"><a class="wpcpm-button" href="%1$s">%2$s</a></p>',
-			esc_url( self::print_url( $post->ID ) ),
-			esc_html__( 'Download PDF', 'wpcredits-program-manager' )
+		$pdf = WPCPM_UI::button(
+			array(
+				'label' => self::pdf_word(),
+				'kind'  => 'secondary',
+				'href'  => self::print_url( $post->ID ),
+				'side'  => 'front',
+			)
 		);
 
+		echo WPCPM_UI::actions( array( $pdf ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts.
+
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_document() escapes every value it interpolates; escaping it again would print its own markup.
-		echo self::render_document( $post, false );
+		echo self::document_parts( $post );
+	}
+
+	/**
+	 * The document as the screen draws it, on the shared parts: today's document, its title an h2 (the view's H1 is the
+	 * page's one name; the title's look is its class's), in a block of its own that lets a word longer than the area
+	 * break (a school's name in its title, a student's in a quote).
+	 *
+	 * @param WP_Post $post The report.
+	 * @return string HTML; render_document() escapes every value it interpolates.
+	 */
+	private static function document_parts( WP_Post $post ) {
+		return '<div class="wpcpm-ui-doc">' . self::render_document( $post, false, 'h2' ) . '</div>';
 	}
 
 	/**
@@ -818,25 +1005,16 @@ final class WPCPM_Semester_Report_Screen {
 	 * The manager flag the other cards take is not among the arguments: every form here names
 	 * a report and each handler resolves the institution from that report's own meta, and the
 	 * forms put the institution the page is showing on their action address only for the way
-	 * back from a press that finds the report gone (see `post_url()`). The institution also goes to
-	 * the Back to the other semesters link, which keeps it for an administrator (see `keep_view()`).
+	 * back from a press that finds the report gone (see `post_url()`).
 	 *
-	 * @param WP_Post $post   The report.
-	 * @param string  $record Institutions record ID.
+	 * @param WP_Post $post    The report.
+	 * @param string  $record  Institutions record ID.
+	 * @param array   $refusal The flash of a refused save, said over the form, or none.
 	 */
-	private static function render_editor( WP_Post $post, $record ) {
+	private static function render_editor( WP_Post $post, $record, array $refusal = array() ) {
 		$state    = WPCPM_Semester_Report::state( $post );
 		$snapshot = WPCPM_Semester_Report::snapshot( $post );
 		$may_edit = self::may_edit( $record ) && WPCPM_Semester_Report::STATE_APPROVED !== $state;
-		$page     = class_exists( 'WPCPM_Institutions_Dashboard' ) ? WPCPM_Institutions_Dashboard::page_url() : '';
-
-		if ( '' !== $page ) {
-			printf(
-				'<p class="wpcpm-report-card__back"><a href="%1$s">%2$s</a></p>',
-				esc_url( self::keep_view( remove_query_arg( self::ARG, $page ) . '#wpcpm-report', $record ) ),
-				esc_html__( 'Back to the other semesters', 'wpcredits-program-manager' )
-			);
-		}
 
 		self::render_header( $post, $state, $snapshot );
 
@@ -847,73 +1025,102 @@ final class WPCPM_Semester_Report_Screen {
 		$stash = self::stash_for( $post );
 
 		if ( ! empty( $stash ) ) {
-			printf(
-				'<p class="wpcpm-report-card__stash">%s</p>',
-				esc_html__( 'The words below are the ones you last sent, which were not saved because a colleague had saved this report in the meantime. Read what they wrote, above, then save again to keep yours.', 'wpcredits-program-manager' )
-			);
+			$kept = __( 'The words below are the ones you last sent, which were not saved because a colleague had saved this report in the meantime. Read what they wrote, above, then save again to keep yours.', 'wpcredits-program-manager' );
+
+			// A control's hint, which the print sheet leaves off the paper (`wpcpm-report-hint`), as today's print does.
+			echo WPCPM_UI::intro( $kept, '', '', '', self::HINT ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
 		}
 
 		if ( $may_edit ) {
+			self::render_message( $refusal );
 			self::render_form( $post, $snapshot, $stash, $record );
 		} else {
-			printf(
-				'<p class="wpcpm-report-card__note">%s</p>',
-				WPCPM_Semester_Report::STATE_APPROVED === $state
-					? esc_html__( 'This report is approved and the institution can read it. Reopen it to change anything.', 'wpcredits-program-manager' )
-					: esc_html__( 'You can read this report here. Changing it is something an Administrator does.', 'wpcredits-program-manager' )
-			);
+			self::render_message( $refusal );
+
+			$note = WPCPM_Semester_Report::STATE_APPROVED === $state
+				? __( 'This report is approved and the institution can read it. Reopen it to change anything.', 'wpcredits-program-manager' )
+				: __( 'You can read this report here. Changing it is something an Administrator does.', 'wpcredits-program-manager' );
+
+			echo WPCPM_UI::intro( $note ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
 		}
 
 		self::render_actions( $post, $state, $record );
 		self::render_revisions( $post, $record );
 
-		echo '<div class="wpcpm-report-card__preview">';
-		printf( '<h3 class="wpcpm-report-card__preview-title">%s</h3>', esc_html__( 'The report as it prints', 'wpcredits-program-manager' ) );
+		$preview = __( 'The report as it prints', 'wpcredits-program-manager' );
 
+		// The document keeps its own markup and its own sheet (design 6): an in-card heading above it.
+		echo WPCPM_UI::heading( $preview, 'h3' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading().
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_document() escapes every value it interpolates; escaping it again would print its own markup.
-		echo self::render_document( $post, false );
-
-		echo '</div>';
+		echo self::document_parts( $post );
 	}
 
 	/**
-	 * What the report is: the semester, the state, when it was generated and last edited.
+	 * What the report is: the semester, the state, when it was generated and last edited. On the parts, the item header
+	 * (design 2.10): the semester whole as an h2 under the view's H1, the state a tag (Approved green, Draft neutral),
+	 * and the same sentences as its facts, each date whole and an Administrator's name as it is.
 	 *
 	 * @param WP_Post $post     The report.
 	 * @param string  $state    `draft` or `approved`.
 	 * @param array   $snapshot The stored snapshot.
 	 */
 	private static function render_header( WP_Post $post, $state, array $snapshot ) {
-		$cohort    = isset( $snapshot['cohort'] ) ? (string) $snapshot['cohort'] : (string) get_post_meta( $post->ID, WPCPM_Semester_Report::META_COHORT, true );
-		$generated = isset( $snapshot['generated'] ) ? (int) $snapshot['generated'] : (int) get_post_meta( $post->ID, WPCPM_Semester_Report::META_GENERATED, true );
-		$format    = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
+		$cohort = isset( $snapshot['cohort'] ) ? (string) $snapshot['cohort'] : (string) get_post_meta( $post->ID, WPCPM_Semester_Report::META_COHORT, true );
+		$facts  = self::header_facts( $post, $snapshot );
 
-		printf(
-			'<h3 class="wpcpm-report-card__title">%1$s <span class="wpcpm-report-card__state">%2$s</span></h3>',
-			esc_html( WPCPM_Cohort::label( $cohort ) ),
-			esc_html( WPCPM_Semester_Report::state_label( $state ) )
+		$lines = array();
+
+		foreach ( $facts as $fact ) {
+			$pieces = array();
+
+			foreach ( $fact['args'] as $arg ) {
+				$pieces[] = 'name' === $arg['kind'] ? esc_html( $arg['text'] ) : WPCPM_UI::whole( $arg['text'] );
+			}
+
+			$lines[] = array( 'html' => vsprintf( esc_html( $fact['format'] ), $pieces ) );
+		}
+
+		$head = WPCPM_UI::item_header(
+			array(
+				'name_html' => WPCPM_UI::whole( WPCPM_Cohort::label( $cohort ) ),
+				'level'     => 'h2',
+				'tag'       => array(
+					'words' => WPCPM_Semester_Report::state_label( $state ),
+					'tone'  => self::state_tone( $state ),
+				),
+				'facts'     => $lines,
+			)
 		);
 
+		echo $head; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_header(); the facts escaped here.
+	}
+
+	/**
+	 * The facts of a report's header, in their order: when it was read from the program records, who
+	 * drafted it, when and by whom it was approved, when it was last edited.
+	 *
+	 * @param WP_Post $post     The report.
+	 * @param array   $snapshot The stored snapshot.
+	 * @return array[] Each: format (a sentence with its placeholders), args (each: text, kind date or name).
+	 */
+	private static function header_facts( WP_Post $post, array $snapshot ) {
+		$generated = isset( $snapshot['generated'] ) ? (int) $snapshot['generated'] : (int) get_post_meta( $post->ID, WPCPM_Semester_Report::META_GENERATED, true );
+		$format    = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
+		$facts     = array();
+
 		if ( $generated > 0 ) {
-			printf(
-				'<p class="wpcpm-report-card__fact">%s</p>',
-				esc_html(
-					sprintf(
-						/* translators: %s: date and time. */
-						__( 'Read from the program records on %s.', 'wpcredits-program-manager' ),
-						wp_date( $format, $generated )
-					)
-				)
+			$facts[] = array(
+				/* translators: %s: date and time. */
+				'format' => __( 'Read from the program records on %s.', 'wpcredits-program-manager' ),
+				'args'   => array( self::fact_arg( wp_date( $format, $generated ), 'date' ) ),
 			);
 		}
 
-		printf(
-			'<p class="wpcpm-report-card__fact">%s</p>',
-			esc_html(
-				WPCPM_Semester_Report::ORIGIN_AUTO === WPCPM_Semester_Report::origin_of( $post )
-					? __( 'Drafted automatically when the semester ended.', 'wpcredits-program-manager' )
-					: __( 'Drafted by an Administrator.', 'wpcredits-program-manager' )
-			)
+		$facts[] = array(
+			'format' => WPCPM_Semester_Report::ORIGIN_AUTO === WPCPM_Semester_Report::origin_of( $post )
+				? __( 'Drafted automatically when the semester ended.', 'wpcredits-program-manager' )
+				: __( 'Drafted by an Administrator.', 'wpcredits-program-manager' ),
+			'args'   => array(),
 		);
 
 		$approved = WPCPM_Semester_Report::approved_at( $post );
@@ -921,39 +1128,44 @@ final class WPCPM_Semester_Report_Screen {
 		if ( ! empty( $approved['at'] ) ) {
 			$by = ! empty( $approved['by'] ) ? get_user_by( 'id', (int) $approved['by'] ) : false;
 
-			printf(
-				'<p class="wpcpm-report-card__fact">%s</p>',
-				esc_html(
-					$by instanceof WP_User
-						? sprintf(
-							/* translators: 1: date and time, 2: an Administrator's name. */
-							__( 'Approved on %1$s by %2$s.', 'wpcredits-program-manager' ),
-							wp_date( $format, (int) $approved['at'] ),
-							$by->display_name
-						)
-						: sprintf(
-							/* translators: %s: date and time. */
-							__( 'Approved on %s.', 'wpcredits-program-manager' ),
-							wp_date( $format, (int) $approved['at'] )
-						)
+			$facts[] = $by instanceof WP_User
+				? array(
+					/* translators: 1: date and time, 2: an Administrator's name. */
+					'format' => __( 'Approved on %1$s by %2$s.', 'wpcredits-program-manager' ),
+					'args'   => array( self::fact_arg( wp_date( $format, (int) $approved['at'] ), 'date' ), self::fact_arg( $by->display_name, 'name' ) ),
 				)
-			);
+				: array(
+					/* translators: %s: date and time. */
+					'format' => __( 'Approved on %s.', 'wpcredits-program-manager' ),
+					'args'   => array( self::fact_arg( wp_date( $format, (int) $approved['at'] ), 'date' ) ),
+				);
 		}
 
 		$edited = get_post_modified_time( 'U', true, $post );
 
 		if ( $edited ) {
-			printf(
-				'<p class="wpcpm-report-card__fact">%s</p>',
-				esc_html(
-					sprintf(
-						/* translators: %s: date and time. */
-						__( 'Last edited on %s.', 'wpcredits-program-manager' ),
-						wp_date( $format, (int) $edited )
-					)
-				)
+			$facts[] = array(
+				/* translators: %s: date and time. */
+				'format' => __( 'Last edited on %s.', 'wpcredits-program-manager' ),
+				'args'   => array( self::fact_arg( wp_date( $format, (int) $edited ), 'date' ) ),
 			);
 		}
+
+		return $facts;
+	}
+
+	/**
+	 * One value a header fact holds.
+	 *
+	 * @param mixed  $text The value.
+	 * @param string $kind `date` (kept whole on the parts) or `name` (as it is on the parts).
+	 * @return array{text: string, kind: string}
+	 */
+	private static function fact_arg( $text, $kind ) {
+		return array(
+			'text' => (string) $text,
+			'kind' => (string) $kind,
+		);
 	}
 
 	/**
@@ -983,7 +1195,7 @@ final class WPCPM_Semester_Report_Screen {
 			$choices = array_merge( $choices, $stash['choices'] );
 		}
 
-		self::form_start( 'wpcpm-report-card__form', self::ACTION_SAVE, self::ACTION_SAVE . '_' . $post->ID, __( 'Saving', 'wpcredits-program-manager' ), $post->ID, $record );
+		self::form_start( self::ACTION_SAVE, self::ACTION_SAVE . '_' . $post->ID, __( 'Saving', 'wpcredits-program-manager' ), $post->ID, $record );
 
 		// **The stale-save fence, and the whole reason this field exists.** Decision 13 puts
 		// several equal people on one institution, so two of them can be writing the same
@@ -1002,16 +1214,26 @@ final class WPCPM_Semester_Report_Screen {
 			}
 		}
 
-		printf(
-			'<p class="wpcpm-report-card__submit"><button type="submit" class="wpcpm-button">%s</button></p>',
-			esc_html__( 'Save the report', 'wpcredits-program-manager' )
+		$save = __( 'Save the report', 'wpcredits-program-manager' );
+
+		$button = WPCPM_UI::button(
+			array(
+				'label' => $save,
+				'side'  => 'front',
+			)
 		);
+
+		echo WPCPM_UI::actions( array( $button ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts.
 
 		echo '</form>';
 	}
 
 	/**
 	 * One section's read-only summary, its box, and its hide toggle.
+	 *
+	 * On the parts (design 6.3): the section's title an in-card heading holding today's anchor (no legend), the generated
+	 * section's sentence, the box a text area of the parts in the page's face with today's label, id, name and limit, the
+	 * hide toggle a checkbox alone, and the count of entries.
 	 *
 	 * @param string $key      Section key.
 	 * @param array  $section  Its definition from `WPCPM_Semester_Report::sections()`.
@@ -1023,51 +1245,52 @@ final class WPCPM_Semester_Report_Screen {
 		$id     = 'wpcpm-report-text-' . sanitize_html_class( $key );
 		$value  = isset( $stored[ $key ]['text'] ) ? (string) $stored[ $key ]['text'] : self::default_text( $section );
 		$hidden = ! empty( $stored[ $key ]['hidden'] );
-
-		printf( '<fieldset class="wpcpm-report-card__section" id="wpcpm-report-field-%s">', esc_attr( sanitize_html_class( $key ) ) );
-		printf( '<legend class="wpcpm-report-card__section-title">%s</legend>', esc_html( $title ) );
-
-		if ( ! empty( $section['generated'] ) ) {
-			printf(
-				'<p class="wpcpm-report-card__generated">%s</p>',
-				esc_html__( 'This section is read from the program records. What you write below is printed underneath it.', 'wpcredits-program-manager' )
-			);
-		}
-
-		printf(
-			'<p class="wpcpm-field"><label for="%1$s">%2$s</label><textarea id="%1$s" name="%3$s" rows="5" maxlength="%4$d" class="wpcpm-report-card__text">%5$s</textarea></p>',
-			esc_attr( $id ),
-			esc_html__( 'What you want to say here', 'wpcredits-program-manager' ),
-			esc_attr( self::text_field( $key ) ),
-			(int) WPCPM_Semester_Report::MAX_TEXT,
-			esc_textarea( $value )
-		);
-
-		printf(
-			'<p class="wpcpm-report-card__hide"><label><input type="checkbox" name="%1$s" value="1"%2$s /> %3$s</label></p>',
-			esc_attr( self::hidden_field( $key ) ),
-			$hidden ? ' checked="checked"' : '',
-			esc_html__( 'Leave this section out of the report', 'wpcredits-program-manager' )
-		);
+		$label  = __( 'What you want to say here', 'wpcredits-program-manager' );
+		$leave  = __( 'Leave this section out of the report', 'wpcredits-program-manager' );
+		$read   = ! empty( $section['generated'] ) ? __( 'This section is read from the program records. What you write below is printed underneath it.', 'wpcredits-program-manager' ) : '';
 
 		// The one number a school asks about while it edits: how many students this section
 		// would be about. Printed for the generated sections only, since the rest are prose.
-		$count = self::section_count( $key, $snapshot );
+		$count   = self::section_count( $key, $snapshot );
+		$entries = $count >= 0
+			? sprintf(
+				/* translators: %s: a number of entries. */
+				_n( '%s entry is generated here.', '%s entries are generated here.', $count, 'wpcredits-program-manager' ),
+				number_format_i18n( $count )
+			)
+			: '';
 
-		if ( $count >= 0 ) {
-			printf(
-				'<p class="wpcpm-report-card__note">%s</p>',
-				esc_html(
-					sprintf(
-						/* translators: %s: a number of entries. */
-						_n( '%s entry is generated here.', '%s entries are generated here.', $count, 'wpcredits-program-manager' ),
-						number_format_i18n( $count )
-					)
-				)
-			);
+		$out = WPCPM_UI::heading( $title, 'h3', 'wpcpm-report-field-' . sanitize_html_class( $key ) );
+
+		if ( '' !== $read ) {
+			$out .= WPCPM_UI::intro( $read, 'muted' );
 		}
 
-		echo '</fieldset>';
+		$out .= WPCPM_UI::field(
+			array(
+				'id'    => $id,
+				'name'  => self::text_field( $key ),
+				'type'  => 'textarea',
+				'label' => $label,
+				'value' => $value,
+				'rows'  => 5,
+				'attrs' => array( 'maxlength' => (int) WPCPM_Semester_Report::MAX_TEXT ),
+			)
+		);
+		$out .= WPCPM_UI::choices(
+			array(
+				'id'      => 'wpcpm-report-hide-' . sanitize_html_class( $key ),
+				'name'    => self::hidden_field( $key ),
+				'options' => array( '1' => $leave ),
+				'checked' => $hidden ? '1' : array(),
+			)
+		);
+
+		if ( '' !== $entries ) {
+			$out .= WPCPM_UI::intro( $entries, 'muted' );
+		}
+
+		echo $out; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts.
 	}
 
 	/**
@@ -1082,39 +1305,36 @@ final class WPCPM_Semester_Report_Screen {
 	 * other released quote the control is absent rather than disabled, because a disabled
 	 * control is a thing somebody looks for a way around.
 	 *
+	 * On the parts (design 6.3): the title an in-card heading, each quote an item (its words a note, its author's name
+	 * as it is), its two questions checkboxes of the parts, the translation a text area with today's hint. The two
+	 * questions post under two names, so each is a checkbox alone rather than one group, which posts one name.
+	 *
 	 * @param array $live    What `live_consent()` read.
 	 * @param array $choices Stored choices.
 	 */
 	private static function render_quote_picker( array $live, array $choices ) {
 		$quotes = $live['quotes'];
+		$title  = __( 'The quotes your students released', 'wpcredits-program-manager' );
 
-		echo '<fieldset class="wpcpm-report-card__quotes">';
-		printf( '<legend class="wpcpm-report-card__section-title">%s</legend>', esc_html__( 'The quotes your students released', 'wpcredits-program-manager' ) );
+		echo WPCPM_UI::heading( $title, 'h3' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading().
 
 		// **"Not read" is not "nobody said anything".** A school looking at an empty picker
 		// after an unreachable read would conclude its students had released nothing, and
 		// would go and ask them again.
-		if ( empty( $live['ok'] ) ) {
-			printf(
-				'<p class="wpcpm-report-card__empty">%s</p>',
-				esc_html__( 'The students\' answers could not be read just now, so nothing is shown here. Nothing has been changed. Try again shortly.', 'wpcredits-program-manager' )
-			);
+		if ( empty( $live['ok'] ) || empty( $quotes ) ) {
+			$none = empty( $live['ok'] )
+				? __( 'The students\' answers could not be read just now, so nothing is shown here. Nothing has been changed. Try again shortly.', 'wpcredits-program-manager' )
+				: __( 'No student has released a quote for this semester. Nothing they wrote is shown here until they do.', 'wpcredits-program-manager' );
 
-			echo '</fieldset>';
-
-			return;
-		}
-
-		if ( empty( $quotes ) ) {
-			printf(
-				'<p class="wpcpm-report-card__empty">%s</p>',
-				esc_html__( 'No student has released a quote for this semester. Nothing they wrote is shown here until they do.', 'wpcredits-program-manager' )
-			);
-
-			echo '</fieldset>';
+			echo WPCPM_UI::intro( $none ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
 
 			return;
 		}
+
+		$print_it = __( 'Print this quote in the report', 'wpcredits-program-manager' );
+		$name_it  = __( 'Print their name with it, as they agreed', 'wpcredits-program-manager' );
+		$english  = __( 'English translation, if the quote is in another language', 'wpcredits-program-manager' );
+		$yourself = __( 'The original is always printed first. Translate it yourself; nothing here is machine translated.', 'wpcredits-program-manager' );
 
 		foreach ( $quotes as $quote ) {
 			$id = isset( $quote['id'] ) ? (string) $quote['id'] : '';
@@ -1129,60 +1349,65 @@ final class WPCPM_Semester_Report_Screen {
 			$show_name   = $named && ( ! array_key_exists( 'show_name', $choice ) || ! empty( $choice['show_name'] ) );
 			$translation = isset( $choice['translation'] ) ? (string) $choice['translation'] : '';
 			$field_id    = 'wpcpm-report-translation-' . sanitize_html_class( $id );
-
-			echo '<div class="wpcpm-report-card__quote">';
+			$text        = isset( $quote['text'] ) ? (string) $quote['text'] : '';
+			$name        = isset( $quote['name'] ) ? trim( (string) $quote['name'] ) : '';
 
 			// The marker `submitted_values()` reads before it believes an unticked box. A
 			// checkbox that is not ticked and a checkbox that was never drawn post the same
 			// nothing, and only the form knows which it was.
-			printf( '<input type="hidden" name="%s" value="1" />', esc_attr( self::offered_field( $id ) ) );
+			$offered = sprintf( '<input type="hidden" name="%s" value="1" />', esc_attr( self::offered_field( $id ) ) );
 
-			printf(
-				'<blockquote class="wpcpm-report-card__quote-text">%s</blockquote>',
-				esc_html( isset( $quote['text'] ) ? (string) $quote['text'] : '' )
-			);
-
-			$name = isset( $quote['name'] ) ? trim( (string) $quote['name'] ) : '';
+			// The student's words stay a quotation, as today's card marks them, in the note's look.
+			$out = WPCPM_UI::item_open( '' ) . $offered . WPCPM_UI::note( $text, 'blockquote' );
 
 			if ( $named && '' !== $name ) {
-				printf( '<p class="wpcpm-report-card__quote-name">%s</p>', esc_html( $name ) );
+				$out .= WPCPM_UI::intro( $name, 'muted' );
 			}
 
-			printf(
-				'<p class="wpcpm-report-card__quote-choice"><label><input type="checkbox" name="%1$s" value="1"%2$s /> %3$s</label></p>',
-				esc_attr( self::include_field( $id ) ),
-				$include ? ' checked="checked"' : '',
-				esc_html__( 'Print this quote in the report', 'wpcredits-program-manager' )
+			$out .= WPCPM_UI::choices(
+				array(
+					'id'      => 'wpcpm-report-include-' . sanitize_html_class( $id ),
+					'name'    => self::include_field( $id ),
+					'options' => array( '1' => $print_it ),
+					'checked' => $include ? '1' : array(),
+				)
 			);
 
 			if ( $named ) {
-				printf(
-					'<p class="wpcpm-report-card__quote-choice"><label><input type="checkbox" name="%1$s" value="1"%2$s /> %3$s</label></p>',
-					esc_attr( self::name_field( $id ) ),
-					$show_name ? ' checked="checked"' : '',
-					esc_html__( 'Print their name with it, as they agreed', 'wpcredits-program-manager' )
+				$out .= WPCPM_UI::choices(
+					array(
+						'id'      => 'wpcpm-report-name-' . sanitize_html_class( $id ),
+						'name'    => self::name_field( $id ),
+						'options' => array( '1' => $name_it ),
+						'checked' => $show_name ? '1' : array(),
+					)
 				);
 			}
 
-			printf(
-				'<p class="wpcpm-field"><label for="%1$s">%2$s</label><textarea id="%1$s" name="%3$s" rows="3" maxlength="%4$d" class="wpcpm-report-card__text">%5$s</textarea><span class="wpcpm-field__hint">%6$s</span></p>',
-				esc_attr( $field_id ),
-				esc_html__( 'English translation, if the quote is in another language', 'wpcredits-program-manager' ),
-				esc_attr( self::translation_field( $id ) ),
-				(int) WPCPM_Semester_Report::MAX_TEXT,
-				esc_textarea( $translation ),
-				esc_html__( 'The original is always printed first. Translate it yourself; nothing here is machine translated.', 'wpcredits-program-manager' )
+			$out .= WPCPM_UI::field(
+				array(
+					'id'    => $field_id,
+					'name'  => self::translation_field( $id ),
+					'type'  => 'textarea',
+					'label' => $english,
+					'value' => $translation,
+					'rows'  => 3,
+					'hint'  => $yourself,
+					'attrs' => array( 'maxlength' => (int) WPCPM_Semester_Report::MAX_TEXT ),
+				)
 			);
 
-			echo '</div>';
+			echo $out . '</article>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts and here.
 		}
-
-		echo '</fieldset>';
 	}
 
 	/**
 	 * The buttons beside the form: print, re-read consent, and approve or reopen depending
 	 * on the report's state.
+	 *
+	 * On the parts (design 6.3): one row of Print this report and Check the students' answers again (secondary), today's
+	 * sentence about asking, then the Decide row: Approve this report (primary) on a draft, Reopen for editing
+	 * (secondary) on an approved report, each acting at once as today, with no question.
 	 *
 	 * @param WP_Post $post   The report.
 	 * @param string  $state  `draft` or `approved`.
@@ -1190,61 +1415,80 @@ final class WPCPM_Semester_Report_Screen {
 	 */
 	private static function render_actions( WP_Post $post, $state, $record ) {
 		$may_edit = self::may_edit( $record );
-
-		echo '<div class="wpcpm-report-card__actions">';
-
-		printf(
-			'<p class="wpcpm-report-card__action"><a class="wpcpm-button" href="%1$s">%2$s</a></p>',
-			esc_url( self::print_url( $post->ID ) ),
-			esc_html__( 'Print this report', 'wpcredits-program-manager' )
-		);
-
-		if ( ! $may_edit ) {
-			echo '</div>';
-
-			return;
-		}
+		$print    = __( 'Print this report', 'wpcredits-program-manager' );
 
 		// **Allowed on an approved report, deliberately.** A student who withdraws their
 		// consent has to be able to reach a document that has already been approved, or
 		// approval would be a way of freezing an answer somebody has since changed.
-		self::render_button_form(
-			self::ACTION_REFRESH_CONSENT,
-			$post->ID,
-			__( 'Checking with the program records', 'wpcredits-program-manager' ),
-			__( 'Check the students\' answers again', 'wpcredits-program-manager' ),
-			$record
-		);
-
-		if ( WPCPM_Semester_Report::STATE_APPROVED === $state ) {
-			self::render_button_form(
-				self::ACTION_REOPEN,
-				$post->ID,
-				__( 'Reopening', 'wpcredits-program-manager' ),
-				__( 'Reopen for editing', 'wpcredits-program-manager' ),
-				$record
-			);
-		} else {
-			self::render_button_form(
-				self::ACTION_APPROVE,
-				$post->ID,
-				__( 'Approving', 'wpcredits-program-manager' ),
-				__( 'Approve this report', 'wpcredits-program-manager' ),
-				$record
-			);
-		}
+		$refresh = array( self::ACTION_REFRESH_CONSENT, __( 'Checking with the program records', 'wpcredits-program-manager' ), __( 'Check the students\' answers again', 'wpcredits-program-manager' ) );
+		$decide  = self::decision_for( $state );
 
 		// **No ask control here, by decision.** The document says how many students have not
-		// answered and why; the send itself is a program manager's, because the institution is
+		// answered and why; the send itself is an Administrator's, because the institution is
 		// the party that benefits from a yes and must not be the party that asks for it. The
 		// sentence is drawn rather than the button so that a school reading a short list knows
 		// the count is answerable and who to ask, instead of reading it as a dead end.
-		printf(
-			'<p class="wpcpm-report-card__note">%s</p>',
-			esc_html__( 'Students who have not answered yet can be sent a request to answer. An Administrator sends it, and nobody is asked twice in thirty days; once they have answered, check the students\' answers again to bring the new ones in.', 'wpcredits-program-manager' )
+		$asking = __( 'Students who have not answered yet can be sent a request to answer. An Administrator sends it, and nobody is asked twice in thirty days; once they have answered, check the students\' answers again to bring the new ones in.', 'wpcredits-program-manager' );
+
+		$row = array(
+			WPCPM_UI::button(
+				array(
+					'label' => $print,
+					'kind'  => 'secondary',
+					'href'  => self::print_url( $post->ID ),
+					'side'  => 'front',
+				)
+			),
 		);
 
-		echo '</div>';
+		if ( ! $may_edit ) {
+			echo WPCPM_UI::actions( $row ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts.
+
+			return;
+		}
+
+		$row[] = self::button_form_parts( $refresh[0], $post->ID, $refresh[1], $refresh[2], $record );
+
+		$post_id = (int) $post->ID;
+		$hidden  = self::hidden_fields( $decide[0] . '_' . $post_id, self::report_fields( $decide[0], $post_id ), true );
+
+		$decision = WPCPM_UI::decide(
+			array(
+				'id'        => 'wpcpm-decide-report-' . $post_id,
+				'level'     => 'h3',
+				'side'      => 'front',
+				'decisions' => array(
+					array(
+						'key'        => $decide[0],
+						'label'      => $decide[2],
+						'kind'       => WPCPM_Semester_Report::STATE_APPROVED === $state ? 'secondary' : 'primary',
+						'form_attrs' => array(
+							'method'          => 'post',
+							'action'          => self::post_url( $record ),
+							'data-wpcpm-once' => true,
+							'data-wpcpm-busy' => $decide[1],
+						),
+						'hidden'     => static function () use ( $hidden ) {
+							echo $hidden; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in hidden_fields().
+						},
+					),
+				),
+			)
+		);
+
+		echo WPCPM_UI::actions( $row ) . WPCPM_UI::intro( $asking, 'muted', '', '', self::HINT ) . $decision; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts and in hidden_fields().
+	}
+
+	/**
+	 * What the report's state lets an Administrator decide: reopen an approved report, approve a draft.
+	 *
+	 * @param string $state `draft` or `approved`.
+	 * @return string[] The action, its busy words, its button.
+	 */
+	private static function decision_for( $state ) {
+		return WPCPM_Semester_Report::STATE_APPROVED === $state
+			? array( self::ACTION_REOPEN, __( 'Reopening', 'wpcredits-program-manager' ), __( 'Reopen for editing', 'wpcredits-program-manager' ) )
+			: array( self::ACTION_APPROVE, __( 'Approving', 'wpcredits-program-manager' ), __( 'Approve this report', 'wpcredits-program-manager' ) );
 	}
 
 	/**
@@ -1263,13 +1507,37 @@ final class WPCPM_Semester_Report_Screen {
 			esc_attr( $busy )
 		);
 
-		wp_nonce_field( $action . '_' . (int) $post_id );
+		echo self::hidden_fields( $action . '_' . (int) $post_id, self::report_fields( $action, $post_id ), false ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in hidden_fields().
 
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $action ) );
-		printf( '<input type="hidden" name="report" value="%d" />', (int) $post_id );
 		printf( '<button type="submit" class="wpcpm-button wpcpm-button--secondary">%s</button>', esc_html( $label ) );
 
 		echo '</form>';
+	}
+
+	/**
+	 * The same one-button form on the shared parts: the same address, lock, busy words and fields, no class of today's,
+	 * its button secondary.
+	 *
+	 * @param string $action  The `admin_post_` action.
+	 * @param int    $post_id The report.
+	 * @param string $busy    What the pressed control says while the request is in flight.
+	 * @param string $label   The button.
+	 * @param string $record  Institutions record ID the page is showing.
+	 * @return string Escaped markup.
+	 */
+	private static function button_form_parts( $action, $post_id, $busy, $label, $record ) {
+		return sprintf(
+			'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( self::post_url( $record ) ),
+			esc_attr( $busy )
+		) . self::hidden_fields( $action . '_' . (int) $post_id, self::report_fields( $action, $post_id ), true )
+			. WPCPM_UI::button(
+				array(
+					'label' => $label,
+					'kind'  => 'secondary',
+					'side'  => 'front',
+				)
+			) . '</form>';
 	}
 
 	/**
@@ -1303,7 +1571,9 @@ final class WPCPM_Semester_Report_Screen {
 	 * The saved versions of this report, each with a way back to it.
 	 *
 	 * Kept folded: it is a list nobody reads until something has gone wrong, and it is the
-	 * longest thing on an already long section.
+	 * longest thing on an already long section. On the parts (design 6.3) an inner fold: each
+	 * version a row, its day whole and its author's name as it is, Put this version back its
+	 * quiet action in today's form.
 	 *
 	 * @param WP_Post $post   The report.
 	 * @param string  $record Institutions record ID the page is showing.
@@ -1316,59 +1586,61 @@ final class WPCPM_Semester_Report_Screen {
 		}
 
 		$format = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
+		$title  = __( 'Earlier versions of this report', 'wpcredits-program-manager' );
+		$back   = __( 'Put this version back', 'wpcredits-program-manager' );
+		$busy   = __( 'Putting it back', 'wpcredits-program-manager' );
+		/* translators: 1: date and time, 2: the person who saved it. */
+		$by = __( '%1$s by %2$s', 'wpcredits-program-manager' );
 
-		echo '<details class="wpcpm-report-card__revisions">';
-		printf( '<summary>%s</summary>', esc_html__( 'Earlier versions of this report', 'wpcredits-program-manager' ) );
-		echo '<ul class="wpcpm-report-card__revision-list">';
+		$out = WPCPM_UI::inner_open( array( 'title' => $title ) ) . WPCPM_UI::list_open();
 
 		foreach ( $revisions as $revision ) {
 			$author = get_userdata( (int) $revision->post_author );
+			$when   = wp_date( $format, (int) get_post_time( 'U', true, $revision ) );
+			$who    = $author instanceof WP_User ? $author->display_name : __( 'somebody who has left', 'wpcredits-program-manager' );
+			$form   = sprintf(
+				'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+				esc_url( self::post_url( $record ) ),
+				esc_attr( $busy )
+			) . self::hidden_fields(
+				self::ACTION_RESTORE . '_' . (int) $revision->ID,
+				array(
+					'action'   => self::ACTION_RESTORE,
+					'revision' => (int) $revision->ID,
+				),
+				true
+			);
 
-			echo '<li class="wpcpm-report-card__revision">';
-
-			printf(
-				'<span class="wpcpm-report-card__revision-when">%s</span>',
-				esc_html(
-					sprintf(
-						/* translators: 1: date and time, 2: the person who saved it. */
-						__( '%1$s by %2$s', 'wpcredits-program-manager' ),
-						wp_date( $format, (int) get_post_time( 'U', true, $revision ) ),
-						$author instanceof WP_User ? $author->display_name : __( 'somebody who has left', 'wpcredits-program-manager' )
-					)
+			$out .= WPCPM_UI::row(
+				array(
+					'name_html' => sprintf( esc_html( $by ), WPCPM_UI::whole( (string) $when ), esc_html( (string) $who ) ),
+					'actions'   => array(
+						$form . WPCPM_UI::button(
+							array(
+								'label'   => $back,
+								'kind'    => 'quiet',
+								'context' => (string) $when,
+								'side'    => 'front',
+							)
+						) . '</form>',
+					),
 				)
 			);
-
-			printf(
-				'<form class="wpcpm-report-card__restore" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
-				esc_url( self::post_url( $record ) ),
-				esc_attr__( 'Putting it back', 'wpcredits-program-manager' )
-			);
-
-			wp_nonce_field( self::ACTION_RESTORE . '_' . (int) $revision->ID );
-
-			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_RESTORE ) );
-			printf( '<input type="hidden" name="revision" value="%d" />', (int) $revision->ID );
-			printf( '<button type="submit" class="wpcpm-button wpcpm-button--secondary">%s</button>', esc_html__( 'Put this version back', 'wpcredits-program-manager' ) );
-
-			echo '</form>';
-			echo '</li>';
 		}
 
-		echo '</ul>';
-		echo '</details>';
+		echo $out . WPCPM_UI::list_close() . WPCPM_UI::inner_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts and here.
 	}
 
 	/**
 	 * Open a form posting to `admin-post.php`, with its nonce and its action.
 	 *
-	 * @param string $css          Class attribute for the form.
 	 * @param string $action       The `admin_post_` action name.
 	 * @param string $nonce_action The nonce action, keyed to the report.
 	 * @param string $busy         What the pressed control says while the request is in flight.
 	 * @param int    $post_id      The report the form acts on.
 	 * @param string $record       Institutions record ID the page is showing.
 	 */
-	private static function form_start( $css, $action, $nonce_action, $busy, $post_id, $record ) {
+	private static function form_start( $action, $nonce_action, $busy, $post_id, $record ) {
 		// **The switcher on the action address is for the way back and for nothing else.** Every
 		// handler these post to resolves the institution from the report post they name, which
 		// is the rule for every post-keyed route in this module, so the address does not choose
@@ -1376,16 +1648,26 @@ final class WPCPM_Semester_Report_Screen {
 		// what it acted on names no institution. It is there for the press that finds the report
 		// gone, which has no post to read an institution from.
 		printf(
-			'<form class="%1$s" method="post" action="%2$s" data-wpcpm-once data-wpcpm-busy="%3$s">',
-			esc_attr( $css ),
+			'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( self::post_url( $record ) ),
 			esc_attr( $busy )
 		);
 
-		wp_nonce_field( $nonce_action );
+		echo self::hidden_fields( $nonce_action, self::report_fields( $action, $post_id ), true ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in hidden_fields().
+	}
 
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $action ) );
-		printf( '<input type="hidden" name="report" value="%d" />', (int) $post_id );
+	/**
+	 * The two hidden fields of a form that acts on a report: its action and the report.
+	 *
+	 * @param string $action  The `admin_post_` action.
+	 * @param int    $post_id The report.
+	 * @return array
+	 */
+	private static function report_fields( $action, $post_id ) {
+		return array(
+			'action' => (string) $action,
+			'report' => (int) $post_id,
+		);
 	}
 
 	/*
@@ -1409,9 +1691,14 @@ final class WPCPM_Semester_Report_Screen {
 	 *
 	 * @param WP_Post $post      The report.
 	 * @param bool    $for_print Whether this is the standalone printed document.
+	 * @param string  $title_tag The title's heading: `h1`, today's, for the print route, the PDF and every caller
+	 *                           that names none; `h2` on the Institution Dashboard on the parts, where the view's
+	 *                           H1 is the page's one name (its look is the title's class's, not the tag's).
 	 * @return string HTML. Every interpolated value is escaped.
 	 */
-	public static function render_document( WP_Post $post, $for_print ) {
+	public static function render_document( WP_Post $post, $for_print, $title_tag = 'h1' ) {
+		$title_tag = 'h2' === $title_tag ? 'h2' : 'h1';
+
 		$snapshot = WPCPM_Semester_Report::snapshot( $post );
 		$live     = self::live_consent( $post );
 		$sections = WPCPM_Semester_Report::sections();
@@ -1423,7 +1710,7 @@ final class WPCPM_Semester_Report_Screen {
 		$dropped  = $live['dropped'];
 
 		$out  = '<article class="wpcpm-report-doc">';
-		$out .= sprintf( '<h1 class="wpcpm-report-doc__title">%s</h1>', esc_html( get_the_title( $post ) ) );
+		$out .= sprintf( '<%1$s class="wpcpm-report-doc__title">%2$s</%1$s>', $title_tag, esc_html( WPCPM_Semester_Report::title( $post ) ) );
 
 		$cohort = isset( $snapshot['cohort'] ) ? (string) $snapshot['cohort'] : '';
 
@@ -2461,7 +2748,7 @@ final class WPCPM_Semester_Report_Screen {
 			$row  = class_exists( 'WPCPM_Institutions_Index' ) ? WPCPM_Institutions_Index::row( $institution ) : null;
 			$name = is_array( $row ) && isset( $row['name'] ) ? trim( (string) $row['name'] ) : '';
 			$name = '' !== $name ? $name : $institution;
-			$url  = self::report_url( $cohort );
+			$url  = self::mail_url( $cohort );
 			$url  = '' !== $url ? add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, $institution, $url ) : '';
 
 			return self::rendered(
@@ -2501,7 +2788,7 @@ final class WPCPM_Semester_Report_Screen {
 				array(
 					'site_name'   => $site,
 					'semester'    => WPCPM_Cohort::label( $cohort ),
-					'report_link' => self::report_url( $cohort ),
+					'report_link' => self::mail_url( $cohort ),
 				)
 			);
 		};
@@ -3229,7 +3516,7 @@ final class WPCPM_Semester_Report_Screen {
 
 		// The browser proposes the title as the PDF's filename, which is why the report's own
 		// title is the whole of it.
-		$html .= '<title>' . esc_html( get_the_title( $post ) ) . '</title>' . "\n";
+		$html .= '<title>' . esc_html( WPCPM_Semester_Report::title( $post ) ) . '</title>' . "\n";
 		$html .= '<style>' . "\n" . self::stylesheet() . "\n" . '</style>' . "\n";
 		$html .= '</head>' . "\n";
 		$html .= '<body class="wpcpm-report-print">' . "\n";
@@ -3607,19 +3894,17 @@ final class WPCPM_Semester_Report_Screen {
 	private static function leave( $status, array $extra = array(), $cohort = '', $record = '' ) {
 		self::set_flash( $status, $extra );
 
-		$url = WPCPM_Cohort::is_key( $cohort ) ? self::report_url( $cohort ) : '';
+		$view = current_user_can( WPCPM_Roles::CAP_MANAGE ) ? self::return_record( $record ) : '';
+
+		// The Semester reports view, which draws the card (`card_url()`), with the semester to reopen and, for an
+		// Administrator, the school.
+		$url = class_exists( 'WPCPM_Institutions_Dashboard' )
+			? WPCPM_Institutions_Dashboard::card_url( 'report', $view, '', WPCPM_Cohort::is_key( $cohort ) ? array( self::ARG => (string) $cohort ) : array() )
+			: '';
 
 		if ( '' === $url ) {
-			$page = class_exists( 'WPCPM_Institutions_Dashboard' ) ? WPCPM_Institutions_Dashboard::page_url() : '';
-			$url  = ( '' === $page ? home_url( '/' ) : $page ) . '#wpcpm-report';
-		}
-
-		if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			$view = self::return_record( $record );
-
-			if ( '' !== $view ) {
-				$url = add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, $view, $url );
-			}
+			$url = home_url( '/' ) . '#wpcpm-report';
+			$url = '' !== $view ? add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, $view, $url ) : $url;
 		}
 
 		wp_safe_redirect( $url );

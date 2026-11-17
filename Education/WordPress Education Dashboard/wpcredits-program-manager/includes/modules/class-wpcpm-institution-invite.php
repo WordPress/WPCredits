@@ -158,6 +158,12 @@ class WPCPM_Institution_Invite {
 	/** The tutor's invitation with nobody to name as its sender. */
 	const MAIL_INVITE_TUTOR_NO_SENDER = 'institution-invite-tutor-no-sender';
 
+	/** Invite a colleague's fold, where the form's refusal is drawn and its way back lands (Gate B round 2, F3). */
+	const FORM_ID = 'wpcpm-people-invite';
+
+	/** The flash's mark of an outcome a waiting invitation's Resend left, said over the rows (Task 28, W2). */
+	const FROM_ROW = 'row';
+
 	/** Flash channel. The value carries the institution, the way the People card's does. */
 	const FLASH = 'institution_invite';
 
@@ -299,77 +305,10 @@ class WPCPM_Institution_Invite {
 			return;
 		}
 
-		$kept  = WPCPM_Flash::kept( self::KEPT_FORM . $record_id );
-		$typed = isset( $kept['values']['email'] ) && is_scalar( $kept['values']['email'] ) ? (string) $kept['values']['email'] : '';
-		$chosen = isset( $kept['values']['level'] ) && is_scalar( $kept['values']['level'] ) && in_array( (string) $kept['values']['level'], WPCPM_Institution_Members::levels(), true ) ? (string) $kept['values']['level'] : WPCPM_Institution_Members::LEVEL_REPRESENTATIVE;
+		$kept = self::kept_form( $record_id );
 
-		printf( '<h4 class="wpcpm-people__subtitle">%s</h4>', esc_html__( 'Invite a colleague', 'wpcredits-program-manager' ) );
-
-		echo '<form class="wpcpm-people__form wpcpm-people__form--invite" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
-		wp_nonce_field( self::ACTION_INVITE . '_' . $record_id );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_INVITE ) );
-		printf( '<input type="hidden" name="record" value="%s" />', esc_attr( $record_id ) );
-		self::render_origin( $origin );
-
-		printf(
-			'<label for="wpcpm-invite-email-%1$s">%2$s</label>',
-			esc_attr( $record_id ),
-			esc_html__( 'Their email address', 'wpcredits-program-manager' )
-		);
-		printf(
-			'<input type="email" id="wpcpm-invite-email-%1$s" name="email" value="%3$s" placeholder="%2$s" required />',
-			esc_attr( $record_id ),
-			esc_attr__( 'Their email address', 'wpcredits-program-manager' ),
-			esc_attr( $typed )
-		);
-
-		// The level, a choice of two and never a free field: Representative is ticked, so a press that
-		// ignores the choice invites a representative as every invitation did before the Tutor level.
-		echo '<fieldset class="wpcpm-people__level">';
-		printf( '<legend>%s</legend>', esc_html__( 'Level', 'wpcredits-program-manager' ) );
-
-		$levels = array(
-			WPCPM_Institution_Members::LEVEL_REPRESENTATIVE => array(
-				__( 'Representative', 'wpcredits-program-manager' ),
-				__( 'Adds and changes students, invites colleagues, corrects the details.', 'wpcredits-program-manager' ),
-			),
-			WPCPM_Institution_Members::LEVEL_TUTOR          => array(
-				__( 'Tutor', 'wpcredits-program-manager' ),
-				__( 'Sees the students, their Student Report Cards and the semester reports, and changes nothing.', 'wpcredits-program-manager' ),
-			),
-		);
-
-		foreach ( $levels as $level => $words ) {
-			printf(
-				'<p><label for="wpcpm-invite-level-%1$s-%2$s"><input type="radio" id="wpcpm-invite-level-%1$s-%2$s" name="level" value="%2$s"%3$s aria-describedby="wpcpm-invite-level-%1$s-%2$s-hint" /> %4$s</label> <span class="description" id="wpcpm-invite-level-%1$s-%2$s-hint">%5$s</span></p>',
-				esc_attr( $record_id ),
-				esc_attr( $level ),
-				$chosen === $level ? ' checked="checked"' : '',
-				esc_html( $words[0] ),
-				esc_html( $words[1] )
-			);
-		}
-
-		echo '</fieldset>';
-
-		printf(
-			'<button type="submit" class="button button-primary">%s</button>',
-			esc_html__( 'Send invitation', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<p class="description">%s</p>',
-			esc_html(
-				sprintf(
-					/* translators: 1: how many days an invitation is good for, 2: how many invitations may be waiting at once. */
-					__( 'They get one email with a link that is good for %1$s days. Whoever accepts it sees the same students you do, and a representative can remove anybody, including you. Up to %2$s invitations can be waiting at a time.', 'wpcredits-program-manager' ),
-					number_format_i18n( self::LIFETIME_DAYS ),
-					number_format_i18n( self::PENDING_MAX )
-				)
-			)
-		);
-
-		echo '</form>';
+		// The Institution Dashboard on the shared parts (Stage B, Task 20): the same reader, the same typing kept.
+		self::render_form_parts( $record_id, $kept, $origin );
 	}
 
 	/**
@@ -386,8 +325,41 @@ class WPCPM_Institution_Invite {
 	public static function render_pending( $record_id, $origin = '' ) {
 		$record_id = trim( (string) $record_id );
 
-		if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+		// The rule the outcome's place reads too (`rows_drawn()`).
+		if ( ! self::rows_drawn( $record_id ) ) {
 			return;
+		}
+
+		$pending = self::pending_for( $record_id );
+
+		// On the shared parts (Stage B, Task 20): an in-card heading and a list of rows with their facts under the address.
+		// A waiting row's outcome (resent, canceled, gone) under the heading, over the rows it is about (Gate B, B7).
+		$said = self::message_for( $record_id );
+		$list = WPCPM_UI::heading( __( 'Invitations waiting', 'wpcredits-program-manager' ) )
+			. ( null !== $said && 'rows' === self::place( $said['status'], $said['from'] ) ? self::outcome_parts( $record_id, $said ) : '' )
+			. WPCPM_UI::list_open( array( 'facts' => 'under' ) );
+
+		foreach ( $pending as $post_id ) {
+			$list .= self::invite_row_parts( self::facts( $post_id ), $origin );
+		}
+
+		echo $list . WPCPM_UI::list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts and in invite_row_parts().
+	}
+
+	/**
+	 * Whether `render_pending()` draws the waiting rows for this reader: a record, the reader allowed to manage members,
+	 * and an invitation waiting. One rule for the list and for the outcome a press on a row left, which is said over the
+	 * rows when they are drawn and at the card's message place when they are not (Gate B round 2, F6: the permission may
+	 * change between the press and the page).
+	 *
+	 * @param string $record_id Airtable institution record ID.
+	 * @return bool
+	 */
+	private static function rows_drawn( $record_id ) {
+		$record_id = trim( (string) $record_id );
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+			return false;
 		}
 
 		$decision = WPCPM_Institution_Policy::decide(
@@ -395,124 +367,7 @@ class WPCPM_Institution_Invite {
 			WPCPM_Institution_Policy::subject_institution( $record_id )
 		);
 
-		if ( empty( $decision['allowed'] ) ) {
-			return;
-		}
-
-		$pending = self::pending_for( $record_id );
-
-		if ( empty( $pending ) ) {
-			return;
-		}
-
-		printf( '<h4 class="wpcpm-people__subtitle">%s</h4>', esc_html__( 'Invitations waiting', 'wpcredits-program-manager' ) );
-
-		echo '<ul class="wpcpm-people__invites">';
-
-		foreach ( $pending as $post_id ) {
-			self::render_invite( self::facts( $post_id ), $origin );
-		}
-
-		echo '</ul>';
-	}
-
-	/**
-	 * One waiting invitation's row.
-	 *
-	 * @param array  $facts  What `facts()` returned.
-	 * @param string $origin Where the two controls return to.
-	 */
-	private static function render_invite( array $facts, $origin ) {
-		if ( empty( $facts['id'] ) ) {
-			return;
-		}
-
-		echo '<li class="wpcpm-people__invite">';
-
-		printf( '<span class="wpcpm-people__invite-email">%s</span> ', esc_html( $facts['email'] ) );
-
-		printf(
-			'<span class="wpcpm-people__invite-facts">%s</span>',
-			esc_html(
-				sprintf(
-					/* translators: 1: who sent it, 2: the date it was sent, 3: the date it stops working. */
-					__( 'Invited by %1$s on %2$s, good until %3$s.', 'wpcredits-program-manager' ),
-					'' !== $facts['actor_name'] ? $facts['actor_name'] : __( 'a colleague', 'wpcredits-program-manager' ),
-					WPCPM_Dates::day( (int) $facts['sent'] ),
-					WPCPM_Dates::day( (int) $facts['expires'] )
-				)
-			)
-		);
-
-		self::render_control( self::ACTION_RESEND, (int) $facts['id'], __( 'Resend', 'wpcredits-program-manager' ), '', $origin );
-		self::render_control(
-			self::ACTION_CANCEL,
-			(int) $facts['id'],
-			__( 'Cancel', 'wpcredits-program-manager' ),
-			sprintf(
-				/* translators: %s: the invited address. */
-				__( 'Cancel the invitation to %s? The link in their email stops working straight away.', 'wpcredits-program-manager' ),
-				$facts['email']
-			),
-			$origin
-		);
-
-		echo '</li>';
-	}
-
-	/**
-	 * One of the two controls on a waiting invitation.
-	 *
-	 * Both are posts and neither is a link: they change state, and a link that changes state
-	 * is followed by every prefetcher and every mail scanner that meets it. `handle_accept()`
-	 * keeps the same rule on the one path that starts as a link, by making the link ask.
-	 *
-	 * @param string $action  `ACTION_CANCEL` or `ACTION_RESEND`.
-	 * @param int    $post_id The invitation.
-	 * @param string $label   The button.
-	 * @param string $confirm What the browser asks first, or '' to ask nothing.
-	 * @param string $origin  Where the handler returns to.
-	 */
-	private static function render_control( $action, $post_id, $label, $confirm, $origin ) {
-		echo '<form class="wpcpm-people__form wpcpm-people__form--inline" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
-		wp_nonce_field( $action . '_' . $post_id );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $action ) );
-		printf( '<input type="hidden" name="invite" value="%d" />', (int) $post_id );
-		self::render_origin( $origin );
-
-		// The confirm is built the way the People card's is, and only where there is something
-		// to warn about: Resend sends the same person another mail, Cancel breaks a link
-		// somebody may be about to follow.
-		if ( '' === $confirm ) {
-			printf( '<button type="submit" class="button button-link">%s</button>', esc_html( $label ) );
-		} else {
-			printf(
-				'<button type="submit" class="button button-link" data-wpcpm-confirm="%1$s">%2$s</button>',
-				esc_attr( $confirm ),
-				esc_html( $label )
-			);
-		}
-
-		echo '</form>';
-	}
-
-	/**
-	 * The flag that says which screen a control was pressed on.
-	 *
-	 * A flag and never a URL: `finish()` rebuilds the destination from it, so no form can
-	 * bounce a member somewhere else.
-	 *
-	 * @param string $origin `WPCPM_Institution_People::RETURN_ADMIN` or ''.
-	 */
-	private static function render_origin( $origin ) {
-		if ( WPCPM_Institution_People::RETURN_ADMIN !== $origin ) {
-			return;
-		}
-
-		printf(
-			'<input type="hidden" name="wpcpm_from" value="%s" />',
-			esc_attr( WPCPM_Institution_People::RETURN_ADMIN )
-		);
+		return ! empty( $decision['allowed'] ) && array() !== self::pending_for( $record_id );
 	}
 
 	/**
@@ -525,7 +380,59 @@ class WPCPM_Institution_Invite {
 	 * @param string $record_id The institution whose card is being drawn.
 	 */
 	public static function render_message( $record_id ) {
+		$said = self::message_for( $record_id );
+
+		if ( null === $said ) {
+			return;
+		}
+
+		// On the shared parts the shell's outcome (Stage B, Task 20) at what it is about (Gate B, B7): here, after the people,
+		// only the page's own outcome and one about the waiting rows when no row is left to stand over; the form's is said in
+		// Invite a colleague (`render_form_parts()`), a row's over the rows (`render_pending()`).
+		if ( self::parts() ) {
+			$where = self::place( $said['status'], $said['from'] );
+
+			if ( 'card' === $where || ( 'rows' === $where && ! self::rows_drawn( $record_id ) ) ) {
+				echo self::outcome_parts( $record_id, $said ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Dashboard_Card::message() escapes what it prints.
+			}
+
+			return;
+		}
+
+		printf(
+			'<p class="wpcpm-people__message is-%1$s" role="status">%2$s%3$s</p>',
+			esc_attr( $said['tone'] ),
+			esc_html( $said['sentence'] ),
+			'' === $said['detail'] ? '' : ' ' . esc_html( $said['detail'] )
+		);
+	}
+
+	/*
+	 * The rules both drawings ask (Stage B, Task 20: one helper per rule, the old branch and the parts' both calling it)
+	 * --------------------------------------------------------------------
+	 */
+
+	/**
+	 * Whether the invitations are drawn on the shared parts: the People card's answer, which is the Institution
+	 * Dashboard's surface once its switch is on. Manage members prints this class's outcome under its own surface, so
+	 * today's markup there.
+	 *
+	 * @return bool
+	 */
+	public static function parts() {
+		return WPCPM_Institution_People::parts();
+	}
+
+	/**
+	 * The invitations' outcome, taken from the flash once and kept for the request: its status, its tone, its sentence,
+	 * what it adds and the two together. Null when there is none for this institution (routing, not authorization).
+	 *
+	 * @param string $record_id The institution whose card is being drawn.
+	 * @return array{status: string, tone: string, sentence: string, detail: string, text: string, from: string}|null
+	 */
+	private static function message_for( $record_id ) {
 		$flash  = WPCPM_Flash::take( self::FLASH );
+		$from   = is_array( $flash ) && isset( $flash['from'] ) && self::FROM_ROW === $flash['from'] ? self::FROM_ROW : '';
 		$status = is_array( $flash ) && isset( $flash['status'] ) ? sanitize_key( (string) $flash['status'] ) : sanitize_key( (string) $flash );
 		$detail = is_array( $flash ) && isset( $flash['detail'] ) ? (string) $flash['detail'] : '';
 		$about  = is_array( $flash ) && isset( $flash['record'] ) ? trim( (string) $flash['record'] ) : '';
@@ -534,21 +441,363 @@ class WPCPM_Institution_Invite {
 		// Every fence in this module is the policy's, and this comparison decides nothing
 		// about access.
 		if ( trim( (string) $record_id ) !== $about ) {
-			return;
+			return null;
 		}
 
 		$messages = self::messages();
 
 		if ( ! isset( $messages[ $status ] ) ) {
-			return;
+			return null;
 		}
 
-		printf(
-			'<p class="wpcpm-people__message is-%1$s" role="status">%2$s%3$s</p>',
-			esc_attr( $messages[ $status ][0] ),
-			esc_html( $messages[ $status ][1] ),
-			'' === $detail ? '' : ' ' . esc_html( $detail )
+		return array(
+			'status'   => $status,
+			'tone'     => $messages[ $status ][0],
+			'sentence' => $messages[ $status ][1],
+			'detail'   => $detail,
+			'text'     => $messages[ $status ][1] . ( '' === $detail ? '' : ' ' . $detail ),
+			'from'     => $from,
 		);
+	}
+
+	/**
+	 * What a refused invitation kept of its form, for the one drawing that follows: the address as it was typed, the level
+	 * when it is one the list knows (Representative otherwise), and whether anything was kept at all.
+	 *
+	 * @param string $record_id The institution the form is for.
+	 * @return array{email: string, level: string, refused: bool}
+	 */
+	private static function kept_form( $record_id ) {
+		$kept = WPCPM_Flash::kept( self::KEPT_FORM . $record_id );
+
+		return array(
+			'email'   => isset( $kept['values']['email'] ) && is_scalar( $kept['values']['email'] ) ? (string) $kept['values']['email'] : '',
+			'level'   => isset( $kept['values']['level'] ) && is_scalar( $kept['values']['level'] ) && in_array( (string) $kept['values']['level'], WPCPM_Institution_Members::levels(), true ) ? (string) $kept['values']['level'] : WPCPM_Institution_Members::LEVEL_REPRESENTATIVE,
+			'refused' => array() !== $kept['values'],
+		);
+	}
+
+	/**
+	 * The two levels an invitation can carry, each with its words and its hint.
+	 *
+	 * @return array<string, array{label: string, hint: string}>
+	 */
+	private static function level_options() {
+		return array(
+			WPCPM_Institution_Members::LEVEL_REPRESENTATIVE => array(
+				'label' => __( 'Representative', 'wpcredits-program-manager' ),
+				'hint'  => __( 'Adds and changes students, invites colleagues, corrects the details.', 'wpcredits-program-manager' ),
+			),
+			WPCPM_Institution_Members::LEVEL_TUTOR          => array(
+				'label' => __( 'Tutor', 'wpcredits-program-manager' ),
+				'hint'  => __( 'Sees the students, their Student Report Cards and the semester reports, and changes nothing.', 'wpcredits-program-manager' ),
+			),
+		);
+	}
+
+	/**
+	 * The hidden fields the invite form posts after its nonce: the action, the institution, and the Institutions screen's
+	 * flag when the press is made there.
+	 *
+	 * @param string $record_id The institution.
+	 * @param string $origin    `WPCPM_Institution_People::RETURN_ADMIN` or ''.
+	 * @return array<string, string> Name to value, in the order posted.
+	 */
+	private static function form_fields( $record_id, $origin ) {
+		return array(
+			'action' => self::ACTION_INVITE,
+			'record' => (string) $record_id,
+		) + self::origin_fields( $origin );
+	}
+
+	/**
+	 * The hidden fields Resend and Cancel post after their nonce: the action, the invitation, and the Institutions screen's
+	 * flag when the press is made there.
+	 *
+	 * @param string $action  `ACTION_CANCEL` or `ACTION_RESEND`.
+	 * @param int    $post_id The invitation.
+	 * @param string $origin  `WPCPM_Institution_People::RETURN_ADMIN` or ''.
+	 * @return array<string, string> Name to value, in the order posted.
+	 */
+	private static function control_fields( $action, $post_id, $origin ) {
+		return array(
+			'action' => (string) $action,
+			'invite' => (string) (int) $post_id,
+		) + self::origin_fields( $origin );
+	}
+
+	/**
+	 * The flag that says which screen a control was pressed on, as a hidden field: a flag and never a URL, so
+	 * `finish()` rebuilds the destination from it and no form can bounce a member somewhere else. None from the
+	 * institution's own dashboard.
+	 *
+	 * @param string $origin `WPCPM_Institution_People::RETURN_ADMIN` or ''.
+	 * @return array<string, string>
+	 */
+	private static function origin_fields( $origin ) {
+		return WPCPM_Institution_People::RETURN_ADMIN === $origin ? array( 'wpcpm_from' => WPCPM_Institution_People::RETURN_ADMIN ) : array();
+	}
+
+	/**
+	 * The paragraph under Send invitation today, the form's intro on the parts: how long the link is good for, what
+	 * whoever accepts it can do, and how many may wait at once.
+	 *
+	 * @return string
+	 */
+	private static function intro_text() {
+		return sprintf(
+			/* translators: 1: how many days an invitation is good for, 2: how many invitations may be waiting at once. */
+			__( 'They get one email with a link that is good for %1$s days. Whoever accepts it sees the same students you do, and a representative can remove anybody, including you. Up to %2$s invitations can be waiting at a time.', 'wpcredits-program-manager' ),
+			number_format_i18n( self::LIFETIME_DAYS ),
+			number_format_i18n( self::PENDING_MAX )
+		);
+	}
+
+	/**
+	 * A waiting invitation's line of facts, with who sent it, the day it was sent and the day it stops working as its
+	 * three placeholders.
+	 *
+	 * @return string
+	 */
+	private static function invite_line_format() {
+		/* translators: 1: who sent it, 2: the date it was sent, 3: the date it stops working. */
+		return __( 'Invited by %1$s on %2$s, good until %3$s.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * Who sent an invitation, as its line names them: the sender's name, or "a colleague" when none is known.
+	 *
+	 * @param array $facts What `facts()` returned.
+	 * @return string
+	 */
+	private static function sender_name( array $facts ) {
+		return '' !== $facts['actor_name'] ? (string) $facts['actor_name'] : __( 'a colleague', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * What the browser asks before Cancel: the invited address, and that the link stops working at once.
+	 *
+	 * @param string $email The invited address.
+	 * @return string
+	 */
+	private static function cancel_question( $email ) {
+		return sprintf(
+			/* translators: %s: the invited address. */
+			__( 'Cancel the invitation to %s? The link in their email stops working straight away.', 'wpcredits-program-manager' ),
+			$email
+		);
+	}
+
+	/**
+	 * Where an outcome is said on the parts (Gate B, B7: next to the form or the row it is about): `form` for what the
+	 * invite form's press left (a send, a refusal of the address or the level, the limits, an institution not in the
+	 * index, a mail the site could not hand over), `rows` for what a waiting invitation's Resend or Cancel left, `card`
+	 * for the page's own (an invitation accepted) and for the one that names no subject. Two of the form's statuses are
+	 * also Resend's (the day's sends spent, a mail the site could not hand over), so the action that left a status decides
+	 * before the status does (Task 28, W2): whatever Resend left (`row`) is said over the rows. Cancel marks nothing: its
+	 * outcomes (canceled, gone) are said over the rows by their status.
+	 *
+	 * @param string $status The outcome.
+	 * @param string $from   `row` when a waiting invitation's Resend left it, '' otherwise.
+	 * @return string `form`, `rows` or `card`.
+	 */
+	private static function place( $status, $from = '' ) {
+		if ( self::FROM_ROW === $from || in_array( $status, array( 'invite-resent', 'invite-cancelled', 'invite-gone' ), true ) ) {
+			return 'rows';
+		}
+
+		return in_array( $status, array( 'invite-joined', 'invite-error' ), true ) ? 'card' : 'form';
+	}
+
+	/**
+	 * An outcome as the shell's message on the parts: a refusal of the address or the level is a link to the box it
+	 * refused, as the form-errors summary links its problems.
+	 *
+	 * @param string $record_id The institution.
+	 * @param array  $said      What `message_for()` returned.
+	 * @return string Escaped markup.
+	 */
+	private static function outcome_parts( $record_id, array $said ) {
+		$field = self::problem_field( $said['status'] );
+
+		return WPCPM_Dashboard_Card::message( $said['tone'], $said['text'], 'wpcpm-people__message', '' !== $field ? self::lead_id( $record_id, $field ) : '' );
+	}
+
+	/**
+	 * The box an outcome refused, on the parts: the address for a refusal of the address (not one, a member's, one with an
+	 * invitation waiting), the level for a level nobody knows, none for every other outcome.
+	 *
+	 * @param string $status The outcome.
+	 * @return string `email`, `level` or ''.
+	 */
+	private static function problem_field( $status ) {
+		if ( in_array( $status, array( 'invite-bad-email', 'invite-member', 'invite-waiting' ), true ) ) {
+			return 'email';
+		}
+
+		return 'invite-bad-level' === $status ? 'level' : '';
+	}
+
+	/**
+	 * The id of the invite form's box on the parts, today's id: the address's box, or the level group's, by the
+	 * institution.
+	 *
+	 * @param string $record_id The institution.
+	 * @param string $field     `email` or `level`.
+	 * @return string
+	 */
+	private static function field_id( $record_id, $field ) {
+		return 'wpcpm-invite-' . $field . '-' . $record_id;
+	}
+
+	/**
+	 * The element an outcome that refused a box leads to: the address's box, or for the level the group's first option,
+	 * by the id `WPCPM_UI::choices()` gives it (a group's own id is a prefix no element carries).
+	 *
+	 * @param string $record_id The institution.
+	 * @param string $field     `email` or `level`.
+	 * @return string
+	 */
+	private static function lead_id( $record_id, $field ) {
+		if ( 'level' !== $field ) {
+			return self::field_id( $record_id, $field );
+		}
+
+		$levels = array_keys( self::level_options() );
+
+		return WPCPM_UI::choice_id( self::field_id( $record_id, 'level' ), (string) $levels[0] );
+	}
+
+	/*
+	 * The invitations on the shared parts (Stage B, Task 20)
+	 * --------------------------------------------------------------------
+	 */
+
+	/**
+	 * One waiting invitation as a row on the parts (parts design 2.8): the address as its name,
+	 * today's line of facts under it (the sender as it is, both days whole), and its two controls in the
+	 * row's action cell, 16px apart: Resend (quiet) and Cancel invitation (quiet red, today's question).
+	 *
+	 * @param array  $facts  What `facts()` returned.
+	 * @param string $origin Where the two controls return to.
+	 * @return string Escaped markup.
+	 */
+	private static function invite_row_parts( array $facts, $origin ) {
+		if ( empty( $facts['id'] ) ) {
+			return '';
+		}
+
+		$id = (int) $facts['id'];
+
+		return WPCPM_UI::row(
+			array(
+				'name'    => (string) $facts['email'],
+				'facts'   => array(
+					array( 'html' => sprintf( esc_html( self::invite_line_format() ), esc_html( self::sender_name( $facts ) ), WPCPM_UI::whole( WPCPM_Dates::day( (int) $facts['sent'] ) ), WPCPM_UI::whole( WPCPM_Dates::day( (int) $facts['expires'] ) ) ) ),
+				),
+				'actions' => array(
+					self::control_parts( self::ACTION_RESEND, $id, __( 'Resend', 'wpcredits-program-manager' ), 'quiet', '', (string) $facts['email'], $origin ),
+					self::control_parts( self::ACTION_CANCEL, $id, __( 'Cancel invitation', 'wpcredits-program-manager' ), 'quiet-danger', self::cancel_question( $facts['email'] ), (string) $facts['email'], $origin ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * One control of a waiting invitation on the parts: its form posting what today's posts (its nonce without an id, its
+	 * referer), the button of its kind, the address named for a screen reader.
+	 *
+	 * @param string $action  `ACTION_CANCEL` or `ACTION_RESEND`.
+	 * @param int    $post_id The invitation.
+	 * @param string $label   The button's words.
+	 * @param string $kind    The button's kind.
+	 * @param string $confirm What the browser asks first, or '' to ask nothing.
+	 * @param string $email   The invited address.
+	 * @param string $origin  Where the handler returns to.
+	 * @return string Escaped markup.
+	 */
+	private static function control_parts( $action, $post_id, $label, $kind, $confirm, $email, $origin ) {
+		return '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">'
+			. WPCPM_UI::nonce( $action . '_' . $post_id )
+			. WPCPM_Institution_People::hidden_html( self::control_fields( $action, $post_id, $origin ) )
+			. WPCPM_UI::button(
+				array(
+					'label'   => $label,
+					'kind'    => $kind,
+					'confirm' => $confirm,
+					'context' => $email,
+					'side'    => 'front',
+				)
+			)
+			. '</form>';
+	}
+
+	/**
+	 * Invite a colleague on the parts: the parts' inner fold, closed, and drawn open for a form a refusal gave its typing
+	 * back to; today's paragraph its intro; Email address (Required, no placeholder) and Level a choice group with each
+	 * option's hint, the refusal under the box it refused; Send invitation the one primary. It posts what today's form
+	 * posts.
+	 *
+	 * @param string $record_id The institution.
+	 * @param array  $kept      What `kept_form()` returned.
+	 * @param string $origin    `WPCPM_Institution_People::RETURN_ADMIN` or '', as the caller passed it.
+	 */
+	private static function render_form_parts( $record_id, array $kept, $origin ) {
+		$said    = self::message_for( $record_id );
+		$field   = null !== $said ? self::problem_field( $said['status'] ) : '';
+		$problem = null !== $said ? $said['text'] : '';
+		$here    = null !== $said && 'form' === self::place( $said['status'], $said['from'] );
+
+		// The form's own outcome is its fold's first block, and the fold is drawn open for it (Gate B, B7).
+		$out = WPCPM_UI::inner_open(
+			array(
+				'title' => __( 'Invite a colleague', 'wpcredits-program-manager' ),
+				'open'  => $kept['refused'] || $here,
+				'id'    => self::FORM_ID,
+			)
+		);
+
+		$out .= $here ? self::outcome_parts( $record_id, $said ) : '';
+		$out .= '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		$out .= WPCPM_UI::nonce( self::ACTION_INVITE . '_' . $record_id ) . WPCPM_Institution_People::hidden_html( self::form_fields( $record_id, $origin ) );
+		$out .= WPCPM_UI::intro( self::intro_text() );
+
+		$out .= WPCPM_UI::field(
+			array(
+				'type'    => 'email',
+				'id'      => self::field_id( $record_id, 'email' ),
+				'name'    => 'email',
+				'label'   => __( 'Email address', 'wpcredits-program-manager' ),
+				'value'   => $kept['email'],
+				'need'    => 'required',
+				'problem' => 'email' === $field ? $problem : '',
+			)
+		);
+
+		$out .= WPCPM_UI::choices(
+			array(
+				'id'            => self::field_id( $record_id, 'level' ),
+				'legend'        => __( 'Level', 'wpcredits-program-manager' ),
+				'name'          => 'level',
+				'type'          => 'radio',
+				'options'       => self::level_options(),
+				'checked'       => $kept['level'],
+				'group_problem' => 'level' === $field ? $problem : '',
+			)
+		);
+
+		$out .= WPCPM_UI::actions(
+			array(
+				WPCPM_UI::button(
+					array(
+						'label' => __( 'Send invitation', 'wpcredits-program-manager' ),
+						'side'  => 'front',
+					)
+				),
+			)
+		) . '</form>' . WPCPM_UI::inner_close();
+
+		echo $out; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts and in hidden_html(); the address escaped here.
 	}
 
 	/**
@@ -844,6 +1093,21 @@ class WPCPM_Institution_Invite {
 			WPCPM_Institution_Tutors::accepted( $record, (int) $user_id );
 		}
 
+		self::welcome( $record );
+	}
+
+	/**
+	 * The welcome of an accepted invitation, and the way to where it is said: Your institution's people card, which takes
+	 * the invitations' channel (Task 28, W1: the bare page, the Overview, draws no card, so the sentence waited in the
+	 * account's meta until its reader next opened Your institution). Only a reader the welcome is stored for, one signed
+	 * in, is sent there; a signed-out visitor, for whom nothing is stored, goes to the bare page as before and signs in from
+	 * there (Task 28 fix round 2, X5). An Administrator's address keeps the school, as `finish()` does.
+	 *
+	 * **This does not return.**
+	 *
+	 * @param string $record The institution the invitation was for.
+	 */
+	private static function welcome( $record ) {
 		// A no-op for somebody who is not signed in, which is most of them: the flash is user
 		// meta, and the account that was just created has nobody sitting behind it yet.
 		WPCPM_Flash::set(
@@ -855,7 +1119,16 @@ class WPCPM_Institution_Invite {
 			)
 		);
 
-		wp_safe_redirect( self::dashboard_url() );
+		// The flash's own test of whom it stores for (`WPCPM_Flash::set()`).
+		if ( ! get_current_user_id() ) {
+			wp_safe_redirect( self::dashboard_url() );
+			exit;
+		}
+
+		$manage = WPCPM_Mentors_Sync::is_record_id( $record ) && current_user_can( WPCPM_Roles::CAP_MANAGE );
+		$url    = WPCPM_Institutions_Dashboard::card_url( 'people', $manage ? trim( (string) $record ) : '' );
+
+		wp_safe_redirect( '' !== $url ? $url : self::dashboard_url() );
 		exit;
 	}
 
@@ -1251,7 +1524,7 @@ class WPCPM_Institution_Invite {
 		}
 
 		if ( ! WPCPM_Ceiling::claim( self::ceiling_key( $record, get_current_user_id() ), self::SENDS_PER_DAY, DAY_IN_SECONDS ) ) {
-			self::finish( 'invite-ceiling', '', $record );
+			self::finish( 'invite-ceiling', '', $record, self::FROM_ROW );
 		}
 
 		$email = (string) get_post_meta( $post_id, self::META_EMAIL, true );
@@ -1270,7 +1543,7 @@ class WPCPM_Institution_Invite {
 			)
 		);
 
-		self::finish( $sent ? 'invite-resent' : 'invite-unsent', $sent ? $email : '', $record );
+		self::finish( $sent ? 'invite-resent' : 'invite-unsent', $sent ? $email : '', $record, self::FROM_ROW );
 	}
 
 	/**
@@ -2171,9 +2444,10 @@ class WPCPM_Institution_Invite {
 	 * invitation control, but a post that carries `wpcpm_from=admin` lands where the People
 	 * class's presses on that screen do, on the institution's Manage members view
 	 * (`WPCPM_Institution_People::manager_url()`), which prints this channel for it. On the
-	 * dashboard an administrator comes back to the institution the outcome is about, through
-	 * the switcher argument, because `resolve_institution()` would otherwise put them on the
-	 * first institution with a member; that argument is added for a viewer who holds
+	 * dashboard, at the Your institution view, an administrator comes back to the institution
+	 * the outcome is about, through the switcher argument, because `resolve_institution()`
+	 * would otherwise put them on the first institution with a member; that argument is added
+	 * for a viewer who holds
 	 * `CAP_MANAGE` and for nobody else, and the institution is the one the press acted on, never
 	 * the switcher a form posted.
 	 *
@@ -2182,14 +2456,16 @@ class WPCPM_Institution_Invite {
 	 * @param string $status Outcome slug, one of the keys `messages()` knows.
 	 * @param string $detail What the message adds: usually the address.
 	 * @param string $record The institution the outcome is about.
+	 * @param string $from   `FROM_ROW` when a waiting invitation's Resend left it, so a refusal is said over the rows.
 	 */
-	private static function finish( $status, $detail, $record ) {
+	private static function finish( $status, $detail, $record, $from = '' ) {
 		WPCPM_Flash::set(
 			self::FLASH,
 			array(
 				'status' => (string) $status,
 				'detail' => (string) $detail,
 				'record' => trim( (string) $record ),
+				'from'   => (string) $from,
 			)
 		);
 
@@ -2200,13 +2476,20 @@ class WPCPM_Institution_Invite {
 			exit;
 		}
 
-		$url = self::dashboard_url();
+		$manage = WPCPM_Mentors_Sync::is_record_id( $record ) && current_user_can( WPCPM_Roles::CAP_MANAGE );
 
-		if ( WPCPM_Mentors_Sync::is_record_id( $record ) && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			$url = add_query_arg( array( WPCPM_Institution_Roster::ARG_VIEW => trim( (string) $record ) ), $url );
+		// Your institution, the view that draws the card (`card_url()`), with the school for an Administrator; a refusal of
+		// the invite form on the form's fold, where it is drawn, so the page opens there with no script (Gate B round 2, F3).
+		// Of the form's outcomes only a send is a success (`messages()`).
+		$refused = 'form' === self::place( (string) $status, (string) $from ) && 'invite-sent' !== (string) $status;
+		$url     = WPCPM_Institutions_Dashboard::card_url( 'people', $manage ? trim( (string) $record ) : '', $refused ? self::FORM_ID : '' );
+
+		if ( '' === $url ) {
+			$url = self::dashboard_url();
+			$url = ( $manage ? add_query_arg( array( WPCPM_Institution_Roster::ARG_VIEW => trim( (string) $record ) ), $url ) : $url ) . $anchor;
 		}
 
-		wp_safe_redirect( $url . $anchor );
+		wp_safe_redirect( $url );
 		exit;
 	}
 

@@ -108,6 +108,73 @@ function wpcpm_ui_rig_record_id( $seed ) {
 }
 
 /**
+ * Gate B: one invented student's record, as the program records would answer a read of it, so the live claim
+ * (`WPCPM_Institution_Roster::claim()`) and the Student Report Card's route reach what they are for. Answered only for a
+ * record the rig invented (`recRig`, the stand-in's own POST) that an account on the copy holds as its record, at an
+ * invented address (example.org) and stamped with an institution; every other record keeps `fields: {}`.
+ *
+ * The readers and what each reads:
+ * - the claim, a report record (`TYPE_REPORT`): the Students Reports row's `Students` link, else its `Email`
+ *   (class-wpcpm-institution-roster.php, `live_students_row()`); then that Students row's `Educational Institutions` link,
+ *   the authoritative decision, and the disclosed columns (`disclosed_keys()`): `Full Name`, `Email`, `Status`,
+ *   `Educational Institutions`, `Start Date`, `End Date` (the others left out: no mentor, profile, tutor, field of study);
+ * - the student correction (`WPCPM_Institution_Student_Form::diff_cells()`): the claim's Students columns as the baseline,
+ *   `Start Date` the one the date rule reads when the start is not posted changed, and the Students Reports row through
+ *   `WPCPM_Student_Report_Form::values()` (`Name`, `Students`, `Email`);
+ * - the Student Report Card's route (`rest_permission()` then `rest_report()`): the claim (`ACT_VIEW_REPORT`), then the
+ *   Students Reports row (`values()`) the card draws, of which `Name` and `Email` are answered and every answer of the
+ *   report itself is left empty, so the card draws as a report nobody has filled in yet.
+ * The record is one ID in both tables (states.php's accounts write the roster's Students record as the report record).
+ *
+ * @param string $table  The table's ID, as the request names it.
+ * @param string $record The record's ID.
+ * @return array Field name => value; none for any other record.
+ */
+function wpcpm_ui_rig_student_fields( $table, $record ) {
+	if ( 0 !== strpos( (string) $record, 'recRig' ) || ! class_exists( 'WPCPM_Settings' ) || ! class_exists( 'WPCPM_Students_Sync' ) || ! class_exists( 'WPCPM_Roster_Index' ) ) {
+		return array();
+	}
+	$users = get_users(
+		array(
+			'meta_key'   => WPCPM_Students_Sync::META_RECORD_ID, // phpcs:ignore WordPress.DB.SlowDBQuery
+			'meta_value' => $record, // phpcs:ignore WordPress.DB.SlowDBQuery
+			'number'     => 2,
+		)
+	);
+	if ( 1 !== count( $users ) || ! preg_match( '/@example\.org$/i', (string) $users[0]->user_email ) ) {
+		return array();
+	}
+	$user        = $users[0];
+	$institution = (string) get_user_meta( $user->ID, WPCPM_Students_Sync::META_INSTITUTION, true );
+	$rows        = '' !== $institution ? WPCPM_Roster_Index::rows( $institution ) : array();
+	$row         = isset( $rows[ $record ] ) && is_array( $rows[ $record ] ) ? $rows[ $record ] : array();
+	if ( '' === $institution || array() === $row ) {
+		return array();
+	}
+	$settings = WPCPM_Settings::get();
+	$name     = (string) $user->display_name;
+	$email    = strtolower( (string) $user->user_email );
+	if ( isset( $settings['reports_table'] ) && (string) $settings['reports_table'] === $table ) {
+		return array(
+			'Name'     => $name,
+			'Email'    => $email,
+			'Students' => array( $record ),
+		);
+	}
+	if ( isset( $settings['students_table'] ) && (string) $settings['students_table'] === $table ) {
+		return array(
+			'Full Name'                => $name,
+			'Email'                    => $email,
+			'Status'                   => isset( $row['status'] ) ? (string) $row['status'] : '',
+			'Educational Institutions' => array( $institution ),
+			'Start Date'               => isset( $row['start'] ) ? (string) $row['start'] : '',
+			'End Date'                 => isset( $row['end'] ) ? (string) $row['end'] : '',
+		);
+	}
+	return array();
+}
+
+/**
  * The stand-in itself.
  *
  * @param false|array|WP_Error $pre  What earlier filters answered.
@@ -151,10 +218,11 @@ function wpcpm_ui_rig_airtable( $pre, $args, $url ) {
 		// A list read (the duplicate search before an approval, any other lookup): no rows.
 		$answer = array( 'records' => array() );
 	} elseif ( 'GET' === $method ) {
+		$fields = wpcpm_ui_rig_student_fields( $table, $record );
 		$answer = array(
 			'id'          => $record,
 			'createdTime' => $now,
-			'fields'      => new stdClass(),
+			'fields'      => array() === $fields ? new stdClass() : $fields,
 		);
 	} elseif ( 'POST' === $method ) {
 		$out = array();
@@ -549,7 +617,7 @@ add_filter(
 
 /*
  * The mail to an example.org address is still swallowed by the copy's safety plugin; this only keeps the
- * confirmation link of such a mail, so the invented applicant can confirm off screen. It reads the mail and
+ * confirmation link of such a mail (and an invitation's accept address), so the invented applicant can confirm off screen. It reads the mail and
  * hands it on unchanged.
  */
 add_filter(
@@ -558,7 +626,7 @@ add_filter(
 		$to = isset( $atts['to'] ) ? ( is_array( $atts['to'] ) ? implode( ',', $atts['to'] ) : (string) $atts['to'] ) : '';
 		if ( preg_match( '/@example\.org\b/i', $to ) && isset( $atts['message'] ) && preg_match_all( '#http://localhost:8900/[^\s"\'<>]+#', (string) $atts['message'], $m ) ) {
 			foreach ( $m[0] as $link ) {
-				if ( false !== strpos( $link, 'verify' ) || false !== strpos( $link, 'confirm' ) ) {
+				if ( false !== strpos( $link, 'verify' ) || false !== strpos( $link, 'confirm' ) || false !== strpos( $link, 'wpcpm_accept_invite' ) ) {
 					file_put_contents( WP_CONTENT_DIR . '/wpcpm-ui-rig-links.log', $link . "\n", FILE_APPEND ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 				}
 			}

@@ -146,6 +146,13 @@ class El {
 		this.listeners.push( { type, fn, capture } );
 	}
 
+	// As on a page: the listener of that type, function and phase is taken off.
+	removeEventListener( type, fn, options ) {
+		const capture = true === options || !! ( options && options.capture );
+
+		this.listeners = this.listeners.filter( ( l ) => ! ( l.type === type && l.fn === fn && l.capture === capture ) );
+	}
+
 	descendants() {
 		const out = [];
 
@@ -215,6 +222,11 @@ function mk( tag, attrs ) {
 	return el;
 }
 
+// The page's body: what a browser's document.activeElement falls back to when it drops the focus, as it does when it
+// follows the address's fragment to an element that takes none (Gate B, B1). Not in the registry, so no selector
+// finds it.
+doc.body = new El( 'body' );
+
 function reset() {
 	registry.length = 0;
 	doc.listeners = [];
@@ -225,8 +237,8 @@ function reset() {
 // Run forms.js in a fresh context, as a page that has just loaded it. `state.answer` is what
 // window.confirm() answers; `log.confirms` holds every question asked; `log.timeouts` holds the
 // callbacks handed to setTimeout(), which flush() runs; `log.windowListeners` holds the listeners the
-// script put on the window, which pageshow() fires.
-function load( path ) {
+// script put on the window, which pageshow() and loaded() fire. `hash` is the address's fragment, '' for none.
+function load( path, hash ) {
 	const log = { confirms: [], timeouts: [], windowListeners: [] };
 	const state = { answer: true };
 	const win = {
@@ -242,6 +254,7 @@ function load( path ) {
 			log.windowListeners.push( { type, fn } );
 		},
 		getSelection() {},
+		location: { hash: hash || '' },
 		CSS: undefined,
 	};
 
@@ -260,6 +273,11 @@ function flush( log ) {
 // the case the script undoes a form's busy state for.
 function pageshow( log, persisted ) {
 	log.windowListeners.filter( ( l ) => 'pageshow' === l.type ).forEach( ( l ) => l.fn( { type: 'pageshow', persisted: !! persisted } ) );
+}
+
+// The browser has loaded the page: the window's load listeners run.
+function loaded( log ) {
+	log.windowListeners.filter( ( l ) => 'load' === l.type ).forEach( ( l ) => l.fn( { type: 'load' } ) );
 }
 
 // Dispatch an event at `target` through the capture, target and bubble phases.
@@ -312,4 +330,4 @@ function dispatch( target, type, init ) {
 	return event;
 }
 
-module.exports = { El, mk, load, flush, pageshow, dispatch, reset, registry, doc };
+module.exports = { El, mk, load, flush, pageshow, loaded, dispatch, reset, registry, doc };

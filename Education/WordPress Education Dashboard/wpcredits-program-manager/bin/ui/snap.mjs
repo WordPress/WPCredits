@@ -3,18 +3,24 @@
 // (scale 1) and 390 wide (scale 2), and 768 for release 2's wp-admin tabs when --sizes asks for it; nothing
 // drawn over the page. On the local copy only, prepared by bin/ui/copy.sh prepare.
 //
-//   node bin/ui/snap.mjs --out <folder> [--only <comma list>] [--skip-seed] [--sizes 1280,390] [--no-extra] [--state a,p0]
+//   node bin/ui/snap.mjs --out <folder> [--only <comma list>] [--skip-seed] [--sizes 1280,390] [--no-extra] [--state a,p0] [--no-pictures] [--beside]
 //
 // --state (gate 7, with --skip-seed) puts the copy, once ui-ready is back, in one state of the events and one of
 // the students (bin/ui/states.php), and a students state with somebody pending adds its scenes.
 //
 // --out is a folder outside this repository or under .superpowers/ (never committed); it gets the pictures and
-// results.json. --only takes comma-separated parts of file names. Without --skip-seed the copy is restored to
+// results.json. --only takes comma-separated parts of file names (a+b: both parts). Without --skip-seed the copy is restored to
 // ui-base, the invented items are made through the site's own forms (seed.mjs) and saved as the snapshot
 // ui-ready; with it, ui-ready is restored. Before a file is kept the page's whole text, and every field's value,
 // is read against the names to refuse (real-names.json, collected from the copy by copy.sh prepare, and
 // WPCPM_UI_REFUSE, a comma list) and against every address that is not a role address the plugin prints or
 // at an invented domain: a page that holds one is not saved and is listed under "Could not capture". A capture taller than 16,000px is cut into -part1, -part2.
+//
+// --no-pictures (Gate B, the owner's capture plan of 16 Nov 2026: a release must not make thousands of pictures): every
+// scene at every width is loaded and staged as for a picture, its expect read, the overflow facts and Gate B's measures
+// (collect.mjs, gateMeasures()) taken and written to measures.txt, and a picture is saved only where a line fires: an
+// OVERFLOW, H-SCROLL or CELL line, a measure OFF, a gap off the rhythm, a failed expect, a broken picture of the copy
+// (fired.txt lists each). The names to refuse still hold: a page with one is never saved.
 //
 // Playwright is WPCPM_PLAYWRIGHT, or the release script's copy under the home folder.
 import { execFileSync } from 'node:child_process';
@@ -23,8 +29,9 @@ import { homedir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ADMIN_LOGIN, BASE, DOCKER, cookiesFor, frozenNow, refreshRig, refuseUnlessCopy, rigLoaded, waitForCopy, wp } from './copy.mjs';
-import { SIZES, brokenImages, fileName, fill, overflowFacts, overflowLines, prepare, scenes, sectionBox, sizeOf, stage, still, takenAt, widthsOf } from './scenes.mjs';
+import { SIZES, brokenImages, checkExpect, fileName, fill, gateMeasures, overflowFacts, overflowLines, prepare, scenes, sectionBox, sizeOf, stage, still, takenAt, widthsOf } from './scenes.mjs';
 import { INVENTED, WORK, applyState, lookups, seed } from './seed.mjs';
+import { RHYTHM, collect, gateLine } from './collect.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const PLAYWRIGHT = process.env.WPCPM_PLAYWRIGHT || join(homedir(), 'Projects/wpcredits-release/a11y/node_modules/playwright-core/index.mjs');
@@ -33,11 +40,14 @@ const MAX_PX = 16000; // a taller capture is cut into parts
 const argv = process.argv.slice(2);
 const opt = n => { const i = argv.indexOf('--' + n); return i >= 0 ? (argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : true) : null; };
 const OUT = typeof opt('out') === 'string' ? resolve(opt('out')) : '';
-if (!OUT) { console.error('usage: node bin/ui/snap.mjs --out <folder> [--only <comma list>] [--skip-seed] [--sizes 1280,390]'); process.exit(2); }
+if (!OUT) { console.error('usage: node bin/ui/snap.mjs --out <folder> [--only <comma list>] [--skip-seed] [--sizes 1280,390] [--no-pictures]'); process.exit(2); }
 const inRepo = !relative(REPO, OUT).startsWith('..');
 if (inRepo && !(OUT + sep).startsWith(join(REPO, '.superpowers') + sep)) throw new Error('refusing: --out is inside the repository but not under .superpowers/ (pictures are never committed)');
 const only = typeof opt('only') === 'string' ? opt('only').split(',').filter(Boolean) : null;
 const STATE = typeof opt('state') === 'string' ? opt('state') : '';
+if (opt('beside') && (!opt('skip-seed') || STATE)) throw new Error('refusing: --beside goes with --skip-seed and no --state');
+const NO_PICTURES = !!opt('no-pictures');
+const FIRED_SEEN = new Set(); // --no-pictures: the lines a picture was saved for, by scene, kind and element
 if (STATE && !opt('skip-seed')) throw new Error('refusing: --state goes with --skip-seed (a state is made on ui-ready)');
 const SCENES = scenes({ graduation: /,p(2|60)$/.test(STATE) });
 // --sizes is any list of widths, every scene taken at each (768 for release 2's tabs only); a scene's own
@@ -102,8 +112,10 @@ const { chromium } = await import(pathToFileURL(PLAYWRIGHT).href);
 // differed in a few antialiased pixels of rounded corners at scale 2.
 const STILL_ARGS = ['--hide-scrollbars', '--disable-gpu', '--disable-gpu-compositing', '--disable-gpu-rasterization', '--disable-partial-raster', '--disable-skia-runtime-opts', '--force-color-profile=srgb', '--disable-lcd-text', '--font-render-hinting=none'];
 const browser = await chromium.launch({ channel: 'chrome', headless: true, args: STILL_ARGS });
-async function newContext({ signedIn = true, login = ADMIN_LOGIN, size = SIZES[0] } = {}) {
-  const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: size.scale, acceptDownloads: true, locale: 'en-US', timezoneId: 'UTC', isMobile: size.width < 600, hasTouch: size.width < 600 });
+// A scene marked noScript (Gate B's no-script pass) is taken in a context with JavaScript off: the page's own scripts do not
+// run, so the picture is what a reader without script gets; the rig's own reading of the page (evaluate) still runs.
+async function newContext({ signedIn = true, login = ADMIN_LOGIN, size = SIZES[0], noScript = false } = {}) {
+  const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: size.scale, acceptDownloads: true, locale: 'en-US', timezoneId: 'UTC', isMobile: size.width < 600, hasTouch: size.width < 600, javaScriptEnabled: !noScript });
   // Nothing leaves the copy: another origin's image is a blank pixel, anything else is refused.
   await context.route('**/*', route => {
     const u = new URL(route.request().url());
@@ -130,7 +142,10 @@ try {
     wp(['option', 'update', 'wpcpm_ui_rig_now', String(Math.floor(Date.now() / 60000) * 60)]);
     docker('snapshot', 'ui-ready');
   } else {
-    await restore('ui-ready');
+    // --beside (with --skip-seed): a second run beside one that restored ui-ready a moment ago, on the same copy: nothing is
+    // restored, and the copy must already hold the frozen moment. Give the refusal scenes to one run only (they post).
+    if (!opt('beside')) await restore('ui-ready');
+    else if (!frozenNow()) throw new Error('refusing: --beside needs a copy restored to ui-ready, with its frozen moment, by the other run');
     if (!frozenNow()) {
       wp(['option', 'update', 'wpcpm_ui_rig_now', String(Math.floor(Date.now() / 60000) * 60)]);
       execFileSync('rm', ['-f', join(DOCKER, 'snapshots/ui-ready.tgz')]); // bin/snapshot will not write over one
@@ -152,26 +167,50 @@ try {
   const results = [];
   async function capture(scene, size) {
     const file = fileName(scene, size);
-    if (only && !only.some(o => file.includes(o))) return;
+    if (only && !only.some(o => o.split('+').every(part => file.includes(part)))) return; // a+b: a file name holding both
     const row = { file: file + '.png', path: scene.path, open: scene.state, prepared: scene.note || '', how: '', ...(scene.panelBuild ? { build: scene.panelBuild } : {}) };
     const filled = fill(scene, values);
     if (!filled) { row.skipped = 'not captured: an invented item it needs is not on the copy'; results.push(row); console.log('  FAIL', file, row.skipped); return; }
     row.path = filled.path;
-    const context = await newContext({ login: filled.login || ADMIN_LOGIN, size });
+    const context = await newContext({ login: filled.login || ADMIN_LOGIN, size, noScript: !!filled.noScript });
     await prepare(context, filled);
     const page = await context.newPage();
     try {
       row.how = await stage(page, filled, BASE);
+      const missed = await checkExpect(page, filled);
+      if (missed && !NO_PICTURES) { row.skipped = `expect failed: ${missed}`; results.push(row); console.log('  EXPECT', file, missed); return; }
+      const fired = []; // --no-pictures: the lines that ask for a picture
+      if (missed) fired.push(`EXPECT ${file}: ${missed}`);
       const text = await page.evaluate(() => { const f = document.querySelector('.global-footer'); const t = document.body.innerText; return f ? t.replace(f.innerText, f.innerText.replace(/WordPress\.com/g, '')) : t; })
         + ' ' + await page.evaluate(() => [...document.querySelectorAll('input:not([type=hidden]):not([type=password]),textarea,select')].map(e => (e.tagName === 'SELECT' ? [...e.options].map(o => o.text).join(' ') : e.value)).join(' '));
       // A picture of the copy's own that did not load (the badge's 429) would differ from run to run: not saved.
       const lost = await brokenImages(page, BASE);
-      if (lost.length) { row.skipped = `not saved: a picture of the copy did not load (${lost.map(u => u.slice(BASE.length)).join(', ')})`; results.push(row); console.log('  SKIP', file, row.skipped); return; }
+      if (lost.length && NO_PICTURES) fired.push(`BROKEN ${file}: ${lost.map(u => u.slice(BASE.length)).join(', ')}`);
+      else if (lost.length) { row.skipped = `not saved: a picture of the copy did not load (${lost.map(u => u.slice(BASE.length)).join(', ')})`; results.push(row); console.log('  SKIP', file, row.skipped); return; }
       const bad = problem(text);
       if (bad) { row.skipped = `not saved: ${bad} on the page`; results.push(row); console.log('  SKIP', file, row.skipped); return; }
       // The overflow check, against the emulated window's width: a line per fault in overflow.txt, none when nothing is wider.
       row.overflow = overflowLines(file, await page.evaluate(overflowFacts, size.width));
       for (const l of row.overflow) console.log('  ' + l);
+      if (NO_PICTURES) {
+        fired.push(...row.overflow);
+        // Gate B's measures and the gaps against the rhythm, read in the page as measure.mjs reads them.
+        const raw = await page.evaluate(collect, size.width);
+        const g = gateMeasures(raw);
+        row.gate = gateLine(file, g);
+        row.offRhythm = raw.gaps.filter(x => x.kind !== 'picker-row' && !(RHYTHM[x.kind] || []).includes(x.px)).map(x => `${x.kind} ${x.px}px ${x.el}`);
+        if (/ OFF/.test(row.gate)) fired.push(row.gate);
+        for (const x of row.offRhythm) fired.push(`GAP ${file}: ${x}`);
+        row.fired = fired;
+        if (!fired.length) { row.measured = 'no picture: nothing fired'; results.push(row); console.log('  measured', file); return; }
+        // One picture per scene for each kind of line: a line that fired on this scene at another width already (the same
+        // kind and element, its numbers aside) is logged and asks for no second picture; a gap or a measure OFF asks for one
+        // picture in the whole run, on the first scene it fires on (the same part draws it alike on every view).
+        const fresh = fired.map(l => (/^(GAP|GATE B) /.test(l) ? '' : `${scene.area}-${scene.screen}-${scene.state} `) + l.replace(file, '').replace(/\d+(\.\d+)?/g, '#')).filter(k => !FIRED_SEEN.has(k));
+        if (!fresh.length) { row.measured = 'no picture: every line fired at another width already, with its picture'; results.push(row); console.log('  measured (fired before)', file); return; }
+        for (const k of fresh) FIRED_SEEN.add(k);
+        for (const l of fired) if (!/^(OVERFLOW|H-SCROLL|CELL) /.test(l)) console.log('  ' + l);
+      }
       const height = await page.evaluate(() => Math.max(document.documentElement.scrollHeight, document.body.scrollHeight));
       if (filled.section) {
         const b = await sectionBox(page, filled.section);
@@ -223,13 +262,21 @@ try {
   const faults = checked.flatMap(r => r.overflow);
   writeFileSync(join(OUT, 'overflow.txt'), faults.concat(`${checked.length} pictures checked, ${faults.length} lines`).join('\n') + '\n');
   console.log(`overflow check: ${checked.length} pictures checked, ${faults.length} lines (overflow.txt)`);
+  if (NO_PICTURES) {
+    const measured = all.filter(r => r.gate);
+    writeFileSync(join(OUT, 'measures.txt'), measured.map(r => r.gate + (r.offRhythm.length ? `  gaps off ${r.offRhythm.length}` : '')).concat(`${measured.length} scenes measured, ${measured.filter(r => / OFF/.test(r.gate)).length} with a measure OFF, ${measured.filter(r => r.offRhythm.length).length} with a gap off the rhythm`).join('\n') + '\n');
+    const firedAll = all.flatMap(r => r.fired || []);
+    writeFileSync(join(OUT, 'fired.txt'), firedAll.concat(`${firedAll.length} lines fired; ${all.filter(r => r.fired && r.fired.length && !r.skipped).length} pictures saved for them, ${all.filter(r => r.measured).length} scenes measured with no picture`).join('\n') + '\n');
+    console.log(`no pictures: ${measured.length} measured, ${all.filter(r => r.measured).length} with no picture (measures.txt, fired.txt)`);
+  }
   const lost = results.filter(r => r.skipped);
-  console.log(`${results.length - lost.length} captured, ${lost.length} not`);
+  console.log(`${results.length - lost.length - results.filter(r => r.measured).length} captured, ${lost.length} not`);
   if (lost.length) {
     console.log('\nCould not capture');
     for (const r of lost) console.log(`- ${r.file} (${r.path}): ${r.skipped}`);
   }
 } finally {
   await browser.close();
-  try { wp(['option', 'delete', 'wpcpm_ui_rig_keep_banners']); } catch {}
+  // A run --beside leaves the banners' option to the run that restored the copy (it may still be taking pictures).
+  if (!opt('beside')) try { wp(['option', 'delete', 'wpcpm_ui_rig_keep_banners']); } catch {}
 }

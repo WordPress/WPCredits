@@ -484,7 +484,7 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 2. Run `wp wpcredits institutions_seed --dry-run` and read the summary. Nothing is written.
 3. Run `wp wpcredits institutions_seed` and answer the question "Write this to the site?".
 4. Read the lines that start with "Not assigned:" and "Not resolved:".
-5. Assign each school that is left on its details card on the Institution Dashboard.
+5. Assign each school that is left on its details card, on the Institution Dashboard's **Your institution** view.
 
 **What happens next**
 
@@ -854,7 +854,8 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 
 **What happens next**
 
-- It is listed under **Program updates and announcements** on the Student Report Card, the Mentor Report Card and the Institution Dashboard of the people who can read it. Each lists the five newest, with **All updates** when there are more.
+- It is listed under **Program updates and announcements** on the Student Report Card and the Mentor Report Card of the people who can read it. Each lists the five newest, with **All updates** when there are more.
+- Since 1.123.96 the Institution Dashboard lists it under **Program updates** in its menu, as the Sponsor Dashboard does.
 - Each of these lists **Public** posts and posts at its own level. Students and mentors also get **Students and mentors** posts.
 - On the Administrator Dashboard, **Program updates** in the side menu lists **Public** and **Administrators only** posts. On the Sponsor Dashboard, it lists **Public** and **Sponsor level** posts. The item appears only while there is a post to list.
 
@@ -879,7 +880,7 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 **What happens next**
 
 - The answer under **Try a question** is exactly what somebody on the program would see.
-- People ask from [[Need help?]] in the site header and from **Resources** on the Mentor Report Card, the Student Report Card and the Institution Dashboard, when **Who can ask** includes them.
+- People ask from [[Need help?]] in the site header and from **Resources** on the Mentor Report Card and the Student Report Card, when **Who can ask** includes them. Since 1.123.96 a school's people ask from the Ask box under **Help** in the Institution Dashboard's menu.
 - Each question, and the pages found for it, go to the provider's company. Nothing is stored on this site.
 
 **Good to know**

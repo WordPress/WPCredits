@@ -491,11 +491,19 @@ if ( ! class_exists( 'WPCPM_Administrators_Dashboard' ) ) {
 		public static function card_url( $card, $item = '' ) { return self::$url . '#' . ( '' !== (string) $item ? (string) $item : 'wpcpm-' . $card ); }
 	}
 }
+require_once __DIR__ . '/stubs/institution-card-url.php';
 if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
 	/** Contract: the Institution Dashboard's page, which a decline's email sends a school back to. */
 	class WPCPM_Institutions_Dashboard {
 		public static $url = 'https://example.test/institution-dashboard/';
 		public static function page_url() { return self::$url; }
+		// The page's addresses, as the real class builds them (bin/stubs/institution-card-url.php, checked against it
+		// in bin/test-institution-ways-back.php).
+		public static function view_url( $view = 'overview', $record = '', array $args = array() ) { return wpcpm_test_institution_view_url( self::page_url(), $view, $record, $args ); }
+		public static function view_of( $card ) { return wpcpm_test_institution_view_of( $card ); }
+		public static function card_url( $card, $record = '', $item = '', array $args = array() ) { return wpcpm_test_institution_card_url( self::page_url(), $card, $record, $item, $args ); }
+		public static function requested_record() { return wpcpm_test_institution_requested_record(); }
+		public static function way_back( $card ) { return wpcpm_test_institution_way_back( self::page_url(), $card ); }
 	}
 }
 
@@ -2043,7 +2051,7 @@ $return_request = det_raise( $return_school );
 ck( 'a withdrawal posted with the card it came from lands back on that card, on the page it was pressed on', det_withdraw( 31, $return_request, array( 'wpcpm_details_return' => 'wpcpm-details' ) ), 'redirect:' . $GLOBALS['back'] . '#wpcpm-details' );
 $return_second = det_raise( det_school( 61 ), array(), 30 );
 $GLOBALS['back'] = '';
-ck( 'with no page to return to it lands on the Institution Dashboard\'s card', det_withdraw( 31, $return_second, array( 'wpcpm_details_return' => 'wpcpm-details' ) ), 'redirect:https://example.test/institution-dashboard/#wpcpm-details' );
+ck( 'with no page to return to it lands on the Institution Dashboard\'s card', det_withdraw( 31, $return_second, array( 'wpcpm_details_return' => 'wpcpm-details' ) ), 'redirect:https://example.test/institution-dashboard/?wpcpm_view=institution#wpcpm-details' );
 $GLOBALS['back'] = 'https://example.test/institution-dashboard/?wpcpm_institution_student=21';
 $return_third = det_raise( det_school( 62 ) );
 ck( 'a press that finds the request already decided lands on the card too', array( det_withdraw( 30, $return_third, array( 'wpcpm_details_return' => 'wpcpm-details' ) ), WPCPM_Institution_Request::STATE_WITHDRAWN === det_state( $return_third ) ), array( 'redirect:' . $GLOBALS['back'] . '#wpcpm-details', true ) );

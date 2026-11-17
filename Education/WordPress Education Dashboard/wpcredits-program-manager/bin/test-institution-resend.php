@@ -307,14 +307,35 @@ class WPCPM_Institution_Members {
 class WPCPM_Institution_Agreement {
 	public static function is_settled( $id ) { return in_array( $id, $GLOBALS['settled'], true ); }
 }
+require_once __DIR__ . '/stubs/institution-card-url.php';
 /** Where a press goes back to when the browser sent no referer: '' while no page holds the dashboard. */
 class WPCPM_Institutions_Dashboard {
 	public static function page_url() { return $GLOBALS['dashboard_page']; }
+	// The page's addresses, as the real class builds them (bin/stubs/institution-card-url.php, checked against it
+	// in bin/test-institution-ways-back.php).
+	public static function view_url( $view = 'overview', $record = '', array $args = array() ) { return wpcpm_test_institution_view_url( self::page_url(), $view, $record, $args ); }
+	public static function view_of( $card ) { return wpcpm_test_institution_view_of( $card ); }
+	public static function card_url( $card, $record = '', $item = '', array $args = array() ) { return wpcpm_test_institution_card_url( self::page_url(), $card, $record, $item, $args ); }
+	public static function requested_record() { return wpcpm_test_institution_requested_record(); }
+	public static function way_back( $card ) { return wpcpm_test_institution_way_back( self::page_url(), $card ); }
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-audit.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-policy.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-resend.php';
+
+// The parts the line is drawn with.
+define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
+define( 'WPCPM_VERSION', 'test' );
+function wp_create_nonce( $a = -1 ) { return 'nonce-' . $a; }
+function is_admin() { return false; }
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
+if ( ! function_exists( 'sanitize_html_class' ) ) {
+	/** Core's: a class name with anything but letters, digits, hyphens and underscores taken out. */
+	function sanitize_html_class( $c, $f = '' ) { $c = preg_replace( '|%[a-fA-F0-9][a-fA-F0-9]|', '', (string) $c ); $c = preg_replace( '/[^A-Za-z0-9_-]/', '', $c ); return '' === $c ? (string) $f : $c; }
+}
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
 
 $fail  = 0;
 $total = 0;
@@ -720,7 +741,7 @@ $reader = fresh_reader( $A );
 WPCPM_Flash::set( WPCPM_Institution_Resend::FLASH, flash_of( 20 ), $reader );
 $after = draw( $reader, 10 );
 ck( 'the card after a refusal says the invitation could not be sent and that the earlier link no longer works, and its line names the last one that went, not the refused attempt',
-	array( has( $after, 'The invitation could not be sent, and the link in any earlier invitation no longer works.' ), has( $after, 'Invitation last sent ' . gmdate( 'F j, Y', $before ) . '.' ), $before < time() - DAY_IN_SECONDS ),
+	array( has( $after, 'The invitation could not be sent, and the link in any earlier invitation no longer works.' ), has( $after, 'Invitation last sent <span class="wpcpm-ui-whole">' . gmdate( 'F j, Y', $before ) . '</span>.' ), $before < time() - DAY_IN_SECONDS ),
 	array( true, true, true ) );
 
 $GLOBALS['mail_fails'] = false;
@@ -848,7 +869,7 @@ echo "\n=== A press whose browser names no page to go back to ===\n";
 
 reset_world();
 $GLOBALS['http_referer'] = false;
-ck( 'goes back to the Institution Dashboard\'s page, at the line', press( 20, 10 ), 'redirect:https://example.test/institution-dashboard/#wpcpm-student-invite' );
+ck( 'goes back to the Institution Dashboard\'s page, at the line', press( 20, 10 ), 'redirect:https://example.test/institution-dashboard/?wpcpm_view=students#wpcpm-student-invite' );
 $GLOBALS['dashboard_page'] = '';
 ck( 'and to the site\'s home while no page holds the dashboard', press( 20, 12 ), 'redirect:https://example.test/#wpcpm-student-invite' );
 
@@ -909,6 +930,7 @@ ck( 'which of the two a failed send says is the mail layer\'s reading of its ans
 	array( has( $body, 'WPCPM_Mail::invite_outcome( $result )' ), has( $body, "'wpcpm_invite_too_soon'" ) ),
 	array( true, false ) );
 
+
 /** Draw one student's line as one reader. */
 function draw( $viewer, $student ) {
 	$GLOBALS['uid'] = (int) $viewer;
@@ -928,25 +950,25 @@ $date  = gmdate( 'F j, Y', $NW - 9 * DAY_IN_SECONDS );
 $since = gmdate( 'F j, Y', $SINCE );
 
 ck( 'a student invited before reads the day the record began and when the last invitation went, in the site\'s date format',
-	has( $line, '<p class="wpcpm-institution__invite-note">No sign-in on record since ' . $since . '. Invitation last sent ' . $date . '.</p>' ), true );
+	has( $line, '<p class="wpcpm-ui-intro">No sign-in on record since <span class="wpcpm-ui-whole">' . $since . '</span>. Invitation last sent <span class="wpcpm-ui-whole">' . $date . '</span>.</p>' ), true );
 ck( 'the record\'s day is the sign-in record\'s own start', $since, 'October 15, 2026' );
-ck( 'with a button to send it again', has( $line, '<button type="submit" class="wpcpm-button">Resend invitation</button>' ), true );
+ck( 'with a button to send it again, the secondary one', has( $line, '<button type="submit" class="wpcpm-btn wpcpm-btn--secondary">Resend invitation</button>' ), true );
 ck( 'in a one-press form that says it is sending, posting to admin-post.php',
-	has( $line, '<form class="wpcpm-institution__invite-form" method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Sending...">' ), true );
+	has( $line, '<form method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Sending...">' ), true );
 ck( 'carrying the action and the student\'s account beside the two fields core\'s nonce field prints, the token and the page the press comes back to, and nothing else to read',
 	array(
 		has( $line, '<input type="hidden" name="action" value="wpcpm_institution_resend_invite" />' ),
 		has( $line, '<input type="hidden" name="user" value="10" />' ),
-		has( $line, '<input type="hidden" id="_wpnonce" name="_wpnonce" value="nonce-wpcpm_institution_resend_invite_10" /><input type="hidden" name="_wp_http_referer" value="/institution-dashboard/?wpcpm_institution_student=10" />' ),
+		has( $line, '<input type="hidden" name="_wpnonce" value="nonce-wpcpm_institution_resend_invite_10"><input type="hidden" name="_wp_http_referer" value="/institution-dashboard/?wpcpm_institution_student=10" />' ),
 		substr_count( $line, '<input' ),
 	),
 	array( true, true, true, 4 ) );
 ck( 'its nonce keyed to the student\'s account', has( $line, 'value="nonce-wpcpm_institution_resend_invite_10"' ), true );
-ck( 'under the line\'s anchor', has( $line, '<div class="wpcpm-institution__invite" id="wpcpm-student-invite">' ), true );
+ck( 'under the line\'s anchor', has( $line, '<div class="wpcpm-ui-block" id="wpcpm-student-invite">' ), true );
 
 $first = draw( 20, 12 );
 
-ck( 'a student never invited reads that none was sent', has( $first, '<p class="wpcpm-institution__invite-note">No sign-in on record since ' . $since . '. No invitation sent yet.</p>' ), true );
+ck( 'a student never invited reads that none was sent', has( $first, '<p class="wpcpm-ui-intro">No sign-in on record since <span class="wpcpm-ui-whole">' . $since . '</span>. No invitation sent yet.</p>' ), true );
 ck( 'and the button sends the first', has( $first, '>Send invitation</button>' ), true );
 ck( 'keyed to that student', has( $first, 'value="nonce-wpcpm_institution_resend_invite_12"' ), true );
 
@@ -961,7 +983,7 @@ unset( $GLOBALS['umeta'][12][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] );
 
 ck( 'a student whose invitation an activation held reads the sign-in line and, in the button\'s place, that the program\'s Administrators send it, with no form to press',
 	array(
-		has( $held_line, '<p class="wpcpm-institution__invite-note">No sign-in on record since ' . $since . '. No invitation sent yet.</p><p class="wpcpm-institution__invite-note">The program&#039;s Administrators send this invitation once they have confirmed the account belongs to this student.</p></div>' ),
+		has( $held_line, '<p class="wpcpm-ui-intro">No sign-in on record since <span class="wpcpm-ui-whole">' . $since . '</span>. No invitation sent yet.</p><p class="wpcpm-ui-intro">The program&#039;s Administrators send this invitation once they have confirmed the account belongs to this student.</p></div>' ),
 		has( $held_line, '<form' ),
 		has( $held_line, '<button' ),
 	),
@@ -984,11 +1006,11 @@ ck( 'an Administrator through the switcher sees the same line, keyed to the stud
 ck( 'but not for a student whose account names no institution, whom the press would refuse', draw( 30, 16 ), '' );
 
 $GLOBALS['opts']['date_format'] = '<\b>Y';
-ck( 'the note is escaped', has( draw( 20, 10 ), 'Invitation last sent &lt;b&gt;' ), true );
+ck( 'the note is escaped', has( draw( 20, 10 ), 'Invitation last sent <span class="wpcpm-ui-whole">&lt;b&gt;' ), true );
 
 $GLOBALS['opts']['date_format'] = 'Y-m-d';
 ck( 'both dates follow the site\'s own format',
-	has( draw( 20, 10 ), 'No sign-in on record since ' . gmdate( 'Y-m-d', $SINCE ) . '. Invitation last sent ' . gmdate( 'Y-m-d', $NW - 9 * DAY_IN_SECONDS ) . '.' ), true );
+	has( draw( 20, 10 ), 'No sign-in on record since <span class="wpcpm-ui-whole">' . gmdate( 'Y-m-d', $SINCE ) . '</span>. Invitation last sent <span class="wpcpm-ui-whole">' . gmdate( 'Y-m-d', $NW - 9 * DAY_IN_SECONDS ) . '</span>.' ), true );
 $GLOBALS['opts']['date_format'] = 'F j, Y';
 
 $GLOBALS['opts'][ WPCPM_Sign_Ins::OPT_SINCE ] = 0;
@@ -1011,7 +1033,7 @@ foreach ( $expected as $outcome => $message ) {
 	$reader = fresh_reader( $A );
 	WPCPM_Flash::set( WPCPM_Institution_Resend::FLASH, array( 'outcome' => $outcome, 'user' => 10, 'detail' => 'a***@example.test' ), $reader );
 	ck( sprintf( 'the card prints %s, in its tone, above the line', $outcome ),
-		has( draw( $reader, 10 ), '<div class="wpcpm-institution__invite" id="wpcpm-student-invite"><p class="wpcpm-institution__invite-message is-' . $message[0] . '" role="status">' . esc_html( $message[1] ) . '</p><p class="wpcpm-institution__invite-note">' ), true );
+		has( draw( $reader, 10 ), '<div class="wpcpm-ui-block" id="wpcpm-student-invite"><p class="wpcpm-institution__invite-message wpcpm-institution__invite-message--' . $message[0] . ' is-' . $message[0] . '" role="' . ( 'error' === $message[0] ? 'alert' : 'status' ) . '" tabindex="-1" data-wpcpm-card-message>' . esc_html( $message[1] ) . '</p><p class="wpcpm-ui-intro">' ), true );
 }
 
 $reader = fresh_reader( $A );
@@ -1023,27 +1045,27 @@ $reader = fresh_reader( $A );
 WPCPM_Flash::set( WPCPM_Institution_Resend::FLASH, array( 'outcome' => 'invite-error', 'user' => 14, 'detail' => '' ), $reader );
 ck( 'an account that no longer holds the Student role gets the notice and no line',
 	draw( $reader, 14 ),
-	'<div class="wpcpm-institution__invite" id="wpcpm-student-invite"><p class="wpcpm-institution__invite-message is-error" role="status">The invitation could not be sent.</p></div>' );
+	'<div class="wpcpm-ui-block" id="wpcpm-student-invite"><p class="wpcpm-institution__invite-message wpcpm-institution__invite-message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>The invitation could not be sent.</p></div>' );
 
 $reader                                       = fresh_reader( $A );
 $GLOBALS['opts'][ WPCPM_Sign_Ins::OPT_SINCE ] = 0;
 WPCPM_Flash::set( WPCPM_Institution_Resend::FLASH, array( 'outcome' => 'invite-resent', 'user' => 10, 'detail' => 'a***@example.test' ), $reader );
 ck( 'while the site keeps no sign-in record, a notice is printed and no line',
 	draw( $reader, 10 ),
-	'<div class="wpcpm-institution__invite" id="wpcpm-student-invite"><p class="wpcpm-institution__invite-message is-success" role="status">The invitation is on its way to a***@example.test. The new link replaces the one in the earlier email.</p></div>' );
+	'<div class="wpcpm-ui-block" id="wpcpm-student-invite"><p class="wpcpm-institution__invite-message wpcpm-institution__invite-message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>The invitation is on its way to a***@example.test. The new link replaces the one in the earlier email.</p></div>' );
 $GLOBALS['opts'][ WPCPM_Sign_Ins::OPT_SINCE ] = $SINCE;
 
 $reader = fresh_reader( $A );
 WPCPM_Flash::set( WPCPM_Institution_Resend::FLASH, array( 'outcome' => 'invite-signed-in', 'user' => 11, 'detail' => '' ), $reader );
 ck( 'a student who signed in meanwhile gets the notice and no line',
 	draw( $reader, 11 ),
-	'<div class="wpcpm-institution__invite" id="wpcpm-student-invite"><p class="wpcpm-institution__invite-message is-info" role="status">This student has signed in since the page was drawn, so nothing was sent.</p></div>' );
+	'<div class="wpcpm-ui-block" id="wpcpm-student-invite"><p class="wpcpm-institution__invite-message wpcpm-institution__invite-message--info is-info" role="status" tabindex="-1" data-wpcpm-card-message>This student has signed in since the page was drawn, so nothing was sent.</p></div>' );
 
 $reader = fresh_reader( $A );
 WPCPM_Flash::set( WPCPM_Institution_Resend::FLASH, array( 'outcome' => 'invite-error', 'user' => 15, 'detail' => '' ), $reader );
 ck( 'an account with no address to send to gets the notice and no line',
 	draw( $reader, 15 ),
-	'<div class="wpcpm-institution__invite" id="wpcpm-student-invite"><p class="wpcpm-institution__invite-message is-error" role="status">The invitation could not be sent.</p></div>' );
+	'<div class="wpcpm-ui-block" id="wpcpm-student-invite"><p class="wpcpm-institution__invite-message wpcpm-institution__invite-message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>The invitation could not be sent.</p></div>' );
 
 // A press from a page drawn before the hold: the notice says who sends the invitation, so the line
 // under it does not say it a second time, and still offers no button.
@@ -1058,7 +1080,7 @@ unset( $GLOBALS['umeta'][12][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] );
 ck( 'after a press refused for a held invitation, the card says who sends it once, in the notice, above the sign-in line, and offers no button',
 	array(
 		substr_count( $held_notice, 'program&#039;s Administrators send this invitation once they have confirmed the account belongs to this student.' ),
-		has( $held_notice, '<p class="wpcpm-institution__invite-message is-info" role="status">Nothing was sent: the program&#039;s Administrators send this invitation once they have confirmed the account belongs to this student.</p><p class="wpcpm-institution__invite-note">No sign-in on record since October 15, 2026. No invitation sent yet.</p></div>' ),
+		has( $held_notice, '<p class="wpcpm-institution__invite-message wpcpm-institution__invite-message--info is-info" role="status" tabindex="-1" data-wpcpm-card-message>Nothing was sent: the program&#039;s Administrators send this invitation once they have confirmed the account belongs to this student.</p><p class="wpcpm-ui-intro">No sign-in on record since <span class="wpcpm-ui-whole">October 15, 2026</span>. No invitation sent yet.</p></div>' ),
 		has( $held_notice, '<form' ),
 	),
 	array( 1, true, false ) );
@@ -1082,14 +1104,150 @@ echo "\n=== The stylesheet dresses the line ===\n";
 
 $css = (string) preg_replace( '#/\*.*?\*/#s', '', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/institution.css' ) );
 
-foreach ( array( 'wpcpm-institution__invite', 'wpcpm-institution__invite-note', 'wpcpm-institution__invite-form', 'wpcpm-institution__invite-message' ) as $class ) {
+foreach ( array( 'wpcpm-institution__invite-message' ) as $class ) {
 	ck( sprintf( 'institution.css has a rule for .%s', $class ), 1 === preg_match( '/\.' . preg_quote( $class, '/' ) . '(?![a-zA-Z0-9_-])/', $css ), true );
 }
 
-// The school's details card's own line and the student correction form's outcome (Institutions release 2) take
-// the same shape, after these three.
-ck( 'the notice takes the shape every flash on this page has', 1 === preg_match( '/\.wpcpm-agreement-panel__message,\s*\.wpcpm-institution__invite-message,\s*\.wpcpm-people__message,\s*\.wpcpm-details__message,\s*\.wpcpm-institution__edit-message\s*\{/', $css ), true );
-ck( 'and the line sits close under the name it is about', 1 === preg_match( '/\.wpcpm-institution__student-identity:has\(\s*\+\s*\.wpcpm-institution__invite\s*\)\s*\{\s*margin-bottom:\s*0\.5em;/', $css ), true );
+// Every outcome on the page takes one look, the Administrator Dashboard's messages' (Task 23): the sheet dresses the
+// mark `WPCPM_Dashboard_Card::message()` prints, so the notice takes it with every other card's.
+ck( 'the notice takes the shape every flash on this page has', 1 === preg_match( '/\.wpcpm-institution\.wpcpm-ui-on \[data-wpcpm-card-message\] \{\s*background: none;\s*border: 0;\s*border-inline-start: 4px solid currentColor;/', $css ), true );
+// Keyed on the root's three classes, at 0,4,0, so the theme's 0,3,0 rules on a message class, printed after this
+// sheet, lose to it (Task 23, fix round 1): the base rule and its two tones, each opening a line.
+ck( 'and its three rules are keyed on the root\'s three classes, a weight the theme\'s message rules cannot tie', array(
+	preg_match_all( '/^\.wpcpm-dashboard\.wpcpm-institution\.wpcpm-ui-on \[data-wpcpm-card-message\](\.is-success|\.is-error)? \{/m', $css ),
+	preg_match_all( '/^\.wpcpm-institution\.wpcpm-ui-on \[data-wpcpm-card-message\]/m', $css ),
+), array( 3, 0 ) );
+
+/* ---- 13. the line on the parts (Institution Dashboard, Task 16) ---------- */
+
+echo "\n=== The sign-in line on the parts (Institution Dashboard, Task 16) ===\n";
+
+
+/**
+ * What each drawn form posts: its method and address, every hidden input and named control as `name=value`, sorted, and
+ * whether it locks at its press saying it is sending.
+ *
+ * @param string $html Drawn markup.
+ * @return array[]
+ */
+function posted_forms( $html ) {
+	$forms = array();
+	preg_match_all( '#<form\b([^>]*)>(.*?)</form>#s', (string) $html, $found, PREG_SET_ORDER );
+	foreach ( $found as $form ) {
+		preg_match( '/\smethod="([^"]*)"/', $form[1], $method );
+		preg_match( '/\saction="([^"]*)"/', $form[1], $action );
+		preg_match_all( '#<(?:input|button)\b[^>]*\bname="([^"]*)"[^>]*\bvalue="([^"]*)"#', $form[2], $pairs, PREG_SET_ORDER );
+		$fields = array();
+		foreach ( $pairs as $pair ) {
+			$fields[] = $pair[1] . '=' . $pair[2];
+		}
+		sort( $fields );
+		$forms[] = array(
+			'method' => $method[1] ?? '',
+			'action' => $action[1] ?? '',
+			'fields' => $fields,
+			'busy'   => 1 === preg_match( '/\sdata-wpcpm-once\b/', $form[1] ) && false !== strpos( $form[1], 'data-wpcpm-busy="Sending..."' ),
+		);
+	}
+	return $forms;
+}
+
+/**
+ * The line in each case the suite pins: invited before, never invited, held, an outcome over the line, an outcome with no
+ * line, and an Administrator through the switcher.
+ *
+ * @return string[] Drawn markup, by case.
+ */
+function invite_cases() {
+	global $A;
+	$cases = array();
+	reset_world();
+	$cases['invited before'] = draw( 20, 10 );
+	$cases['never invited']  = draw( 20, 12 );
+	$GLOBALS['users'][12]->roles[]                                    = WPCPM_Roles::ROLE_MENTOR;
+	$GLOBALS['umeta'][12][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] = 'record';
+	$cases['held']                                                    = draw( 20, 12 );
+	$GLOBALS['users'][12]->roles                                      = array( WPCPM_Roles::ROLE_STUDENT );
+	unset( $GLOBALS['umeta'][12][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] );
+	$reader = fresh_reader( $A );
+	WPCPM_Flash::set( WPCPM_Institution_Resend::FLASH, array( 'outcome' => 'invite-resent', 'user' => 10, 'detail' => 'a***@example.test' ), $reader );
+	$cases['an outcome over the line'] = draw( $reader, 10 );
+	$reader                            = fresh_reader( $A );
+	WPCPM_Flash::set( WPCPM_Institution_Resend::FLASH, array( 'outcome' => 'invite-error', 'user' => 14, 'detail' => '' ), $reader );
+	$cases['an outcome and no line'] = draw( $reader, 14 );
+	$cases['an Administrator']       = draw( 30, 10 );
+	return $cases;
+}
+
+$invite_digest = static function ( array $cases ) {
+	return array_map(
+		static function ( $html ) {
+			return md5( $html );
+		},
+		$cases
+	);
+};
+
+// What the old line posted and said, read from the class at db850661 (the last commit that drew it) before it was
+// deleted (Task 23): a digest of each case's posted forms, and for each reader and student whether anything was drawn,
+// what its form posted and the words it said, the last invitation's day masked (it is nine days before the run). The
+// parts are held to them.
+$old_forms_digest = '026e1ca9c51c258c9bee243e438913f1';
+$old_drawn        = '75877dfe46a39a95c609435d77d46c86';
+$old_who          = array(
+	'20/10' => '43036d33bcf3ecb2168e45f13e41a759',
+	'20/12' => '6cdd1d7353d56a5cc345da3996f136e2',
+	'30/10' => '43036d33bcf3ecb2168e45f13e41a759',
+	'30/12' => '6cdd1d7353d56a5cc345da3996f136e2',
+);
+WPCPM_UI::set_live( array( 'administrator', 'institution' ) );
+WPCPM_UI::enter( 'institution' );
+$new_invite = invite_cases();
+WPCPM_UI::leave();
+
+$since = gmdate( 'F j, Y', $SINCE );
+$date  = gmdate( 'F j, Y', $NW - 9 * DAY_IN_SECONDS );
+$nl    = $new_invite['invited before'];
+ck( 'on the parts: a block under the line\'s anchor, today\'s sentence with each date whole, then Resend invitation, secondary, in today\'s form', $nl,
+	'<div class="wpcpm-ui-block" id="wpcpm-student-invite"><p class="wpcpm-ui-intro">No sign-in on record since <span class="wpcpm-ui-whole">' . $since . '</span>. Invitation last sent <span class="wpcpm-ui-whole">' . $date . '</span>.</p>'
+	. '<form method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Sending...">'
+	. '<input type="hidden" name="_wpnonce" value="nonce-wpcpm_institution_resend_invite_10"><input type="hidden" name="_wp_http_referer" value="/institution-dashboard/?wpcpm_institution_student=10" />'
+	. '<input type="hidden" name="action" value="wpcpm_institution_resend_invite" /><input type="hidden" name="user" value="10" />'
+	. '<div class="wpcpm-ui-actions"><button type="submit" class="wpcpm-btn wpcpm-btn--secondary">Resend invitation</button></div></form></div>' );
+ck( 'and none of the old line\'s classes', array( has( $nl, 'wpcpm-institution__' ), has( $nl, 'wpcpm-button' ) ), array( false, false ) );
+ck( 'never invited: Send invitation, secondary', array( has( $new_invite['never invited'], '<button type="submit" class="wpcpm-btn wpcpm-btn--secondary">Send invitation</button>' ), has( $new_invite['never invited'], 'No invitation sent yet.</p>' ) ), array( true, true ) );
+ck( 'held: today\'s two sentences, no form', array(
+	has( $new_invite['held'], '<p class="wpcpm-ui-intro">The program&#039;s Administrators send this invitation once they have confirmed the account belongs to this student.</p></div>' ),
+	has( $new_invite['held'], '<form' ),
+), array( true, false ) );
+ck( 'an outcome opens the block as the dashboards\' shared message in today\'s class, over the line: a success polite and the focus target', 0 === strpos( $new_invite['an outcome over the line'], '<div class="wpcpm-ui-block" id="wpcpm-student-invite"><p class="wpcpm-institution__invite-message wpcpm-institution__invite-message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>' ), true );
+ck( 'an outcome with no line is the outcome alone, a refusal alerting', $new_invite['an outcome and no line'], '<div class="wpcpm-ui-block" id="wpcpm-student-invite"><p class="wpcpm-institution__invite-message wpcpm-institution__invite-message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>The invitation could not be sent.</p></div>' );
+ck( 'every form posts what the old one posted: method, address, every field, the nonce\'s action, the referer, and locks at its press', md5( serialize( array_map( 'posted_forms', $new_invite ) ) ), $old_forms_digest );
+ck( 'and the referer is in the markup it draws', has( $nl, 'name="_wp_http_referer"' ), true );
+
+// Ruling 3 of the dispatch: the same readers get the line, the button or nothing as the old line drew.
+$who   = array();
+$drawn = array();
+foreach ( array( 20, 21, 30, 40, 0 ) as $viewer ) {
+	foreach ( array( 10, 11, 12, 16 ) as $student ) {
+		reset_world();
+		WPCPM_UI::enter( 'institution' );
+		$new_one = draw( $viewer, $student );
+		WPCPM_UI::leave();
+		$key           = $viewer . '/' . $student;
+		$who[ $key ]   = md5( serialize( array( '' === $new_one, posted_forms( $new_one ), str_replace( gmdate( 'F j, Y', $NW - 9 * DAY_IN_SECONDS ), '{sent}', strip_tags( $new_one ) ) ) ) );
+		$drawn[ $key ] = '' !== $new_one;
+	}
+}
+WPCPM_UI::set_live( null );
+ck( 'every reader is drawn the old line\'s words and form, or nothing where it drew nothing', $who, array_merge( array_fill_keys( array_keys( $who ), $old_drawn ), $old_who ) );
+ck( 'and the readers and students the line is drawn for are today\'s', array_keys( array_filter( $drawn ) ), array( '20/10', '20/12', '30/10', '30/12' ) );
+$resend_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-resend.php' );
+ck( 'the rule for which hidden fields the form carries, and the button\'s words, are written once', array(
+	substr_count( $resend_src, "esc_attr( self::FIELD_USER )" ),
+	substr_count( $resend_src, "__( 'Resend invitation', 'wpcredits-program-manager' )" ),
+	substr_count( $resend_src, 'WPCPM_Sign_Ins::since() > 0' ),
+), array( 1, 1, 1 ) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 

@@ -73,7 +73,7 @@ ck( 'and that loop, run on .distignore, excludes bin and everything under it', a
 
 // ------------------------------------------------------------------ every file is there
 echo "--- the files\n";
-$files = array( 'copy.mjs', 'copy.sh', 'wpcpm-ui-rig.php', 'real-names.php', 'seed.mjs', 'seed-states.php', 'scenes.mjs', 'snap.mjs', 'measure.mjs', 'compare.mjs', 'README.md' );
+$files = array( 'copy.mjs', 'copy.sh', 'wpcpm-ui-rig.php', 'real-names.php', 'seed.mjs', 'seed-states.php', 'scenes.mjs', 'snap.mjs', 'measure.mjs', 'collect.mjs', 'compare.mjs', 'README.md', 'layout/dump.php', 'layout/page.mjs', 'layout/measure.js', 'layout/run.mjs', 'layout/global-styles.php', 'layout/refresh-global-styles.mjs', 'layout/global-styles.css', 'layout/block-library.css', 'layout/global-styles.json' );
 foreach ( $files as $f ) {
 	ck( "bin/ui/$f exists", is_file( "$ui/$f" ) );
 }
@@ -167,6 +167,7 @@ ck( 'the seed records every file it makes on the copy in that list', false !== s
 // away or unpacked: prepare's install and restore's put-back run here, in bash, on a stand-in folder.
 $prepare = preg_match( '/^prepare\)\n(.*?)^  ;;$/ms', $sh, $m ) ? $m[1] : '';
 ck( 'copy.sh never removes the plugin folder whole and never installs through WP-CLI', array( false, false ), array( 1 === preg_match( '/rm -rf "\$PLUGINS\/wpcredits-program-manager"\s*$/m', $sh ), false !== strpos( $sh, 'plugin install' ) ) );
+ck( 'restore puts the copy\'s own theme back (when theme replaced it) before it checks the copy, and theme saves it first', false !== strpos( $restore, 'tar -xzf "$WORK/theme-before.tgz" -C "$THEMES"' ) && strpos( $restore, 'theme-before.tgz' ) < strpos( $restore, 'bin/check' ) && false !== strpos( $sh, '[ -s "$WORK/theme-before.tgz" ] || tar -czf "$WORK/theme-before.tgz" -C "$THEMES" wpcredits-theme' ) );
 ck( 'restore puts the plugin folder back before it restores the database', false !== strpos( $restore, 'tar -xzf' ) && strpos( $restore, 'tar -xzf' ) < strpos( $restore, 'bin/restore before-ui-rig' ) );
 $funcs   = preg_match( '/^check_zip\(\) \{\n.*?^\}\n.*?^install_zip\(\) \{\n.*?^\}\n/ms', $sh, $m ) ? $m[0] : '';
 $install = '' === $funcs ? '' : $funcs . 'install_zip "$T/new.zip"' . "\n";
@@ -220,10 +221,13 @@ $wait_run = static function ( $codes ) use ( $wait ) {
 ck( 'wait_for_copy: 502 three times restarts the proxy once, then goes on at 200', trim( $wait_run( '502 502 502 200' ) ), "went on\n502 502 502 restart 200" );
 ck( 'wait_for_copy: a copy that never answers 200 stops with exit 1 after two restarts', 1 === preg_match( '/^stopped 1\n(502 ){3}restart (502 ){12}restart (502 ){15}$/', $wait_run( '502' ) ), true );
 ck( 'wait_for_copy: a copy at 200 is asked once and not touched', trim( $wait_run( '200' ) ), "went on\n200" );
-$measure = $rig_texts['bin/ui/measure.mjs'];
-ck( 'measure.mjs counts no item title and no Tools title as an in-card heading', false !== strpos( $measure, ".wpcpm-head__eyebrow, .wpcpm-ui-item__title, .wpcpm-tools__title')) continue;" ) );
+$measure = $rig_texts['bin/ui/measure.mjs'] . $rig_texts['bin/ui/collect.mjs']; // collect.mjs holds what the page is read for
+ck( 'measure.mjs counts no item title and no Tools title as an in-card heading', false !== strpos( $measure, ".wpcpm-head__eyebrow, .wpcpm-ui-item__title, .wpcpm-tools__title') || h.matches('.wpcpm-report__sub')) continue;" ) );
 ck( 'measure.mjs reads the heading under the phone\'s help line as its own gap, 16 (design 2.3)', false !== strpos( $measure, "p.matches('.wpcpm-ui-fold__help--phone')" ) && false !== strpos( $measure, "kind: h.afterHelp ? 'help-heading' : 'heading-above'" ) && false !== strpos( $measure, "'help-heading': [16]" ) );
 ck( 'measure.mjs reads a run of inner folds as its own gap, 0 (design 2.3), and only folds of two cards or two other folds as fold-fold', false !== strpos( $measure, "const run = f.matches('.wpcpm-ui-fold--inner') && n && n.matches('.wpcpm-ui-fold--inner');" ) && false !== strpos( $measure, "'inner-fold-run': [0]" ) );
+// Task 28 fix round 2, X1: a fold alone in an item of a run as a list (`WPCPM_UI::inner_list()`) takes the next item's
+// fold as its neighbor, so the students' run is read as a run again.
+ck( 'measure.mjs reads a run of inner folds as a list as a run: a fold alone in its item takes the next item\'s fold', false !== strpos( $measure, "const item = !n && f.matches('.wpcpm-ui-fold--inner') && f.parentElement && f.parentElement.matches('.wpcpm-ui-folds__item') ? sib(f.parentElement, 1) : null;" ) && false !== strpos( $measure, "if (item && item.matches('.wpcpm-ui-folds__item')) n = item.querySelector(':scope > .wpcpm-ui-fold--inner');" ) );
 ck( 'snap.mjs saves no picture in which a picture of the copy is drawn broken (asked again once first)', false !== strpos( $rig_texts['bin/ui/snap.mjs'], 'const lost = await brokenImages(page, BASE);' ) && strpos( $rig_texts['bin/ui/snap.mjs'], 'const lost = await brokenImages(page, BASE);' ) < strpos( $rig_texts['bin/ui/snap.mjs'], 'await page.screenshot(' ) && false !== strpos( $rig_texts['bin/ui/scenes.mjs'], 'export async function brokenImages(page, base, pause = 3000)' ) );
 ck( 'stage() refuses an error page before any act and again before the picture, as it refuses a sign-in page', array( 1, 1 ), array( substr_count( $rig_texts['bin/ui/scenes.mjs'], 'const failed = errorPage(await read());' ), substr_count( $rig_texts['bin/ui/scenes.mjs'], "const after = errorPage({ ...(await read()), status: 0 });" ) ) );
 ck( 'swap removes nothing, scrubs nothing, snapshots nothing and leaves the must-use plugin and the work folder alone', array( false, false, false, false, false ), array( 1 === preg_match( '/\brm\b/', $swap ), false !== strpos( $swap, 'scrub' ), false !== strpos( $swap, 'bin/snapshot' ), false !== strpos( $swap, '$MU/wpcpm-ui-rig.php"' ) && 1 === preg_match( '/(cp|mv)[^\n]*\$MU/', $swap ), 1 === preg_match( '/>\s*"\$WORK/', $swap ) ) );
@@ -363,6 +367,42 @@ foreach ( (array) glob( $tmp_up . '/2026/08/*' ) as $tmp_file ) {
 @rmdir( $tmp_up . '/2026/08' );
 @rmdir( $tmp_up . '/2026' );
 @rmdir( $tmp_up );
+
+// Gate B, fix round 1: a read of one invented student's record answers what the live claim and the Student Report Card's
+// route read (the reports row's Students link, Name and Email; the Students row's institution link and dates), and nothing
+// for any other record.
+$student_stubs = <<<'PHP'
+class WPCPM_Settings { public static function get() { return array( 'reports_table' => 'tblReports', 'students_table' => 'tblStudents' ); } }
+class WPCPM_Students_Sync { const META_RECORD_ID = 'wpcpm_student_record_id'; const META_INSTITUTION = 'wpcpm_student_institution'; }
+class WPCPM_Roster_Index { public static function rows( $i ) { return 'recSchoolExample01' === $i ? array( 'recRigStudentAAAAA' => array( 'record_id' => 'recRigStudentAAAAA', 'status' => 'Active', 'start' => '2026-02-02', 'end' => '2026-06-26' ) ) : array(); } }
+function get_users( $a ) { $u = array( 'recRigStudentAAAAA' => 'drew.example@example.org', 'recRigStudentBBBBB' => 'someone@elsewhere.test' ); return isset( $u[ $a['meta_value'] ] ) ? array( (object) array( 'ID' => 7, 'display_name' => 'Drew Example', 'user_email' => $u[ $a['meta_value'] ] ) ) : array(); }
+function get_user_meta( $id, $k = '', $s = false ) { return 'wpcpm_student_institution' === $k ? 'recSchoolExample01' : ''; }
+PHP;
+list( $out, , $err ) = run_php( $stubs . "\n" . $student_stubs . "\ninclude " . var_export( "$ui/wpcpm-ui-rig.php", true ) . ";\necho json_encode( array( wpcpm_ui_rig_student_fields( 'tblReports', 'recRigStudentAAAAA' ), wpcpm_ui_rig_student_fields( 'tblStudents', 'recRigStudentAAAAA' ), wpcpm_ui_rig_student_fields( 'tblStudents', 'recRealStudent0001' ), wpcpm_ui_rig_student_fields( 'tblStudents', 'recRigStudentBBBBB' ), wpcpm_ui_rig_student_fields( 'tblOther', 'recRigStudentAAAAA' ) ) );" );
+ck(
+	'the stand-in answers an invented student\'s reports row (Name, Email, Students link) and Students row (institution link, dates), and nothing for a real record, an address that is not invented or another table',
+	array( json_decode( $out, true ), $err ),
+	array(
+		array(
+			array( 'Name' => 'Drew Example', 'Email' => 'drew.example@example.org', 'Students' => array( 'recRigStudentAAAAA' ) ),
+			array( 'Full Name' => 'Drew Example', 'Email' => 'drew.example@example.org', 'Status' => 'Active', 'Educational Institutions' => array( 'recSchoolExample01' ), 'Start Date' => '2026-02-02', 'End Date' => '2026-06-26' ),
+			array(),
+			array(),
+			array(),
+		),
+		'',
+	)
+);
+ck( 'and the one-record GET answers with those fields', false !== strpos( $rig_texts['bin/ui/wpcpm-ui-rig.php'], "\$fields = wpcpm_ui_rig_student_fields( \$table, \$record );" ) );
+
+// ------------------------------------------------------------------ the layout harness (institution dashboard frame, Task 1)
+echo "--- bin/ui/layout\n";
+$all = implode( "\n", array_map( static function ( $f ) { return (string) @file_get_contents( $f ); }, (array) glob( $root . '/bin/ui/layout/*' ) ) );
+ck( 'the harness holds no home folder', preg_match( '#/(?:Users|home)/[A-Za-z]#', $all ), 0 );
+ck( 'the harness holds no site address', preg_match( '#https?://(?!www\.w3\.org)#', $all ), 0 );
+ck( 'the harness never calls the copy', false === strpos( $all, 'refuseUnlessCopy' ), true );
+ck( 'the eight main-area widths', (bool) preg_match( '/export const WIDTHS = \[358, 569, 736, 799, 800, 880, 936, 960\];/', $all ), true );
+ck( 'dump.php writes only when asked', false !== strpos( $all, "getenv( 'WPCPM_LAYOUT_OUT' )" ), true );
 
 // ------------------------------------------------------------------ node: scenes and the comparer
 echo "--- bin/js/ui-rig.js\n";

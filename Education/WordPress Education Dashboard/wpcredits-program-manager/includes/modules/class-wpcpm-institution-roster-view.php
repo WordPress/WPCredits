@@ -57,6 +57,14 @@ class WPCPM_Institution_Roster_View {
 	 */
 	const ARG_VIEW = 'wpcpm_institution_view';
 
+	/**
+	 * The Institution Dashboard's view argument, and the view this roster is drawn in: the filter form carries both on
+	 * the parts (design 6.1), so a filtered roster lands back on the Students view. Named here and not read off the
+	 * dashboard's class, which this one does not need loaded.
+	 */
+	const ARG_DASHBOARD_VIEW = 'wpcpm_view';
+	const DASHBOARD_VIEW     = 'students';
+
 	/** How much of a search term is read. Longer than any name, address or tutor in the base. */
 	const SEARCH_MAX = 100;
 
@@ -102,9 +110,9 @@ class WPCPM_Institution_Roster_View {
 		// an error: "no such student" and "not your student" have to read the same way from
 		// outside.
 		if ( class_exists( 'WPCPM_Institution_Student_View' ) ) {
-			$student = WPCPM_Institution_Student_View::requested();
+			$student = self::card_student();
 
-			if ( $student > 0 && WPCPM_Institution_Student_View::shows( $student ) ) {
+			if ( $student > 0 ) {
 				WPCPM_Institution_Student_View::render( $record_id, $student, $context );
 
 				return;
@@ -124,7 +132,7 @@ class WPCPM_Institution_Roster_View {
 			: self::cohort_from_request();
 
 		if ( '' === $cohort ) {
-			$cohort = self::default_cohort( $cohorts );
+			$cohort = self::opening_cohort( $record_id );
 		}
 
 		// The chosen cohort is always an option, even when nobody in it signed up, so the
@@ -138,16 +146,18 @@ class WPCPM_Institution_Roster_View {
 
 		$here = remove_query_arg( self::ARG_STUDENT );
 
-		echo '<section class="wpcpm-roster">';
+		// Drawn with the shared parts (Institution Dashboard, Task 15): the wrapper carries no inset of its own, so the
+		// view's content starts at its head's left edge, and the anchor the view's card is linked by (`#wpcpm-roster`).
+		echo '<section class="wpcpm-roster__view" id="wpcpm-roster">';
 
 		// The Institution Dashboard titles the module this roster sits in (1.96.4); anywhere
 		// else the roster names itself.
 		if ( empty( $context['module_titled'] ) ) {
-			printf( '<h2 class="wpcpm-roster__title">%s</h2>', esc_html__( 'Students', 'wpcredits-program-manager' ) );
+			echo WPCPM_UI::heading( __( 'Students', 'wpcredits-program-manager' ), 'h2' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading().
 		}
 
-		self::render_filters( $record_id, $cohorts, $cohort, $filters, ! empty( $context['can_manage'] ) );
-		self::render_strip( $rows, $cohort );
+		self::render_filters_parts( $record_id, $cohorts, $cohort, $filters, ! empty( $context['can_manage'] ) );
+		self::render_summary( $rows, $cohort );
 
 		$groups = WPCPM_Roster_Index::groups( $record_id, $cohort );
 
@@ -162,7 +172,7 @@ class WPCPM_Institution_Roster_View {
 				$group = self::narrow( $group, $filters['search'] );
 			}
 
-			self::render_group( $key, $label, $group, $columns, $here, $filters );
+			self::render_group_parts( $key, $label, $group, $columns, $here, $filters );
 		}
 
 		// The fifth list is nobody's group: these students have no Students row, so they have
@@ -170,7 +180,7 @@ class WPCPM_Institution_Roster_View {
 		// the four, and the list stays out of the answer rather than pretending to be a fifth
 		// bucket of it. The search still narrows it, because a search is a search.
 		if ( '' === $filters['status'] ) {
-			self::render_unlinked( WPCPM_Roster_Index::unlinked_for( $record_id ), $filters['search'] );
+			self::render_unlinked_parts( WPCPM_Roster_Index::unlinked_for( $record_id ), $filters['search'] );
 		}
 
 		// The Institution Dashboard prints the read line once, at the foot of the page, when it
@@ -337,6 +347,18 @@ class WPCPM_Institution_Roster_View {
 	}
 
 	/**
+	 * The cohort the Students view opens on when its address names none: `default_cohort()` over the school's own
+	 * rows. The Institution Dashboard's Overview counts its figures in this cohort, so the figures and the roster a
+	 * click away read one answer.
+	 *
+	 * @param string $record Institutions record ID.
+	 * @return string A cohort key.
+	 */
+	public static function opening_cohort( string $record ): string {
+		return (string) self::default_cohort( self::cohort_counts( WPCPM_Roster_Index::rows( $record ) ) );
+	}
+
+	/**
 	 * Which cohort a reader who asked for none is shown.
 	 *
 	 * This semester when the institution has students in it, and otherwise the newest one it
@@ -359,21 +381,12 @@ class WPCPM_Institution_Roster_View {
 	}
 
 	/**
-	 * The picker and the filter bar: one form, because they are one question.
+	 * The filter form's hidden fields: the page's ID where the site has no pretty addresses, and the
+	 * school an Administrator is viewing, carried by an Administrator's form alone.
 	 *
-	 * A GET form, so what it produces is a URL. Every control's current value is drawn from
-	 * the URL that reached this page, which is what makes a filtered roster something a
-	 * colleague can be sent.
-	 *
-	 * @param string $record_id  Institutions record ID, which the export control's own fence needs.
-	 * @param array  $cohorts    Cohort key to the number who signed up.
-	 * @param string $cohort     The chosen cohort.
-	 * @param array  $filters    The chosen group and search term.
-	 * @param bool   $can_manage Whether the viewer is a program manager.
+	 * @param bool $can_manage Whether the viewer is an Administrator.
 	 */
-	private static function render_filters( $record_id, array $cohorts, $cohort, array $filters, $can_manage ) {
-		echo '<form class="wpcpm-roster__filters" method="get">';
-
+	private static function hidden_fields( $can_manage ) {
 		// Without pretty permalinks the page is addressed by query string, which a GET form
 		// would otherwise discard, resubmitting to the site root. The same guard the mentor
 		// switcher carries, for the same reason.
@@ -398,127 +411,23 @@ class WPCPM_Institution_Roster_View {
 				esc_attr( $view )
 			);
 		}
-
-		// One wrapper per field, and not one around the lot: the stylesheet lays a field out
-		// as its label above its control, so three fields sharing a wrapper stacked label,
-		// control, label, control down the page instead of sitting side by side.
-		echo '<p class="wpcpm-roster__filter">';
-		printf(
-			'<label for="wpcpm-roster-cohort">%s</label> ',
-			esc_html__( 'Cohort', 'wpcredits-program-manager' )
-		);
-		printf( '<select name="%s" id="wpcpm-roster-cohort">', esc_attr( self::ARG_COHORT ) );
-
-		foreach ( $cohorts as $key => $signed_up ) {
-			printf(
-				'<option value="%1$s"%2$s>%3$s</option>',
-				esc_attr( $key ),
-				selected( $key, $cohort, false ),
-				esc_html(
-					sprintf(
-						/* translators: 1: cohort name, e.g. "January to June 2026", 2: how many students signed up. */
-						__( '%1$s (%2$s)', 'wpcredits-program-manager' ),
-						WPCPM_Cohort::label( $key ),
-						number_format_i18n( $signed_up )
-					)
-				)
-			);
-		}
-
-		echo '</select>';
-		echo '</p>';
-
-		echo '<p class="wpcpm-roster__filter">';
-		printf(
-			'<label for="wpcpm-roster-status">%s</label> ',
-			esc_html__( 'Group', 'wpcredits-program-manager' )
-		);
-		printf( '<select name="%s" id="wpcpm-roster-status">', esc_attr( self::ARG_STATUS ) );
-		printf(
-			'<option value=""%1$s>%2$s</option>',
-			selected( '', $filters['status'], false ),
-			esc_html__( 'All students', 'wpcredits-program-manager' )
-		);
-
-		foreach ( self::group_labels() as $key => $label ) {
-			printf(
-				'<option value="%1$s"%2$s>%3$s</option>',
-				esc_attr( $key ),
-				selected( $key, $filters['status'], false ),
-				esc_html( $label )
-			);
-		}
-
-		echo '</select>';
-		echo '</p>';
-
-		echo '<p class="wpcpm-roster__filter">';
-		printf(
-			'<label for="wpcpm-roster-search">%1$s</label> <input type="search" id="wpcpm-roster-search" name="%2$s" value="%3$s" placeholder="%4$s" />',
-			esc_html__( 'Search', 'wpcredits-program-manager' ),
-			esc_attr( self::ARG_SEARCH ),
-			esc_attr( $filters['search'] ),
-			esc_attr( self::search_hint( $can_manage ) )
-		);
-
-		echo '</p>';
-
-		// The actions are not a field: they carry no label, and they sit on the baseline of
-		// the controls beside them rather than below a caption of their own.
-		echo '<p class="wpcpm-roster__actions">';
-		printf(
-			'<button type="submit" class="wpcpm-button">%s</button>',
-			esc_html__( 'Show', 'wpcredits-program-manager' )
-		);
-
-		if ( '' !== $filters['status'] || '' !== $filters['search'] ) {
-			printf(
-				' <a class="wpcpm-roster__clear" href="%1$s">%2$s</a>',
-				esc_url( remove_query_arg( array( self::ARG_STATUS, self::ARG_SEARCH, self::ARG_STUDENT ) ) ),
-				esc_html__( 'Clear the filters', 'wpcredits-program-manager' )
-			);
-		}
-
-		self::render_export( $record_id, $cohort );
-
-		echo '</p>';
-		echo '</form>';
 	}
 
 	/**
-	 * The roster export, as the third control in the actions paragraph.
-	 *
-	 * A link and not a button: the export is a GET, `WPCPM_Institution_Export::roster_url()`
-	 * returns a nonced `admin-post.php` address, and a submit button inside this form would
-	 * post the filter bar's own fields to the page instead.
-	 *
-	 * **The fence is asked again, with `ACT_EXPORT`, rather than inferred from the roster being
-	 * on screen.** `handle_roster()` decides on its own `decide( ACT_EXPORT, ... )` and refuses
-	 * with `wp_die()`, so the only control worth drawing is one that agrees with that call. It
-	 * is a separate row of `WPCPM_Institution_Policy::grounds()` from `ACT_VIEW_ROSTER`, which
-	 * is the point of that map being written out in full: today the two rows carry the same
-	 * grounds and the agreement gate of decision 6 covers both, so an institution whose
-	 * agreement is outstanding reaches neither - but narrowing either row is a one-line diff
-	 * there, and the reserved project ground of section 12 would land on some rows and not
-	 * others. Reading the answer to the wrong question would then leave a link whose only
-	 * destination is a refusal page, and a control that leads to a refusal is worse than no
-	 * control: it reads as the program being broken rather than as permission being absent.
-	 *
-	 * The cohort travels in the link, so the file is the semester on screen. Nothing else does:
-	 * `roster_url()` reads the manager switcher out of the request for itself, and
-	 * `handle_roster()` resolves the institution for itself (design spec 5.5), because an
-	 * institution that arrived inside a link is an institution nobody answered for.
+	 * The roster export's address when the export's own fence allows it, '' otherwise: asked of `ACT_EXPORT` and not
+	 * of the roster's own answer, because a tutor who may read the list may still be refused the file.
 	 *
 	 * @param string $record_id Institutions record ID.
 	 * @param string $cohort    The chosen cohort.
+	 * @return string
 	 */
-	private static function render_export( $record_id, $cohort ) {
+	private static function export_url( $record_id, $cohort ) {
 		// `wpcredits-program-manager.php` requires this file before it requires the export
 		// module, so the class is not defined while this one is being loaded. The same guard
 		// the student detail view is called behind, for the same reason: a missing link costs a
 		// school one convenience, an undefined class costs it the whole dashboard.
 		if ( ! class_exists( 'WPCPM_Institution_Export' ) ) {
-			return;
+			return '';
 		}
 
 		$decision = WPCPM_Institution_Policy::decide(
@@ -527,43 +436,517 @@ class WPCPM_Institution_Roster_View {
 		);
 
 		if ( empty( $decision['allowed'] ) ) {
-			return;
+			return '';
 		}
 
-		// **The label names the cohort, not the rows on screen.** `roster_matrix()` narrows by
-		// cohort and by nothing else, so the group filter and the search box narrow this page
-		// and leave the file whole. One institution has forty-two students on the program at
-		// once; a reader who searched for one of them and pressed a link promising "these
-		// students" would open a file holding the other forty-one.
-		printf(
-			' <a class="wpcpm-roster__export" href="%1$s">%2$s</a>',
-			esc_url( WPCPM_Institution_Export::roster_url( $cohort ) ),
-			esc_html__( 'Download this cohort (CSV)', 'wpcredits-program-manager' )
-		);
+		return (string) WPCPM_Institution_Export::roster_url( $cohort );
 	}
 
 	/**
-	 * The comparison strip: this cohort against the calendar semester before it.
+	 * The filter bar on the parts (design 6.1): today's GET form, today's names and values, and the view it belongs to;
+	 * one row of fields (Cohort, Group, Search, each its label above its box), then Show (secondary), Clear the filters
+	 * (quiet, while a filter is set) and the export (quiet, behind its own fence). Under 800px of main area the fields
+	 * stack at full width (parts.css).
 	 *
-	 * Two numbers each, which is all decision 11 allows: how many signed up and how many
-	 * graduated. An empty previous semester says so in words rather than printing zeros,
-	 * because "0 signed up, 0 graduated" reads as a failure and "no students started in July
-	 * to December 2025" reads as what happened.
-	 *
-	 * It prints no read line: the page holds that once, at its foot (see `read_line()`).
+	 * @param string $record_id  Institutions record ID, which the export control's own fence needs.
+	 * @param array  $cohorts    Cohort key to the number who signed up.
+	 * @param string $cohort     The chosen cohort.
+	 * @param array  $filters    The chosen group and search term.
+	 * @param bool   $can_manage Whether the viewer is an Administrator.
+	 */
+	private static function render_filters_parts( $record_id, array $cohorts, $cohort, array $filters, $can_manage ) {
+		echo '<form class="wpcpm-roster__bar wpcpm-ui-block" method="get">';
+
+		// The same hidden fields as today's form (`hidden_fields()`), then the view's own.
+		self::hidden_fields( $can_manage );
+
+		// The Institution Dashboard's view: the form leads back to the Students view it was drawn on.
+		printf(
+			'<input type="hidden" name="%1$s" value="%2$s" />',
+			esc_attr( self::ARG_DASHBOARD_VIEW ),
+			esc_attr( self::DASHBOARD_VIEW )
+		);
+
+		$cohort_options = array();
+
+		foreach ( $cohorts as $key => $signed_up ) {
+			$cohort_options[ (string) $key ] = sprintf(
+				/* translators: 1: cohort name, e.g. "January to June 2026", 2: how many students signed up. */
+				__( '%1$s (%2$s)', 'wpcredits-program-manager' ),
+				WPCPM_Cohort::label( $key ),
+				number_format_i18n( $signed_up )
+			);
+		}
+
+		$group_options = array_merge( array( '' => __( 'All students', 'wpcredits-program-manager' ) ), self::group_labels() );
+
+		// The three fields, in one row of fields.
+		$fields  = WPCPM_UI::field(
+			array(
+				'id'      => 'wpcpm-roster-cohort',
+				'name'    => self::ARG_COHORT,
+				'label'   => __( 'Cohort', 'wpcredits-program-manager' ),
+				'type'    => 'select',
+				'options' => $cohort_options,
+				'value'   => (string) $cohort,
+			)
+		);
+		$fields .= WPCPM_UI::field(
+			array(
+				'id'      => 'wpcpm-roster-status',
+				'name'    => self::ARG_STATUS,
+				'label'   => __( 'Group', 'wpcredits-program-manager' ),
+				'type'    => 'select',
+				'options' => $group_options,
+				'value'   => (string) $filters['status'],
+			)
+		);
+		// Today's hint as the field's hint, and no placeholder: the parts print none that repeats a hint (design 2.4).
+		$fields .= WPCPM_UI::field(
+			array(
+				'id'    => 'wpcpm-roster-search',
+				'name'  => self::ARG_SEARCH,
+				'label' => __( 'Search', 'wpcredits-program-manager' ),
+				'type'  => 'search',
+				'value' => (string) $filters['search'],
+				'hint'  => self::search_hint( $can_manage ),
+			)
+		);
+
+		echo '<div class="wpcpm-ui-fields">' . $fields . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::field().
+
+		$buttons = array(
+			WPCPM_UI::button(
+				array(
+					'label' => __( 'Show', 'wpcredits-program-manager' ),
+					'kind'  => 'secondary',
+				)
+			),
+		);
+
+		if ( '' !== $filters['status'] || '' !== $filters['search'] ) {
+			$buttons[] = WPCPM_UI::button(
+				array(
+					'label' => __( 'Clear the filters', 'wpcredits-program-manager' ),
+					'kind'  => 'quiet',
+					'href'  => remove_query_arg( array( self::ARG_STATUS, self::ARG_SEARCH, self::ARG_STUDENT ) ),
+				)
+			);
+		}
+
+		$export = self::export_url( $record_id, $cohort );
+
+		if ( '' !== $export ) {
+			$buttons[] = WPCPM_UI::button(
+				array(
+					'label' => __( 'Download this cohort (CSV)', 'wpcredits-program-manager' ),
+					'kind'  => 'quiet',
+					'href'  => $export,
+				)
+			);
+		}
+
+		echo WPCPM_UI::actions( $buttons ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::button() and WPCPM_UI::actions().
+		echo '</form>';
+	}
+
+	/**
+	 * The cohort summary on the parts (design 6.1): a plain block, its heading the cohort's name, then today's two
+	 * sentences; no colored edge.
 	 *
 	 * @param array  $rows   The institution's index rows.
 	 * @param string $cohort The chosen cohort.
 	 */
-	private static function render_strip( array $rows, $cohort ) {
+	private static function render_summary( array $rows, $cohort ) {
+		$sentences = self::strip_sentences( $rows, $cohort );
+
+		echo '<section class="wpcpm-roster__summary wpcpm-ui-block">'
+			. WPCPM_UI::heading( WPCPM_Cohort::label( $cohort ), 'h3' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading().
+			. WPCPM_UI::intro( $sentences[0] ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
+			. WPCPM_UI::intro( $sentences[1] ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
+			. '</section>';
+	}
+
+	/**
+	 * One group on the parts (design 6.1; the controller's ruling 1 and the planner's P7): a card fold of its own,
+	 * drawn through the fold's head, open by today's rule (`fold_open()`), its title the group's name and its count a
+	 * phrase in words; the group's sentence its first line, today's empty line when it holds nobody, then the students.
+	 *
+	 * @param string $key     Group key.
+	 * @param string $label   Group heading.
+	 * @param array  $rows    The group's rows, already filtered.
+	 * @param array  $columns The columns the fence permits.
+	 * @param string $here    The current URL, without the detail view's argument.
+	 * @param array  $filters The chosen group and search term.
+	 */
+	private static function render_group_parts( $key, $label, array $rows, array $columns, $here, array $filters ) {
+		$count = count( $rows );
+		$open  = ! in_array( $key, array( 'finished', 'not_started' ), true ) && $count <= self::OPEN_MAX;
+
+		self::fold_open( $key, $label, $count, $open );
+
+		echo WPCPM_UI::intro( self::group_note( $key ), 'muted' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
+
+		if ( 0 === $count ) {
+			$empty = ( '' !== $filters['search'] || '' !== $filters['status'] )
+				? __( 'No students in this group match the filters.', 'wpcredits-program-manager' )
+				: __( 'No students in this group.', 'wpcredits-program-manager' );
+
+			echo WPCPM_UI::list_empty( $empty ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::list_empty().
+		} elseif ( ! empty( $columns ) ) {
+			// The group's students are a list of their folds (Task 28, W6), as the live page's are a list of names.
+			echo WPCPM_UI::inner_list(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
+
+			foreach ( $rows as $row ) {
+				if ( is_array( $row ) ) {
+					echo WPCPM_UI::inner_item(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
+					self::render_student_parts( $row, $columns, $here, $count );
+					echo WPCPM_UI::inner_item_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
+				}
+			}
+
+			echo WPCPM_UI::inner_list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
+		}
+
+		echo '</div></details></section>';
+	}
+
+	/**
+	 * A group's card fold, up to its body: the section with the group's classes and anchor, the disclosure, the head
+	 * through `WPCPM_UI::fold_head()` with the count in words, and the body's opening tag.
+	 *
+	 * @param string $key   Group key (or `unlinked`).
+	 * @param string $title The group's name.
+	 * @param int    $count How many students it holds.
+	 * @param bool   $open  Whether it is drawn open.
+	 */
+	private static function fold_open( $key, $title, $count, $open ) {
+		printf(
+			'<section class="wpcpm-ui-fold-card wpcpm-roster__group wpcpm-roster__group--%1$s" id="wpcpm-roster-%1$s"><details class="wpcpm-ui-fold"%2$s><summary class="wpcpm-ui-fold__head">',
+			esc_attr( $key ),
+			$open ? ' open' : ''
+		);
+		$head = WPCPM_UI::fold_head(
+			array(
+				'size'   => 'card',
+				'title'  => $title,
+				'phrase' => sprintf(
+					/* translators: %s: a number of students. */
+					_n( '%s student', '%s students', $count, 'wpcredits-program-manager' ),
+					number_format_i18n( $count )
+				),
+			)
+		);
+
+		echo $head . '</summary><div class="wpcpm-ui-fold__body">'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::fold_head().
+	}
+
+	/**
+	 * One student on the parts (design 6.1): an inner fold, its media the 44px photo or the name's first letter, its
+	 * title the name (a link to the student's card when there is an account) as it is, its second
+	 * piece the dates whole and the mentor, the program's status a tag at its end; its body a key and value table of the
+	 * permitted columns. Open when the group holds one student, as today.
+	 *
+	 * @param array  $row     The index row.
+	 * @param array  $columns The columns the fence permits.
+	 * @param string $here    The current URL, without the detail view's argument.
+	 * @param int    $total   How many students are in this group.
+	 */
+	private static function render_student_parts( array $row, array $columns, $here, $total ) {
+		$values  = self::values( $row );
+		$cells   = self::cells_parts( $values );
+		$name    = isset( $row['name'] ) ? trim( (string) $row['name'] ) : '';
+		$name    = '' === $name ? __( 'Unnamed student', 'wpcredits-program-manager' ) : $name;
+		$user_id = (int) $values['user_id'];
+
+		// The portrait, keyed on the WordPress.org username alone (never the address: a school's page asks no gravatar
+		// service about its students' mail); a row without one shows the name's first letter, so the names line up.
+		ob_start();
+		WPCPM_Mentors_Dashboard::render_avatar( (string) $values['username'], '', $name, 44 );
+		// Decoration beside the name the head already says: an empty alt, so the name is not heard twice.
+		$portrait = (string) preg_replace( '/ alt="[^"]*"/', ' alt=""', trim( (string) ob_get_clean() ), 1 );
+
+		$title = $user_id > 0
+			? '<a href="' . esc_url( add_query_arg( self::ARG_STUDENT, $user_id, $here ) ) . '">' . esc_html( $name ) . '</a>'
+			: esc_html( $name );
+
+		// The closed row's second piece: the dates and the mentor's name, as today's preview line holds them.
+		$second = array_filter(
+			array(
+				self::dates_line( (string) $values['start'], (string) $values['end'] ),
+				'' !== self::mentor_name_of( $row ) ? esc_html( self::mentor_name_of( $row ) ) : '',
+			),
+			static function ( $piece ) {
+				return '' !== $piece;
+			}
+		);
+
+		$program = self::program_of( $row );
+		$tag     = '' !== $program ? self::tag( $program ) : '';
+
+		$fold = WPCPM_UI::inner_open(
+			array(
+				'title'       => $name,
+				'title_html'  => $title,
+				'second_html' => implode( ' · ', $second ),
+				'portrait'    => $portrait,
+				'initials'    => WPCPM_UI::initials( $name ),
+				'tag'         => $tag,
+				'open'        => 1 === (int) $total,
+			)
+		);
+
+		// The markup inner_open() is given is escaped above: render_avatar(), esc_url(), esc_html(), dates_line(), tag().
+		echo $fold; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::inner_open() and above.
+
+		$label = array(
+			'key'    => 'label',
+			'label'  => '',
+			'kind'   => 'text',
+			'header' => true,
+		);
+		$value = array(
+			'key'   => 'value',
+			'label' => '',
+			'kind'  => 'text',
+		);
+		// An address may break anywhere (the global constraints: a cell holding an address or a website is a token).
+		$token = array(
+			'key'   => 'value',
+			'label' => '',
+			'kind'  => 'token',
+		);
+
+		$table = WPCPM_UI::table_open(
+			array( $label, $value ),
+			array(
+				'keyvalue' => true,
+				'caption'  => sprintf(
+					/* translators: %s: student name. */
+					__( 'Program details for %s', 'wpcredits-program-manager' ),
+					$name
+				),
+			)
+		);
+
+		foreach ( $columns as $key => $heading ) {
+			// The name is the fold's own title, as it is today's card's heading.
+			if ( 'students|Full Name' === $key ) {
+				continue;
+			}
+
+			$cell = isset( $cells[ $key ] ) ? $cells[ $key ] : array( '', '' );
+			$html = '' === $cell[0] ? esc_html( self::blank_text() ) : $cell[0];
+			$kind = '' === $cell[0] ? 'empty' : $cell[1];
+
+			$table .= WPCPM_UI::row_open( array( 'class' => 'wpcpm-roster__row--' . self::column_slug( $key ) ) )
+				. WPCPM_UI::cell( $label, esc_html( $heading ) )
+				. WPCPM_UI::cell( in_array( $key, array( 'students|WP Profile', 'reports|Personal Website URL' ), true ) ? $token : $value, $html, $kind )
+				. WPCPM_UI::row_close();
+		}
+
+		echo $table . WPCPM_UI::table_close() . WPCPM_UI::inner_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the table parts; each value built by cells_parts(), which escapes what it interpolates.
+	}
+
+	/**
+	 * One student's cells on the parts, keyed as `columns()` is: each the cell's markup, already escaped, and its kind
+	 * ('' or `empty`, a value kept in words). The values are `values()`'s, the ones today's cells are built from; an
+	 * empty cell is '' and the table prints "Not recorded".
+	 *
+	 * @param array $values What `values()` returned.
+	 * @return array<string, array{0: string, 1: string}>
+	 */
+	private static function cells_parts( array $values ) {
+		$mentor = (string) $values['mentor_name'];
+
+		return array(
+			'students|Status'                => array( self::program_parts( (string) $values['program'], (string) $values['status'], (string) $values['course'] ), '' ),
+			'students|Start Date'            => array( self::dates_parts( (string) $values['start'], (string) $values['end'] ), '' ),
+			'students|End Date'              => array( self::days_cell( (string) $values['end'] ), '' ),
+			// Today's sentence when there is no name, in words and muted (the empty kind).
+			'students|Mentor'                => '' !== $mentor
+				? array( esc_html( $mentor ), '' )
+				: array( esc_html( self::mentor_words( ! empty( $values['has_mentor'] ), ! empty( $values['has_report'] ) ) ), 'empty' ),
+			'students|WP Profile'            => array(
+				'' === (string) $values['username'] ? '' : sprintf(
+					'<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
+					esc_url( 'https://profiles.wordpress.org/' . rawurlencode( (string) $values['username'] ) . '/' ),
+					esc_html( (string) $values['username'] )
+				),
+				'',
+			),
+			'reports|Main Contribution Team' => array( esc_html( (string) $values['team'] ), '' ),
+			'reports|Personal Website URL'   => array( self::website_cell( (string) $values['website'] ), '' ),
+			'students|Your field of study'   => array( esc_html( (string) $values['field_of_study'] ), '' ),
+			'students|Tutor '                => array( esc_html( (string) $values['tutor'] ), '' ),
+			'reports|Hours'                  => array( self::hours_cell( (string) $values['hours'], (string) $values['track'] ), '' ),
+		);
+	}
+
+	/**
+	 * The Program cell on the parts: the program in words, since the row's head already carries it as its status tag
+	 * (Gate B, B9: the tag was printed twice, and a student's card says its Program in words too); a course status that
+	 * differs from it, which the head does not carry, stays a status tag before it; a pipeline status in plain words.
+	 *
+	 * @param string $program The reports status, or ''.
+	 * @param string $status  The pipeline status, or ''.
+	 * @param string $course  The status of the course the student is on or took, or ''.
+	 * @return string Cell markup.
+	 */
+	private static function program_parts( $program, $status, $course ) {
+		$program = trim( (string) $program );
+		$course  = trim( (string) $course );
+
+		if ( '' !== $course && $course !== $program ) {
+			return self::tag( $course ) . ( '' !== $program ? ' ' . esc_html( WPCPM_Program::status_words( $program ) ) : '' );
+		}
+
+		if ( '' !== $program ) {
+			return esc_html( WPCPM_Program::status_words( $program ) );
+		}
+
+		$status = trim( (string) $status );
+
+		return '' === $status ? '' : esc_html( WPCPM_Program::status_words( $status ) );
+	}
+
+	/**
+	 * A status as the parts' tag, in `WPCPM_Program::status_words()`'s words, green for a track (on the program) and
+	 * neutral otherwise, as today's badge colors a track and leaves a state plain.
+	 *
+	 * @param string $status Airtable status.
+	 * @return string Escaped markup, or ''.
+	 */
+	private static function tag( $status ) {
+		$status = trim( (string) $status );
+
+		if ( '' === $status ) {
+			return '';
+		}
+
+		return WPCPM_UI::tag( WPCPM_Program::status_words( $status ), WPCPM_Program::tone( $status ) );
+	}
+
+	/**
+	 * The two dates as the mentor card words them (`WPCPM_Mentors_Dashboard::format_dates()`), each date whole.
+	 *
+	 * @param string $start Start date, `Y-m-d`.
+	 * @param string $end   End date, `Y-m-d`.
+	 * @return string Escaped markup, or '' when there is neither.
+	 */
+	private static function dates_whole( $start, $end ) {
+		$format = (string) get_option( 'date_format' );
+		$from   = '' !== $start ? (string) date_i18n( $format, strtotime( $start ) ) : '';
+		$to     = '' !== $end ? (string) date_i18n( $format, strtotime( $end ) ) : '';
+
+		if ( '' !== $from && '' !== $to ) {
+			/* translators: 1: start date, 2: end date. Joined by the word "to", not a hyphen: WordPress would texturize a spaced hyphen into an en dash once this renders on the page. */
+			return sprintf( esc_html__( '%1$s to %2$s', 'wpcredits-program-manager' ), WPCPM_UI::whole( $from ), WPCPM_UI::whole( $to ) );
+		}
+
+		if ( '' !== $from ) {
+			/* translators: %s: start date. */
+			return sprintf( esc_html__( 'From %s', 'wpcredits-program-manager' ), WPCPM_UI::whole( $from ) );
+		}
+
+		if ( '' !== $to ) {
+			/* translators: %s: end date. */
+			return sprintf( esc_html__( 'Until %s', 'wpcredits-program-manager' ), WPCPM_UI::whole( $to ) );
+		}
+
+		return '';
+	}
+
+	/**
+	 * The Dates cell on the parts: each date whole, the end of a row with no start date its
+	 * second line.
+	 *
+	 * @param string $start Start date, `Y-m-d`.
+	 * @param string $end   End date, `Y-m-d`.
+	 * @return string Escaped markup.
+	 */
+	private static function dates_parts( $start, $end ) {
+		if ( '' !== $start ) {
+			return self::dates_whole( $start, $end );
+		}
+
+		$cell = esc_html__( 'No start date', 'wpcredits-program-manager' );
+
+		return '' !== $end ? $cell . WPCPM_UI::cell_sub( '', self::dates_whole( '', $end ) ) : $cell;
+	}
+
+	/**
+	 * The dates as a closed row's second piece shows them: the dates whole, or today's "No start date" with the end
+	 * after it.
+	 *
+	 * @param string $start Start date, `Y-m-d`.
+	 * @param string $end   End date, `Y-m-d`.
+	 * @return string Escaped markup, or ''.
+	 */
+	private static function dates_line( $start, $end ) {
+		if ( '' !== $start ) {
+			return self::dates_whole( $start, $end );
+		}
+
+		$line = esc_html__( 'No start date', 'wpcredits-program-manager' );
+
+		return '' !== $end ? $line . ' · ' . self::dates_whole( '', $end ) : $line;
+	}
+
+	/**
+	 * The students with an account and a report record whose Students row does not exist, on the parts (design 6.1):
+	 * a card fold like a group, open, its count in words, today's sentence, then a list of rows: the name and the status
+	 * tag, and for an Administrator the address as a fact. The same people as today (`unlinked_people()`).
+	 *
+	 * @param mixed  $rows   What `WPCPM_Roster_Index::unlinked_for()` returned.
+	 * @param string $search The search term, or ''.
+	 */
+	private static function render_unlinked_parts( $rows, $search ) {
+		$people = self::unlinked_people( $rows, $search );
+
+		if ( empty( $people ) ) {
+			return;
+		}
+
+		self::fold_open( 'unlinked', __( 'Enrollment not recorded yet', 'wpcredits-program-manager' ), count( $people ), true );
+
+		echo WPCPM_UI::intro( __( 'These students are reporting their progress, but the program records hold no enrollment for them yet, so they are not counted in the groups above. An Administrator needs to complete the record.', 'wpcredits-program-manager' ), 'muted' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
+
+		$list = WPCPM_UI::list_open();
+
+		foreach ( $people as $person ) {
+			$status = trim( (string) $person['status'] );
+
+			// The address is an Administrator's to see, never the school's (`unlinked_label()`).
+			$list .= WPCPM_UI::row(
+				array(
+					'name'  => self::unlinked_label( $person ),
+					'tag'   => '' === $status ? null : array(
+						'words' => WPCPM_Program::status_words( $status ),
+						'tone'  => WPCPM_Program::tone( $status ),
+					),
+					'facts' => ( self::$manages && '' !== $person['email'] && '' !== $person['name'] )
+						? array( (string) $person['email'] )
+						: array(),
+				)
+			);
+		}
+
+		echo $list . WPCPM_UI::list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::row().
+		echo '</div></details></section>';
+	}
+
+	/**
+	 * The strip's two sentences, as text: this cohort's two numbers, then the semester before it (or why there is none
+	 * to compare with). Both branches print these words.
+	 *
+	 * @param array  $rows   The institution's index rows.
+	 * @param string $cohort The chosen cohort.
+	 * @return array{0: string, 1: string}
+	 */
+	private static function strip_sentences( array $rows, $cohort ) {
 		$now      = WPCPM_Cohort::participation( $rows, $cohort );
 		$previous = WPCPM_Cohort::previous( $cohort );
-
-		echo '<section class="wpcpm-roster__strip">';
-		printf(
-			'<h3 class="wpcpm-roster__strip-title">%s</h3>',
-			esc_html( WPCPM_Cohort::label( $cohort ) )
-		);
 
 		$facts = array(
 			sprintf(
@@ -588,46 +971,37 @@ class WPCPM_Institution_Roster_View {
 			),
 		);
 
-		printf( '<p class="wpcpm-roster__strip-now">%s</p>', esc_html( implode( ' ', $facts ) ) );
+		$now_line = implode( ' ', $facts );
 
 		if ( '' === $previous ) {
 			// NONE has no semester before it, so there is nothing to compare against. Said
 			// plainly, because a silent strip would look like a missing number.
-			printf(
-				'<p class="wpcpm-roster__strip-then">%s</p>',
-				esc_html__( 'These students have no start date, so there is no earlier semester to compare them with.', 'wpcredits-program-manager' )
-			);
-		} else {
-			$then = WPCPM_Cohort::participation( $rows, $previous );
-
-			if ( 0 === $then['signed_up'] ) {
-				printf(
-					'<p class="wpcpm-roster__strip-then">%s</p>',
-					esc_html(
-						sprintf(
-							/* translators: %s: the earlier semester, e.g. "July to December 2025". */
-							__( 'No students started in %s.', 'wpcredits-program-manager' ),
-							WPCPM_Cohort::label( $previous )
-						)
-					)
-				);
-			} else {
-				printf(
-					'<p class="wpcpm-roster__strip-then">%s</p>',
-					esc_html(
-						sprintf(
-							/* translators: 1: the earlier semester, 2: how many signed up then, 3: how many of them graduated. */
-							__( 'Compared with %1$s: %2$s signed up, %3$s graduated.', 'wpcredits-program-manager' ),
-							WPCPM_Cohort::label( $previous ),
-							number_format_i18n( $then['signed_up'] ),
-							number_format_i18n( $then['graduated'] )
-						)
-					)
-				);
-			}
+			return array( $now_line, __( 'These students have no start date, so there is no earlier semester to compare them with.', 'wpcredits-program-manager' ) );
 		}
 
-		echo '</section>';
+		$then = WPCPM_Cohort::participation( $rows, $previous );
+
+		if ( 0 === $then['signed_up'] ) {
+			return array(
+				$now_line,
+				sprintf(
+					/* translators: %s: the earlier semester, e.g. "July to December 2025". */
+					__( 'No students started in %s.', 'wpcredits-program-manager' ),
+					WPCPM_Cohort::label( $previous )
+				),
+			);
+		}
+
+		return array(
+			$now_line,
+			sprintf(
+				/* translators: 1: the earlier semester, 2: how many signed up then, 3: how many of them graduated. */
+				__( 'Compared with %1$s: %2$s signed up, %3$s graduated.', 'wpcredits-program-manager' ),
+				WPCPM_Cohort::label( $previous ),
+				number_format_i18n( $then['signed_up'] ),
+				number_format_i18n( $then['graduated'] )
+			),
+		);
 	}
 
 	/**
@@ -650,71 +1024,6 @@ class WPCPM_Institution_Roster_View {
 	 * @var bool
 	 */
 	private static $manages = false;
-
-	/**
-	 * One of the four groups: its heading, its count, its explanation and its table.
-	 *
-	 * **Every group is a disclosure.** Finished and Not on the program now start closed, as
-	 * design spec 7.5 asks: they are counted every time and read rarely. Current and Waiting
-	 * start open, and fold: the product owner asked for the same chevron on every panel of the
-	 * page, and a heading that cannot be folded beside three that can is a control that is
-	 * there on one row and gone on the next. An empty group still prints, with its zero, so that
-	 * a group a filter emptied is visibly empty rather than missing.
-	 *
-	 * **A long group starts closed whichever group it is.** One institution has forty-two
-	 * students on the program at once, and an open list of forty-two cards buries everything
-	 * under it: the other groups, the people, the agreement. Past `OPEN_MAX` the group starts
-	 * closed with its count on the row, which is the number a school is usually looking for
-	 * anyway, and one press opens it. Below that it starts open, because a list of six that
-	 * has to be opened is a list that has been hidden for no reason.
-	 *
-	 * @param string $key     Group key.
-	 * @param string $label   Group heading.
-	 * @param array  $rows    The group's rows, already filtered.
-	 * @param array  $columns The columns the fence permits.
-	 * @param string $here    The current URL, without the detail view's argument.
-	 * @param array  $filters The chosen group and search term.
-	 */
-	private static function render_group( $key, $label, array $rows, array $columns, $here, array $filters ) {
-		$count = count( $rows );
-
-		// **Every group folds, and the two a school works from start open.** Current and
-		// Waiting used to be plain headings while Finished and Not started were disclosures,
-		// so half the page could be closed and half could not, and a reader who had folded
-		// the finished students away reached for the same chevron on the current ones and
-		// found nothing there. One shape for all four; what differs is only whether the group
-		// starts open, which the two active groups do unless they are long enough to push the
-		// rest of the page off the screen.
-		$open = ! in_array( $key, array( 'finished', 'not_started' ), true ) && $count <= self::OPEN_MAX;
-
-		printf( '<section class="wpcpm-group wpcpm-roster__group wpcpm-roster__group--%s">', esc_attr( $key ) );
-
-		printf( '<details class="wpcpm-group__disclosure"%s>', $open ? ' open' : '' );
-		printf(
-			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
-			esc_html( $label ),
-			esc_html( number_format_i18n( $count ) )
-		);
-		echo '<div class="wpcpm-group__body">';
-
-		printf( '<p class="wpcpm-muted wpcpm-roster__note">%s</p>', esc_html( self::group_note( $key ) ) );
-
-		if ( 0 === $count ) {
-			printf(
-				'<p class="wpcpm-roster__empty">%s</p>',
-				esc_html(
-					( '' !== $filters['search'] || '' !== $filters['status'] )
-						? __( 'No students in this group match the filters.', 'wpcredits-program-manager' )
-						: __( 'No students in this group.', 'wpcredits-program-manager' )
-				)
-			);
-		} else {
-			self::render_table( $label, $rows, $columns, $here );
-		}
-
-		echo '</div></details>';
-		echo '</section>';
-	}
 
 	/**
 	 * What a group means, in the words a school uses for it.
@@ -740,181 +1049,9 @@ class WPCPM_Institution_Roster_View {
 	}
 
 	/**
-	 * One group's students, a card each.
-	 *
-	 * Not a table. Eleven columns do not fit a page at any width worth having, and the table
-	 * this used to be answered that by scrolling sideways inside its own box: a school looking
-	 * for a tutor's name had to drag the roster across to find it, and the page it sits on is
-	 * the only one in the plugin that behaved that way. The Mentor Report Card had already
-	 * settled the question for a list of students you have to read rather than compare, so
-	 * this is that component: a disclosure a student at a time, the name and what identifies
-	 * them on the closed row, everything else inside.
-	 *
-	 * The classes are the mentor card's own, deliberately. Sharing the markup means sharing
-	 * the stylesheet, the chevron, the focus ring and the print rules, and it means the two
-	 * pages cannot drift apart the next time either is touched.
-	 *
-	 * Every permitted column becomes a row, and a column the fence removed is simply not
-	 * there; an empty one still prints its label, because a blank a school can see is
-	 * information and a row that vanishes is a question about whether the page is broken.
-	 *
-	 * @param string $label   The group's heading, for the list's accessible name.
-	 * @param array  $rows    The group's rows.
-	 * @param array  $columns The columns the fence permits.
-	 * @param string $here    The current URL, without the detail view's argument.
-	 */
-	private static function render_table( $label, array $rows, array $columns, $here ) {
-		if ( empty( $columns ) ) {
-			return;
-		}
-
-		printf( '<ul class="wpcpm-roster__students" aria-label="%s">', esc_attr( $label ) );
-
-		foreach ( $rows as $row ) {
-			if ( ! is_array( $row ) ) {
-				continue;
-			}
-
-			self::render_student( $row, $columns, $here, count( $rows ) );
-		}
-
-		echo '</ul>';
-	}
-
-	/**
-	 * One student, as the card the Mentor Report Card draws.
-	 *
-	 * Open when the group holds one student, closed otherwise, which is the rule the mentor
-	 * card follows: collapsing a list of one helps nobody, and a list of twelve is unreadable
-	 * without it.
-	 *
-	 * @param array  $row     The index row.
-	 * @param array  $columns The columns the fence permits.
-	 * @param string $here    The current URL, without the detail view's argument.
-	 * @param int    $total   How many students are in this group.
-	 */
-	private static function render_student( array $row, array $columns, $here, $total ) {
-		$cells   = self::cells( $row, $here );
-		$name    = isset( $row['name'] ) ? trim( (string) $row['name'] ) : '';
-		$name    = '' === $name ? __( 'Unnamed student', 'wpcredits-program-manager' ) : $name;
-		$user_id = isset( $row['user_id'] ) ? (int) $row['user_id'] : 0;
-
-		// `wpcpm-mentee` as well as the list class: on the mentor page the card's border sits
-		// on the element wrapping the disclosure, not on the disclosure itself, and the
-		// wrapper here is this list item. Without it the cards would be borderless rows that
-		// only look like the mentor page's from the summary line inwards.
-		echo '<li class="wpcpm-mentee wpcpm-roster__student-item">';
-		printf( '<details class="wpcpm-mentee__disclosure wpcpm-roster__card"%s>', 1 === (int) $total ? ' open' : '' );
-		echo '<summary class="wpcpm-mentee__summary">';
-
-		// No email fallback here: the Institution Dashboard never shows a student's address to
-		// institution members (columns() has no email column, and the search fence refuses an
-		// address lookup), but a Gravatar URL is keyed on the address's MD5 hash, so printing
-		// one would hand institution members a stable lookup key for the address the page
-		// withholds. A row without a username simply prints no portrait (consistency pass, 1.94.7).
-		WPCPM_Mentors_Dashboard::render_avatar(
-			isset( $row['username'] ) ? (string) $row['username'] : '',
-			'',
-			$name,
-			44
-		);
-
-		echo '<div class="wpcpm-mentee__identity">';
-
-		// The name is a heading and, where the student has an account, the way into their own
-		// card. The link is inside the summary, so it is reached by the keyboard before the
-		// disclosure opens rather than only after.
-		printf(
-			'<h4 class="wpcpm-mentee__name">%s</h4>',
-			$user_id > 0
-				? sprintf(
-					'<a class="wpcpm-roster__student" href="%1$s">%2$s</a>',
-					esc_url( add_query_arg( self::ARG_STUDENT, $user_id, $here ) ),
-					esc_html( $name )
-				)
-				: esc_html( $name )
-		);
-
-		// The program badge, from the same place the mentor card takes it, so one student
-		// wears the same color on both pages.
-		$program = self::program_of( $row );
-
-		if ( '' !== $program ) {
-			printf(
-				'<span class="wpcpm-badge%1$s">%2$s</span>',
-				'' === WPCPM_Program::badge( $program ) ? '' : esc_attr( ' wpcpm-badge--' . WPCPM_Program::badge( $program ) ),
-				esc_html( WPCPM_Program::status_words( $program ) )
-			);
-		}
-
-		// Enough to tell one closed card from another without opening it: when they were here
-		// and who mentored them, which is what a school scans a roster for.
-		// The dates, and the mentor's name if there is one. The Mentor column's own cell is not
-		// what goes here: where there is no name it carries a sentence explaining whether one
-		// has been assigned, which is the right answer in a labeled row and, repeated under
-		// every name in a group of eight, is noise.
-		$preview = array_filter(
-			array(
-				self::plain( isset( $cells['students|Start Date'] ) ? $cells['students|Start Date'] : '' ),
-				self::mentor_name_of( $row ),
-			),
-			'strlen'
-		);
-
-		if ( ! empty( $preview ) ) {
-			printf( '<span class="wpcpm-mentee__preview">%s</span>', esc_html( implode( ' · ', $preview ) ) );
-		}
-
-		echo '</div>';
-		echo '<span class="wpcpm-mentee__toggle" aria-hidden="true"></span>';
-		echo '</summary>';
-
-		echo '<div class="wpcpm-mentee__body">';
-		printf(
-			'<table class="wpcpm-mentee__table"><caption class="screen-reader-text">%s</caption><tbody>',
-			esc_html(
-				sprintf(
-					/* translators: %s: student name. */
-					__( 'Program details for %s', 'wpcredits-program-manager' ),
-					$name
-				)
-			)
-		);
-
-		foreach ( $columns as $key => $heading ) {
-			// The name is the card's own heading; repeating it as the first row of its body
-			// would be the page telling the reader something they are already looking at.
-			if ( 'students|Full Name' === $key ) {
-				continue;
-			}
-
-			$value = ( isset( $cells[ $key ] ) && '' !== $cells[ $key ] ) ? $cells[ $key ] : '';
-			$empty = ( '' === $value );
-
-			printf( '<tr class="wpcpm-mentee__row%1$s wpcpm-roster__row--%2$s">', $empty ? ' is-empty' : '', esc_attr( self::column_slug( $key ) ) );
-			printf(
-				'<th scope="row" data-label="%1$s"><span class="wpcpm-mentee__label">%2$s</span></th>',
-				esc_attr__( 'Field', 'wpcredits-program-manager' ),
-				esc_html( $heading )
-			);
-			printf(
-				'<td class="wpcpm-mentee__value" data-label="%1$s">%2$s</td>',
-				esc_attr__( 'Value', 'wpcredits-program-manager' ),
-				$empty ? esc_html( self::blank_text() ) : $value // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by cells(), which escapes every value it interpolates.
-			);
-			echo '</tr>';
-		}
-
-		echo '</tbody></table>';
-		echo '</div>';
-		echo '</details>';
-		echo '</li>';
-	}
-
-	/**
 	 * The mentor's name for a card's preview line, or nothing.
 	 *
-	 * Read the way `cells()` reads it, so the closed row and the Mentor row inside cannot
+	 * Read the way `values()` reads it, so the closed row and the Mentor row inside cannot
 	 * disagree about who it is: the account's cached block when the account has a name, and
 	 * otherwise the name the sync lent the index row from the joined report record. The
 	 * second half is what a finished student without an account gets (1.117.7); before it the
@@ -943,34 +1080,14 @@ class WPCPM_Institution_Roster_View {
 	}
 
 	/**
-	 * A cell's text, with any markup taken off.
+	 * One student's values, as text, read one way: the index row first and the cached
+	 * account blocks where the account is the fresher source (see each line). Every value taken out of the cached
+	 * program block is read out by name, one at a time, so a block of another shape reads as blank, never wrong.
 	 *
-	 * The preview line on a closed card is plain text inside a span, and `cells()` returns
-	 * markup for the columns that carry a link or a badge. Stripping is what lets the preview
-	 * reuse those values instead of computing them a second way and drifting from them.
-	 *
-	 * @param string $html A cell's markup.
-	 * @return string
+	 * @param array $row An index row.
+	 * @return array{user_id: int, name: string, program: string, status: string, course: string, start: string, end: string, mentor_name: string, has_mentor: bool, has_report: bool, username: string, team: string, website: string, field_of_study: string, tutor: string, hours: string, track: string}
 	 */
-	private static function plain( $html ) {
-		return trim( html_entity_decode( wp_strip_all_tags( (string) $html ), ENT_QUOTES, 'UTF-8' ) );
-	}
-
-	/**
-	 * One student's cells, keyed as `columns()` is, each already escaped.
-	 *
-	 * The index row carries what the Students table holds; the team, the website and the hours
-	 * live on the Students Reports row and reach this page through `wpcpm_student_program`,
-	 * which the students sync writes for every account. **Every value taken out of that block
-	 * is read out by name, one at a time**: it also carries the student's accessibility
-	 * disclosure, which was made to the program and is not the school's to read, so a block
-	 * printed wholesale is a disclosure this page has no right to make.
-	 *
-	 * @param array  $row  An index row.
-	 * @param string $here The current URL, without the detail view's argument.
-	 * @return array<string, string> Column key to cell markup.
-	 */
-	private static function cells( array $row, $here ) {
+	private static function values( array $row ) {
 		$get = static function ( $key ) use ( $row ) {
 			return ( isset( $row[ $key ] ) && is_scalar( $row[ $key ] ) ) ? trim( (string) $row[ $key ] ) : '';
 		};
@@ -1012,42 +1129,24 @@ class WPCPM_Institution_Roster_View {
 		$course = WPCPM_Program::course_status( $cached( $program, 'program' ), $user_id );
 		$track  = '' !== $course ? $course : $track;
 
-		$name = $get( 'name' );
-
-		if ( '' === $name ) {
-			$name = __( '(no name)', 'wpcredits-program-manager' );
-		}
-
-		// The detail view is reached by user ID, so a student whose account has not been
-		// created is a name and not a link. The link carries the cohort and the filters with
-		// it, so the browser's Back is not the only way back to the row.
-		$student = ( $user_id > 0 )
-			? sprintf(
-				'<a class="wpcpm-roster__student" href="%1$s">%2$s</a>',
-				esc_url( add_query_arg( self::ARG_STUDENT, $user_id, $here ) ),
-				esc_html( $name )
-			)
-			: sprintf( '<span class="wpcpm-roster__student">%s</span>', esc_html( $name ) );
-
-		$end      = $get( 'end' );
-		$username = $get( 'username' );
-
 		return array(
-			'students|Full Name'             => $student,
-			'students|Status'                => self::program_cell( $cached( $program, 'program' ), $get( 'status' ), $course ),
-			'students|Start Date'            => self::dates_cell( $get( 'start' ), $end ),
-			'students|End Date'              => self::days_cell( $end ),
-			'students|Mentor'                => self::mentor_cell( $mentor_name, ! empty( $row['has_mentor'] ), ! empty( $row['reports'] ) ),
-			'students|WP Profile'            => '' === $username ? '' : sprintf(
-				'<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
-				esc_url( 'https://profiles.wordpress.org/' . rawurlencode( $username ) . '/' ),
-				esc_html( $username )
-			),
-			'reports|Main Contribution Team' => esc_html( $team ),
-			'reports|Personal Website URL'   => self::website_cell( $website ),
-			'students|Your field of study'   => esc_html( $get( 'field_of_study' ) ),
-			'students|Tutor '                => esc_html( $get( 'tutor' ) ),
-			'reports|Hours'                  => self::hours_cell( $hours, $track ),
+			'user_id'        => $user_id,
+			'name'           => $get( 'name' ),
+			'program'        => $cached( $program, 'program' ),
+			'status'         => $get( 'status' ),
+			'course'         => $course,
+			'start'          => $get( 'start' ),
+			'end'            => $get( 'end' ),
+			'mentor_name'    => $mentor_name,
+			'has_mentor'     => ! empty( $row['has_mentor'] ),
+			'has_report'     => ! empty( $row['reports'] ),
+			'username'       => $get( 'username' ),
+			'team'           => $team,
+			'website'        => $website,
+			'field_of_study' => $get( 'field_of_study' ),
+			'tutor'          => $get( 'tutor' ),
+			'hours'          => $hours,
+			'track'          => $track,
 		);
 	}
 
@@ -1105,111 +1204,6 @@ class WPCPM_Institution_Roster_View {
 	}
 
 	/**
-	 * The Program column, from the right vocabulary.
-	 *
-	 * The column is named "Program", and the program is the Students Reports status: Sensei,
-	 * 50 hours, the Developer Track, paused, pending. Only a row with an account carries it,
-	 * in the program meta the students sync writes. The index row's own `status` is the
-	 * Students table's pipeline status, which is a different list (Interested, Not moving
-	 * forward, Fail, and the cohort names), so it is printed as a muted word, and only when
-	 * there is no program to show: a row that never started has no program, and hiding its
-	 * status would make it vanish from a list whose whole point is that nothing does.
-	 *
-	 * Every status this cell prints, the program's or the pipeline's, is in the words
-	 * `WPCPM_Program::status_words()` gives it (a graduate reads "Graduated" whichever table said
-	 * so); the status itself is read as it is everywhere else on the page, and only what the
-	 * school reads changes.
-	 *
-	 * A student waiting to graduate whose course the site keeps is shown that course's badge, as a
-	 * current student on it is, with the Pending graduation badge beside it: the cards on the
-	 * Mentor Report Card and the Student Report Card name the course the same way.
-	 *
-	 * @param string $program The reports status, or ''.
-	 * @param string $status  The pipeline status, or ''.
-	 * @param string $course  The status of the course the student is on or took, or ''.
-	 * @return string Cell markup.
-	 */
-	private static function program_cell( $program, $status, $course = '' ) {
-		$program = trim( (string) $program );
-		$course  = trim( (string) $course );
-
-		if ( '' !== $course && $course !== $program ) {
-			return self::badge( $course ) . ' ' . self::badge( $program );
-		}
-
-		if ( '' !== $program ) {
-			return self::badge( $program );
-		}
-
-		$status = trim( (string) $status );
-
-		return '' === $status ? '' : sprintf( '<span class="wpcpm-muted">%s</span>', esc_html( WPCPM_Program::status_words( $status ) ) );
-	}
-
-	/**
-	 * The program badge for one Airtable status, or an empty string when there is no status.
-	 *
-	 * One calculation, drawn by the roster table and by the fifth list, so two lists on one
-	 * page cannot paint the same student's track in two different colors. The color is the raw
-	 * status's and the words are `WPCPM_Program::status_words()`'s, as the closed row's badge says
-	 * them too.
-	 *
-	 * @param string $status Airtable status.
-	 * @return string
-	 */
-	private static function badge( $status ) {
-		$status = trim( (string) $status );
-
-		if ( '' === $status ) {
-			return '';
-		}
-
-		$modifier = WPCPM_Program::badge( $status );
-
-		return sprintf(
-			'<span class="%1$s">%2$s</span>',
-			esc_attr( 'wpcpm-badge' . ( '' !== $modifier ? ' wpcpm-badge--' . $modifier : '' ) ),
-			esc_html( WPCPM_Program::status_words( $status ) )
-		);
-	}
-
-	/**
-	 * The dates cell: both dates when there are both, and a named gap when there is no start.
-	 *
-	 * Design spec 7.5 gives a row with no start date a "Set start date" link into the edit
-	 * form. The marker links nowhere: the student edit form
-	 * (`WPCPM_Institution_Student_Form::render_form()`) is drawn only inside a student's card, folded
-	 * and closed (Institutions release 2), so a link from here would land on a card whose form is
-	 * still shut, which is no better than the marker.
-	 *
-	 * @param string $start Start date, `Y-m-d`.
-	 * @param string $end   End date, `Y-m-d`.
-	 * @return string
-	 */
-	private static function dates_cell( $start, $end ) {
-		if ( '' !== $start ) {
-			return esc_html( WPCPM_Mentors_Dashboard::format_dates( $start, $end ) );
-		}
-
-		// No start date is a fact about the record rather than an empty cell, and it is the
-		// one every roster filter has to file somewhere, so it is named here whether or not
-		// an end date happens to be recorded beside it.
-		$cell = sprintf(
-			'<span class="wpcpm-roster__nostart">%s</span>',
-			esc_html__( 'No start date', 'wpcredits-program-manager' )
-		);
-
-		if ( '' !== $end ) {
-			$cell .= sprintf(
-				'<br /><span class="wpcpm-muted">%s</span>',
-				esc_html( WPCPM_Mentors_Dashboard::format_dates( '', $end ) )
-			);
-		}
-
-		return $cell;
-	}
-
-	/**
 	 * The days-left cell, counted from the end date.
 	 *
 	 * @param string $end End date, `Y-m-d`.
@@ -1246,45 +1240,21 @@ class WPCPM_Institution_Roster_View {
 	}
 
 	/**
-	 * The mentor cell: the mentor's name, or which kind of nothing this is.
+	 * Which kind of nothing a mentor cell with no name is, in today's words: no mentor yet, or a
+	 * mentor assigned whose name has not reached this page, and why.
 	 *
-	 * "A mentor is assigned" and "no mentor yet" are different answers to the school's
-	 * question, and design spec 7.5 asks for both: the first is waiting on the automation
-	 * that creates the student's progress record, or on the sync's join by email finding one
-	 * that exists under another address (WPCredits#222); the second is waiting on the program.
-	 * Either way the record has not reached this page, and that is what the sentence says: "has
-	 * not been created" claimed to know which, and for the #222 shape it was wrong. The sentence
-	 * says "progress record", the student's own report as a school knows it, and names the
-	 * thing that is missing, which is the mentor's name.
-	 *
-	 * @param string $name       The mentor's name from the cached card, if there is one.
-	 * @param bool   $has_mentor  Whether the Students row links a mentor.
-	 * @param bool   $has_report  Whether the index knows of a Students Reports row.
+	 * @param bool $has_mentor Whether the Students row links a mentor.
+	 * @param bool $has_report Whether the index knows of a Students Reports row.
 	 * @return string
 	 */
-	private static function mentor_cell( $name, $has_mentor, $has_report = false ) {
-		if ( '' !== $name ) {
-			return esc_html( $name );
-		}
-
+	private static function mentor_words( $has_mentor, $has_report ) {
 		if ( ! $has_mentor ) {
-			return sprintf( '<span class="wpcpm-muted">%s</span>', esc_html__( 'No mentor yet.', 'wpcredits-program-manager' ) );
+			return __( 'No mentor yet.', 'wpcredits-program-manager' );
 		}
 
-		// **An empty name has two causes and the sentence used to name only one of them.** It
-		// said the report record had not been created yet, which for most rows was simply
-		// untrue: the index was holding that record's ID while the sentence denied it. The
-		// missing thing was the name, not the record. Saying which of the two it is costs one
-		// value the row already carries, and getting it wrong tells a school its student is
-		// further behind than they are.
-		return sprintf(
-			'<span class="wpcpm-muted">%s</span>',
-			esc_html(
-				$has_report
-					? __( 'A mentor is assigned. Their name has not reached this page yet.', 'wpcredits-program-manager' )
-					: __( 'A mentor is assigned. Their name shows here once the student\'s progress record reaches this page.', 'wpcredits-program-manager' )
-			)
-		);
+		return $has_report
+			? __( 'A mentor is assigned. Their name has not reached this page yet.', 'wpcredits-program-manager' )
+			: __( 'A mentor is assigned. Their name shows here once the student\'s progress record reaches this page.', 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -1336,19 +1306,13 @@ class WPCPM_Institution_Roster_View {
 	}
 
 	/**
-	 * The students with an account and a report record whose Students row does not exist.
-	 *
-	 * Nothing is silently dropped: these people are on the program, the roster groups cannot
-	 * hold them because the groups are built from Students rows, and an institution that
-	 * counted its students without them would be short. Read-only, and the line says whose
-	 * job the missing record is. The list is titled and explained by what is missing from a
-	 * school's side, their enrollment, and not by the table that lacks the row: a school has no
-	 * Students table to look at.
+	 * The fifth list's people, one shape each, the search applied.
 	 *
 	 * @param mixed  $rows   What `WPCPM_Roster_Index::unlinked_for()` returned.
 	 * @param string $search The search term, or ''.
+	 * @return array[] As `unlinked_person()` returns each.
 	 */
-	private static function render_unlinked( $rows, $search ) {
+	private static function unlinked_people( $rows, $search ) {
 		$people = array();
 
 		foreach ( (array) $rows as $key => $row ) {
@@ -1365,59 +1329,28 @@ class WPCPM_Institution_Roster_View {
 			$people[] = $person;
 		}
 
-		if ( empty( $people ) ) {
-			return;
+		return $people;
+	}
+
+	/**
+	 * The name the fifth list prints for one person: the name, an Administrator's address where there is none, then
+	 * the username, then today's sentence for nobody named.
+	 *
+	 * @param array $person As `unlinked_person()` returns it.
+	 * @return string
+	 */
+	private static function unlinked_label( array $person ) {
+		$label = $person['name'];
+
+		if ( '' === $label ) {
+			$label = self::$manages && '' !== $person['email'] ? $person['email'] : $person['username'];
 		}
 
-		echo '<section class="wpcpm-group wpcpm-roster__group wpcpm-roster__group--unlinked">';
-		printf(
-			'<h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3>',
-			esc_html__( 'Enrollment not recorded yet', 'wpcredits-program-manager' ),
-			esc_html( number_format_i18n( count( $people ) ) )
-		);
-		printf(
-			'<p class="wpcpm-muted wpcpm-roster__note">%s</p>',
-			esc_html__( 'These students are reporting their progress, but the program records hold no enrollment for them yet, so they are not counted in the groups above. An Administrator needs to complete the record.', 'wpcredits-program-manager' )
-		);
-
-		// **A student's address is a manager's to see, not the school's.** The export has no
-		// email column and the student card shows the mentor's address as the only one, both
-		// on the rule that reaching its own students is not what the program's roster is for;
-		// this list printed one per account-bearing student and contradicted both. A member
-		// sees the name, or the username where there is no name, and never the address.
-		$manages = self::$manages;
-
-		echo '<ul class="wpcpm-roster__unlinked">';
-
-		foreach ( $people as $person ) {
-			$label = $person['name'];
-
-			if ( '' === $label ) {
-				$label = $manages && '' !== $person['email'] ? $person['email'] : $person['username'];
-			}
-
-			if ( '' === $label ) {
-				$label = __( 'A student whose name is not recorded yet', 'wpcredits-program-manager' );
-			}
-
-			echo '<li>';
-			printf( '<span class="wpcpm-roster__student">%s</span>', esc_html( $label ) );
-
-			if ( $manages && '' !== $person['email'] && '' !== $person['name'] ) {
-				printf( ' <span class="wpcpm-muted">%s</span>', esc_html( $person['email'] ) );
-			}
-
-			$badge = self::badge( $person['status'] );
-
-			if ( '' !== $badge ) {
-				echo ' ' . $badge; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by badge(), which escapes every value it interpolates.
-			}
-
-			echo '</li>';
+		if ( '' === $label ) {
+			$label = __( 'A student whose name is not recorded yet', 'wpcredits-program-manager' );
 		}
 
-		echo '</ul>';
-		echo '</section>';
+		return $label;
 	}
 
 	/**
@@ -1540,7 +1473,7 @@ class WPCPM_Institution_Roster_View {
 	 * The fields a search reads, each with the word its box's hint names it by, in the order the
 	 * hint lists them.
 	 *
-	 * The address is searchable by a manager only, for the reason `render_unlinked()` gives: a
+	 * The address is searchable by a manager only, as only a manager is shown it (`unlinked_label()`): a
 	 * search box that answers "does anyone here have this address" is a directory lookup, whatever
 	 * the list beside it prints, so an institution's member is not given it. The Students record ID
 	 * is a manager's for the same reason, and for the one it was added for (1.123.48): an
@@ -1669,22 +1602,6 @@ class WPCPM_Institution_Roster_View {
 	}
 
 	/**
-	 * What an empty cell says.
-	 *
-	 * A named gap rather than a blank, for the reason the mentor card gives: a gap in the
-	 * program's records should look like a gap in the program's records and not like a cell
-	 * this page forgot to fill.
-	 *
-	 * @return string
-	 */
-	private static function blank() {
-		return sprintf(
-			'<span class="wpcpm-muted">%s</span>',
-			esc_html( self::blank_text() )
-		);
-	}
-
-	/**
 	 * What an empty value says, as words.
 	 *
 	 * The card's value cell is styled by `is-empty` on its row, the way the mentor card's is,
@@ -1698,6 +1615,23 @@ class WPCPM_Institution_Roster_View {
 	}
 
 	/**
+	 * The student whose card the roster draws in the list's place: the one the request names, when the fence lets the
+	 * reader see that student's card; 0 otherwise, and the list is drawn. One rule for the roster and for the
+	 * Institution Dashboard's Students view, whose read line is then about one student (Gate B, B6).
+	 *
+	 * @return int User ID, or 0.
+	 */
+	public static function card_student() {
+		if ( ! class_exists( 'WPCPM_Institution_Student_View' ) ) {
+			return 0;
+		}
+
+		$student = (int) WPCPM_Institution_Student_View::requested();
+
+		return $student > 0 && WPCPM_Institution_Student_View::shows( $student ) ? $student : 0;
+	}
+
+	/**
 	 * When the numbers on this page were read.
 	 *
 	 * A page holds it once, in one of two places: the roster's own footer where the roster
@@ -1705,17 +1639,23 @@ class WPCPM_Institution_Roster_View {
 	 * the roster sits in (`$context['module_titled']`), in which case the roster prints none.
 	 * The strip never prints it. The time is shown in the site's date and time formats.
 	 *
+	 * On one student's card (the Students view while it shows a card in the list's place, Gate B, B6) the words are for
+	 * one student.
+	 *
 	 * @param int    $read    Unix time the index was read.
 	 * @param string $classes The paragraph's classes.
+	 * @param bool   $one     Whether the line is about one student's card.
 	 */
-	public static function read_line( $read, $classes ) {
+	public static function read_line( $read, $classes, $one = false ) {
 		$read = (int) $read;
 
 		if ( $read <= 0 ) {
 			printf(
 				'<p class="%1$s">%2$s</p>',
 				esc_attr( $classes ),
-				esc_html__( 'These students have not been read from the program records yet.', 'wpcredits-program-manager' )
+				$one
+					? esc_html__( 'This student has not been read from the program records yet.', 'wpcredits-program-manager' )
+					: esc_html__( 'These students have not been read from the program records yet.', 'wpcredits-program-manager' )
 			);
 
 			return;

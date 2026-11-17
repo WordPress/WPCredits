@@ -63,6 +63,22 @@ class WPCPM_Institution_Panel {
 	private static $decide_into = null;
 
 	/**
+	 * The outcome the view's block is drawing on the shared parts, so the form that holds the box a refusal names can
+	 * describe that box with the sentence (Institution Dashboard, Task 21); '' outside `parts_block()`.
+	 *
+	 * @var string
+	 */
+	private static $said = '';
+
+	/**
+	 * What the refused forms kept for their one redraw (`WPCPM_Flash::kept()`), read by `parts_block()` for the forms it
+	 * draws on the parts; empty outside it (Task 21, fix round 1).
+	 *
+	 * @var array<string, array>
+	 */
+	private static $kept = array();
+
+	/**
 	 * Every outcome the agreement handlers can flash, in the words the reader gets.
 	 *
 	 * Kept here rather than in each screen, because the forms are drawn in four places (this
@@ -98,7 +114,7 @@ class WPCPM_Institution_Panel {
 			// Revoke and reinstate, T8 and T9. Named here with everything else the two agreement
 			// forms can flash, because a slug with no row prints nothing at all: the button
 			// redirects, the page looks untouched, and the manager presses it again.
-			'agreement-revoked'            => array( 'success', __( 'The agreement is revoked. From its next page load the institution\'s account shows only the Collaboration Agreement card, and everybody there has been emailed your note.', 'wpcredits-program-manager' ) ),
+			'agreement-revoked'            => array( 'success', __( 'The agreement is revoked. From their next page load the institution\'s representatives see only the Overview and the Agreement, its tutors see no page, and everybody there has been emailed your note.', 'wpcredits-program-manager' ) ),
 			'agreement-revoke-note'        => array( 'error', __( 'Nothing was revoked. A note is required, between 20 and 2000 characters: it is emailed to the institution as the reason, so it has to say something.', 'wpcredits-program-manager' ) ),
 			'agreement-revoke-loss'        => array( 'error', WPCPM_Typed_Text::loss_message( self::revoke_label(), 'revoke-agreement' ) ),
 			'agreement-not-accepted'       => array( 'error', __( 'Nothing was revoked. There is no accepted agreement to revoke for this institution.', 'wpcredits-program-manager' ) ),
@@ -192,38 +208,43 @@ class WPCPM_Institution_Panel {
 		$row        = WPCPM_Institutions_Index::row( $record_id );
 		$row        = is_array( $row ) ? $row : WPCPM_Institutions_Index::empty_row();
 
-		printf( '<section class="wpcpm-agreement-panel" id="%s">', esc_attr( self::ANCHOR ) );
+		// On the shared parts the panel is the Agreement view's content (Institution Dashboard, Task 21): the view's head says
+		// "Collaboration Agreement", so it prints no head and no fold; its block carries the anchor.
+		self::parts_block(
+			$record_id,
+			static function () use ( $record_id, $summary, $row, $can_manage ) {
+				// For an Administrator the banner's sentences open the block, set apart from the school's own words.
+				if ( $can_manage ) {
+					echo self::banner_parts( $record_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::note().
+				}
 
-		// The disclosure every other panel on the page is drawn in, open: this is the panel a
-		// locked account has come to act on, so it must not start folded, but it folds like
-		// the rest, because a chevron on every row but one is a control that is missing.
-		printf(
-			'<details class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body">',
-			esc_html__( 'Collaboration Agreement', 'wpcredits-program-manager' )
+				self::render_state_parts( $record_id, $summary, $row, $can_manage );
+
+				if ( $can_manage ) {
+					echo self::on_file_form_parts( $record_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts.
+				}
+
+				echo WPCPM_UI::intro( '', 'muted', '', self::read_html( $record_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in read_html().
+			}
 		);
-
-		self::render_flash();
-		self::render_state( $record_id, $summary, $row, $can_manage );
-
-		if ( $can_manage ) {
-			self::render_on_file_form( $record_id );
-		}
-
-		self::render_read_line( $record_id );
-
-		echo '</div></details>';
-		echo '</section>';
 	}
 
 	/**
-	 * Print whatever the last on-file attempt flashed, once.
+	 * The outcome the last agreement handler flashed, taken once: both branches read it here.
 	 *
-	 * Public because the card calls it too: a successful recording settles the institution,
-	 * so the page the manager lands on has a card and no panel, and the outcome has to be
-	 * printed by whichever of the two is drawn.
+	 * @return string An outcome slug, or ''.
 	 */
-	public static function render_flash() {
-		$status   = sanitize_key( (string) WPCPM_Flash::take( WPCPM_Institutions::FLASH ) );
+	private static function take_status() {
+		return sanitize_key( (string) WPCPM_Flash::take( WPCPM_Institutions::FLASH ) );
+	}
+
+	/**
+	 * Print one outcome in its words, or nothing for a slug with none.
+	 *
+	 * @param string $status An outcome slug.
+	 * @param string $lead   On the shared parts, the id of the box a refusal names: the sentence is then a link to it.
+	 */
+	private static function print_flash( $status, $lead = '' ) {
 		$messages = self::messages();
 
 		if ( ! isset( $messages[ $status ] ) ) {
@@ -232,82 +253,7 @@ class WPCPM_Institution_Panel {
 
 		// Toned, heard and focused as every card's outcome is (1.123.58, IDB-09): a refusal as an
 		// alert, anything else as a status.
-		echo WPCPM_Dashboard_Card::message( $messages[ $status ][0], $messages[ $status ][1], 'wpcpm-agreement-panel__message' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Dashboard_Card::message() escapes what it prints.
-	}
-
-	/**
-	 * The manager's "record an agreement on file" form.
-	 *
-	 * Public and capability-checked here rather than at the call site, so a screen that draws it
-	 * for a manager, this panel on the Institution Dashboard today, prints it with one call and
-	 * cannot print it to the wrong person by forgetting the check.
-	 *
-	 * The date and the location note are optional; the Drive link is not. A recorded
-	 * agreement with no link is a claim nobody can check later, which is the state the
-	 * reconciliation card exists to report on rather than to create.
-	 *
-	 * @param string $record_id Institutions record ID.
-	 */
-	public static function render_on_file_form( $record_id ) {
-		$record_id = trim( (string) $record_id );
-
-		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) || ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
-			return;
-		}
-
-		$name = self::institution_name( $record_id );
-		$base = 'wpcpm-on-file-' . sanitize_html_class( $record_id );
-
-		echo '<form class="wpcpm-agreement-panel__on-file" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
-
-		wp_nonce_field( WPCPM_Institution_Agreement::ACTION_ON_FILE . '_' . $record_id );
-
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Institution_Agreement::ACTION_ON_FILE ) );
-		printf( '<input type="hidden" name="wpcpm_agreement_record" value="%s" />', esc_attr( $record_id ) );
-
-		printf(
-			'<h3 class="wpcpm-agreement-panel__on-file-title">%s</h3>',
-			esc_html__( 'Record an agreement the program already holds', 'wpcredits-program-manager' )
-		);
-		printf(
-			'<p class="wpcpm-agreement-panel__on-file-lede">%s</p>',
-			esc_html__( 'For an institution that signed before this site existed. Airtable is written first; the account opens on the next page load.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<p class="wpcpm-agreement-panel__field"><label for="%1$s-drive">%2$s</label> <input type="url" class="wpcpm-agreement-panel__input" id="%1$s-drive" name="wpcpm_agreement_drive" required placeholder="%3$s" /></p>',
-			esc_attr( $base ),
-			esc_html__( 'Drive link to the folder or the file (required)', 'wpcredits-program-manager' ),
-			esc_attr__( 'https://drive.google.com/...', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<p class="wpcpm-agreement-panel__field"><label for="%1$s-signed">%2$s</label> <input type="date" class="wpcpm-agreement-panel__input" id="%1$s-signed" name="wpcpm_agreement_signed_on" /></p>',
-			esc_attr( $base ),
-			esc_html__( 'Date signed (optional)', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<p class="wpcpm-agreement-panel__field"><label for="%1$s-where">%2$s</label> <input type="text" class="wpcpm-agreement-panel__input" id="%1$s-where" name="wpcpm_agreement_where" maxlength="%3$d" placeholder="%4$s" /></p>',
-			esc_attr( $base ),
-			esc_html__( 'Where it is, in one line (optional)', 'wpcredits-program-manager' ),
-			(int) WPCPM_Institution_Agreement::MAX_LOCATION,
-			esc_attr__( 'second folder, the 2025 copy', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<button type="submit" class="wpcpm-button" data-wpcpm-confirm="%1$s">%2$s</button>',
-			esc_attr(
-				sprintf(
-					/* translators: %s: institution name. */
-					__( 'Record a signed agreement on file for %s? This opens their account on the site and sets Agreement Status to On file in Airtable.', 'wpcredits-program-manager' ),
-					$name
-				)
-			),
-			esc_html__( 'Record it', 'wpcredits-program-manager' )
-		);
-
-		echo '</form>';
+		echo WPCPM_Dashboard_Card::message( $messages[ $status ][0], $messages[ $status ][1], 'wpcpm-agreement-panel__message', $lead ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Dashboard_Card::message() escapes what it prints.
 	}
 
 	/**
@@ -431,12 +377,7 @@ class WPCPM_Institution_Panel {
 	 *                             from the post they name.
 	 */
 	private static function form_start( $css, $action, $nonce_action, $busy, $multipart, $record = '' ) {
-		$url    = admin_url( 'admin-post.php' );
-		$record = trim( (string) $record );
-
-		if ( '' !== $record && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			$url = add_query_arg( array( WPCPM_Institution_Roster::ARG_VIEW => $record ), $url );
-		}
+		$url = self::form_url( $record );
 
 		printf(
 			'<form class="%1$s" method="post" action="%2$s" enctype="%3$s" data-wpcpm-once data-wpcpm-busy="%4$s">',
@@ -969,277 +910,33 @@ class WPCPM_Institution_Panel {
 	}
 
 	/**
-	 * The words for one summary state.
+	 * The sentence `render_state()` prints for a state the school is the one to act on, and the Institution
+	 * Dashboard's Overview reads as its waiting row's why: for `none` and `generated` the lede, for `returned` and
+	 * `revoked` the upload form's sentence. Not escaped: a caller escapes it where it prints it.
 	 *
-	 * One branch per row of the design spec's section 7.4 table, plus the sixth case the
-	 * table does not have a row for: an accepted document on this site under a base that
-	 * says something else. That combination is locked by `is_settled()` and would otherwise
-	 * fall through every branch and print an empty panel, which is the one outcome a locked
-	 * account must never see.
-	 *
-	 * @param string $record_id  Institutions record ID.
-	 * @param array  $summary    From `WPCPM_Institution_Agreement::summary()`.
-	 * @param array  $row        The institution's index row.
-	 * @param bool   $can_manage Whether the viewer holds CAP_MANAGE.
+	 * @param string $state A summary state from `WPCPM_Institution_Agreement::summary()`.
+	 * @param array  $row   The agreement's summary, for `generated` (its `generated_id` names the day and the
+	 *                      template); not read for any other state.
+	 * @return string '' for any other state.
 	 */
-	private static function render_state( $record_id, array $summary, array $row, $can_manage ) {
-		$state = isset( $summary['state'] ) ? (string) $summary['state'] : WPCPM_Institution_Agreement::SUMMARY_NONE;
-
+	public static function state_sentence( string $state, array $row = array() ): string {
 		switch ( $state ) {
-			case WPCPM_Institution_Agreement::SUMMARY_GENERATED:
-				printf(
-					'<p class="wpcpm-agreement-panel__lede">%s</p>',
-					esc_html(
-						sprintf(
-							/* translators: 1: date the template was generated, 2: template version. */
-							__( 'You generated the program\'s agreement on %1$s (template %2$s). It is not signed and uploaded yet.', 'wpcredits-program-manager' ),
-							self::post_date( $summary['generated_id'] ),
-							self::template_version( $summary['generated_id'] )
-						)
-					)
-				);
-				self::render_regenerate_form( $record_id, (int) $summary['generated_id'] );
-				self::render_steps( $record_id, $row );
-				self::render_on_file_note( $row, $can_manage );
-				break;
+			case WPCPM_Institution_Agreement::SUMMARY_NONE:
+				return __( 'The program has no Collaboration Agreement recorded for your institution. Until it does, its representatives reach only the Overview and the Agreement, and its tutors no page.', 'wpcredits-program-manager' );
 
-			case WPCPM_Institution_Agreement::SUMMARY_SUBMITTED:
-				printf(
-					'<p class="wpcpm-agreement-panel__lede">%s</p>',
-					esc_html(
-						sprintf(
-							/* translators: %s: date the signed agreement was received. */
-							__( 'We received your signed agreement on %s. An Administrator will review it and you will get an email either way.', 'wpcredits-program-manager' ),
-							self::post_date( $summary['pending_id'] )
-						)
-					)
-				);
-				self::render_download_link(
-					(int) $summary['pending_id'],
-					__( 'Download the copy we hold', 'wpcredits-program-manager' )
-				);
-				self::render_withdraw_form( (int) $summary['pending_id'] );
-				break;
+			case WPCPM_Institution_Agreement::SUMMARY_GENERATED:
+				$generated = isset( $row['generated_id'] ) ? (int) $row['generated_id'] : 0;
+
+				return sprintf( self::generated_format(), self::post_date( $generated ), self::template_version( $generated ) );
 
 			case WPCPM_Institution_Agreement::SUMMARY_RETURNED:
-				printf(
-					'<p class="wpcpm-agreement-panel__lede">%s</p>',
-					esc_html__( 'An Administrator returned your agreement, with this note:', 'wpcredits-program-manager' )
-				);
-				self::render_note( $record_id, WPCPM_Institution_Agreement::STATE_RETURNED );
-				self::render_upload_form(
-					$record_id,
-					__( 'Upload the corrected agreement, signed, as a PDF.', 'wpcredits-program-manager' )
-				);
-				self::render_contact( $row, $can_manage );
-				break;
+				return __( 'Upload the corrected agreement, signed, as a PDF.', 'wpcredits-program-manager' );
 
 			case WPCPM_Institution_Agreement::SUMMARY_REVOKED:
-				printf(
-					'<p class="wpcpm-agreement-panel__lede">%s</p>',
-					esc_html__( 'The program revoked this institution\'s agreement. The account reaches this page and nothing else until a new agreement is accepted. The note the program left:', 'wpcredits-program-manager' )
-				);
-				self::render_note( $record_id, WPCPM_Institution_Agreement::STATE_REVOKED );
-				self::render_upload_form(
-					$record_id,
-					__( 'Upload a new signed agreement as a PDF. An Administrator reviews it the same way as the first one.', 'wpcredits-program-manager' )
-				);
-				self::render_contact( $row, $can_manage );
-				break;
-
-			case WPCPM_Institution_Agreement::SUMMARY_ACCEPTED:
-			case WPCPM_Institution_Agreement::SUMMARY_ON_FILE:
-				// Settled institutions returned before this method was reached, so an accepted
-				// document here means the base disagrees with the site. Named as the program's
-				// job rather than the institution's: there is nothing the reader can do.
-				printf(
-					'<p class="wpcpm-agreement-panel__lede">%s</p>',
-					esc_html__( 'This site holds an accepted agreement for your institution, but the program\'s own record does not agree with it yet, so the account stays closed. An Administrator can see the difference and will settle it.', 'wpcredits-program-manager' )
-				);
-				self::render_contact( $row, $can_manage );
-				break;
-
-			default:
-				printf(
-					'<p class="wpcpm-agreement-panel__lede">%s</p>',
-					esc_html__( 'The program has no Collaboration Agreement recorded for your institution. Until it does, this page is everything your account can reach.', 'wpcredits-program-manager' )
-				);
-				self::render_steps( $record_id, $row );
-				self::render_on_file_note( $row, $can_manage );
-				break;
-		}
-	}
-
-	/**
-	 * The three numbered steps, each with the control that does it.
-	 *
-	 * Printed for `none` and for `generated`, which is the same journey one step further
-	 * along. The first step names both routes, because an institution-specific agreement is
-	 * a real choice with a real cost, and a reader who learns about it after generating the
-	 * template has been told too late.
-	 *
-	 * The forms sit inside the steps they belong to rather than under the list, so that the
-	 * numbers mean something: step 1 is a control, step 2 is a thing done on paper, step 3
-	 * is a control. A list of three sentences followed by two unlabeled forms is the same
-	 * information with the ordering taken out of it.
-	 *
-	 * @param string $record_id Institutions record ID.
-	 * @param array  $row       The institution's index row.
-	 */
-	private static function render_steps( $record_id, array $row ) {
-		echo '<ol class="wpcpm-agreement-panel__steps">';
-
-		echo '<li>';
-		printf(
-			'<p class="wpcpm-agreement-panel__step">%s</p>',
-			esc_html__( 'Get the agreement: generate the program\'s template, or upload an agreement of your own. An Administrator reads an institution-specific agreement in full, so that path takes longer.', 'wpcredits-program-manager' )
-		);
-		self::render_generate_form( $record_id, $row );
-		echo '</li>';
-
-		printf(
-			'<li><p class="wpcpm-agreement-panel__step">%s</p></li>',
-			esc_html__( 'Sign it. It needs somebody who can commit the institution.', 'wpcredits-program-manager' )
-		);
-
-		echo '<li>';
-		printf(
-			'<p class="wpcpm-agreement-panel__step">%s</p>',
-			esc_html__( 'Upload the signed PDF here. An Administrator reviews it and you get an email either way.', 'wpcredits-program-manager' )
-		);
-		self::render_upload_form( $record_id, '' );
-		echo '</li>';
-
-		echo '</ol>';
-	}
-
-	/**
-	 * The form that generates the program's template as a print document.
-	 *
-	 * The name is editable and pre-filled from the pipeline index, which is Airtable's `Name`
-	 * as the last sync read it. Editable because the base's spelling is a program manager's
-	 * shorthand often enough ("Univ. Example", a trailing space, an English rendering of a
-	 * name that is signed in its own language) and this string is printed twice on a document
-	 * a rector signs. Pre-filled because an empty box in front of somebody who has never seen
-	 * the agreement is a worse default than a name they can correct.
-	 *
-	 * The language select is drawn only when a second template file exists, so today's single
-	 * English template is not presented as a choice nobody has.
-	 *
-	 * @param string $record_id Institutions record ID.
-	 * @param array  $row       The institution's index row.
-	 */
-	private static function render_generate_form( $record_id, array $row ) {
-		if ( ! self::may_act( $record_id ) ) {
-			return;
+				return __( 'Upload a new signed agreement as a PDF. An Administrator reviews it the same way as the first one.', 'wpcredits-program-manager' );
 		}
 
-		$base      = 'wpcpm-generate-' . sanitize_html_class( $record_id );
-		$name      = trim( (string) ( isset( $row['name'] ) ? $row['name'] : '' ) );
-		$name      = mb_substr( $name, 0, self::MAX_NAME );
-		$languages = (array) WPCPM_Agreement_Template::languages();
-
-		// The record travels on the action URL for a manager and nowhere else. `generate()`
-		// resolves the institution through `resolve_institution()` and then keys the nonce to
-		// what it resolved, and since Phase 3's review that is the only way it can be told:
-		// the posted field it used to read is gone from that class, so a form that sent one
-		// would name an institution nothing there can hear.
-		self::form_start(
-			'wpcpm-agreement-panel__form wpcpm-agreement-panel__form--generate',
-			WPCPM_Agreement_Generate::ACTION_GENERATE,
-			WPCPM_Agreement_Generate::ACTION_GENERATE . '_' . $record_id,
-			__( 'Generating...', 'wpcredits-program-manager' ),
-			false,
-			$record_id
-		);
-
-		printf(
-			'<p class="wpcpm-agreement-panel__field"><label for="%1$s-name">%2$s</label> <input type="text" class="wpcpm-agreement-panel__input" id="%1$s-name" name="wpcpm_agreement_name" value="%3$s" maxlength="%4$d" required /></p>',
-			esc_attr( $base ),
-			esc_html__( 'The institution\'s name, exactly as it should print on the agreement', 'wpcredits-program-manager' ),
-			esc_attr( $name ),
-			(int) self::MAX_NAME
-		);
-
-		if ( count( $languages ) > 1 ) {
-			printf(
-				'<p class="wpcpm-agreement-panel__field"><label for="%1$s-language">%2$s</label> <select class="wpcpm-agreement-panel__input" id="%1$s-language" name="wpcpm_agreement_language">',
-				esc_attr( $base ),
-				esc_html__( 'Language', 'wpcredits-program-manager' )
-			);
-
-			foreach ( $languages as $language ) {
-				printf(
-					'<option value="%1$s">%2$s</option>',
-					esc_attr( $language ),
-					esc_html( $language )
-				);
-			}
-
-			echo '</select></p>';
-		}
-
-		printf(
-			'<button type="submit" class="wpcpm-button">%s</button>',
-			esc_html__( 'Generate the agreement', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<p class="wpcpm-agreement-panel__hint">%s</p>',
-			esc_html__( 'It opens as a page your browser can save as a PDF or print. Nothing is sent to the program until you upload the signed copy.', 'wpcredits-program-manager' )
-		);
-
-		echo '</form>';
-	}
-
-	/**
-	 * "Regenerate the template as they saw it", from a generated document's own record.
-	 *
-	 * The name and the language the document was made with travel as hidden fields, so the
-	 * same three inputs (template version, language, name) produce the same bytes: somebody
-	 * who printed the agreement, lost the file and came back a week later gets the document
-	 * they were reading, not a fresh one under a name a sync has since changed.
-	 *
-	 * The generated post's ID travels with them for the same reason, so a handler that would
-	 * rather rebuild from the post than trust the form has it. The institution does not
-	 * travel as a field at all: `generate()` reads no record from the form, and for a
-	 * manager it comes back on the action URL, where the resolver looks.
-	 *
-	 * @param string $record_id Institutions record ID.
-	 * @param int    $post_id   The generated document's post ID.
-	 */
-	private static function render_regenerate_form( $record_id, $post_id ) {
-		$post_id = (int) $post_id;
-
-		if ( ! $post_id || ! self::may_act( $record_id ) ) {
-			return;
-		}
-
-		self::form_start(
-			'wpcpm-agreement-panel__regenerate',
-			WPCPM_Agreement_Generate::ACTION_GENERATE,
-			WPCPM_Agreement_Generate::ACTION_GENERATE . '_' . $record_id,
-			__( 'Generating...', 'wpcredits-program-manager' ),
-			false,
-			$record_id
-		);
-
-		printf( '<input type="hidden" name="wpcpm_agreement_post" value="%d" />', (int) $post_id );
-		printf(
-			'<input type="hidden" name="wpcpm_agreement_name" value="%s" />',
-			esc_attr( (string) get_post_meta( $post_id, WPCPM_Institution_Agreement::META_NAME_ON_DOCUMENT, true ) )
-		);
-		printf(
-			'<input type="hidden" name="wpcpm_agreement_language" value="%s" />',
-			esc_attr( (string) get_post_meta( $post_id, WPCPM_Institution_Agreement::META_LANGUAGE, true ) )
-		);
-
-		printf(
-			'<button type="submit" class="wpcpm-link-button">%s</button>',
-			esc_html__( 'Open that document again', 'wpcredits-program-manager' )
-		);
-
-		echo '</form>';
+		return '';
 	}
 
 	/**
@@ -1272,8 +969,9 @@ class WPCPM_Institution_Panel {
 			return;
 		}
 
-		$base   = 'wpcpm-upload-' . sanitize_html_class( $record_id );
-		$max_mb = max( 1, (int) WPCPM_Settings::get_value( 'agreement_max_mb', 10 ) );
+		// The manager's upload in wp-admin is this form's one caller (`render_manager_upload()`): the Institution Dashboard
+		// draws its own on the parts (`upload_form_parts()`).
+		$base = self::upload_base( $record_id );
 
 		self::form_start(
 			'wpcpm-agreement-panel__form wpcpm-agreement-panel__form--upload',
@@ -1292,25 +990,19 @@ class WPCPM_Institution_Panel {
 		printf(
 			'<p class="wpcpm-agreement-panel__field"><label for="%1$s-file">%2$s</label> <input type="file" id="%1$s-file" name="wpcpm_agreement_file" accept="application/pdf,.pdf" required /></p>',
 			esc_attr( $base ),
-			esc_html(
-				sprintf(
-					/* translators: %s: the largest upload the site accepts, in megabytes. */
-					__( 'The signed agreement, as a PDF of up to %s MB', 'wpcredits-program-manager' ),
-					number_format_i18n( $max_mb )
-				)
-			)
+			esc_html( self::file_label() )
 		);
 
 		echo '<fieldset class="wpcpm-agreement-panel__choices">';
 		printf(
 			'<legend>%s</legend>',
-			esc_html__( 'Which agreement is this?', 'wpcredits-program-manager' )
+			esc_html( self::kind_legend() )
 		);
 		printf(
 			'<p><label for="%1$s-kind-template"><input type="radio" id="%1$s-kind-template" name="wpcpm_agreement_kind" value="%2$s" checked="checked" /> %3$s</label></p>',
 			esc_attr( $base ),
 			esc_attr( WPCPM_Institution_Agreement::KIND_TEMPLATE ),
-			esc_html__( 'The program\'s template, signed', 'wpcredits-program-manager' )
+			esc_html( self::template_words() )
 		);
 		printf(
 			'<p><label for="%1$s-kind-own"><input type="radio" id="%1$s-kind-own" name="wpcpm_agreement_kind" value="%2$s" /> %3$s</label></p>',
@@ -1330,7 +1022,7 @@ class WPCPM_Institution_Panel {
 		printf(
 			'<p class="wpcpm-agreement-panel__field"><label for="%1$s-signed"><input type="checkbox" id="%1$s-signed" name="wpcpm_agreement_signed" value="1" required /> %2$s</label></p>',
 			esc_attr( $base ),
-			esc_html__( 'This document is signed by somebody who can commit the institution.', 'wpcredits-program-manager' )
+			esc_html( self::signed_words() )
 		);
 
 		printf(
@@ -1435,7 +1127,7 @@ class WPCPM_Institution_Panel {
 	public static function render_download_link( $post_id, $label, $bare = false ) {
 		$post_id = (int) $post_id;
 
-		if ( ! $post_id || ! self::may_act_on_post( $post_id ) ) {
+		if ( ! self::may_download( $post_id ) ) {
 			return;
 		}
 
@@ -1503,7 +1195,7 @@ class WPCPM_Institution_Panel {
 			return;
 		}
 
-		$as_manager = isset( $decision['ground'] ) && WPCPM_Institution_Policy::GROUND_MANAGER === (string) $decision['ground'];
+		$as_manager = self::on_manager_ground( $decision );
 
 		self::form_start(
 			'wpcpm-agreement-panel__form wpcpm-agreement-panel__form--withdraw',
@@ -1519,11 +1211,7 @@ class WPCPM_Institution_Panel {
 			'<button type="submit" class="%1$s" data-wpcpm-confirm="%2$s">%3$s</button>',
 			esc_attr( (string) $button ),
 			esc_attr( self::withdraw_confirm( $post_id, $as_manager ) ),
-			esc_html(
-				$as_manager
-					? __( 'Withdraw it on the institution\'s behalf', 'wpcredits-program-manager' )
-					: __( 'Withdraw it', 'wpcredits-program-manager' )
-			)
+			esc_html( self::withdraw_label( $as_manager ) )
 		);
 
 		echo '</form>';
@@ -1572,147 +1260,1221 @@ class WPCPM_Institution_Panel {
 		return '' !== $name ? $name : $record_id;
 	}
 
-	/**
-	 * The sentence that saves a long-standing partner from signing twice.
-	 *
-	 * Every institution the program can pilot this with signed years ago, so the first thing
-	 * a locked account needs to know is that the program can record what it already holds.
-	 * Not shown to a manager: the manager is the person it is asking for, and the form to do
-	 * it with is a few lines further down the same panel.
-	 *
-	 * @param array $row        The institution's index row.
-	 * @param bool  $can_manage Whether the viewer holds CAP_MANAGE.
+	/*
+	 * The rules and the words both drawings use (Institution Dashboard, Task 21: one helper per rule, today's markup and the
+	 * shared parts' both calling it)
+	 * --------------------------------------------------------------------
 	 */
-	private static function render_on_file_note( array $row, $can_manage ) {
-		if ( $can_manage ) {
-			return;
-		}
 
-		printf(
-			'<p class="wpcpm-agreement-panel__on-file-note">%s</p>',
-			esc_html__( 'If your institution has already signed a Collaboration Agreement with the program, it does not need to sign again. An Administrator can record the copy the program holds, and your account opens as soon as they do.', 'wpcredits-program-manager' )
-		);
-
-		self::render_contact( $row, $can_manage );
+	/**
+	 * Whether this viewer is offered the form that records an agreement the program already holds.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @return bool
+	 */
+	private static function may_record( $record_id ) {
+		return current_user_can( WPCPM_Roles::CAP_MANAGE ) && WPCPM_Mentors_Sync::is_record_id( trim( (string) $record_id ) );
 	}
 
 	/**
-	 * The assigned Administrator's address, when the institution has one.
+	 * Whether this viewer is offered one document's bytes.
 	 *
-	 * Named, never mailed: the assigned Administrator is who an institution writes to, and adding
-	 * them as a recipient of the program's own queue mail is a different decision the design
-	 * spec makes elsewhere and does not make here.
-	 *
-	 * @param array $row        The institution's index row.
-	 * @param bool  $can_manage Whether the viewer holds CAP_MANAGE.
+	 * @param int $post_id Agreement post ID.
+	 * @return bool
 	 */
-	private static function render_contact( array $row, $can_manage ) {
-		if ( $can_manage ) {
-			return;
+	private static function may_download( $post_id ) {
+		return (int) $post_id > 0 && self::may_act_on_post( (int) $post_id );
+	}
+
+	/**
+	 * Whether the policy allowed a decision on the manager ground: the withdraw form's words and the Drive link hang on it.
+	 *
+	 * @param array|null $decision A decision from `WPCPM_Institution_Policy::decide()`.
+	 * @return bool
+	 */
+	public static function on_manager_ground( $decision ) {
+		return is_array( $decision ) && isset( $decision['ground'] ) && WPCPM_Institution_Policy::GROUND_MANAGER === (string) $decision['ground'];
+	}
+
+	/**
+	 * The address every agreement form posts to: `admin-post.php`, with the institution on it for a manager whose
+	 * handler reads no record of its own (`form_start()` says why).
+	 *
+	 * @param string $record The institution, or '' for a form keyed to a document or one that posts its record.
+	 * @return string
+	 */
+	private static function form_url( $record ) {
+		$url    = admin_url( 'admin-post.php' );
+		$record = trim( (string) $record );
+
+		if ( '' !== $record && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			$url = add_query_arg( array( WPCPM_Institution_Roster::ARG_VIEW => $record ), $url );
 		}
 
+		return $url;
+	}
+
+	/**
+	 * The first part of every id the upload form gives its boxes.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @return string
+	 */
+	private static function upload_base( $record_id ) {
+		return 'wpcpm-upload-' . sanitize_html_class( $record_id );
+	}
+
+	/**
+	 * The first part of every id the generate form gives its boxes.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @return string
+	 */
+	private static function generate_base( $record_id ) {
+		return 'wpcpm-generate-' . sanitize_html_class( $record_id );
+	}
+
+	/**
+	 * The first part of every id the on-file form gives its boxes.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @return string
+	 */
+	private static function on_file_base( $record_id ) {
+		return 'wpcpm-on-file-' . sanitize_html_class( $record_id );
+	}
+
+	/**
+	 * The name the generate form offers to print: the index's, trimmed, cut where the handler cuts it.
+	 *
+	 * @param array $row The institution's index row.
+	 * @return string
+	 */
+	private static function generate_name( array $row ) {
+		return mb_substr( trim( (string) ( isset( $row['name'] ) ? $row['name'] : '' ) ), 0, self::MAX_NAME );
+	}
+
+	/**
+	 * The languages the generate form offers, or none when there is only one template to print.
+	 *
+	 * @return string[]
+	 */
+	private static function language_choices() {
+		$languages = (array) WPCPM_Agreement_Template::languages();
+
+		return count( $languages ) > 1 ? array_values( $languages ) : array();
+	}
+
+	/**
+	 * What "Open that document again" posts beside its action: the document, and the name and the language it was made with.
+	 *
+	 * @param int $post_id The generated document's post ID.
+	 * @return array<string, string>
+	 */
+	private static function regenerate_fields( $post_id ) {
+		return array(
+			'wpcpm_agreement_post'     => (string) (int) $post_id,
+			'wpcpm_agreement_name'     => (string) get_post_meta( (int) $post_id, WPCPM_Institution_Agreement::META_NAME_ON_DOCUMENT, true ),
+			'wpcpm_agreement_language' => (string) get_post_meta( (int) $post_id, WPCPM_Institution_Agreement::META_LANGUAGE, true ),
+		);
+	}
+
+	/**
+	 * Which box an outcome refuses, so its sentence can describe that box: `file`, `signed`, `kind`, `name`, `drive`, or
+	 * '' for an outcome that names none (busy, in review, a success).
+	 *
+	 * @param string $status An outcome slug.
+	 * @return string
+	 */
+	private static function refused_box( $status ) {
+		$boxes = array(
+			'agreement-too-big'       => 'file',
+			'agreement-not-pdf'       => 'file',
+			'agreement-no-file'       => 'file',
+			'agreement-file'          => 'file',
+			'agreement-encrypted'     => 'file',
+			'agreement-launch'        => 'file',
+			'agreement-declare'       => 'signed',
+			'agreement-kind'          => 'kind',
+			'agreement-name'          => 'name',
+			'agreement-name-brackets' => 'name',
+			'agreement-link'          => 'drive',
+		);
+
+		return isset( $boxes[ (string) $status ] ) ? $boxes[ (string) $status ] : '';
+	}
+
+	/**
+	 * The id of the box an outcome refuses, on this institution's forms; '' for none. A refused kind leads to the group's
+	 * first option, which is the id the browser can put the focus in.
+	 *
+	 * @param string $status    An outcome slug.
+	 * @param string $record_id Institutions record ID.
+	 * @return string
+	 */
+	private static function refused_id( $status, $record_id ) {
+		switch ( self::refused_box( $status ) ) {
+			case 'file':
+				return self::upload_base( $record_id ) . '-file';
+			case 'signed':
+				return self::upload_base( $record_id ) . '-signed';
+			case 'kind':
+				return WPCPM_UI::choice_id( self::upload_base( $record_id ) . '-kind', WPCPM_Institution_Agreement::KIND_TEMPLATE );
+			case 'name':
+				return self::generate_base( $record_id ) . '-name';
+			case 'drive':
+				return self::on_file_base( $record_id ) . '-drive';
+		}
+
+		return '';
+	}
+
+	/**
+	 * The sentence a box is described by while the block draws the outcome that refused it, or ''.
+	 *
+	 * @param string $box `file`, `signed`, `kind`, `name` or `drive`.
+	 * @return string
+	 */
+	private static function problem_for( $box ) {
+		if ( '' === self::$said || self::refused_box( self::$said ) !== $box ) {
+			return '';
+		}
+
+		$messages = self::messages();
+
+		return isset( $messages[ self::$said ] ) ? (string) $messages[ self::$said ][1] : '';
+	}
+
+	/**
+	 * The assigned Administrator's address and the country it is named for, or null when the panel says to write to the
+	 * Administrator who has been in touch instead.
+	 *
+	 * @param array $row The institution's index row.
+	 * @return array{country: string, email: string}|null
+	 */
+	private static function contact_facts( array $row ) {
 		$country = isset( $row['country'] ) ? (string) $row['country'] : '';
 		$contact = ( '' !== WPCPM_Countries::name_of( $country ) && isset( $row['record_id'] ) ) ? WPCPM_Institution_Assignment::contact_of( (string) $row['record_id'] ) : null;
 
 		if ( null === $contact || '' === trim( (string) $contact['email'] ) ) {
-			printf(
-				'<p class="wpcpm-agreement-panel__contact">%s</p>',
-				esc_html__( 'Write to the Administrator who has been in touch with your institution.', 'wpcredits-program-manager' )
-			);
-
-			return;
+			return null;
 		}
 
-		printf(
-			'<p class="wpcpm-agreement-panel__contact">%s</p>',
-			esc_html(
-				sprintf(
-					/* translators: 1: country name, 2: the contact's email address. */
-					__( 'Your program contact for %1$s is %2$s.', 'wpcredits-program-manager' ),
-					WPCPM_Countries::name_of( $country ),
-					$contact['email']
-				)
-			)
+		return array(
+			'country' => WPCPM_Countries::name_of( $country ),
+			'email'   => (string) $contact['email'],
 		);
 	}
 
 	/**
-	 * A manager's note, verbatim, dated and signed.
-	 *
-	 * Verbatim is the point: the note is why the document came back, and a summary of it
-	 * would send the institution round the same loop. Stored as plain text by the handler
-	 * that wrote it, so escaping and then adding paragraphs is the whole treatment.
+	 * The note an Administrator left on the newest document in a state, who left it and on which day; null when there is
+	 * no such document.
 	 *
 	 * @param string $record_id Institutions record ID.
 	 * @param string $state     `STATE_RETURNED` or `STATE_REVOKED`.
+	 * @return array{note: string, who: string, when: string}|null
 	 */
-	private static function render_note( $record_id, $state ) {
+	private static function note_facts( $record_id, $state ) {
 		$post = self::latest_post( $record_id, $state );
 
 		if ( ! $post instanceof WP_Post ) {
-			return;
+			return null;
 		}
 
-		$note = trim( (string) get_post_meta( $post->ID, WPCPM_Institution_Agreement::META_NOTE, true ) );
 		$who  = get_userdata( (int) get_post_meta( $post->ID, WPCPM_Institution_Agreement::META_DECIDED_BY, true ) );
 		$when = WPCPM_Dates::day( (string) get_post_meta( $post->ID, WPCPM_Institution_Agreement::META_DECIDED_AT, true ) );
 
-		echo '<blockquote class="wpcpm-agreement-panel__note">';
-
-		if ( '' !== $note ) {
-			echo wp_kses_post( wpautop( esc_html( $note ) ) );
-		} else {
-			printf( '<p>%s</p>', esc_html__( 'No note was left.', 'wpcredits-program-manager' ) );
-		}
-
-		printf(
-			'<footer class="wpcpm-agreement-panel__note-by">%s</footer>',
-			esc_html(
-				sprintf(
-					/* translators: 1: the Administrator's name, 2: date. */
-					__( '%1$s, %2$s', 'wpcredits-program-manager' ),
-					$who instanceof WP_User ? $who->display_name : __( 'An Administrator', 'wpcredits-program-manager' ),
-					'' !== $when ? $when : self::post_date( $post->ID )
-				)
-			)
+		return array(
+			'note' => trim( (string) get_post_meta( $post->ID, WPCPM_Institution_Agreement::META_NOTE, true ) ),
+			'who'  => $who instanceof WP_User ? (string) $who->display_name : __( 'An Administrator', 'wpcredits-program-manager' ),
+			'when' => '' !== $when ? $when : self::post_date( $post->ID ),
 		);
-
-		echo '</blockquote>';
 	}
 
 	/**
-	 * When the panel's numbers were last checked against the base.
-	 *
-	 * The agreement option carries its own read time, which is the one that matters here:
-	 * the pipeline index can be fresh while this institution's gate was decided by a run
-	 * hours earlier, and a page that borrowed the index's timestamp would say so wrongly.
+	 * When the agreement's state was last read from the base, or 0 when it has not been.
 	 *
 	 * @param string $record_id Institutions record ID.
+	 * @return int
 	 */
-	private static function render_read_line( $record_id ) {
-		$option  = WPCPM_Institution_Agreement::option( $record_id );
-		$updated = ( is_array( $option ) && ! empty( $option['updated'] ) ) ? (int) $option['updated'] : 0;
+	private static function read_at( $record_id ) {
+		$option = WPCPM_Institution_Agreement::option( $record_id );
 
-		if ( ! $updated ) {
-			printf(
-				'<p class="wpcpm-agreement-panel__read">%s</p>',
-				esc_html__( 'The agreement state has not been read from the program\'s records yet.', 'wpcredits-program-manager' )
-			);
+		return ( is_array( $option ) && ! empty( $option['updated'] ) ) ? (int) $option['updated'] : 0;
+	}
 
-			return;
+	/**
+	 * The words both drawings print, each said once.
+	 * --------------------------------------------------------------------
+	 */
+
+	/**
+	 * The sentence a generated document's state says: 1 its day, 2 its template.
+	 *
+	 * @return string
+	 */
+	private static function generated_format() {
+		/* translators: 1: date the template was generated, 2: template version. */
+		return __( 'You generated the program\'s agreement on %1$s (template %2$s). It is not signed and uploaded yet.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The sentence a copy waiting for review says: the day it arrived.
+	 *
+	 * @return string
+	 */
+	private static function received_format() {
+		/* translators: %s: date the signed agreement was received. */
+		return __( 'We received your signed agreement on %s. An Administrator will review it and you will get an email either way.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The first line of a state that has one of its own: returned, revoked, and a base that disagrees with the site.
+	 *
+	 * @param string $state A summary state.
+	 * @return string
+	 */
+	private static function lede_text( $state ) {
+		switch ( $state ) {
+			case WPCPM_Institution_Agreement::SUMMARY_RETURNED:
+				return __( 'An Administrator returned your agreement, with this note:', 'wpcredits-program-manager' );
+
+			case WPCPM_Institution_Agreement::SUMMARY_REVOKED:
+				return __( 'The program revoked this institution\'s agreement. Until a new agreement is accepted, its representatives reach only the Overview and the Agreement, and its tutors no page. The note the program left:', 'wpcredits-program-manager' );
 		}
 
-		printf(
-			'<p class="wpcpm-agreement-panel__read">%s</p>',
-			esc_html(
-				sprintf(
-					/* translators: 1: date and time, 2: human-readable time difference. */
-					__( 'The agreement\'s state was read from the program records on %1$s (%2$s ago).', 'wpcredits-program-manager' ),
-					WPCPM_Dates::moment( $updated ),
-					human_time_diff( $updated, time() )
-				)
+		return __( 'This site holds an accepted agreement for your institution, but the program\'s own record does not agree with it yet, so the account stays closed. An Administrator can see the difference and will settle it.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The three steps, in their order.
+	 *
+	 * @return string[]
+	 */
+	private static function steps() {
+		return array(
+			__( 'Get the agreement: generate the program\'s template, or upload an agreement of your own. An Administrator reads an institution-specific agreement in full, so that path takes longer.', 'wpcredits-program-manager' ),
+			__( 'Sign it. It needs somebody who can commit the institution.', 'wpcredits-program-manager' ),
+			__( 'Upload the signed PDF here. An Administrator reviews it and you get an email either way.', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
+	 * What generating does, said under the form today and above it on the parts.
+	 *
+	 * @return string
+	 */
+	private static function generate_hint() {
+		return __( 'It opens as a page your browser can save as a PDF or print. Nothing is sent to the program until you upload the signed copy.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The link to a document waiting for review, as the school's panel words it.
+	 *
+	 * @return string
+	 */
+	private static function held_label() {
+		return __( 'Download the copy we hold', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The file box's label: the size this site accepts.
+	 *
+	 * @return string
+	 */
+	private static function file_label() {
+		return sprintf(
+			/* translators: %s: the largest upload the site accepts, in megabytes. */
+			__( 'The signed agreement, as a PDF of up to %s MB', 'wpcredits-program-manager' ),
+			number_format_i18n( max( 1, (int) WPCPM_Settings::get_value( 'agreement_max_mb', 10 ) ) )
+		);
+	}
+
+	/**
+	 * The question the kind of agreement answers.
+	 *
+	 * @return string
+	 */
+	private static function kind_legend() {
+		return __( 'Which agreement is this?', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The program's template, as an option.
+	 *
+	 * @return string
+	 */
+	private static function template_words() {
+		return __( 'The program\'s template, signed', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The signer's box, its own question.
+	 *
+	 * @return string
+	 */
+	private static function signed_words() {
+		return __( 'This document is signed by somebody who can commit the institution.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * Withdraw's words, for whoever the policy says is pressing it.
+	 *
+	 * @param bool $as_manager Whether the policy allowed it on the manager ground.
+	 * @return string
+	 */
+	private static function withdraw_label( $as_manager ) {
+		return $as_manager
+			? __( 'Withdraw it on the institution\'s behalf', 'wpcredits-program-manager' )
+			: __( 'Withdraw it', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The sentence that saves a long-standing partner from signing twice.
+	 *
+	 * @return string
+	 */
+	private static function on_file_note() {
+		return __( 'If your institution has already signed a Collaboration Agreement with the program, it does not need to sign again. An Administrator can record the copy the program holds, and your account opens as soon as they do.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The assigned Administrator's line: 1 the country, 2 the address.
+	 *
+	 * @return string
+	 */
+	private static function contact_format() {
+		/* translators: 1: country name, 2: the contact's email address. */
+		return __( 'Your program contact for %1$s is %2$s.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The line for a school with no assigned Administrator's address.
+	 *
+	 * @return string
+	 */
+	private static function no_contact() {
+		return __( 'Write to the Administrator who has been in touch with your institution.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * Who left a note, and when: 1 the name, 2 the day.
+	 *
+	 * @return string
+	 */
+	private static function note_by_format() {
+		/* translators: 1: the Administrator's name, 2: date. */
+		return __( '%1$s, %2$s', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The line for a document that came back with no note.
+	 *
+	 * @return string
+	 */
+	private static function no_note() {
+		return __( 'No note was left.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The read line: 1 the moment, 2 how long ago.
+	 *
+	 * @return string
+	 */
+	private static function read_format() {
+		/* translators: 1: date and time, 2: human-readable time difference. */
+		return __( 'The agreement\'s state was read from the program records on %1$s (%2$s ago).', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The read line before the state was ever read.
+	 *
+	 * @return string
+	 */
+	private static function unread() {
+		return __( 'The agreement state has not been read from the program\'s records yet.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The on-file form's heading.
+	 *
+	 * @return string
+	 */
+	private static function on_file_title() {
+		return __( 'Record an agreement the program already holds', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * What the on-file form is for.
+	 *
+	 * @return string
+	 */
+	private static function on_file_lede() {
+		return __( 'For an institution that signed before this site existed. Airtable is written first; the account opens on the next page load.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The Drive box's example.
+	 *
+	 * @return string
+	 */
+	private static function drive_placeholder() {
+		return __( 'https://drive.google.com/...', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The location box's example.
+	 *
+	 * @return string
+	 */
+	private static function where_placeholder() {
+		return __( 'second folder, the 2025 copy', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * What Record it asks before it posts.
+	 *
+	 * @param string $name The institution's name.
+	 * @return string
+	 */
+	private static function on_file_confirm( $name ) {
+		return sprintf(
+			/* translators: %s: institution name. */
+			__( 'Record a signed agreement on file for %s? This opens their account on the site and sets Agreement Status to On file in Airtable.', 'wpcredits-program-manager' ),
+			$name
+		);
+	}
+
+	/*
+	 * The shared parts' drawing (Institution Dashboard, Task 21, design 6.5)
+	 * --------------------------------------------------------------------
+	 */
+
+	/**
+	 * The view's one block on the parts, which the panel and the card both draw in: a section with no head carrying the
+	 * anchor, the outcome first (a refusal a link to the box it refused, when the block holds that box), then the body.
+	 * The outcome is taken once, before the body is drawn, so the form holding the refused box can describe it.
+	 *
+	 * @param string   $record_id Institutions record ID.
+	 * @param callable $draw      Prints the body.
+	 */
+	public static function parts_block( $record_id, callable $draw ) {
+		$status     = self::take_status();
+		self::$said = $status;
+		self::$kept = self::kept_forms( $record_id );
+
+		ob_start();
+
+		try {
+			$draw();
+		} finally {
+			$body       = (string) ob_get_clean();
+			self::$said = '';
+			self::$kept = array();
+		}
+
+		$lead = self::refused_id( $status, $record_id );
+
+		if ( '' === $lead || false === strpos( $body, ' id="' . $lead . '"' ) ) {
+			$lead = '';
+		}
+
+		ob_start();
+		self::print_flash( $status, $lead );
+		$said = (string) ob_get_clean();
+
+		// A refusal of a form the block draws is said in that form, after its own heading and intro and directly over its
+		// first field (Gate B round 2, F2); every other outcome at the block's top. The marks print nothing.
+		$mark = self::outcome_mark( self::outcome_form( $status ) );
+
+		if ( '' !== $said && '' !== $mark && false !== strpos( $body, $mark ) ) {
+			$body = str_replace( $mark, $said, $body );
+			$said = '';
+		}
+
+		$body = (string) preg_replace( '/<!--wpcpm-outcome:[a-z-]+-->/', '', $body );
+
+		printf( '<section class="wpcpm-ui-block" id="%s">', esc_attr( self::ANCHOR ) );
+		echo $said . $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Each piece is escaped where it is drawn; the outcome by WPCPM_Dashboard_Card::message().
+		echo '</section>';
+	}
+
+	/**
+	 * Where in a form its refusal is said: an inert mark the block replaces with the refusal, or removes (Gate B round 2,
+	 * F2). '' for no form.
+	 *
+	 * @param string $form `upload`, `generate`, `on-file` or ''.
+	 * @return string
+	 */
+	private static function outcome_mark( $form ) {
+		return '' !== (string) $form ? '<!--wpcpm-outcome:' . sanitize_key( (string) $form ) . '-->' : '';
+	}
+
+	/**
+	 * The form a refusal is about: the upload's (its file, its kind, its tick, a copy already waiting), the generate
+	 * form's (its name, an agreement standing or waiting, a record not saved) or the program's on-file record (its link,
+	 * an agreement standing, a school not in the records). '' for a success and for a refusal no one form on this block
+	 * owns (a busy record, a write that failed, a decision made elsewhere), which the block says at its top.
+	 *
+	 * @param string $status An outcome slug.
+	 * @return string `upload`, `generate`, `on-file` or ''.
+	 */
+	private static function outcome_form( $status ) {
+		$forms = array(
+			'upload'   => array( 'agreement-too-big', 'agreement-not-pdf', 'agreement-no-file', 'agreement-file', 'agreement-encrypted', 'agreement-launch', 'agreement-in-review', 'agreement-declare', 'agreement-kind' ),
+			'generate' => array( 'agreement-name', 'agreement-name-brackets', 'agreement-generate-in-review', 'agreement-generate-standing', 'agreement-generate-not-saved' ),
+			'on-file'  => array( 'agreement-link', 'agreement-standing', 'agreement-unknown' ),
+		);
+
+		foreach ( $forms as $form => $statuses ) {
+			if ( in_array( (string) $status, $statuses, true ) ) {
+				return $form;
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * What each of this institution's refused forms kept for its one redraw, taken once (`WPCPM_Flash::kept()`, the
+	 * mechanism the invite form keeps its typing by): the upload's kind, the generate form's name, the on-file record's
+	 * three boxes (Task 21, fix round 1).
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @return array<string, array> The form's key to its kept values.
+	 */
+	private static function kept_forms( $record_id ) {
+		$forms = array(
+			'upload'  => WPCPM_Institution_Agreement::KEPT_UPLOAD,
+			'on-file' => WPCPM_Institution_Agreement::KEPT_ON_FILE,
+		);
+
+		if ( class_exists( 'WPCPM_Agreement_Generate' ) && defined( 'WPCPM_Agreement_Generate::KEPT_GENERATE' ) ) {
+			$forms['generate'] = WPCPM_Agreement_Generate::KEPT_GENERATE;
+		}
+
+		$out = array();
+
+		foreach ( $forms as $key => $prefix ) {
+			$kept        = WPCPM_Flash::kept( $prefix . $record_id );
+			$out[ $key ] = $kept['values'];
+		}
+
+		return $out;
+	}
+
+	/**
+	 * One kept value of a refused form, or null when the form kept none.
+	 *
+	 * @param string $form  upload, generate or on-file.
+	 * @param string $field The posted field.
+	 * @return string|null
+	 */
+	private static function kept_value( $form, $field ) {
+		$value = self::$kept[ $form ][ $field ] ?? null;
+
+		return is_scalar( $value ) ? (string) $value : null;
+	}
+
+	/**
+	 * The banner's sentences for an Administrator, as one note set apart from the school's own words: the parts' note in
+	 * its paragraph form, the part for a remark that is not the card's own text. The sentences are the ones the Overview's
+	 * row reads (`WPCPM_Institutions_Dashboard::banner_sentences()`).
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @return string Escaped markup, or ''.
+	 */
+	private static function banner_parts( $record_id ) {
+		if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
+			return '';
+		}
+
+		$sentences = (array) WPCPM_Institutions_Dashboard::banner_sentences( (string) $record_id );
+
+		return array() === $sentences ? '' : WPCPM_UI::note( implode( ' ', $sentences ) );
+	}
+
+	/**
+	 * A sentence with its values put in: the words escaped, each value escaped and drawn whole (a day) or as it is (the sheet
+	 * breaks a long name or address where it would overflow). `%s` and `%1$s` are read; nothing else is.
+	 *
+	 * @param string $format The sentence, plain text.
+	 * @param array  $values Each `array( text, 'whole' | '' )`, in the placeholders' numbering.
+	 * @return string Escaped markup.
+	 */
+	public static function fill( $format, array $values ) {
+		$pieces = preg_split( '/(%(?:\d+\$)?s)/', (string) $format, -1, PREG_SPLIT_DELIM_CAPTURE );
+		$out    = '';
+		$next   = 0;
+
+		foreach ( (array) $pieces as $n => $piece ) {
+			if ( 0 === $n % 2 ) {
+				$out .= esc_html( $piece );
+				continue;
+			}
+
+			$at = 1 === preg_match( '/^%(\d+)\$s$/', $piece, $m ) ? (int) $m[1] - 1 : $next;
+			++$next;
+
+			$value = isset( $values[ $at ] ) ? (array) $values[ $at ] : array( '', '' );
+			$text  = (string) ( $value[0] ?? '' );
+			$kind  = (string) ( $value[1] ?? '' );
+
+			if ( 'whole' === $kind ) {
+				$out .= WPCPM_UI::whole( $text );
+			} else {
+				$out .= esc_html( $text );
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * A state's first line: its tag leading, when it has one, then its sentence.
+	 *
+	 * @param string $words The tag's words, or '' for none.
+	 * @param string $tone  red, amber or green.
+	 * @param string $html  The sentence, escaped.
+	 * @return string Escaped markup.
+	 */
+	public static function lede_parts( $words, $tone, $html ) {
+		return WPCPM_UI::intro( '', '', '', ( '' !== $words ? WPCPM_UI::tag( $words, $tone ) . ' ' : '' ) . $html );
+	}
+
+	/**
+	 * Hidden fields, each escaped.
+	 *
+	 * @param array<string, string> $fields Name to value.
+	 * @return string
+	 */
+	private static function hidden( array $fields ) {
+		$out = '';
+
+		foreach ( $fields as $name => $value ) {
+			$out .= '<input type="hidden" name="' . esc_attr( (string) $name ) . '" value="' . esc_attr( (string) $value ) . '">';
+		}
+
+		return $out;
+	}
+
+	/**
+	 * A form's opening on the parts: what `form_start()` prints, the once guard and its busy words, with the parts' nonce
+	 * (no id) and the referer.
+	 *
+	 * @param string $action       The `admin_post_` action name.
+	 * @param string $nonce_action The nonce action.
+	 * @param string $busy         What the pressed control says while the request is in flight.
+	 * @param bool   $multipart    Whether the form carries a file.
+	 * @param string $record       As `form_start()`.
+	 * @return string Escaped markup.
+	 */
+	private static function form_open_parts( $action, $nonce_action, $busy, $multipart, $record = '' ) {
+		return sprintf(
+			'<form method="post" action="%1$s" enctype="%2$s" data-wpcpm-once data-wpcpm-busy="%3$s">',
+			esc_url( self::form_url( $record ) ),
+			esc_attr( $multipart ? 'multipart/form-data' : 'application/x-www-form-urlencoded' ),
+			esc_attr( $busy )
+		) . WPCPM_UI::nonce( $nonce_action ) . self::hidden( array( 'action' => $action ) );
+	}
+
+	/**
+	 * One action row of the pieces given, or '' when none is drawn.
+	 *
+	 * @param string[] $pieces Buttons, links or forms holding one, escaped; '' for a piece not drawn.
+	 * @return string
+	 */
+	public static function row_of( array $pieces ) {
+		$pieces = array_values(
+			array_filter(
+				$pieces,
+				static function ( $piece ) {
+					return '' !== (string) $piece;
+				}
 			)
 		);
+
+		return array() === $pieces ? '' : WPCPM_UI::actions( $pieces );
+	}
+
+	/**
+	 * A document's bytes as the secondary button, or '' for a viewer the policy refuses.
+	 *
+	 * @param int    $post_id Agreement post ID.
+	 * @param string $label   The words.
+	 * @return string Escaped markup.
+	 */
+	public static function download_button( $post_id, $label ) {
+		if ( ! self::may_download( (int) $post_id ) ) {
+			return '';
+		}
+
+		return WPCPM_UI::button(
+			array(
+				'label' => $label,
+				'kind'  => 'secondary',
+				'href'  => self::download_url( (int) $post_id ),
+				'rel'   => 'nofollow',
+				'side'  => 'front',
+			)
+		);
+	}
+
+	/**
+	 * Withdraw on the parts, the danger button, today's question; '' for a viewer the policy refuses.
+	 *
+	 * @param int $post_id Agreement post ID.
+	 * @return string Escaped markup.
+	 */
+	public static function withdraw_form_parts( $post_id ) {
+		$post_id  = (int) $post_id;
+		$decision = $post_id ? self::post_decision( $post_id ) : null;
+
+		if ( null === $decision ) {
+			return '';
+		}
+
+		$as_manager = self::on_manager_ground( $decision );
+
+		return self::form_open_parts( WPCPM_Institution_Agreement::ACTION_WITHDRAW, WPCPM_Institution_Agreement::ACTION_WITHDRAW . '_' . $post_id, __( 'Withdrawing...', 'wpcredits-program-manager' ), false )
+			. self::hidden( array( 'wpcpm_agreement_post' => (string) $post_id ) )
+			. WPCPM_UI::button(
+				array(
+					'label'   => self::withdraw_label( $as_manager ),
+					'kind'    => 'danger',
+					'confirm' => self::withdraw_confirm( $post_id, $as_manager ),
+					'side'    => 'front',
+				)
+			)
+			. '</form>';
+	}
+
+	/**
+	 * The upload form on the parts: the kind a choice group, the signer's box its own question, the file box, Upload the
+	 * signed agreement. It posts what today's form posts; a refused box is described by its sentence.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @param string $intro     A sentence above the form, or ''.
+	 * @return string Escaped markup, or '' for a viewer the policy refuses.
+	 */
+	public static function upload_form_parts( $record_id, $intro = '' ) {
+		$record_id = trim( (string) $record_id );
+
+		if ( ! self::may_act( $record_id ) ) {
+			return '';
+		}
+
+		$base = self::upload_base( $record_id );
+		$out  = self::form_open_parts( WPCPM_Institution_Agreement::ACTION_UPLOAD, WPCPM_Institution_Agreement::ACTION_UPLOAD . '_' . $record_id, __( 'Uploading...', 'wpcredits-program-manager' ), true )
+			. self::hidden( array( 'wpcpm_agreement_record' => $record_id ) );
+
+		if ( '' !== trim( (string) $intro ) ) {
+			$out .= WPCPM_UI::intro( (string) $intro );
+		}
+
+		$out .= self::outcome_mark( 'upload' );
+
+		// Today's second option is one sentence; on the parts its first half is the option and its second the hint.
+		$own = array(
+			'label' => __( 'An agreement of our own, signed', 'wpcredits-program-manager' ),
+			'hint'  => __( 'An Administrator reads this one in full, so it takes longer.', 'wpcredits-program-manager' ),
+		);
+
+		$out .= WPCPM_UI::choices(
+			array(
+				'id'            => $base . '-kind',
+				'legend'        => self::kind_legend(),
+				'name'          => 'wpcpm_agreement_kind',
+				'type'          => 'radio',
+				'options'       => array(
+					WPCPM_Institution_Agreement::KIND_TEMPLATE => self::template_words(),
+					WPCPM_Institution_Agreement::KIND_OWN => $own,
+				),
+				'checked'       => self::kept_kind(),
+				'group_problem' => self::problem_for( 'kind' ),
+			)
+		);
+
+		// The companion first, as today: the ticked box overwrites it, an unticked one leaves `0` (render_upload_form()).
+		$out .= self::hidden( array( 'wpcpm_agreement_signed' => '0' ) );
+		$out .= WPCPM_UI::choices(
+			array(
+				'id'      => $base . '-signed',
+				'name'    => 'wpcpm_agreement_signed',
+				'type'    => 'checkbox',
+				'options' => array( '1' => self::signed_words() ),
+				'need'    => 'required',
+				'problem' => self::problem_for( 'signed' ),
+			)
+		);
+		$out .= WPCPM_UI::file(
+			array(
+				'id'      => $base . '-file',
+				'name'    => 'wpcpm_agreement_file',
+				'label'   => self::file_label(),
+				'accept'  => 'application/pdf,.pdf',
+				'need'    => 'required',
+				'problem' => self::problem_for( 'file' ),
+			)
+		);
+
+		return $out . WPCPM_UI::actions(
+			array(
+				WPCPM_UI::button(
+					array(
+						'label' => __( 'Upload the signed agreement', 'wpcredits-program-manager' ),
+						'side'  => 'front',
+					)
+				),
+			)
+		) . '</form>';
+	}
+
+	/**
+	 * The kind a refused upload kept, when it is one a form may declare; today's default, the template, otherwise.
+	 *
+	 * @return string
+	 */
+	private static function kept_kind() {
+		$kind = self::kept_value( 'upload', 'wpcpm_agreement_kind' );
+
+		return in_array( $kind, array( WPCPM_Institution_Agreement::KIND_TEMPLATE, WPCPM_Institution_Agreement::KIND_OWN ), true ) ? (string) $kind : WPCPM_Institution_Agreement::KIND_TEMPLATE;
+	}
+
+	/**
+	 * The generate form on the parts: what it does, the institution's name (its label and hint), the language when there is
+	 * a choice, Generate the agreement. It posts what today's form posts, to the same address.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @param array  $row       The institution's index row.
+	 * @return string Escaped markup, or '' for a viewer the policy refuses.
+	 */
+	private static function generate_form_parts( $record_id, array $row ) {
+		if ( ! self::may_act( $record_id ) ) {
+			return '';
+		}
+
+		$base      = self::generate_base( $record_id );
+		$languages = self::language_choices();
+		$kept      = self::kept_value( 'generate', 'wpcpm_agreement_name' );
+		$out       = self::form_open_parts( WPCPM_Agreement_Generate::ACTION_GENERATE, WPCPM_Agreement_Generate::ACTION_GENERATE . '_' . $record_id, __( 'Generating...', 'wpcredits-program-manager' ), false, $record_id )
+			. self::outcome_mark( 'generate' )
+			. WPCPM_UI::field(
+				array(
+					'id'      => $base . '-name',
+					'name'    => 'wpcpm_agreement_name',
+					'label'   => __( 'The institution\'s name', 'wpcredits-program-manager' ),
+					'hint'    => __( 'Exactly as it should print on the agreement.', 'wpcredits-program-manager' ),
+					'value'   => null !== $kept ? $kept : self::generate_name( $row ),
+					'need'    => 'required',
+					'attrs'   => array( 'maxlength' => (string) self::MAX_NAME ),
+					'problem' => self::problem_for( 'name' ),
+				)
+			);
+
+		if ( array() !== $languages ) {
+			$out .= WPCPM_UI::field(
+				array(
+					'type'    => 'select',
+					'id'      => $base . '-language',
+					'name'    => 'wpcpm_agreement_language',
+					'label'   => __( 'Language', 'wpcredits-program-manager' ),
+					'options' => array_combine( $languages, $languages ),
+				)
+			);
+		}
+
+		// What generating does follows its button, as today, where "It" is the agreement just asked for.
+		return $out . WPCPM_UI::actions(
+			array(
+				WPCPM_UI::button(
+					array(
+						'label' => __( 'Generate the agreement', 'wpcredits-program-manager' ),
+						'side'  => 'front',
+					)
+				),
+			)
+		) . WPCPM_UI::intro( self::generate_hint(), 'muted' ) . '</form>';
+	}
+
+	/**
+	 * "Open that document again" on the parts, the secondary button, posting what today's does.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @param int    $post_id   The generated document's post ID.
+	 * @return string Escaped markup, or ''.
+	 */
+	private static function regenerate_form_parts( $record_id, $post_id ) {
+		$post_id = (int) $post_id;
+
+		if ( ! $post_id || ! self::may_act( $record_id ) ) {
+			return '';
+		}
+
+		return self::form_open_parts( WPCPM_Agreement_Generate::ACTION_GENERATE, WPCPM_Agreement_Generate::ACTION_GENERATE . '_' . $record_id, __( 'Generating...', 'wpcredits-program-manager' ), false, $record_id )
+			. self::hidden( self::regenerate_fields( $post_id ) )
+			. WPCPM_UI::actions(
+				array(
+					WPCPM_UI::button(
+						array(
+							'label' => __( 'Open that document again', 'wpcredits-program-manager' ),
+							'kind'  => 'secondary',
+							'side'  => 'front',
+						)
+					),
+				)
+			)
+			. '</form>';
+	}
+
+	/**
+	 * Recording an agreement the program already holds, on the parts: its heading and what it is for, the Drive link
+	 * (Required), the day it was signed and where it is (Optional), Record it with today's question. It posts what today's
+	 * form posts.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @return string Escaped markup, or '' for anybody but an Administrator.
+	 */
+	private static function on_file_form_parts( $record_id ) {
+		$record_id = trim( (string) $record_id );
+
+		if ( ! self::may_record( $record_id ) ) {
+			return '';
+		}
+
+		$base = self::on_file_base( $record_id );
+
+		return '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">'
+			. WPCPM_UI::nonce( WPCPM_Institution_Agreement::ACTION_ON_FILE . '_' . $record_id )
+			. self::hidden(
+				array(
+					'action'                 => WPCPM_Institution_Agreement::ACTION_ON_FILE,
+					'wpcpm_agreement_record' => $record_id,
+				)
+			)
+			// An h3, under the view's h2: the block has no head of its own (as Semester reports' in-view headings).
+			. WPCPM_UI::heading( self::on_file_title(), 'h3' )
+			. WPCPM_UI::intro( self::on_file_lede() )
+			. self::outcome_mark( 'on-file' )
+			. WPCPM_UI::field(
+				array(
+					'type'    => 'url',
+					'id'      => $base . '-drive',
+					'name'    => 'wpcpm_agreement_drive',
+					'label'   => __( 'Drive link to the folder or the file', 'wpcredits-program-manager' ),
+					'value'   => (string) self::kept_value( 'on-file', 'wpcpm_agreement_drive' ),
+					'need'    => 'required',
+					'attrs'   => array( 'placeholder' => self::drive_placeholder() ),
+					'problem' => self::problem_for( 'drive' ),
+				)
+			)
+			. WPCPM_UI::field(
+				array(
+					'type'  => 'date',
+					'id'    => $base . '-signed',
+					'name'  => 'wpcpm_agreement_signed_on',
+					'label' => __( 'Date signed', 'wpcredits-program-manager' ),
+					'value' => (string) self::kept_value( 'on-file', 'wpcpm_agreement_signed_on' ),
+					'need'  => 'optional',
+				)
+			)
+			. WPCPM_UI::field(
+				array(
+					'id'    => $base . '-where',
+					'name'  => 'wpcpm_agreement_where',
+					'label' => __( 'Where it is, in one line', 'wpcredits-program-manager' ),
+					'value' => (string) self::kept_value( 'on-file', 'wpcpm_agreement_where' ),
+					'need'  => 'optional',
+					'attrs' => array(
+						'maxlength'   => (string) (int) WPCPM_Institution_Agreement::MAX_LOCATION,
+						'placeholder' => self::where_placeholder(),
+					),
+				)
+			)
+			. WPCPM_UI::actions(
+				array(
+					WPCPM_UI::button(
+						array(
+							'label'   => __( 'Record it', 'wpcredits-program-manager' ),
+							'confirm' => self::on_file_confirm( self::institution_name( $record_id ) ),
+							'side'    => 'front',
+						)
+					),
+				)
+			)
+			. '</form>';
+	}
+
+	/**
+	 * The already-signed note and the assigned Administrator's line, for the school's own people; nothing for an
+	 * Administrator, who is the person they point at.
+	 *
+	 * @param array $row        The institution's index row.
+	 * @param bool  $can_manage Whether the viewer holds CAP_MANAGE.
+	 * @param bool  $note       Whether the already-signed note comes first.
+	 * @return string Escaped markup.
+	 */
+	private static function school_lines( array $row, $can_manage, $note ) {
+		if ( $can_manage ) {
+			return '';
+		}
+
+		$contact = self::contact_facts( $row );
+
+		return ( $note ? WPCPM_UI::intro( self::on_file_note() ) : '' )
+			. WPCPM_UI::intro(
+				'',
+				'',
+				'',
+				null === $contact ? esc_html( self::no_contact() ) : self::fill(
+					self::contact_format(),
+					array(
+						array( $contact['country'], '' ),
+						array( $contact['email'], '' ),
+					)
+				)
+			);
+	}
+
+	/**
+	 * The note an Administrator left, as a quotation, then who left it and on which day.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @param string $state     `STATE_RETURNED` or `STATE_REVOKED`.
+	 * @return string Escaped markup.
+	 */
+	private static function note_parts( $record_id, $state ) {
+		$facts = self::note_facts( $record_id, $state );
+
+		if ( null === $facts ) {
+			return '';
+		}
+
+		return ( '' !== $facts['note'] ? WPCPM_UI::note( $facts['note'], 'blockquote' ) : WPCPM_UI::intro( self::no_note() ) )
+			. WPCPM_UI::intro(
+				'',
+				'muted',
+				'',
+				self::fill(
+					self::note_by_format(),
+					array(
+						array( $facts['who'], '' ),
+						array( $facts['when'], 'whole' ),
+					)
+				)
+			);
+	}
+
+	/**
+	 * The read line on the parts, its moment whole.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @return string Escaped markup.
+	 */
+	private static function read_html( $record_id ) {
+		$updated = self::read_at( $record_id );
+
+		if ( ! $updated ) {
+			return esc_html( self::unread() );
+		}
+
+		return self::fill(
+			self::read_format(),
+			array(
+				array( WPCPM_Dates::moment( $updated ), 'whole' ),
+				array( human_time_diff( $updated, time() ), '' ),
+			)
+		);
+	}
+
+	/**
+	 * The three steps, each form inside the step it carries out, as today's `render_steps()` draws them: step 1 the
+	 * generate form, step 2 its sentence alone, step 3 the upload form (Task 21, fix round 1).
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @param array  $row       The institution's index row.
+	 * @param string $again     Open that document again, escaped, or ''.
+	 * @return string Escaped markup.
+	 */
+	private static function steps_parts( $record_id, array $row, $again ) {
+		$steps = self::steps();
+
+		return WPCPM_UI::checklist(
+			array(
+				array(
+					'text' => $steps[0],
+					'body' => $again . self::generate_form_parts( $record_id, $row ),
+				),
+				$steps[1],
+				array(
+					'text' => $steps[2],
+					'body' => self::upload_form_parts( $record_id, '' ),
+				),
+			),
+			true
+		);
+	}
+
+	/**
+	 * One state's words and controls on the parts (design 6.5): the tag leading where the state has one, its sentence,
+	 * the steps as a list of sentences, the forms, the note, the copy and the way to take it back.
+	 *
+	 * @param string $record_id  Institutions record ID.
+	 * @param array  $summary    From `WPCPM_Institution_Agreement::summary()`.
+	 * @param array  $row        The institution's index row.
+	 * @param bool   $can_manage Whether the viewer holds CAP_MANAGE.
+	 */
+	private static function render_state_parts( $record_id, array $summary, array $row, $can_manage ) {
+		$state = isset( $summary['state'] ) ? (string) $summary['state'] : WPCPM_Institution_Agreement::SUMMARY_NONE;
+
+		switch ( $state ) {
+			case WPCPM_Institution_Agreement::SUMMARY_GENERATED:
+				$generated = (int) $summary['generated_id'];
+				$out       = self::lede_parts(
+					'',
+					'',
+					self::fill(
+						self::generated_format(),
+						array(
+							array( self::post_date( $generated ), 'whole' ),
+							array( self::template_version( $generated ), '' ),
+						)
+					)
+				)
+					// Step 1 holds Open that document again first, as today's page has it above the form, then the form.
+					. self::steps_parts( $record_id, $row, self::regenerate_form_parts( $record_id, $generated ) )
+					. self::school_lines( $row, $can_manage, true );
+				break;
+
+			case WPCPM_Institution_Agreement::SUMMARY_SUBMITTED:
+				$pending = (int) $summary['pending_id'];
+				$out     = self::lede_parts( __( 'Waiting for review', 'wpcredits-program-manager' ), 'amber', self::fill( self::received_format(), array( array( self::post_date( $pending ), 'whole' ) ) ) )
+					. self::row_of( array( self::download_button( $pending, self::held_label() ), self::withdraw_form_parts( $pending ) ) );
+				break;
+
+			case WPCPM_Institution_Agreement::SUMMARY_RETURNED:
+			case WPCPM_Institution_Agreement::SUMMARY_REVOKED:
+				$returned = WPCPM_Institution_Agreement::SUMMARY_RETURNED === $state;
+				$out      = self::lede_parts( $returned ? __( 'Returned', 'wpcredits-program-manager' ) : __( 'Revoked', 'wpcredits-program-manager' ), 'red', esc_html( self::lede_text( $state ) ) )
+					. self::note_parts( $record_id, $returned ? WPCPM_Institution_Agreement::STATE_RETURNED : WPCPM_Institution_Agreement::STATE_REVOKED )
+					. self::upload_form_parts( $record_id, self::state_sentence( $state ) )
+					. self::school_lines( $row, $can_manage, false );
+				break;
+
+			case WPCPM_Institution_Agreement::SUMMARY_ACCEPTED:
+			case WPCPM_Institution_Agreement::SUMMARY_ON_FILE:
+				// The base disagrees with the site: no tag, since neither "Accepted" nor any other is true; the sentence says it.
+				$out = self::lede_parts( '', '', esc_html( self::lede_text( $state ) ) ) . self::school_lines( $row, $can_manage, false );
+				break;
+
+			default:
+				$out = self::lede_parts( '', '', esc_html( self::state_sentence( WPCPM_Institution_Agreement::SUMMARY_NONE ) ) )
+					. self::steps_parts( $record_id, $row, '' )
+					. self::school_lines( $row, $can_manage, true );
+				break;
+		}
+
+		echo $out; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts and in fill().
 	}
 
 	/**
@@ -1796,7 +2558,7 @@ class WPCPM_Institution_Agreement_Card {
 	 *                          looking, the Drive link, is decided on the policy's ground and
 	 *                          not on a flag the caller passed.
 	 */
-	public static function render( $record_id, array $context ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found,VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable -- The shape every card shares; see the docblock.
+	public static function render( $record_id, array $context ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found,Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed,VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable -- The shape every card shares; see the docblock.
 		$record_id = trim( (string) $record_id );
 
 		if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
@@ -1831,167 +2593,199 @@ class WPCPM_Institution_Agreement_Card {
 		// context is whatever the caller passed, the ground is what the policy found, and a
 		// stale flag handed down through the shell must not put the program's folder in front
 		// of a school.
-		$as_manager = isset( $decision['ground'] ) && WPCPM_Institution_Policy::GROUND_MANAGER === $decision['ground'];
+		$as_manager = WPCPM_Institution_Panel::on_manager_ground( $decision );
 		$summary    = WPCPM_Institution_Agreement::summary( $record_id );
-		$accepted   = WPCPM_Dates::day( isset( $summary['accepted_at'] ) ? (string) $summary['accepted_at'] : '' );
+		$accepted   = self::accepted_day( $summary );
 
-		echo '<section class="wpcpm-agreement-card">';
-
-		// Folds like every other panel, and starts open so the accepted date stays where a
-		// school is used to finding it; it is the foot of the page, so nothing sits under it
-		// for an open card to push away.
-		printf(
-			'<details class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body">',
-			esc_html__( 'Collaboration Agreement', 'wpcredits-program-manager' )
+		// On the shared parts the card is the Agreement view's content once the agreement is settled (Institution Dashboard,
+		// Task 21): no head and no fold; its block carries the anchor the panel carries while it is not.
+		WPCPM_Institution_Panel::parts_block(
+			$record_id,
+			static function () use ( $record_id, $summary, $accepted, $as_manager ) {
+				self::render_parts( $record_id, $summary, $accepted, $as_manager );
+			}
 		);
-
-		WPCPM_Institution_Panel::render_flash();
-
-		printf(
-			'<p class="wpcpm-agreement-card__accepted">%s</p>',
-			esc_html(
-				'' !== $accepted
-					? sprintf(
-						/* translators: %s: date the agreement was accepted. */
-						__( 'Accepted on %s.', 'wpcredits-program-manager' ),
-						$accepted
-					)
-					: __( 'Accepted. The date was not recorded.', 'wpcredits-program-manager' )
-			)
-		);
-
-		self::render_route( $summary );
-		self::render_download( $summary );
-		self::render_replace( $record_id, $summary );
-
-		if ( $as_manager ) {
-			self::render_drive_link( $record_id );
-		}
-
-		echo '</div></details>';
-		echo '</section>';
 	}
 
 	/**
-	 * The accepted copy itself, when this site holds one.
-	 *
-	 * A legacy row has no file at all: what the program holds is a copy in Drive, which the
-	 * route line above has just said, and which a manager reaches through the link at the
-	 * foot. So the link is drawn from the file rather than from the state, and an institution
-	 * whose agreement predates this site is not offered a download that would 404.
+	 * How the accepted agreement was signed or recorded, in words.
 	 *
 	 * @param array $summary From `WPCPM_Institution_Agreement::summary()`.
+	 * @return string
 	 */
-	private static function render_download( array $summary ) {
-		$post_id = isset( $summary['agreement_id'] ) ? (int) $summary['agreement_id'] : 0;
-		$file    = $post_id ? get_post_meta( $post_id, WPCPM_Institution_Agreement::META_FILE, true ) : '';
-
-		if ( ! $post_id || ! is_array( $file ) || empty( $file['path'] ) ) {
-			return;
-		}
-
-		WPCPM_Institution_Panel::render_download_link(
-			$post_id,
-			__( 'Download the accepted agreement', 'wpcredits-program-manager' )
-		);
-	}
-
-	/**
-	 * Replacing the standing agreement with a newer signed one (T10).
-	 *
-	 * The sentence that has to be here is that the current agreement stays in force: an
-	 * institution renewing under a new rector should not be able to close its own account by
-	 * uploading a document nobody has read yet. Nothing about the gate changes until a
-	 * program manager accepts the replacement.
-	 *
-	 * Only one document is in review at a time, so when a replacement is already waiting the
-	 * form would refuse. The card says so instead, and offers the way back out of that state:
-	 * the copy itself, and the control that withdraws it.
-	 *
-	 * @param string $record_id Institutions record ID.
-	 * @param array  $summary   From `WPCPM_Institution_Agreement::summary()`.
-	 */
-	private static function render_replace( $record_id, array $summary ) {
-		$pending = isset( $summary['pending_id'] ) ? (int) $summary['pending_id'] : 0;
-
-		if ( $pending ) {
-			printf(
-				'<p class="wpcpm-agreement-card__replace">%s</p>',
-				esc_html__( 'A newer signed agreement is waiting for review. The agreement above stays in force until an Administrator accepts it.', 'wpcredits-program-manager' )
-			);
-
-			WPCPM_Institution_Panel::render_download_link(
-				$pending,
-				__( 'Download the copy waiting for review', 'wpcredits-program-manager' )
-			);
-			WPCPM_Institution_Panel::render_withdraw_form( $pending );
-
-			return;
-		}
-
-		// The sentence offers the upload, so it is drawn for whoever the upload is drawn for.
-		if ( ! WPCPM_Institution_Panel::may_act( $record_id ) ) {
-			return;
-		}
-
-		printf(
-			'<p class="wpcpm-agreement-card__replace">%s</p>',
-			esc_html__( 'Replace it by uploading a newer signed copy. The agreement above stays in force until an Administrator accepts the new one.', 'wpcredits-program-manager' )
-		);
-
-		WPCPM_Institution_Panel::render_upload_form( $record_id, '' );
-	}
-
-	/**
-	 * Which route recorded the accepted agreement.
-	 *
-	 * `grid` is a manager typing `On file` and a Drive link into the base, which the next
-	 * institutions sync reads; `site` is anything a person did here, the on-file form included. Named on the
-	 * card because "we never signed anything on this website" is a reasonable thing for a
-	 * long-standing partner to think, and the answer is that the program recorded the copy
-	 * it already had.
-	 *
-	 * @param array $summary From `WPCPM_Institution_Agreement::summary()`.
-	 */
-	private static function render_route( array $summary ) {
+	private static function route_sentence( array $summary ) {
 		$route  = isset( $summary['route'] ) ? (string) $summary['route'] : '';
 		$legacy = isset( $summary['kind'] ) && WPCPM_Institution_Agreement::KIND_LEGACY === (string) $summary['kind'];
 
 		if ( 'grid' === $route ) {
-			$line = $legacy
+			return $legacy
 				? __( 'Recorded from the program\'s own records: the signed copy is in the program\'s Drive folder, and nothing was signed through this site.', 'wpcredits-program-manager' )
 				: __( 'Recorded from the program\'s own records rather than through this site.', 'wpcredits-program-manager' );
-		} elseif ( $legacy ) {
-			$line = __( 'Recorded on this site by an Administrator, from the copy the program holds in its Drive folder.', 'wpcredits-program-manager' );
-		} else {
-			$line = __( 'Signed and accepted through this site.', 'wpcredits-program-manager' );
 		}
 
-		printf( '<p class="wpcpm-agreement-card__route">%s</p>', esc_html( $line ) );
+		if ( $legacy ) {
+			return __( 'Recorded on this site by an Administrator, from the copy the program holds in its Drive folder.', 'wpcredits-program-manager' );
+		}
+
+		return __( 'Signed and accepted through this site.', 'wpcredits-program-manager' );
+	}
+
+	/*
+	 * The rules and the words both drawings use (Institution Dashboard, Task 21)
+	 * --------------------------------------------------------------------
+	 */
+
+	/**
+	 * The day the agreement was accepted, in the site's format, or ''.
+	 *
+	 * @param array $summary From `WPCPM_Institution_Agreement::summary()`.
+	 * @return string
+	 */
+	private static function accepted_day( array $summary ) {
+		return WPCPM_Dates::day( isset( $summary['accepted_at'] ) ? (string) $summary['accepted_at'] : '' );
 	}
 
 	/**
-	 * The Drive link, for a program manager only.
+	 * The accepted copy's post when this site holds its file, or 0: a legacy row has no file, and a download would 404.
 	 *
-	 * The folder is the program's, not the institution's, and a member following it would
-	 * meet a Google sign-in wall naming a Drive they have no business in. A manager reading
-	 * the same card wants the document in one click.
+	 * @param array $summary From `WPCPM_Institution_Agreement::summary()`.
+	 * @return int
+	 */
+	private static function accepted_file( array $summary ) {
+		$post_id = isset( $summary['agreement_id'] ) ? (int) $summary['agreement_id'] : 0;
+		$file    = $post_id ? get_post_meta( $post_id, WPCPM_Institution_Agreement::META_FILE, true ) : '';
+
+		return ( $post_id && is_array( $file ) && ! empty( $file['path'] ) ) ? $post_id : 0;
+	}
+
+	/**
+	 * The newer copy waiting for review, or 0.
+	 *
+	 * @param array $summary From `WPCPM_Institution_Agreement::summary()`.
+	 * @return int
+	 */
+	private static function pending( array $summary ) {
+		return isset( $summary['pending_id'] ) ? (int) $summary['pending_id'] : 0;
+	}
+
+	/**
+	 * The program's Drive folder for this agreement, or '' when it holds no Drive link.
 	 *
 	 * @param string $record_id Institutions record ID.
+	 * @return string
 	 */
-	private static function render_drive_link( $record_id ) {
+	private static function drive_url( $record_id ) {
 		$option = WPCPM_Institution_Agreement::option( $record_id );
 		$url    = ( is_array( $option ) && isset( $option['drive_url'] ) ) ? (string) $option['drive_url'] : '';
 
-		if ( ! WPCPM_Institution_Agreement::is_drive_link( $url ) ) {
-			return;
+		return WPCPM_Institution_Agreement::is_drive_link( $url ) ? $url : '';
+	}
+
+	/**
+	 * The acceptance with no day recorded, after the parts' Accepted tag, which says the rest (fix round 2).
+	 *
+	 * @return string
+	 */
+	private static function not_recorded() {
+		return __( 'The date was not recorded.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The accepted copy's link.
+	 *
+	 * @return string
+	 */
+	private static function accepted_label() {
+		return __( 'Download the accepted agreement', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * A newer copy is waiting.
+	 *
+	 * @return string
+	 */
+	private static function waiting_sentence() {
+		return __( 'A newer signed agreement is waiting for review. The agreement above stays in force until an Administrator accepts it.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The newer copy's link.
+	 *
+	 * @return string
+	 */
+	private static function waiting_label() {
+		return __( 'Download the copy waiting for review', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * What replacing does to the standing agreement.
+	 *
+	 * @return string
+	 */
+	private static function replace_sentence() {
+		return __( 'Replace it by uploading a newer signed copy. The agreement above stays in force until an Administrator accepts the new one.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The Drive link's words.
+	 *
+	 * @return string
+	 */
+	private static function drive_label() {
+		return __( 'Open the signed copy in Drive', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The card on the parts (design 6.5): Accepted leading, the day whole, how it was signed or recorded, the accepted copy;
+	 * the newer copy waiting and the way to take it back, or the upload that replaces it; the Drive link for an
+	 * Administrator.
+	 *
+	 * @param string $record_id  Institutions record ID.
+	 * @param array  $summary    From `WPCPM_Institution_Agreement::summary()`.
+	 * @param string $accepted   The day it was accepted, or ''.
+	 * @param bool   $as_manager Whether the policy allowed the card on the manager ground.
+	 */
+	private static function render_parts( $record_id, array $summary, $accepted, $as_manager ) {
+		// The tag says Accepted; the day follows it as a fact, so the word is not said twice (the old branch keeps
+		// "Accepted on"). With no day recorded, that is said alone after the tag.
+		$out = WPCPM_Institution_Panel::lede_parts(
+			__( 'Accepted', 'wpcredits-program-manager' ),
+			'green',
+			'' !== $accepted ? WPCPM_UI::whole( $accepted ) : esc_html( self::not_recorded() )
+		)
+			. WPCPM_UI::intro( self::route_sentence( $summary ) );
+
+		$file  = self::accepted_file( $summary );
+		$drive = $as_manager ? self::drive_url( $record_id ) : '';
+
+		// The accepted copy's row: its download, and for an Administrator the Drive link, the copy the program holds.
+		$out .= WPCPM_Institution_Panel::row_of(
+			array(
+				$file ? WPCPM_Institution_Panel::download_button( $file, self::accepted_label() ) : '',
+				'' !== $drive ? WPCPM_UI::button(
+					array(
+						'label'  => self::drive_label(),
+						'kind'   => 'quiet',
+						'href'   => $drive,
+						'rel'    => 'noopener noreferrer',
+						'target' => '_blank',
+						'side'   => 'front',
+					)
+				) : '',
+			)
+		);
+
+		$pending = self::pending( $summary );
+
+		if ( $pending ) {
+			$out .= WPCPM_UI::intro( self::waiting_sentence() )
+				. WPCPM_Institution_Panel::row_of( array( WPCPM_Institution_Panel::download_button( $pending, self::waiting_label() ), WPCPM_Institution_Panel::withdraw_form_parts( $pending ) ) );
+		} elseif ( WPCPM_Institution_Panel::may_act( $record_id ) ) {
+			// "Replace it ..." is the upload form's intro, so it is drawn for whoever the upload is drawn for.
+			$out .= WPCPM_Institution_Panel::upload_form_parts( $record_id, self::replace_sentence() );
 		}
 
-		printf(
-			'<p class="wpcpm-agreement-card__drive"><a href="%1$s" rel="noopener noreferrer" target="_blank">%2$s</a></p>',
-			esc_url( $url ),
-			esc_html__( 'Open the signed copy in Drive', 'wpcredits-program-manager' )
-		);
+		echo $out; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts and in fill().
 	}
 }
 

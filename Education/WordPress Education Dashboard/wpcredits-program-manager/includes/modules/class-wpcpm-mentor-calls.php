@@ -2419,6 +2419,28 @@ class WPCPM_Mentor_Calls {
 	 * @return string
 	 */
 	public static function format_range( $start, $end, DateTimeZone $zone ) {
+		$moments = self::range_moments( $start, $end, $zone );
+
+		return sprintf(
+			/* translators: 1: start date and time, 2: end time, with its date only when the call crosses midnight. Joined by the word "to", not a hyphen: WordPress would texturize a spaced hyphen into an en dash once this renders on the page. */
+			__( '%1$s to %2$s', 'wpcredits-program-manager' ),
+			$moments['from'],
+			$moments['to']
+		);
+	}
+
+	/**
+	 * The two moments `format_range()` joins, each as it prints it: the start's date and time, and the end's time, with its
+	 * date only when the call crosses midnight on the given clock. The one place a range's formats are read, so a caller
+	 * that marks the moments in `format_range()`'s words (the Institution Dashboard's events, each moment whole) finds the
+	 * same text.
+	 *
+	 * @param int          $start UTC timestamp.
+	 * @param int          $end   UTC timestamp.
+	 * @param DateTimeZone $zone  Timezone to render in.
+	 * @return array{from: string, to: string}
+	 */
+	public static function range_moments( $start, $end, DateTimeZone $zone ) {
 		$date_format = get_option( 'date_format' );
 		$time_format = get_option( 'time_format' );
 
@@ -2434,11 +2456,9 @@ class WPCPM_Mentor_Calls {
 			? wp_date( $date_format . ' ' . $time_format, (int) $end, $zone )
 			: wp_date( $time_format, (int) $end, $zone );
 
-		return sprintf(
-			/* translators: 1: start date and time, 2: end time, with its date only when the call crosses midnight. Joined by the word "to", not a hyphen: WordPress would texturize a spaced hyphen into an en dash once this renders on the page. */
-			__( '%1$s to %2$s', 'wpcredits-program-manager' ),
-			$from,
-			$to
+		return array(
+			'from' => (string) $from,
+			'to'   => (string) $to,
 		);
 	}
 

@@ -15,7 +15,9 @@
  * left as the theme draws it.
  *
  * Since 1.123.78 the Sponsor guide is drawn the same way in the Sponsor Dashboard's frame (`guides()`), for the
- * people who act for a sponsor and for Administrators, where the theme names `sponsor-guide`.
+ * people who act for a sponsor and for Administrators, where the theme names `sponsor-guide`. Since 1.123.96 the
+ * Institution guide is drawn in the Institution Dashboard's frame, for a school's representatives and tutors and for
+ * Administrators, where the theme names `institution-guide`.
  *
  * The list holds the guide's sections (its `h2`s) and, under each, the parts of it (its `h3`s). The script
  * (`assets/js/administrator-guide.js`) marks the part being read, opens only that section's parts, and folds
@@ -80,7 +82,8 @@ class WPCPM_Administrator_Guide_View {
 	/**
 	 * The guides drawn in a dashboard's frame, by the path of their page: the frame's key for the page, as the
 	 * theme names it, the dashboard whose menu it draws, who reads it in the frame (`manage`, an Administrator;
-	 * `sponsor`, an Administrator or somebody who acts for a sponsor) and the title for a page with none.
+	 * `sponsor`, an Administrator or somebody who acts for a sponsor; `institution`, an Administrator or a school's
+	 * representative or tutor) and the title for a page with none.
 	 *
 	 * @return array<string, array{frame: string, dashboard: string, reader: string, title: string}>
 	 */
@@ -99,7 +102,30 @@ class WPCPM_Administrator_Guide_View {
 				'reader'    => 'sponsor',
 				'title'     => __( 'Sponsor guide', 'wpcredits-program-manager' ),
 			),
+			// The Institution guide, in the Institution Dashboard's frame.
+			( class_exists( 'WPCPM_Handbook_Assistant' ) ? WPCPM_Handbook_Assistant::INSTITUTION_GUIDE_PATH : 'institution-guide' ) => array(
+				'frame'     => 'institution-guide',
+				'dashboard' => 'WPCPM_Institutions_Dashboard',
+				'reader'    => 'institution',
+				'title'     => __( 'Institution guide', 'wpcredits-program-manager' ),
+			),
 		);
+	}
+
+	/**
+	 * The surface of the shared parts a guide names while it draws: its dashboard's. Only `administrator`, `sponsor`
+	 * or `institution`, and `administrator` for a dashboard it does not know.
+	 *
+	 * @param string $dashboard A guide's `dashboard`, as `guides()` lists it.
+	 * @return string
+	 */
+	private static function surface_of( $dashboard ) {
+		$surfaces = array(
+			'WPCPM_Sponsors_Dashboard'     => 'sponsor',
+			'WPCPM_Institutions_Dashboard' => 'institution',
+		);
+
+		return isset( $surfaces[ $dashboard ] ) ? $surfaces[ $dashboard ] : 'administrator';
 	}
 
 	/**
@@ -130,7 +156,7 @@ class WPCPM_Administrator_Guide_View {
 
 	/**
 	 * The frame a guide's page is drawn in for this reader (1.123.78): the frame's key, as the theme names it
-	 * (`administrator-guide`, `sponsor-guide`), or '' when the page is no guide, the theme does not name its
+	 * (`administrator-guide`, `sponsor-guide`, `institution-guide`), or '' when the page is no guide, the theme does not name its
 	 * frame, or the reader does not read it there. The theme asks this to pick the page's bare canvas, so a
 	 * reader the frame is not drawn for keeps the page's own template.
 	 *
@@ -169,7 +195,12 @@ class WPCPM_Administrator_Guide_View {
 			return true;
 		}
 
-		return 'sponsor' === $reader && class_exists( 'WPCPM_Sponsor_Members' ) && WPCPM_Sponsor_Members::is_member();
+		if ( 'sponsor' === $reader ) {
+			return class_exists( 'WPCPM_Sponsor_Members' ) && WPCPM_Sponsor_Members::is_member();
+		}
+
+		// A school's representative or tutor: both are members of the school while their stamp is active.
+		return 'institution' === $reader && class_exists( 'WPCPM_Institutions_Dashboard' ) && WPCPM_Institutions_Dashboard::is_member();
 	}
 
 	/**
@@ -237,7 +268,7 @@ class WPCPM_Administrator_Guide_View {
 		// The guide is drawn in its dashboard's frame, so it names that dashboard's surface of the shared parts while
 		// it draws (design 3.5), as the dashboard's other views do: the frame's buttons and tags look the same on
 		// every item of its menu.
-		WPCPM_UI::enter( 'WPCPM_Sponsors_Dashboard' === $guide['dashboard'] ? 'sponsor' : 'administrator' );
+		WPCPM_UI::enter( self::surface_of( $guide['dashboard'] ) );
 
 		try {
 			ob_start();
