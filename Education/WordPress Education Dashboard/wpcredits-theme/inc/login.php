@@ -139,7 +139,7 @@ function wpcredits_login_footer() {
 			wp_kses(
 				sprintf(
 					/* translators: %s: the "Lost your password?" link text, wrapped for emphasis. */
-					esc_html__( 'Your account was created by the program. If you have never set a password, use %s with the email address in your Airtable record.', 'wpcredits-theme' ),
+					esc_html__( 'Your account was created by the program. If you have never set a password, use %s with the email address the program has for you.', 'wpcredits-theme' ),
 					'<b>' . esc_html__( 'Lost your password?', 'wpcredits-theme' ) . '</b>'
 				),
 				array( 'b' => array() )
