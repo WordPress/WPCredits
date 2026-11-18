@@ -802,6 +802,12 @@
 	margin: 0;
 }
 
+/* Where the call's link comes from (1.123.99): one line over the first field, across the form's whole width. */
+.wpcpm-sessions__form .wpcpm-sessions__link {
+	grid-column: 1 / -1;
+	margin: 0;
+}
+
 /* The topic and the button want the whole width; the four short fields share a row. */
 .wpcpm-sessions__form .wpcpm-field:nth-last-child( 2 ),
 .wpcpm-sessions__submit {

@@ -613,6 +613,10 @@ class WPCPM_Students_Sync {
 
 class WPCPM_Students_Dashboard {
 	public static function page_url() { return 'https://example.test/student-dashboard/'; }
+	// The real rule (1.123.99): an Administrator on somebody else's card keeps that student.
+	public static function card_url( $student_id ) {
+		return ( (int) $student_id > 0 && (int) $student_id !== get_current_user_id() && current_user_can( 'wpcpm_manage_program' ) ) ? add_query_arg( 'wpcpm_student_view', (int) $student_id, self::page_url() ) : self::page_url();
+	}
 }
 
 class WPCPM_Settings {

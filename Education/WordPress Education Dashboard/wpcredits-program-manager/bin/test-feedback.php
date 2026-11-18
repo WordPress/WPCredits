@@ -1831,6 +1831,28 @@ try {
 
 ck( 'somebody who may not fill in the form is refused before anything is read or written', array( $denied, count( $GLOBALS['sent'] ) ), array( 'You cannot fill in that feedback form.', 0 ) );
 
+echo "\n=== F5 (1.123.99): an Administrator who saves a student's feedback form lands back on that card ===\n";
+
+if ( ! function_exists( 'get_post_status' ) ) {
+	function get_post_status( $id ) { return 77 === (int) $id ? 'publish' : false; }
+}
+if ( ! function_exists( 'get_permalink' ) ) {
+	function get_permalink( $id ) { return 'https://example.test/student-report-card/'; }
+}
+$GLOBALS['opts'][ WPCPM_Students_Dashboard::OPT_PAGE ] = 77;
+$f5_answer = array( 'F1 - What helped you most in getting started?' => 'The Slack channel.' );
+post_form( MANAGER, true, $f5_answer, true, 'f1' );
+$f5_admin = $GLOBALS['redirect'];
+post_form( MANAGER, true, array(), false, 'nonsense' );
+$f5_admin_unknown = $GLOBALS['redirect'];
+post_form( STUDENT, false, $f5_answer, true, 'f1' );
+$f5_own = $GLOBALS['redirect'];
+ck( 'F5: an Administrator\'s feedback save, and one refused as an unknown form, carry the student they were viewing; the student\'s own as before', array( $f5_admin, $f5_admin_unknown, $f5_own ), array(
+	'https://example.test/student-report-card/?wpcpm_student_view=' . STUDENT . '#wpcpm-feedback-f1',
+	'https://example.test/student-report-card/?wpcpm_student_view=' . STUDENT . '#wpcpm-feedback-nonsense',
+	'https://example.test/student-report-card/#wpcpm-feedback-f1',
+) );
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );

@@ -50,7 +50,8 @@ function scenario( name, want, got ) {
 
 	const all = sc.scenes();
 	// The Institution Dashboard's views and pages carry their own widths (seventeen), pinned below, not these lists'.
-	const isInstitutionScene = s => !! s.reader || !! s.gateB || !! s.noScript || s.area === 'institution-pages';
+	// 1.123.99's planner scenes (`planner`) carry the same seventeen widths.
+	const isInstitutionScene = s => !! s.reader || !! s.gateB || !! s.noScript || !! s.planner || s.area === 'institution-pages';
 	scenario( 'scenes() lists scenes', true, Array.isArray( all ) && all.length > 50 );
 	scenario( 'every scene has an area, a screen, a state and a path on the site (or a _PATH token)', [], all.filter( s => ! s.area || ! s.screen || ! s.state || typeof s.path !== 'string' || ! ( s.path.startsWith( '/' ) || /^\{[A-Z_]+_PATH\}$/.test( s.path ) ) ).map( s => s.screen || '?' ) );
 
@@ -267,6 +268,7 @@ function scenario( name, want, got ) {
 		'overview-contact': [ R, T, A ], 'overview-good-to-know': [ R, T ],
 		'only-no-sign-in': [ R ], 'only-finishing': [ R, T ], 'only-ended-open': [ R ], 'only-pending-graduation': [ R, T ],
 		'only-no-sign-in-student-card': [ R ], 'people-0': [ 'admin-viewing-people0' ],
+		'people-removed-contact': [ 'admin-viewing-removed-contact' ],
 	};
 	// The no-script set is a pass of its own (fix round 1), checked below.
 	const gate = all.filter( s => s.area === 'institution-dashboard' && s.gateB && ! s.folded && ! s.noScript );
@@ -284,6 +286,7 @@ function scenario( name, want, got ) {
 		'representative-newer-copy': [ '{INSTITUTE_LOGIN}', '' ], 'admin-viewing-newer-copy': [ undefined, '{INSTITUTE_RECORD}' ],
 		'representative-long-words': [ '{LONG_LOGIN}', '' ], 'admin-viewing-long-words': [ undefined, '{LONG_RECORD}' ],
 		'admin-viewing-people0': [ undefined, '{PEOPLE_ZERO_RECORD}' ],
+		'admin-viewing-removed-contact': [ undefined, '{REMOVED_CONTACT_RECORD}' ],
 	};
 	scenario( 'each Gate B scene signs in as its reader and names its school only for an Administrator', [], gate.filter( s => {
 		const want = gateReaders[ s.who ];

@@ -3412,7 +3412,16 @@ if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
 	 * sentences, the state in words. The real sentences are bin/test-institution-overview.php's.
 	 */
 	class WPCPM_Institutions_Dashboard {
-		public static function banner_sentences( string $record ): array {
+		public static function banner_sentences( string $record, bool $agreement_view = false ): array {
+			// S2 (1.123.99): on the Agreement view the state the panel's own sentence names is not said again, and for no
+			// agreement and a revoked one nothing is (the real rule is bin/test-institution-overview.php's).
+			$state = WPCPM_Institution_Agreement::summary( $record )['state'];
+			if ( $agreement_view && in_array( $state, array( 'none', 'revoked' ), true ) ) {
+				return array();
+			}
+			if ( $agreement_view && in_array( $state, array( 'generated', 'submitted', 'returned' ), true ) ) {
+				return array( 'This institution\'s agreement is not settled. Its representatives see only the Overview and the Agreement, and its tutors no page.' );
+			}
 			// Task 25, fix round 1, B1: the sentence says what a school with no settled agreement shows its people now.
 			return array( 'This institution\'s agreement is not settled: ' . WPCPM_Institution_Agreement::summary( $record )['state'] . '. Its representatives see only the Overview and the Agreement, and its tutors no page.' );
 		}
@@ -4787,7 +4796,10 @@ $t21_banner_of = static function ( $html ) {
 t21_world( 'none' );
 $t21_banner_none = implode( ' ', WPCPM_Institutions_Dashboard::banner_sentences( $t21_rec ) );
 t21_world( 'submitted' );
-$t21_banner_sub = implode( ' ', WPCPM_Institutions_Dashboard::banner_sentences( $t21_rec ) );
+$t21_banner_sub = implode( ' ', WPCPM_Institutions_Dashboard::banner_sentences( $t21_rec, true ) );
+$t21_none_said  = 'The program has no Collaboration Agreement recorded for your institution. Until it does, its representatives reach only the Overview and the Agreement, and its tutors no page.';
+ck( 'S2: the Agreement view\'s banner for a copy waiting for review drops the state the panel names', $t21_banner_sub, 'This institution\'s agreement is not settled. Its representatives see only the Overview and the Agreement, and its tutors no page.' );
+ck( 'S2: a school\'s representative reads the same school sentence the Administrator does, and no banner', array( $t21_banner_of( $t21_new['none, representative'] )[1] ?? '', substr_count( $t21_new['none, representative'], 'agreement is not settled' ) ), array( $t21_none_said, 0 ) );
 ck( 'fix 5: an Administrator\'s block opens with the banner\'s sentences as a note, after the outcome, printed once; the school\'s own people are not shown them', array(
 	'none, administrator'                     => $t21_banner_of( $t21_new['none, administrator'] ),
 	'submitted, administrator'                => $t21_banner_of( $t21_new['submitted, administrator'] ),
@@ -4796,15 +4808,17 @@ ck( 'fix 5: an Administrator\'s block opens with the banner\'s sentences as a no
 	'none, representative'                    => substr_count( $t21_new['none, representative'], 'agreement is not settled' ),
 	'accepted, administrator'                 => substr_count( $t21_new['accepted, administrator'], 'agreement is not settled' ),
 ), array(
-	'none, administrator'                     => array( 'p.wpcpm-ui-note', $t21_banner_none, 1 ),
+	// S2 (1.123.99): with no agreement the school's own sentence says the state and what its people see, in more words, so
+	// the banner says nothing more and no note is drawn; a copy waiting for review keeps the banner, less the state.
+	'none, administrator'                     => array( 'p.wpcpm-ui-intro', $t21_none_said, 0 ),
 	'submitted, administrator'                => array( 'p.wpcpm-ui-note', $t21_banner_sub, 1 ),
-	'message agreement-busy, none, administrator' => array( 'p.wpcpm-ui-note', $t21_banner_none, 1, 1 ),
+	'message agreement-busy, none, administrator' => array( 'p.wpcpm-ui-intro', $t21_none_said, 0, 1 ),
 	'none, representative'                    => 0,
 	'accepted, administrator'                 => 0,
 ) );
 
 ck( 'fix 5: the note is built from banner_sentences(), the method the Overview\'s row reads, and only the panel prints it on the parts', array(
-	false !== strpos( $t21_body( 'banner_parts' ), 'WPCPM_Institutions_Dashboard::banner_sentences( (string) $record_id )' ),
+	false !== strpos( $t21_body( 'banner_parts' ), 'WPCPM_Institutions_Dashboard::banner_sentences( (string) $record_id, true )' ),
 	false !== strpos( $t21_body( 'banner_parts' ), 'WPCPM_UI::note( implode(' ),
 ), array( true, true ) );
 

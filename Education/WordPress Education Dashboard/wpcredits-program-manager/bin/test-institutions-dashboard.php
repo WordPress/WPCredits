@@ -1179,7 +1179,7 @@ ck( 'listing both institutions', substr_count( $out, '<option value="rec' ), 2 )
 ck( 'with the one being viewed selected', false !== strpos( $out, 'value="' . $krakow . '" selected' ), true );
 // The index holds Politechnika first, as Airtable does; a reader looks for Institute under I.
 ck( 'listed A to Z rather than in the index\'s order', strpos( $out, 'value="' . $institute . '"' ) < strpos( $out, 'value="' . $krakow . '"' ), true );
-ck( 'with the one field that finds and picks an institution', false !== strpos( $out, 'role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="wpcpm-institution-switcher-list" autocomplete="off" spellcheck="false" placeholder="Find an institution" aria-describedby="wpcpm-institution-switcher-note" />' ), true );
+ck( 'with the one field that finds and picks an institution', false !== strpos( $out, 'role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="wpcpm-institution-switcher-list" autocomplete="off" spellcheck="false" placeholder="Find an institution" title="Politechnika Example" aria-describedby="wpcpm-institution-switcher-note" />' ), true );
 ck( 'and the note names the Administrators, for a screen reader, tied to the field', false !== strpos( $out, '<span class="screen-reader-text" id="wpcpm-institution-switcher-note">Only Administrators see this control. Choosing an institution opens its page.</span>' ), true );
 ck( 'and the page loads the script that makes the field work', in_array( 'wpcpm-switcher', $GLOBALS['scripts'], true ), true );
 ck( 'and the head falls back to the index, since a manager holds no stamp', false !== strpos( $out, '<h2 class="wpcpm-head__title">Politechnika Example</h2>' ), true );

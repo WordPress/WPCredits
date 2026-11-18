@@ -799,4 +799,179 @@ if ( ! $ok ) {
 }
 endif;
 
+// ------------------------------------------------------------------ the planner's line (1.123.99)
+// Two invented mentors who open their own Mentor Report Card, so the fold "Plan a group session" is drawn for its mentor:
+// one whose availability names a meeting link at example.org (the field "Where we meet") and one with none. No form of the
+// site makes a mentor's account (the mentors' sync does, and the rig starts none), so each is written as states.php writes
+// Harper Example: the account with every hook of a new account taken off first, the Mentor role and an invented record.
+if ( $run( 'mentor-planner' ) ) :
+remove_all_actions( 'user_register' );
+remove_all_actions( 'set_user_role' );
+remove_all_actions( 'add_user_role' );
+remove_all_actions( 'added_user_meta' );
+remove_all_actions( 'updated_user_meta' );
+foreach ( array( 'planner-link' => array( 'Linden Example', 'https://meet.example.org/linden-example' ), 'planner-none' => array( 'Nolan Example', '' ) ) as $key => $m ) {
+	$email = $key . '.example@example.org';
+	$u     = get_user_by( 'email', $email );
+	$uid   = $u ? (int) $u->ID : wp_insert_user( array( 'user_login' => $key . '.example', 'user_email' => $email, 'user_pass' => wp_generate_password( 32 ), 'display_name' => $m[0], 'first_name' => strtok( $m[0], ' ' ), 'last_name' => 'Example', 'role' => WPCPM_Roles::ROLE_MENTOR ) );
+	if ( is_wp_error( $uid ) || ! $uid ) {
+		$say( "mentor-planner {$m[0]}", is_wp_error( $uid ) ? $uid : 'no account' );
+		continue;
+	}
+	update_user_meta( $uid, WPCPM_Mentors_Sync::META_RECORD_ID, 'recUiPlanner' . ( 'planner-link' === $key ? 'Link0' : 'None0' ) );
+	update_user_meta( $uid, 'wpcpm_mentor_active', '1' );
+	update_user_meta( $uid, WPCPM_Mentor_Availability::META, array_merge( (array) get_user_meta( $uid, WPCPM_Mentor_Availability::META, true ), array( 'meeting_url' => $m[1] ) ) );
+	$say( "mentor-planner {$m[0]}", WPCPM_Mentor_Availability::get( $uid )['meeting_url'] === $m[1] && WPCPM_Mentors_Dashboard::is_mentor( get_user_by( 'id', $uid ) ) );
+}
+wp_cache_flush();
+endif;
+
+// ------------------------------------------------------------------ a contact whose account was removed (1.123.99, S1)
+// A settled school whose contact, named on its index row, had an account that was a member and was removed: the people
+// card's contact row then speaks of an account no longer among the school's people. The school as the 0 people school is
+// made (`overview-more`): its index row copied from the design school's and a copy of that school's accepted agreement,
+// the summary rebuilt; the account is made as the accept route makes one (WPCPM_Roles::insert_user, the Institution role),
+// attached at the representative level and detached as removed, both through WPCPM_Institution_Members with the rig's
+// Administrator as the actor. The copy swallows every mail the removal sends.
+if ( $run( 'removed-contact' ) ) :
+$design = isset( $schools['Example School of Design'] ) ? (string) $schools['Example School of Design'] : '';
+$from   = '' !== $design ? WPCPM_Institutions_Index::row( $design ) : null;
+$sum    = '' !== $design ? WPCPM_Institution_Agreement::option( $design ) : null;
+if ( ! is_array( $from ) || ! is_array( $sum ) || empty( $sum['agreement_id'] ) ) {
+	$say( 'removed-contact', 'the design school has no index row or no accepted agreement' );
+} else {
+	$school                   = 'recOvm' . substr( md5( 'ui-rig-removed-contact' ), 0, 11 );
+	$school                   = preg_replace( '/[^A-Za-z0-9]/', 'x', $school );
+	$row                      = $from;
+	$row['record_id']         = $school;
+	$row['name']              = 'Example Conservatory of Film';
+	$row['city']              = 'Examplemere';
+	$row['website']           = 'film.example.org';
+	$row['contact_person']    = 'Rory Example';
+	$row['contact_email']     = 'rory.example@example.org';
+	WPCPM_Institutions_Index::insert( $row );
+	WPCPM_Institutions_Index::forget_cached();
+	if ( ! WPCPM_Institution_Agreement::posts_for( $school ) ) {
+		$copy( (int) $sum['agreement_id'], array( 'post_title' => 'Signed Collaboration Agreement (' . $row['name'] . ')' ), array( WPCPM_Institution_Agreement::META_INSTITUTION => $school ) );
+	}
+	WPCPM_Institution_Agreement::rebuild( $school, array( 'status' => isset( $sum['airtable_status'] ) ? (string) $sum['airtable_status'] : '' ) );
+	$u   = get_user_by( 'email', 'rory.example@example.org' );
+	$uid = $u ? (int) $u->ID : WPCPM_Roles::insert_user( array( 'user_login' => 'rory-example', 'user_email' => 'rory.example@example.org', 'user_pass' => wp_generate_password( 24, true, true ), 'display_name' => 'Rory Example', 'nickname' => 'rory-example', 'role' => WPCPM_Roles::ROLE_INSTITUTION ) );
+	if ( is_wp_error( $uid ) || ! $uid ) {
+		$say( 'removed-contact', is_wp_error( $uid ) ? $uid : 'no account' );
+	} else {
+		if ( WPCPM_Institution_Members::institution_of( get_user_by( 'id', $uid ) ) !== $school ) {
+			$attached = WPCPM_Institution_Members::attach( $uid, $school, WPCPM_Institution_Members::HOW_INVITED, $aid, 0, WPCPM_Institution_Members::LEVEL_REPRESENTATIVE );
+			if ( is_wp_error( $attached ) ) {
+				$say( 'removed-contact attach', $attached );
+			}
+		}
+		$detached = WPCPM_Institution_Members::detach( $uid, WPCPM_Institution_Members::REASON_REMOVED, $aid );
+		$former   = array_map(
+			static function ( $f ) {
+				return (int) $f->ID;
+			},
+			WPCPM_Institution_Members::former_members_of( $school )
+		);
+		$say( 'removed-contact', WPCPM_Institution_Agreement::is_settled( $school ) && in_array( (int) $uid, $former, true ) ? true : ( is_wp_error( $detached ) ? $detached : 'not a former member after the removal' ) );
+	}
+}
+wp_cache_flush();
+endif;
+
+// ------------------------------------------------------------------ both Report Cards with real content (report cards today)
+// Linden Example (the planner's mentor with a meeting link) given the design school's Drew, Nia and Quill Example as current
+// students (Quill's placement ends within 30 days) and Xan Example as a past one, weekly hours, two notes on Drew and one on
+// Quill, one one-to-one call Drew booked and one group session; Drew given Linden as mentor and a track that asks for hours.
+// Written as the mentors' and students' syncs write their cached rows (no sync starts) and as the booking and planning
+// handlers write a call (the same post type and meta), with every hook of a new account or meta taken off first.
+if ( $run( 'report-cards' ) ) :
+remove_all_actions( 'added_user_meta' );
+remove_all_actions( 'updated_user_meta' );
+$design = isset( $schools['Example School of Design'] ) ? (string) $schools['Example School of Design'] : '';
+$mentor = get_user_by( 'email', 'planner-link.example@example.org' );
+$drew   = get_user_by( 'email', 'drew.example@example.org' );
+$rows   = '' !== $design ? WPCPM_Roster_Index::rows( $design ) : array();
+$by     = array();
+foreach ( $rows as $r ) {
+	$by[ strtolower( (string) ( $r['email'] ?? '' ) ) ] = $r;
+}
+$want = array( 'drew.example@example.org', 'nia.example@example.org', 'quill.example@example.org', 'xan.example@example.org' );
+if ( ! $mentor || ! $drew || array_diff( $want, array_keys( $by ) ) ) {
+	$say( 'report-cards', 'the planner mentor, Drew Example or the design school\'s rows are not on the copy' );
+} else {
+	$mid      = (int) $mentor->ID;
+	$mrec     = (string) get_user_meta( $mid, WPCPM_Mentors_Sync::META_RECORD_ID, true );
+	$tracks   = array_keys( WPCPM_Program::labels() );
+	$target   = '';
+	foreach ( $tracks as $t ) {
+		if ( '' === $target && WPCPM_Program::has_hours_target( $t ) ) {
+			$target = $t;
+		}
+	}
+	$mentees = array();
+	foreach ( $want as $email ) {
+		$r         = $by[ $email ];
+		$past      = 'xan.example@example.org' === $email;
+		$mentees[] = array( 'record_id' => (string) $r['record_id'], 'name' => (string) $r['name'], 'email' => $email, 'is_past' => $past, 'start' => (string) $r['start'], 'end' => (string) $r['end'], 'institution' => 'Example School of Design', 'profile' => '', 'username' => '', 'slack' => '', 'team' => (string) $r['team'], 'website' => '', 'link' => '', 'tutor' => '', 'field_of_study' => 'Computer Science', 'accessibility' => '', 'status' => $past ? 'Graduate' : ( 'drew.example@example.org' === $email ? 'In Sensei' : (string) $r['status'] ), 'hours' => 'drew.example@example.org' === $email ? '42' : (string) $r['hours'] );
+		WPCPM_Roster_Index::update( $design, (string) $r['record_id'], array( 'mentor_name' => 'Linden Example', 'has_mentor' => true ) );
+	}
+	update_user_meta( $mid, WPCPM_Mentors_Sync::META_MENTEES, $mentees );
+	update_user_meta( $mid, 'wpcpm_mentee_count', 3 );
+	update_user_meta( $mid, 'wpcpm_mentee_past_count', 1 );
+	update_user_meta( $mid, 'wpcpm_mentees_updated', time() );
+	$av           = WPCPM_Mentor_Availability::get( $mid );
+	$av['weekly'] = array( 1 => array( array( 'start' => '09:00', 'end' => '12:00' ) ), 3 => array( array( 'start' => '14:00', 'end' => '17:00' ) ), 4 => array( array( 'start' => '09:00', 'end' => '11:00' ) ) );
+	$av['timezone'] = 'Europe/Warsaw';
+	update_user_meta( $mid, WPCPM_Mentor_Availability::META, $av );
+	// Drew Example: Linden as mentor, a track that asks for hours.
+	update_user_meta( (int) $drew->ID, WPCPM_Students_Sync::META_MENTOR, array( 'record_id' => $mrec, 'name' => 'Linden Example', 'email' => 'planner-link.example@example.org', 'username' => '', 'profile' => '', 'slack' => '', 'jobline' => '', 'location' => '', 'website' => '', 'website_label' => '', 'github' => '', 'teams' => array(), 'avatar' => '' ) );
+	if ( '' !== $target ) {
+		update_user_meta( (int) $drew->ID, WPCPM_Students_Sync::META_COURSE, $target );
+	}
+	$program            = (array) get_user_meta( (int) $drew->ID, WPCPM_Students_Sync::META_PROGRAM, true );
+	$program['program'] = 'In Sensei';
+	update_user_meta( (int) $drew->ID, WPCPM_Students_Sync::META_PROGRAM, $program );
+	delete_transient( 'wpcpm_call_mentor_' . (string) $by['drew.example@example.org']['record_id'] );
+	// Notes: two on Drew, one on Quill, none on Nia; written by the mentor.
+	$notes = 0;
+	foreach ( array( array( 'drew.example@example.org', 'Example note: Drew picked a first ticket on the Core trac and will send a patch by Friday.' ), array( 'drew.example@example.org', 'Example note: we went through the coding standards together; the next call is about tests.' ), array( 'quill.example@example.org', 'Example note: Quill finishes this month; the last report is due before the end date.' ) ) as $n ) {
+		$r  = $by[ $n[0] ];
+		$id = wp_insert_post( wp_slash( array( 'post_type' => WPCPM_Mentor_Notes::POST_TYPE, 'post_status' => 'private', 'post_author' => $mid, 'post_content' => $n[1], 'post_title' => 'Note on ' . $r['name'] ) ), true );
+		if ( ! is_wp_error( $id ) ) {
+			update_post_meta( $id, WPCPM_Mentor_Notes::META_STUDENT, (string) $r['record_id'] );
+			update_post_meta( $id, WPCPM_Mentor_Notes::META_AUDIENCE, WPCPM_Mentor_Notes::AUDIENCE_MENTOR );
+			update_post_meta( $id, WPCPM_Mentor_Notes::META_STUDENT_NAME, wp_slash( (string) $r['name'] ) );
+			++$notes;
+		}
+	}
+	// One call Drew booked, three days out at 10:00 in the mentor's zone; one group session five days out at 15:00.
+	$zone  = new DateTimeZone( 'Europe/Warsaw' );
+	$at    = static function ( $days, $hm ) use ( $zone ) {
+		$d = new DateTime( 'now', $zone );
+		$d->modify( '+' . (int) $days . ' days' );
+		list( $h, $m ) = explode( ':', $hm );
+		$d->setTime( (int) $h, (int) $m );
+		return $d->getTimestamp();
+	};
+	$start = $at( 3, '10:00' );
+	$call  = wp_insert_post( wp_slash( array( 'post_type' => WPCPM_Mentor_Calls::POST_TYPE, 'post_status' => 'private', 'post_author' => (int) $drew->ID, 'post_content' => 'Example topic: my first patch and how to test it.', 'post_title' => 'Call with Drew Example' ) ), true );
+	if ( ! is_wp_error( $call ) ) {
+		update_post_meta( $call, WPCPM_Mentor_Calls::META_START, $start );
+		update_post_meta( $call, WPCPM_Mentor_Calls::META_END, $start + 30 * MINUTE_IN_SECONDS );
+		update_post_meta( $call, WPCPM_Mentor_Calls::META_MENTOR, $mid );
+		update_post_meta( $call, WPCPM_Mentor_Calls::META_STUDENT, (int) $drew->ID );
+		update_post_meta( $call, WPCPM_Mentor_Calls::META_RECORD, (string) $by['drew.example@example.org']['record_id'] );
+		update_post_meta( $call, WPCPM_Mentor_Calls::META_NAME, 'Drew Example' );
+		update_post_meta( $call, WPCPM_Mentor_Calls::META_ZONE, 'Europe/Warsaw' );
+	}
+	wp_set_current_user( $mid );
+	$sessions = WPCPM_Group_Sessions::create_sessions( $mid, array( $at( 5, '15:00' ) ), 60, 6, 'Example topic: reviewing a first patch together.', $zone );
+	wp_set_current_user( $aid );
+	echo 'report-cards: the mentor\'s upcoming calls and sessions ' . count( WPCPM_Mentor_Calls::for_mentor( $mid, true ) ) . "\n";
+	$say( 'report-cards', 3 === $notes && ! is_wp_error( $call ) && 1 === count( (array) $sessions ) ? true : 'notes ' . $notes . ', sessions ' . count( (array) $sessions ) );
+}
+wp_cache_flush();
+endif;
+
 echo wp_json_encode( $made ) . "\n";

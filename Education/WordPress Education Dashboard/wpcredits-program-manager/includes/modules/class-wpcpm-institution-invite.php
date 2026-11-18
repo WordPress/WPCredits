@@ -748,7 +748,8 @@ class WPCPM_Institution_Invite {
 		$problem = null !== $said ? $said['text'] : '';
 		$here    = null !== $said && 'form' === self::place( $said['status'], $said['from'] );
 
-		// The form's own outcome is its fold's first block, and the fold is drawn open for it (Gate B, B7).
+		// The form's own outcome stands directly over the form it answers, the fold drawn open for it (Gate B, B7): the
+		// fold's intro sentence, then the outcome, then the first field (S4, 1.123.99).
 		$out = WPCPM_UI::inner_open(
 			array(
 				'title' => __( 'Invite a colleague', 'wpcredits-program-manager' ),
@@ -757,10 +758,10 @@ class WPCPM_Institution_Invite {
 			)
 		);
 
-		$out .= $here ? self::outcome_parts( $record_id, $said ) : '';
 		$out .= '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		$out .= WPCPM_UI::nonce( self::ACTION_INVITE . '_' . $record_id ) . WPCPM_Institution_People::hidden_html( self::form_fields( $record_id, $origin ) );
 		$out .= WPCPM_UI::intro( self::intro_text() );
+		$out .= $here ? self::outcome_parts( $record_id, $said ) : '';
 
 		$out .= WPCPM_UI::field(
 			array(

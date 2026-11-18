@@ -1193,6 +1193,43 @@ ck( 'a note core stored through kses is still the same note on the second press:
 	array( false !== strpos( $kses_stored, 'Q&amp;A' ), notes_on( 'recSTUDENT0000078' ), $GLOBALS['umeta'][20][ WPCPM_Flash::META ]['note'] ?? '' ),
 	array( true, 1, 'saved' ) );
 
+// 1.123.99 (WordPress/WPCredits issue 309: a mentor looked for the place to add a group session's meeting link). The
+// planning form says where the link comes from, in one line over its first field, across the form's whole width: with a
+// link set, that it is the one in Where we meet; with none, that none is set and where to add it. The topic stays the
+// form's second-to-last child, which is what gives it the whole width.
+if ( ! function_exists( 'esc_url_raw' ) ) {
+	/** The suite set no meeting link before this: core's cleaner, standing in. */
+	function esc_url_raw( $url, $protocols = null ) { return 1 === preg_match( '#^https?://#', (string) $url ) ? (string) $url : ''; }
+}
+
+$link_kept = $GLOBALS['umeta'][20][ WPCPM_Mentor_Availability::META ] ?? null;
+$GLOBALS['umeta'][20][ WPCPM_Mentor_Availability::META ] = array_merge( WPCPM_Mentor_Availability::get( 20 ), array( 'meeting_url' => 'https://meet.example.org/mia' ) );
+$link_set  = next_page( 20, true, static function () { WPCPM_Group_Sessions::render_mentor_planner( new WP_User( 20, 'Mia' ) ); } );
+$GLOBALS['umeta'][20][ WPCPM_Mentor_Availability::META ] = array_merge( WPCPM_Mentor_Availability::get( 20 ), array( 'meeting_url' => '' ) );
+$link_none = next_page( 20, true, static function () { WPCPM_Group_Sessions::render_mentor_planner( new WP_User( 20, 'Mia' ) ); } );
+
+if ( null === $link_kept ) {
+	unset( $GLOBALS['umeta'][20][ WPCPM_Mentor_Availability::META ] );
+} else {
+	$GLOBALS['umeta'][20][ WPCPM_Mentor_Availability::META ] = $link_kept;
+}
+
+$link_line = static function ( $html ) {
+	return 1 === preg_match( '#<p class="wpcpm-field__hint wpcpm-sessions__link">([^<]*)</p><p class="wpcpm-field"><label for="wpcpm-session-date">#', $html, $m ) ? html_entity_decode( $m[1], ENT_QUOTES ) : null;
+};
+
+ck( 'the planning form says where the call\'s link comes from, over its first field: with a link set, and with none',
+	array( $link_line( $link_set ), $link_line( $link_none ) ),
+	array(
+		'The link to the call is the one in Where we meet, under Your availability for calls. A session has no link of its own.',
+		'You have not set a meeting link yet. Add one in Where we meet, under Your availability for calls, so the students who join get it. A session has no link of its own.',
+	) );
+ck( 'the link itself is not printed in the form, and the topic is still the form\'s second-to-last child',
+	array( false !== strpos( $link_set, 'meet.example.org' ), 1 === preg_match( '#<span class="wpcpm-field__hint">[^<]*</span></p><p class="wpcpm-sessions__submit">#', $link_set ) ),
+	array( false, true ) );
+$link_css = (string) file_get_contents( dirname( __DIR__ ) . '/assets/css/calendar.css' );
+ck( 'the line takes the form\'s whole width and no margin of its own', preg_match( '/\.wpcpm-sessions__form \.wpcpm-sessions__link\s*\{\s*grid-column:\s*1 \/ -1;\s*margin:\s*0;\s*\}/', $link_css ), 1 );
+
 $GLOBALS['uid'] = 0;
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );

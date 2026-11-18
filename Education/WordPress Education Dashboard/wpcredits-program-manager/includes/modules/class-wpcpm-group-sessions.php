@@ -1638,6 +1638,16 @@ class WPCPM_Group_Sessions {
 			echo WPCPM_Form_Errors::summary( $problems, $fields, array( 'level' => 4 ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::summary() escapes every value it prints.
 		}
 
+		// Where the call's link comes from (1.123.99, WordPress/WPCredits issue 309): a mentor looked in this form for the
+		// place to add it. There is one link for all of a mentor's calls, set beside their hours; the line says so over
+		// the first field, and says it differently to a mentor who has set none. The link itself is not printed here.
+		printf(
+			'<p class="wpcpm-field__hint wpcpm-sessions__link">%s</p>',
+			'' !== ( isset( $settings['meeting_url'] ) ? (string) $settings['meeting_url'] : '' )
+				? esc_html__( 'The link to the call is the one in Where we meet, under Your availability for calls. A session has no link of its own.', 'wpcredits-program-manager' )
+				: esc_html__( 'You have not set a meeting link yet. Add one in Where we meet, under Your availability for calls, so the students who join get it. A session has no link of its own.', 'wpcredits-program-manager' )
+		);
+
 		printf(
 			'<p class="wpcpm-field"><label for="wpcpm-session-date">%1$s</label>'
 				. '<input type="date" id="wpcpm-session-date" name="date"%2$s required%3$s />%4$s</p>',

@@ -405,6 +405,8 @@ class WPCPM_Dashboards {
 					'label_class' => WPCPM_UI::VIEWING_LABEL,
 					'box_class'   => WPCPM_UI::VIEWING_BOX,
 					'blank'       => $blank,
+					// S3 (1.123.99): the chosen school's full name, so a name the box cuts can be read.
+					'title'       => '' === $blank && isset( $options[ $args['current'] ] ) ? (string) $options[ $args['current'] ] : '',
 				)
 			)
 		);
@@ -463,6 +465,9 @@ class WPCPM_Dashboards {
 	 *     @type bool       $aria_required Whether both boxes carry `aria-required="true"`: a field Required in
 	 *                              words whose select carries no `required` (`WPCPM_UI::field()`'s type `combo`,
 	 *                              Task 19, fix round 1). False prints today's boxes.
+	 *     @type string     $title   The `title` of the select and of the field the script shows in its place,
+	 *                              plain words escaped here (1.123.99: Viewing as institution's chosen school,
+	 *                              so a name its box cuts can be read, with the script or without). '' prints none.
 	 * }
 	 */
 	public static function render_combo( array $args ) {
@@ -485,6 +490,7 @@ class WPCPM_Dashboards {
 				'blank'         => '',
 				'need_html'     => '',
 				'aria_required' => false,
+				'title'         => '',
 			),
 			$args
 		);
@@ -528,7 +534,8 @@ class WPCPM_Dashboards {
 		// Not put back as it was left: a browser that restores a form after Back would set the hidden
 		// list on the name picked last while the field reads the page's own, and Show would open
 		// somebody else's page.
-		printf( '<select%1$s name="%2$s" id="%3$s" autocomplete="off"%4$s%5$s>', '' !== $box ? ' class="' . esc_attr( $box ) . '"' : '', esc_attr( $args['name'] ), esc_attr( $id ), $aria, ! empty( $args['required'] ) ? ' required' : '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr() above.
+		$title = '' !== (string) $args['title'] ? ' title="' . esc_attr( $args['title'] ) . '"' : '';
+		printf( '<select%1$s name="%2$s" id="%3$s" autocomplete="off"%6$s%4$s%5$s>', '' !== $box ? ' class="' . esc_attr( $box ) . '"' : '', esc_attr( $args['name'] ), esc_attr( $id ), $aria, ! empty( $args['required'] ) ? ' required' : '', $title ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr() above.
 
 		// An empty first option that names no entry, never listed by the script (Task 14).
 		if ( '' !== (string) $args['blank'] ) {
@@ -551,12 +558,13 @@ class WPCPM_Dashboards {
 		// the field brings its list.
 		echo '<div class="wpcpm-dashboard__switcher-combo" hidden>';
 		printf(
-			'<input type="text" id="%1$s" class="wpcpm-dashboard__switcher-input%5$s" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="%2$s" autocomplete="off" spellcheck="false" placeholder="%3$s"%4$s />',
+			'<input type="text" id="%1$s" class="wpcpm-dashboard__switcher-input%5$s" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="%2$s" autocomplete="off" spellcheck="false" placeholder="%3$s"%6$s%4$s />',
 			esc_attr( $field ),
 			esc_attr( $list ),
 			esc_attr( $args['find'] ),
 			$aria, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr() above.
-			'' !== $box ? ' ' . esc_attr( $box ) : '' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr().
+			'' !== $box ? ' ' . esc_attr( $box ) : '', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr().
+			$title // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr() above.
 		);
 		printf( '<ul id="%1$s" class="wpcpm-dashboard__switcher-list" role="listbox" aria-labelledby="%2$s" hidden></ul>', esc_attr( $list ), esc_attr( $named ) );
 		// Empty until the list opens: a status region is read out when its text changes. Both

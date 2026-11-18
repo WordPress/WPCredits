@@ -1879,7 +1879,8 @@ class WPCPM_Institution_Panel {
 	/**
 	 * The banner's sentences for an Administrator, as one note set apart from the school's own words: the parts' note in
 	 * its paragraph form, the part for a remark that is not the card's own text. The sentences are the ones the Overview's
-	 * row reads (`WPCPM_Institutions_Dashboard::banner_sentences()`).
+	 * row reads (`WPCPM_Institutions_Dashboard::banner_sentences()`), less what this view's own sentence already says (S2,
+	 * 1.123.99); none, no note.
 	 *
 	 * @param string $record_id Institutions record ID.
 	 * @return string Escaped markup, or ''.
@@ -1889,7 +1890,7 @@ class WPCPM_Institution_Panel {
 			return '';
 		}
 
-		$sentences = (array) WPCPM_Institutions_Dashboard::banner_sentences( (string) $record_id );
+		$sentences = (array) WPCPM_Institutions_Dashboard::banner_sentences( (string) $record_id, true );
 
 		return array() === $sentences ? '' : WPCPM_UI::note( implode( ' ', $sentences ) );
 	}

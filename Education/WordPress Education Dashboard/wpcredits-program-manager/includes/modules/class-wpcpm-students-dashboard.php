@@ -511,12 +511,7 @@ class WPCPM_Students_Dashboard {
 			wp_send_json_success( array( 'order' => self::module_order( $student->ID ) ) );
 		}
 
-		$url = self::page_url();
-		$url = '' !== $url ? $url : home_url( '/' );
-
-		if ( $can_manage && $student->ID !== $viewer->ID ) {
-			$url = add_query_arg( 'wpcpm_student_view', $student->ID, $url );
-		}
+		$url = self::card_url( $student->ID );
 
 		if ( $known ) {
 			$url .= '#wpcpm-module-' . $key;
@@ -1412,5 +1407,27 @@ class WPCPM_Students_Dashboard {
 		}
 
 		return (string) get_permalink( $page_id );
+	}
+
+	/**
+	 * Where a form posted from a student's card sends its reader back (1.123.99): the page, or the front page while it is
+	 * not published, and for a reader who manages the program acting on somebody else's card the page with
+	 * `wpcpm_student_view` for that student, so they land on the card they were on rather than on the first student A to Z
+	 * the bare page would give them. A student saving their own form gets the page as before. No anchor: the caller adds
+	 * its own.
+	 *
+	 * @param int $student_id The student whose card the form was on.
+	 * @return string
+	 */
+	public static function card_url( $student_id ) {
+		$student_id = (int) $student_id;
+		$url        = self::page_url();
+		$url        = '' !== $url ? $url : home_url( '/' );
+
+		if ( 0 < $student_id && get_current_user_id() !== $student_id && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			$url = add_query_arg( 'wpcpm_student_view', $student_id, $url );
+		}
+
+		return $url;
 	}
 }

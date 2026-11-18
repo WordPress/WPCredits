@@ -387,7 +387,7 @@ class WPCPM_Institution_People {
 			}
 
 			if ( $contact_shown ) {
-				$list .= self::contact_row_parts( $contact_name, self::contact_email_raw( $record_id ) );
+				$list .= self::contact_row_parts( $record_id, $contact_name, self::contact_email_raw( $record_id ), $can_change || $can_manage );
 			}
 
 			echo $list . WPCPM_UI::list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::row() and the row builders.
@@ -457,11 +457,13 @@ class WPCPM_Institution_People {
 	 * recorded"), the contact's tag with today's tooltip, the address as its fact, today's sentence as its note, and no
 	 * control, since there is nothing here to remove (`render_contact_row()` says why).
 	 *
-	 * @param string $name  The contact's name as the program records hold it, or ''.
-	 * @param string $email The contact's address as the program records hold it, or ''.
+	 * @param string $record_id The institution whose card is drawn, for the note.
+	 * @param string $name      The contact's name as the program records hold it, or ''.
+	 * @param string $email     The contact's address as the program records hold it, or ''.
+	 * @param bool   $full      Whether the reader may change the list or manages the program, for the note.
 	 * @return string Escaped markup.
 	 */
-	private static function contact_row_parts( $name, $email ) {
+	private static function contact_row_parts( $record_id, $name, $email, $full ) {
 		$name  = trim( (string) $name );
 		$email = trim( (string) $email );
 		$mark  = self::mark_words( false );
@@ -475,7 +477,7 @@ class WPCPM_Institution_People {
 					'title' => $mark['title'],
 				),
 				'facts' => '' !== $email ? array( $email ) : array(),
-				'note'  => __( 'Named in the program records, with no account on this site yet. An Administrator can add one so they can see this page.', 'wpcredits-program-manager' ),
+				'note'  => self::contact_note( $record_id, $email, $full ),
 			)
 		);
 	}
@@ -621,10 +623,12 @@ class WPCPM_Institution_People {
 	 * The mark and its tooltip are the member row's, in the same words: the row says who the
 	 * program writes to and that it is a person rather than an account.
 	 *
-	 * @param string $name  The contact's name as the program records hold it, or ''.
-	 * @param string $email The contact's address as the program records hold it, or ''.
+	 * @param string $record_id The institution whose screen is drawn, for the note.
+	 * @param string $name      The contact's name as the program records hold it, or ''.
+	 * @param string $email     The contact's address as the program records hold it, or ''.
+	 *                          Only Administrators reach this screen, so the note is the full one where it applies.
 	 */
-	private static function render_contact_row( $name, $email ) {
+	private static function render_contact_row( $record_id, $name, $email ) {
 		$name  = trim( (string) $name );
 		$email = trim( (string) $email );
 
@@ -649,10 +653,46 @@ class WPCPM_Institution_People {
 
 		printf(
 			' <span class="wpcpm-people__facts wpcpm-people__status">%s</span>',
-			esc_html__( 'Named in the program records, with no account on this site yet. An Administrator can add one so they can see this page.', 'wpcredits-program-manager' )
+			esc_html( self::contact_note( $record_id, $email, true ) )
 		);
 
 		echo '</li>';
+	}
+
+	/**
+	 * The contact row's note, one sentence for both drawings (S1, 1.123.99). When the contact's address belongs to an
+	 * account that was removed from THIS school and still exists (`former_members_of()`), "no account on this site yet"
+	 * would be untrue, so the note says the account is no longer among the school's people, to a reader who may change
+	 * the list or manages the program (`$full`); any other reader, a tutor among them, is told only that the records name
+	 * the person (fix round F1). When that account is now a live member of another school it cannot be added again, and
+	 * every reader reads the first sentence alone (F2). In every other case it is today's sentence. Nothing of that
+	 * account is printed.
+	 *
+	 * @param string $record_id The institution the row is drawn for.
+	 * @param string $email     The contact's address as the program records hold it, or ''.
+	 * @param bool   $full      Whether the reader may change the list or manages the program.
+	 * @return string Plain words, unescaped.
+	 */
+	private static function contact_note( $record_id, $email, $full ) {
+		$address = strtolower( trim( (string) $email ) );
+		$former  = null;
+
+		foreach ( '' !== $address ? WPCPM_Institution_Members::former_members_of( $record_id ) : array() as $account ) {
+			if ( self::holds_address( array( $account ), $address ) ) {
+				$former = $account;
+				break;
+			}
+		}
+
+		if ( null === $former ) {
+			return __( 'Named in the program records, with no account on this site yet. An Administrator can add one so they can see this page.', 'wpcredits-program-manager' );
+		}
+
+		if ( ! $full || WPCPM_Institution_Members::is_member( $former ) ) {
+			return __( 'Named in the program records.', 'wpcredits-program-manager' );
+		}
+
+		return __( 'Named in the program records. Their account is no longer among this institution\'s people. An Administrator can add them again.', 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -925,7 +965,7 @@ class WPCPM_Institution_People {
 			}
 
 			if ( $contact_shown ) {
-				self::render_contact_row( $contact_name, self::contact_email_raw( $record_id ) );
+				self::render_contact_row( $record_id, $contact_name, self::contact_email_raw( $record_id ) );
 			}
 
 			echo '</ul>';

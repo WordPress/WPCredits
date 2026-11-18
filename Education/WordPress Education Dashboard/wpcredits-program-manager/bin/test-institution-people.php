@@ -2134,6 +2134,79 @@ ck( 'the named contact with no account: a row with its tag, its address as its f
 ), array( array( array( 'Dana Example', 'the institution\'s contact', array( 'dana@example.org' ), 'Named in the program records, with no account on this site yet. An Administrator can add one so they can see this page.' ) ), true, true, 0 ) );
 ck( 'a contact named by address alone is "Name not recorded", as today', t20_rows( $t20_new['Administrator, the contact named by address alone'] )[0][0], 'Name not recorded' );
 
+// S1 (1.123.99): a contact whose address belongs to a former member of THIS school is not told they have no account.
+// Dana's account was a member of D and was removed; it still exists. The note says so, in both drawings, and nothing
+// else on the row or in the head moves.
+const S1_GONE = 'Named in the program records. Their account is no longer among this institution\'s people. An Administrator can add them again.';
+const S1_NONE = 'Named in the program records, with no account on this site yet. An Administrator can add one so they can see this page.';
+$s1_removed = static function ( $address = 'dana@example.org', $school = T20_D ) {
+	t20_fresh();
+	$GLOBALS['users'][230] = new WP_User( 230, 'Dana Account', $address, array( 'subscriber' ) );
+	WPCPM_Institution_Members::attach( 230, $school, 'manager', 1 );
+	WPCPM_Institution_Members::detach( 230, WPCPM_Institution_Members::REASON_REMOVED, 1 );
+	return array( 1, T20_D, true );
+};
+$s1_card        = t20_play( $s1_removed, true );
+$s1_card_upper  = t20_play( static function () use ( $s1_removed ) { return $s1_removed( 'Dana@Example.org' ); }, true );
+$s1_card_other  = t20_play( static function () use ( $s1_removed ) { return $s1_removed( 'dana@example.org', T20_B ); }, true );
+$s1_admin       = t20_manager( static function () use ( $s1_removed ) { $s1_removed(); return T20_D; } );
+$s1_admin_other = t20_manager( static function () use ( $s1_removed ) { $s1_removed( 'dana@example.org', T20_B ); return T20_D; } );
+ck( 'S1: a contact whose address a removed member of this school holds: the row as before, the note the new sentence', t20_rows( $s1_card ), array( array( 'Dana Example', 'the institution\'s contact', array( 'dana@example.org' ), S1_GONE ) ) );
+ck( 'S1: the address is matched whatever its case', t20_rows( $s1_card_upper )[0][3], S1_GONE );
+ck( 'S1: a former member of another school leaves today\'s sentence', t20_rows( $s1_card_other )[0][3], S1_NONE );
+ck( 'S1: still not counted in the head, the empty line still after the list, no action, the account\'s own name never printed', array(
+	has( $s1_card, '<span class="wpcpm-ui-fold__phrase">0 people</span>' ),
+	has( $s1_card, '</ul><p class="wpcpm-ui-list__empty">Nobody can act for this institution on this site right now.</p>' ),
+	count( t20_forms( t20_between( $s1_card, '<ul class="wpcpm-ui-list', '</ul>' ) ) ),
+	has( $s1_card, 'Dana Account' ),
+), array( true, true, 0, false ) );
+ck( 'S1: the card differs from the no-account card by the note alone', str_replace( esc_html( S1_GONE ), esc_html( S1_NONE ), $s1_card ), $t20_new['Administrator, a named contact with no account'] );
+ck( 'S1: on the Institutions screen\'s Accounts tab the contact\'s row says the same, and a former member of another school does not', array(
+	has( $s1_admin, '<span class="wpcpm-people__facts wpcpm-people__status">' . esc_html( S1_GONE ) . '</span>' ),
+	has( $s1_admin, esc_html( S1_NONE ) ),
+	has( $s1_admin_other, '<span class="wpcpm-people__facts wpcpm-people__status">' . esc_html( S1_NONE ) . '</span>' ),
+), array( true, false, true ) );
+// Fix round F1: the full sentence is for a reader who may change the list or manages the program; any other reads the
+// first sentence alone. F2: a former member now live at another school cannot be added again, so every reader reads
+// the first sentence alone. Both drawings.
+const S1_SHORT = 'Named in the program records.';
+$s1_readers = static function ( $viewer, $manage, $elsewhere = false ) use ( $s1_removed ) {
+	return static function () use ( $s1_removed, $viewer, $manage, $elsewhere ) {
+		$s1_removed();
+		$GLOBALS['users'][240] = new WP_User( 240, 'Rita Example', 'rita@example.org', array( 'subscriber' ) );
+		$GLOBALS['users'][241] = new WP_User( 241, 'Theo Example', 'theo@example.org', array( 'subscriber' ) );
+		WPCPM_Institution_Members::attach( 240, T20_D, 'manager', 1 );
+		WPCPM_Institution_Members::attach( 241, T20_D, 'invited', 240, 0, 'tutor' );
+		if ( $elsewhere ) {
+			WPCPM_Institution_Members::attach( 230, T20_B, 'manager', 1 );
+		}
+		return array( $viewer, T20_D, $manage );
+	};
+};
+$s1_note = static function ( $html ) {
+	foreach ( t20_rows( $html ) as $row ) {
+		if ( 'Dana Example' === $row[0] ) {
+			return $row[3];
+		}
+	}
+	return null;
+};
+ck( 'F1: an Administrator and a representative read the full sentence, a tutor the first sentence alone', array(
+	'Administrator'  => $s1_note( t20_play( $s1_readers( 1, true ), true ) ),
+	'representative' => $s1_note( t20_play( $s1_readers( 240, false ), true ) ),
+	'tutor'          => $s1_note( t20_play( $s1_readers( 241, false ), true ) ),
+), array( 'Administrator' => S1_GONE, 'representative' => S1_GONE, 'tutor' => S1_SHORT ) );
+ck( 'F2: the account now live at another school: every reader reads the first sentence alone', array(
+	'Administrator'  => $s1_note( t20_play( $s1_readers( 1, true, true ), true ) ),
+	'representative' => $s1_note( t20_play( $s1_readers( 240, false, true ), true ) ),
+	'tutor'          => $s1_note( t20_play( $s1_readers( 241, false, true ), true ) ),
+), array( 'Administrator' => S1_SHORT, 'representative' => S1_SHORT, 'tutor' => S1_SHORT ) );
+$s1_admin_live = t20_manager( static function () use ( $s1_readers ) { $s1_readers( 1, true, true )(); return T20_D; } );
+ck( 'F2: and on the Accounts tab the same', has( $s1_admin_live, '<span class="wpcpm-people__facts wpcpm-people__status">' . esc_html( S1_SHORT ) . '</span>' ), true );
+if ( function_exists( 'wpcpm_layout_keep' ) ) {
+	wpcpm_layout_keep( 'Representatives and tutors: Administrator, the contact\'s account removed from this school (S1)', str_replace( '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" id=', '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id=', $s1_card ) );
+}
+
 // ---- 5. Invitations waiting and Invite a colleague ----
 
 $t20_invites = t20_between( $t20_long_new, '<h4 class="wpcpm-ui-h">Invitations waiting</h4>', '<details' );
@@ -2472,8 +2545,13 @@ foreach ( $b7_states as $b7_name => $b7_state ) {
 	$b7_wait = strpos( $b7_html, 'Invitations waiting' );
 	$b7_row  = false === $b7_wait ? false : strpos( $b7_html, '<li', $b7_wait );
 	$b7_fold_open = 1 === preg_match( '/<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id="wpcpm-people-invite"/', $b7_html );
+	$b7_intro = false === $b7_form ? false : strpos( $b7_html, '<p class="wpcpm-ui-intro">They get one email', $b7_form );
+	$b7_field = false === $b7_form ? false : strpos( $b7_html, '<div class="wpcpm-ui-field', $b7_form );
 	if ( false === $b7_at ) {
 		$b7[ $b7_name ] = 'none';
+	} elseif ( false !== $b7_intro && false !== $b7_field && $b7_at > $b7_intro && $b7_at < $b7_field ) {
+		// S4 (1.123.99): the intro sentence, then the outcome, then the form's first field.
+		$b7[ $b7_name ] = 'in the invite fold, after its intro, over its first field' . ( $b7_fold_open ? ', open' : ', closed' );
 	} elseif ( false !== $b7_fold && $b7_at > $b7_fold && false !== $b7_form && $b7_at < $b7_form ) {
 		$b7[ $b7_name ] = 'in the invite fold, before its form' . ( $b7_fold_open ? ', open' : ', closed' );
 	} elseif ( false !== $b7_wait && $b7_at > $b7_wait && false !== $b7_row && $b7_at < $b7_row ) {
@@ -2486,15 +2564,34 @@ foreach ( $b7_states as $b7_name => $b7_state ) {
 	$b7[ $b7_name ] .= ' (' . substr_count( $b7_html, 'data-wpcpm-card-message' ) . ')';
 }
 ck( 'each invitation outcome is said once, at the form or the rows it is about', $b7, array(
-	'refused, not an address' => 'in the invite fold, before its form, open (1)',
-	'sent'                    => 'in the invite fold, before its form, open (1)',
-	'full, with rows'         => 'in the invite fold, before its form, open (1)',
+	'refused, not an address' => 'in the invite fold, after its intro, over its first field, open (1)',
+	'sent'                    => 'in the invite fold, after its intro, over its first field, open (1)',
+	'full, with rows'         => 'in the invite fold, after its intro, over its first field, open (1)',
 	'resent, with rows'       => 'under Invitations waiting, over the rows (1)',
 	'canceled, no row left'   => 'after the people (1)',
 	'Resend refused, the day\'s sends spent' => 'under Invitations waiting, over the rows (1)',
 	'Resend refused, the mail not handed over' => 'under Invitations waiting, over the rows (1)',
-	'the form refused, the day\'s sends spent' => 'in the invite fold, before its form, open (1)',
+	'the form refused, the day\'s sends spent' => 'in the invite fold, after its intro, over its first field, open (1)',
 ) );
+
+// S4 (1.123.99): the outcome stands directly over the form it answers: the fold's intro sentence, the message right after
+// it, then the first field; the focus target and the place a refusal lands (the fold's id) as they were.
+$s4_refused = t20_play( $b7_states['refused, not an address'], true );
+$s4_sent    = t20_play( $b7_states['sent'], true );
+$s4_order   = static function ( $html ) {
+	$fold = (string) t20_between( $html, 'id="wpcpm-people-invite"', '</details>' );
+	return 1 === preg_match( '#<p class="wpcpm-ui-intro">They get one email[^<]*</p><p class="wpcpm-people__message[^"]*"[^>]*data-wpcpm-card-message[^>]*>.*?</p><div class="wpcpm-ui-field#s', $fold );
+};
+ck( 'S4: in Invite a colleague the intro, then the message, then the first field, for a success and for a refusal', array( $s4_order( $s4_sent ), $s4_order( $s4_refused ) ), array( true, true ) );
+ck( 'S4: the refusal still leads to the box it refused, and its message is still the one block focus goes to', array(
+	has( $s4_refused, 'data-wpcpm-card-message><a href="#wpcpm-invite-email-' . T20_A . '">Nothing was sent.' ),
+	substr_count( $s4_refused, 'data-wpcpm-card-message' ),
+	1 === preg_match( '/<details class="wpcpm-ui-fold wpcpm-ui-fold--inner" open id="wpcpm-people-invite"/', $s4_refused ),
+), array( true, 1, true ) );
+if ( function_exists( 'wpcpm_layout_keep' ) ) {
+	wpcpm_layout_keep( 'Representatives and tutors: Invite a colleague after a send, the message over the form (S4)', $s4_sent );
+	wpcpm_layout_keep( 'Representatives and tutors: Invite a colleague refused, the message over the form (S4)', $s4_refused );
+}
 
 // Gate B round 2, F6: a waiting row's outcome is said even when the rows are not drawn for this reader (a tutor now, the
 // permission changed between the press and the page): at the card's message place, after the people.

@@ -318,6 +318,40 @@ ck( 'with no Agreement Status the banner is one sentence, and a copy waiting for
 	'This institution\'s agreement is not settled: a signed copy is waiting for review. Its representatives see only the Overview and the Agreement, and its tutors no page.',
 ) );
 
+// S2 (1.123.99): on the Agreement view the panel's own sentence names the state, and for no agreement and a revoked one
+// also what the school's people see, in more words than the banner (the date, the template, the note, "until it does").
+// There the banner says each fact once: it drops the state it repeats, or its first sentence whole where the panel's
+// sentence holds both; what Airtable records stays. The Overview's row reads every sentence as before.
+$s2 = array();
+foreach ( array( 'none', 'generated', 'submitted', 'returned', 'revoked', 'accepted', 'on_file' ) as $state ) {
+	foreach ( array( 'Not started', '' ) as $status ) {
+		$GLOBALS['summary'] = array( 'state' => $state, 'airtable_status' => $status );
+		$s2[ $state . ( '' === $status ? '' : ', Airtable' ) ] = $has( 'banner_sentences' ) ? array( WPCPM_Institutions_Dashboard::banner_sentences( $rec_locked, true ), WPCPM_Institutions_Dashboard::banner_sentences( $rec_locked ) === WPCPM_Institutions_Dashboard::banner_sentences( $rec_locked, false ) ) : null;
+	}
+}
+$s2_short = 'This institution\'s agreement is not settled. Its representatives see only the Overview and the Agreement, and its tutors no page.';
+$s2_air   = 'Airtable records the Agreement Status as Not started.';
+ck( 'S2: on the Agreement view the banner says each fact once; the Overview\'s sentences do not move', $s2, array(
+	'none, Airtable'      => array( array( $s2_air ), true ),
+	'none'                => array( array(), true ),
+	'generated, Airtable' => array( array( $s2_short, $s2_air ), true ),
+	'generated'           => array( array( $s2_short ), true ),
+	'submitted, Airtable' => array( array( $s2_short, $s2_air ), true ),
+	'submitted'           => array( array( $s2_short ), true ),
+	'returned, Airtable'  => array( array( $s2_short, $s2_air ), true ),
+	'returned'            => array( array( $s2_short ), true ),
+	'revoked, Airtable'   => array( array( $s2_air ), true ),
+	'revoked'             => array( array(), true ),
+	// F3: the two disagreement states keep the full note, which alone says Airtable has not confirmed the site's copy.
+	'accepted, Airtable'  => array( array( 'This institution\'s agreement is not settled: accepted on this site, which Airtable has not confirmed. Its representatives see only the Overview and the Agreement, and its tutors no page.', $s2_air ), true ),
+	'accepted'            => array( array( 'This institution\'s agreement is not settled: accepted on this site, which Airtable has not confirmed. Its representatives see only the Overview and the Agreement, and its tutors no page.' ), true ),
+	'on_file, Airtable'   => array( array( 'This institution\'s agreement is not settled: on file according to this site, which Airtable has not confirmed. Its representatives see only the Overview and the Agreement, and its tutors no page.', $s2_air ), true ),
+	'on_file'             => array( array( 'This institution\'s agreement is not settled: on file according to this site, which Airtable has not confirmed. Its representatives see only the Overview and the Agreement, and its tutors no page.' ), true ),
+) );
+$GLOBALS['summary'] = array( 'state' => 'none', 'airtable_status' => 'Not started' );
+ck( 'S2: the Overview\'s row for a school with no agreement reads as the brief quotes it', field( items( $rec_locked, $admin, true ), 0, 'why' ), 'This institution\'s agreement is not settled: not started. Its representatives see only the Overview and the Agreement, and its tutors no page. Airtable records the Agreement Status as Not started.' );
+$GLOBALS['summary'] = array( 'state' => 'submitted', 'airtable_status' => '' );
+
 // The banner's sentences are printed by the Agreement view's panel, inside its anchored block (Task 21,
 // bin/test-institution-panel.php); the dashboard's own printer of them went with the old page (Task 23).
 ck( 'the dashboard prints no banner of its own: banner_sentences() is what the panel and the Overview read', method_exists( 'WPCPM_Institutions_Dashboard', 'render_banner' ), false );

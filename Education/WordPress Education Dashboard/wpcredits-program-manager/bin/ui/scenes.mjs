@@ -25,6 +25,7 @@
 //   tablet true                   also taken at 768 (release 2's wp-admin tabs only)
 //   widths [w, ...]               also taken at these widths, whatever --sizes says
 //   onlyWidths [w, ...]           taken at these widths and no other
+//   planner true                  1.123.99's planner scenes, at the Institution Dashboard's seventeen widths
 //   folded true                   the dashboard frame's menu folded, as Collapse menu leaves it: the frame's
 //                                 own stored state (localStorage wpcpm-frame-folded = 1), set before the page loads
 //   firstPx n                     with viewportOnly: the first n px of the page instead of one screen
@@ -169,6 +170,8 @@ export const GATE_B_STATES = {
   // 1.123.98: the narrowed lists See them opens, a student's card opened from one, and the people card reading "0 people".
   'only-no-sign-in': 'students', 'only-finishing': 'students', 'only-ended-open': 'students', 'only-pending-graduation': 'students',
   'only-no-sign-in-student-card': 'students', 'people-0': 'institution',
+  // 1.123.99, S1: the people card of a school whose contact's account was removed from it.
+  'people-removed-contact': 'institution',
 };
 // Each reader of a Gate B scene: the account it signs in as, or the school an Administrator names.
 export const GATE_B_READERS = {
@@ -182,6 +185,8 @@ export const GATE_B_READERS = {
   'representative-long-words': { login: '{LONG_LOGIN}' }, 'admin-viewing-long-words': { school: '{LONG_RECORD}' },
   // 1.123.98: the settled school whose only person is its contact, with no account (seed.mjs, PEOPLE0): an Administrator alone can look.
   'admin-viewing-people0': { school: '{PEOPLE_ZERO_RECORD}' },
+  // 1.123.99, S1: the settled school whose contact's account was removed (seed.mjs, REMOVED_CONTACT).
+  'admin-viewing-removed-contact': { school: '{REMOVED_CONTACT_RECORD}' },
 };
 // The B2 scenes that are a Gate B state already, by reader and view: each reader's report index. (The agreement states and
 // the compact Viewing as are scenes of their own, each expecting its own words or control, fix round 1.)
@@ -320,6 +325,8 @@ function gateScenes() {
     add(`only-${key}`, key === 'finishing' || key === 'pending-graduation' ? ['representative', 'tutor'] : ['representative'], { args: { wpcpm_only: key }, state: 'as-loaded', opens: ['#wpcpm-roster .wpcpm-ui-list'], texts: [['#wpcpm-roster', ONLY_WORDS[key]], ['#wpcpm-roster', 'Show all students']] });
   }
   add('only-no-sign-in-student-card', ['representative'], { args: { wpcpm_only: 'no-sign-in', wpcpm_institution_student: '{DESIGN_STUDENT_INVITED}' }, state: 'as-loaded', opens: ['.wpcpm-ui-item__head', '#wpcpm-student-invite'] });
+  // 1.123.99, S1: its contact row says the account is no longer among the school's people.
+  add('people-removed-contact', ['admin-viewing-removed-contact'], { state: 'all-open', act: { open: 'main' }, opens: ['#wpcpm-people'], texts: [['#wpcpm-people', "Their account is no longer among this institution's people."]] });
   add('people-0', ['admin-viewing-people0'], { state: 'all-open', act: { open: 'main' }, opens: ['#wpcpm-people'], texts: [['#wpcpm-people', '0 people']] });
   return out;
 }
@@ -487,6 +494,21 @@ export function scenes({ graduation = false } = {}) {
   // D. Both Report Cards, as the Administrator viewing the second entry of the Viewing as list.
   add('mentor-report-card', 'admin-viewing-mentor', 'all-open', '/mentor-dashboard/', { act: { pick: 'select[name="wpcpm_mentor"]', open: 'main' } });
   add('student-report-card', 'admin-viewing-student', 'all-open', '/student-dashboard/', { act: { pick: 'select[name="wpcpm_student_view"]', open: 'main' } });
+  // 1.123.99: the fold "Plan a group session" opened on a mentor's own Mentor Report Card (its summary pressed, nothing
+  // posted), for the invented mentor with a meeting link set and for the one with none, at the Institution Dashboard's
+  // seventeen widths. The fold and its form are drawn by both builds; the line over the first field by the new one alone.
+  for (const [who, login] of [['link', '{PLANNER_LINK_LOGIN}'], ['none', '{PLANNER_NONE_LOGIN}']]) {
+    add('mentor-report-card', `planner-${who}`, 'fold-open', '/mentor-dashboard/', { login, planner: true, onlyWidths: INSTITUTION_WIDTHS, act: { openFold: { text: '^Plan a group session', scope: '.wpcpm-calls' } }, expect: { selectors: ['details.wpcpm-sessions__new[open] form.wpcpm-sessions__form'] }, note: `1.123.99: the planner open, the mentor ${who === 'link' ? 'with a meeting link set' : 'with no meeting link'}` });
+  }
+  // Both Report Cards as they are today, with the seed's content (seed-states.php, `report-cards`): the planner's mentor
+  // Linden Example with three current students and a past one, and Drew Example, one of them. Each as its own reader and as
+  // an Administrator viewing it; a fold opened only by pressing its summary, nothing posted.
+  add('mentor-report-card', 'today-mentor', 'as-loaded', '/mentor-dashboard/', { login: '{PLANNER_LINK_LOGIN}', note: 'the mentor on their own card, as it loads' });
+  add('mentor-report-card', 'today-mentor', 'mentee-open', '/mentor-dashboard/', { login: '{PLANNER_LINK_LOGIN}', act: { openFold: { text: 'Drew Example', scope: 'main' } }, note: "Drew Example's row opened, its Report form fold left closed" });
+  add('mentor-report-card', 'today-admin-viewing-mentor', 'as-loaded', '/mentor-dashboard/?wpcpm_mentor={PLANNER_LINK_ID}', { note: 'an Administrator viewing the mentor, as it loads' });
+  add('student-report-card', 'today-student', 'as-loaded', '/student-dashboard/', { login: '{DREW_LOGIN}', note: 'the student on their own card, as it loads' });
+  add('student-report-card', 'today-student', 'report-open', '/student-dashboard/', { login: '{DREW_LOGIN}', act: { openFold: { text: '.', scope: 'details.wpcpm-report__disclosure' } }, note: 'the Report form fold opened' });
+  add('student-report-card', 'today-admin-viewing-student', 'as-loaded', '/student-dashboard/?wpcpm_student_view={DREW_ID}', { note: 'an Administrator viewing the student, as it loads' });
   if (graduation) {
     add('student-report-card', 'admin-viewing-pending-student', 'all-open', '/student-dashboard/?wpcpm_student_view={PENDING_STUDENT}', { act: { open: 'main' }, note: 'the pending student the state made, Riley Example' });
     add('mentor-report-card', 'admin-viewing-pending-mentor', 'all-open', '/mentor-dashboard/?wpcpm_mentor={PENDING_MENTOR}', { act: { open: 'main' }, note: "the pending student's mentor, Harper Example" });

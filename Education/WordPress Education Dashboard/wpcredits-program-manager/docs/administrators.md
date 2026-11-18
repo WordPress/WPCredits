@@ -347,7 +347,7 @@ Where to start:
 **What happens next**
 
 - You see every view the school's representatives see but **Events**, even before its agreement is settled.
-- While it is not settled, the **Overview** has the row *The agreement is not settled*, saying "This institution's agreement is not settled: {state}. Its representatives see only the Overview and the Agreement, and its tutors no page." It is tagged **Waits** when you are the one to act, and **With the school** otherwise. **Agreement** opens with the same sentence.
+- While it is not settled, the **Overview** has the row *The agreement is not settled*, saying "This institution's agreement is not settled: {state}. Its representatives see only the Overview and the Agreement, and its tutors no page." It is tagged **Waits** when you are the one to act, and **With the school** otherwise. **Agreement** opens with the school's own sentence about its agreement, so the note above it says only what that sentence does not. For a generated template, a copy waiting for review or a returned copy, the note reads "This institution's agreement is not settled. Its representatives see only the Overview and the Agreement, and its tutors no page." With no agreement, or a revoked one, the school's sentence already says both, and the note holds only what Airtable records, if anything. When this site and Airtable disagree, the note reads as on the **Overview**. When Airtable records an Agreement Status, "Airtable records the Agreement Status as {status}." follows the note.
 - **For Administrators**, the last item in the menu, holds the school's **History**: what was done, when and by whom.
 - **Viewing as institution** stays at the end of the page's first line on every view. Picking another school keeps the view you are on.
 

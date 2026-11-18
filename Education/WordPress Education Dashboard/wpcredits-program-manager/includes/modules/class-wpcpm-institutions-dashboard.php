@@ -2696,18 +2696,36 @@ class WPCPM_Institutions_Dashboard {
 	 * source says so, and a manager reading "a signed copy is waiting" needs to know whether the base is what is
 	 * holding it.
 	 *
-	 * @param string $record Institutions record ID.
-	 * @return string[] One sentence, or two.
+	 * On the Agreement view (`$agreement_view`, S2 of 1.123.99) the panel's own sentence for the state is printed under
+	 * the banner and names the state in more words, so the banner says each fact once there: for no agreement and a
+	 * revoked one the panel's sentence also says what the school's people see, and the first sentence goes whole; for a
+	 * generated, submitted or returned copy it keeps what the school's people see and drops the state. The two states
+	 * where the sources disagree keep the whole sentence: it alone says Airtable has not confirmed the site's copy (fix
+	 * round F3). What Airtable records stays. The Overview's row reads every sentence, as before.
+	 *
+	 * @param string $record         Institutions record ID.
+	 * @param bool   $agreement_view Whether the Agreement view's panel prints them, under its own sentence.
+	 * @return string[] None, one sentence, or two.
 	 */
-	public static function banner_sentences( string $record ): array {
-		$summary   = WPCPM_Institution_Agreement::summary( $record );
-		$sentences = array(
-			sprintf(
-				/* translators: %s: the agreement state in words, e.g. "not started". */
-				__( 'This institution\'s agreement is not settled: %s. Its representatives see only the Overview and the Agreement, and its tutors no page.', 'wpcredits-program-manager' ),
-				self::state_label( $summary['state'] )
-			),
-		);
+	public static function banner_sentences( string $record, bool $agreement_view = false ): array {
+		$summary = WPCPM_Institution_Agreement::summary( $record );
+		$state   = (string) $summary['state'];
+		$said    = array( WPCPM_Institution_Agreement::SUMMARY_NONE, WPCPM_Institution_Agreement::SUMMARY_REVOKED );
+		$named   = array( WPCPM_Institution_Agreement::SUMMARY_GENERATED, WPCPM_Institution_Agreement::SUMMARY_SUBMITTED, WPCPM_Institution_Agreement::SUMMARY_RETURNED );
+
+		if ( $agreement_view && in_array( $state, $said, true ) ) {
+			$sentences = array();
+		} elseif ( $agreement_view && in_array( $state, $named, true ) ) {
+			$sentences = array( __( 'This institution\'s agreement is not settled. Its representatives see only the Overview and the Agreement, and its tutors no page.', 'wpcredits-program-manager' ) );
+		} else {
+			$sentences = array(
+				sprintf(
+					/* translators: %s: the agreement state in words, e.g. "not started". */
+					__( 'This institution\'s agreement is not settled: %s. Its representatives see only the Overview and the Agreement, and its tutors no page.', 'wpcredits-program-manager' ),
+					self::state_label( $state )
+				),
+			);
+		}
 
 		if ( '' !== $summary['airtable_status'] ) {
 			$sentences[] = sprintf(

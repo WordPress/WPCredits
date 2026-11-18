@@ -1721,7 +1721,7 @@ class WPCPM_Student_Report_Form {
 		$record = WPCPM_Mentor_Calls::student_record( $student_id );
 
 		if ( '' === $record ) {
-			self::bounce( 'report-no-record', $from );
+			self::bounce( 'report-no-record', $from, $student_id );
 		}
 
 		// What an earlier refusal kept is dropped first, so a refusal whose page was never drawn
@@ -1794,11 +1794,11 @@ class WPCPM_Student_Report_Form {
 		if ( empty( $cells ) ) {
 			// The unreadable answer first, for the reason given at the other bounce below.
 			if ( '' !== $images && empty( $rejected ) ) {
-				self::bounce( $images, $from );
+				self::bounce( $images, $from, $student_id );
 			}
 
 			self::keep( $form, $posted, $problems );
-			self::bounce( empty( $rejected ) ? 'report-nothing' : 'report-rejected', $from );
+			self::bounce( empty( $rejected ) ? 'report-nothing' : 'report-rejected', $from, $student_id );
 		}
 
 		$settings = WPCPM_Settings::get();
@@ -1817,7 +1817,7 @@ class WPCPM_Student_Report_Form {
 		// readable ones with the rest (1.123.58, CARD-01).
 		if ( is_wp_error( $result ) ) {
 			self::keep( $form, $posted, $problems );
-			self::bounce( 'report-refused', $from );
+			self::bounce( 'report-refused', $from, $student_id );
 		}
 
 		// Airtable accepted the write, so this is a report save the student made: activity.
@@ -1841,7 +1841,7 @@ class WPCPM_Student_Report_Form {
 		// `$rejected` pair exists to prevent. The screenshot refusal is said on its own
 		// whenever it is the only thing that went wrong, which is nearly always.
 		if ( '' !== $images && empty( $rejected ) ) {
-			self::bounce( $images, $from );
+			self::bounce( $images, $from, $student_id );
 		}
 
 		// Saved but for the answers named: they come back as typed, at their fields, beside the
@@ -1850,7 +1850,7 @@ class WPCPM_Student_Report_Form {
 			self::keep( $form, $posted, $problems );
 		}
 
-		self::bounce( empty( $rejected ) ? 'report-saved' : 'report-partly', $from );
+		self::bounce( empty( $rejected ) ? 'report-saved' : 'report-partly', $from, $student_id );
 	}
 
 	/**
@@ -2224,7 +2224,7 @@ class WPCPM_Student_Report_Form {
 		$record = WPCPM_Mentor_Calls::student_record( $student_id );
 
 		if ( '' === $record ) {
-			self::bounce( 'report-no-record' );
+			self::bounce( 'report-no-record', self::FROM_FORM, $student_id );
 		}
 
 		$asked   = isset( $_POST['field'] ) ? sanitize_key( wp_unslash( $_POST['field'] ) ) : '';
@@ -2245,7 +2245,7 @@ class WPCPM_Student_Report_Form {
 		// cell is not this button's to empty: the control only draws it over a file the site
 		// stored itself.
 		if ( '' === $column || empty( $stored[ $column ] ) ) {
-			self::bounce( 'report-image-none' );
+			self::bounce( 'report-image-none', self::FROM_FORM, $student_id );
 		}
 
 		$settings = WPCPM_Settings::get();
@@ -2261,7 +2261,7 @@ class WPCPM_Student_Report_Form {
 		);
 
 		if ( is_wp_error( $written ) ) {
-			self::bounce( 'report-image-kept' );
+			self::bounce( 'report-image-kept', self::FROM_FORM, $student_id );
 		}
 
 		$deleted = wp_delete_attachment( (int) $stored[ $column ], true );
@@ -2281,13 +2281,13 @@ class WPCPM_Student_Report_Form {
 		// question still shows the picture and still offers Remove, so the next press finishes
 		// what this one started; the PATCH it repeats empties a cell that is already empty.
 		if ( false === $deleted || null === $deleted ) {
-			self::bounce( 'report-image-partly' );
+			self::bounce( 'report-image-partly', self::FROM_FORM, $student_id );
 		}
 
 		unset( $stored[ $column ] );
 		update_user_meta( (int) $student_id, self::META_IMAGES, $stored );
 
-		self::bounce( 'report-image-removed' );
+		self::bounce( 'report-image-removed', self::FROM_FORM, $student_id );
 	}
 
 	/**
@@ -2334,18 +2334,18 @@ class WPCPM_Student_Report_Form {
 	 * A save from the hours box lands on *My course*, where the box is, and the box says the
 	 * outcome; every other lands on the form (1.123.58, CARD-08).
 	 *
-	 * @param string $status Outcome flag.
-	 * @param string $from   `FROM_HOURS` or `FROM_FORM`.
+	 * @param string $status     Outcome flag.
+	 * @param string $from       `FROM_HOURS` or `FROM_FORM`.
+	 * @param int    $student_id The student whose card the form was on.
 	 */
-	private static function bounce( $status, $from = self::FROM_FORM ) {
+	private static function bounce( $status, $from, $student_id ) {
 		$hours = self::FROM_HOURS === $from;
 
 		WPCPM_Flash::set( 'report', $status );
 		WPCPM_Flash::set( 'report-from', $hours ? self::FROM_HOURS : self::FROM_FORM );
 
-		$page = WPCPM_Students_Dashboard::page_url();
-
-		wp_safe_redirect( ( '' !== $page ? $page : home_url( '/' ) ) . ( $hours ? '#wpcpm-module-' . WPCPM_Students_Dashboard::MODULE_COURSE : '#wpcpm-report-form' ) );
+		// Back to the card the form was on: an Administrator keeps the student they were viewing (1.123.99).
+		wp_safe_redirect( WPCPM_Students_Dashboard::card_url( $student_id ) . ( $hours ? '#wpcpm-module-' . WPCPM_Students_Dashboard::MODULE_COURSE : '#wpcpm-report-form' ) );
 		exit;
 	}
 

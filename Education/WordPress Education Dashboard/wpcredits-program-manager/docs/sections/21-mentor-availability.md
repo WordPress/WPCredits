@@ -57,6 +57,9 @@ walkthrough, a question hour, a session for everybody starting the same week.
 - **More dates**, for the odd dates of a series: up to eight further dates with the same time,
   length, places and topic. Leave the ones you do not need empty.
 
+The link to the call is the one in **Where we meet**, under **Your availability for calls**; a
+session has no link of its own.
+
 A session is not carved out of your weekly hours; you pick any time, including one you would never
 offer for private calls. It does **block that time from one-to-one booking**, for its whole length,
 not only its start: no slot that overlaps it is offered, so nobody books you privately over a

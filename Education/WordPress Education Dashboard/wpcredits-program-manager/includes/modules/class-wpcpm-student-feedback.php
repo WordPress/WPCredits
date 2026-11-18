@@ -1608,13 +1608,13 @@ class WPCPM_Student_Feedback {
 		$forms = self::forms();
 
 		if ( ! isset( $forms[ $form_key ] ) ) {
-			self::bounce( 'feedback-unknown', $form_key );
+			self::bounce( 'feedback-unknown', $form_key, $student_id );
 		}
 
 		$student = get_user_by( 'id', $student_id );
 
 		if ( ! $student instanceof WP_User ) {
-			self::bounce( 'feedback-failed', $form_key );
+			self::bounce( 'feedback-failed', $form_key, $student_id );
 		}
 
 		$program = WPCPM_Students_Sync::get_program( $student_id );
@@ -1684,7 +1684,7 @@ class WPCPM_Student_Feedback {
 
 			// A post carrying nothing but somebody else's permissions is not an empty form, and
 			// saying "nothing was filled in" would hide the one thing worth knowing about it.
-			self::bounce( $dropped ? 'feedback-not-yours' : 'feedback-nothing', $form_key );
+			self::bounce( $dropped ? 'feedback-not-yours' : 'feedback-nothing', $form_key, $student_id );
 		}
 
 		// Only now: an empty submission should not create a row for somebody who has not answered.
@@ -1692,7 +1692,7 @@ class WPCPM_Student_Feedback {
 
 		if ( is_wp_error( $record ) ) {
 			$keep();
-			self::bounce( 'feedback-failed', $form_key );
+			self::bounce( 'feedback-failed', $form_key, $student_id );
 		}
 
 		// Which mentor they had at *this* stage. A student can change mentor between forms, and
@@ -1737,7 +1737,7 @@ class WPCPM_Student_Feedback {
 
 		if ( is_wp_error( $result ) ) {
 			$keep();
-			self::bounce( 'feedback-refused', $form_key );
+			self::bounce( 'feedback-refused', $form_key, $student_id );
 		}
 
 		// Sent but for the answers named: they come back as typed, at their fields.
@@ -1761,10 +1761,10 @@ class WPCPM_Student_Feedback {
 		}
 
 		if ( $dropped ) {
-			self::bounce( 'feedback-not-yours', $form_key );
+			self::bounce( 'feedback-not-yours', $form_key, $student_id );
 		}
 
-		self::bounce( array() !== $problems ? 'feedback-partly' : 'feedback-saved', $form_key );
+		self::bounce( array() !== $problems ? 'feedback-partly' : 'feedback-saved', $form_key, $student_id );
 	}
 
 	/**
@@ -1896,15 +1896,16 @@ class WPCPM_Student_Feedback {
 	/**
 	 * Send them back to the form they were filling in.
 	 *
-	 * @param string $status   Flash status.
-	 * @param string $form_key Which form, so the page reopens at it.
+	 * @param string $status     Flash status.
+	 * @param string $form_key   Which form, so the page reopens at it.
+	 * @param int    $student_id The student whose card the form was on.
 	 */
-	private static function bounce( $status, $form_key = '' ) {
+	private static function bounce( $status, $form_key, $student_id ) {
 		WPCPM_Flash::set( 'feedback', $status );
 		WPCPM_Flash::set( 'feedback-form', sanitize_key( (string) $form_key ) );
 
-		$page = WPCPM_Students_Dashboard::page_url();
-		$page = ( '' !== $page ) ? $page : home_url( '/' );
+		// Back to the card the form was on: an Administrator keeps the student they were viewing (1.123.99).
+		$page = WPCPM_Students_Dashboard::card_url( $student_id );
 
 		wp_safe_redirect( $page . ( '' !== $form_key ? '#wpcpm-feedback-' . $form_key : '#wpcpm-report-form' ) );
 		exit;

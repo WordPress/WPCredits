@@ -1867,8 +1867,9 @@ $rf_prog   = array( 'program' => WPCPM_Program::STATUS_150H, 'record_id' => $rf_
 function report_post( array $report, $from = '', $code = 200 ) {
 	global $rf_sid, $rf_record, $rf_prog;
 
-	$GLOBALS['uid']          = $rf_sid;
-	$GLOBALS['caps']         = false;
+	// F5 (1.123.99): `rf_as` names an Administrator posting on the student's card instead of the student.
+	$GLOBALS['uid']          = isset( $GLOBALS['rf_as'] ) ? (int) $GLOBALS['rf_as'] : $rf_sid;
+	$GLOBALS['caps']         = isset( $GLOBALS['rf_as'] );
 	$GLOBALS['report_sent']  = array();
 	$GLOBALS['report_queue'] = $code ? array( array( 'response' => array( 'code' => $code ), 'headers' => array(), 'body' => json_encode( 200 === $code ? array( 'records' => array( array( 'id' => $rf_record, 'fields' => array() ) ) ) : array( 'error' => array( 'type' => 'INVALID_VALUE_FOR_COLUMN', 'message' => 'Refused.' ) ) ) ) ) : array();
 
@@ -2075,6 +2076,35 @@ $GLOBALS['caps'] = false;
 $GLOBALS['uid']  = 4242;
 ck( 'a tutor of the student\'s school is neither the student nor an Administrator, so user_can_edit() refuses them the report form', array( WPCPM_Student_Report_Form::user_can_edit( 77 ), WPCPM_Student_Report_Form::user_can_edit( 4242 ) ), array( false, true ) );
 $GLOBALS['uid'] = 0;
+
+echo "\n=== F5 (1.123.99): an Administrator who saves on a student's card lands back on that card ===\n";
+
+// The student page is published, so the address is the page's own; an Administrator (account 1) posts for student 40.
+if ( ! function_exists( 'get_post_status' ) ) {
+	function get_post_status( $id ) { return 77 === (int) $id ? 'publish' : false; }
+}
+if ( ! function_exists( 'get_permalink' ) ) {
+	function get_permalink( $id ) { return 'https://example.test/student-report-card/'; }
+}
+$GLOBALS['opts'][ WPCPM_Students_Dashboard::OPT_PAGE ] = 77;
+$f5_page = WPCPM_Students_Dashboard::page_url();
+$f5_own  = array( report_post( array( $rf_hours => '12' ) ), report_post( array( $rf_hours => '12' ), 'hours' ) );
+$GLOBALS['rf_as'] = 1;
+$f5_admin = array( report_post( array( $rf_hours => '12' ) ), report_post( array( $rf_hours => '12' ), 'hours' ), report_post( array(), '', 0 ) );
+$GLOBALS['uid']  = 1;
+$GLOBALS['caps'] = true;
+$_POST = array( 'student' => (string) $rf_sid, 'field' => 'nonsense' );
+try {
+	WPCPM_Student_Report_Form::handle_image_remove();
+	$f5_admin[] = '';
+} catch ( WPCPM_Test_Report_Left $left ) {
+	$f5_admin[] = $left->getMessage();
+}
+unset( $GLOBALS['rf_as'] );
+$f5_view = add_query_arg( 'wpcpm_student_view', $rf_sid, '' !== $f5_page ? $f5_page : home_url( '/' ) );
+ck( 'F5: an Administrator\'s report save, hours save, empty save and image removal carry the student they were viewing, anchors as they were', $f5_admin, array( $f5_view . '#wpcpm-report-form', $f5_view . '#wpcpm-module-course', $f5_view . '#wpcpm-report-form', $f5_view . '#wpcpm-report-form' ) );
+ck( 'F5: the student saving their own form is sent exactly where they were before', $f5_own, array( ( '' !== $f5_page ? $f5_page : home_url( '/' ) ) . '#wpcpm-report-form', ( '' !== $f5_page ? $f5_page : home_url( '/' ) ) . '#wpcpm-module-course' ) );
+echo '     the page: ' . $f5_page . "\n";
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

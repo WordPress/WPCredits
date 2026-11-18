@@ -496,6 +496,13 @@
 	margin-top: 8px;
 }
 
+/* A fold's form that opens with its sentence and then its outcome (Invite a colleague, S4 of 1.123.99): the message
+   16px under the sentence and 16px over the first field, as B6 places a step's refusal and Add a tutor its own; the
+   margins collapse into one. Without an outcome the sentence keeps its 8px over the field. */
+.wpcpm-frame .wpcpm-institution .wpcpm-ui-fold__body > form > .wpcpm-ui-intro + [data-wpcpm-card-message] {
+	margin-top: var( --wpcpm-f-block );
+}
+
 .wpcpm-frame .wpcpm-institution .wpcpm-ui-list + .wpcpm-ui-list__empty,
 .wpcpm-frame .wpcpm-institution .wpcpm-ui-intro--muted + .wpcpm-ui-list__empty {
 	margin-top: var( --wpcpm-f-block );

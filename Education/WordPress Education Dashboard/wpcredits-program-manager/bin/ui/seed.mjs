@@ -48,7 +48,12 @@ export const UPDATE = { title: 'Example update for schools', body: 'An invented 
 // is its contact, with no account (seed-states.php, `overview-more`).
 export const PEOPLE0 = { name: 'Example Conservatory of Media', city: 'Examplemere', website: 'conservatory.example.org', contact: 'Kai Example', email: 'kai.example@example.org' };
 export const OVERVIEW_MORE = { names: 'Nia Example, Oakley Example, Penn Example, Quill Example, Remy Example, Sol Example, Tam Example, Uma Example, Vale Example, Wren Example, Xan Example, Examplecontributorteamwithanunbrokenname, Core, Accessibility' };
-export const INVENTED = { PEOPLE0, OVERVIEW_MORE, STATE_COLLEGE, UNIVERSITY, DESIGN, INSTITUTE, COMMUNITY, TAYLOR, TUTOR, NOAGREEMENT, UPDATE, GENERATED, RETURNED, REVOKED, LONGWORD, LONG_STUDENT, LONG_TUTOR, LONG_OTHER, GATE_B: { names: 'Enrollee Example, Refused Example, Exampleside, Hillford, Drew Example, Sky Example' }, OTHERS: { names: 'Drew Example, Sky Example, Pat Example, Lee Example, Ash Example, Blake Example, Emery Example, Finley Example, Example Polytechnic, Example Academy of Arts, Example Technical School, Example Hosting Co, Example Plugins Ltd, Jamie Example, Taylor Sample, Casey Example, Morgan Example, Riley Example' }, GATE_7: { names: 'Riley Example, Examplegraduatewaitingonthefinalquizpass Example, Sage Example, TEST Example Academy, Example Academy of Arts, Harper Example, Exampleinstituteforappliedwebengineering, Christopherexample Wojciechowskaexample, Unlisted Example, TEST Example Academy of Design Media and the Applied Arts, Rowan Mentor Example, Indigo Example, Marlowe Example, Learner Example' } };
+// 1.123.99: two invented mentors on their own Mentor Report Card, one with a meeting link set and one with none
+// (seed-states.php, `mentor-planner`).
+export const PLANNER_MENTORS = { link: { name: 'Linden Example', email: 'planner-link.example@example.org' }, none: { name: 'Nolan Example', email: 'planner-none.example@example.org' } };
+// 1.123.99, S1: a settled school whose contact's account was removed from it (seed-states.php, `removed-contact`).
+export const REMOVED_CONTACT = { name: 'Example Conservatory of Film', city: 'Examplemere', website: 'film.example.org', contact: 'Rory Example', email: 'rory.example@example.org' };
+export const INVENTED = { REMOVED_CONTACT, PLANNER_LINK: PLANNER_MENTORS.link, PLANNER_NONE: PLANNER_MENTORS.none, PEOPLE0, OVERVIEW_MORE, STATE_COLLEGE, UNIVERSITY, DESIGN, INSTITUTE, COMMUNITY, TAYLOR, TUTOR, NOAGREEMENT, UPDATE, GENERATED, RETURNED, REVOKED, LONGWORD, LONG_STUDENT, LONG_TUTOR, LONG_OTHER, GATE_B: { names: 'Enrollee Example, Refused Example, Exampleside, Hillford, Drew Example, Sky Example' }, OTHERS: { names: 'Drew Example, Sky Example, Pat Example, Lee Example, Ash Example, Blake Example, Emery Example, Finley Example, Example Polytechnic, Example Academy of Arts, Example Technical School, Example Hosting Co, Example Plugins Ltd, Jamie Example, Taylor Sample, Casey Example, Morgan Example, Riley Example' }, GATE_7: { names: 'Riley Example, Examplegraduatewaitingonthefinalquizpass Example, Sage Example, TEST Example Academy, Example Academy of Arts, Harper Example, Exampleinstituteforappliedwebengineering, Christopherexample Wojciechowskaexample, Unlisted Example, TEST Example Academy of Design Media and the Applied Arts, Rowan Mentor Example, Indigo Example, Marlowe Example, Learner Example' } };
 // The two pictures the invented sponsor application's logos are, written into a folder the copy has already.
 export const LOGOS = { colour: 'uploads/2026/10/ui-rig-logo-colour.png', white: 'uploads/2026/10/ui-rig-logo-white.png' };
 // The two site icons the Institution Dashboard's head is drawn beside (1.123.97), each a path under the copy's own
@@ -133,7 +138,13 @@ export function lookups() {
     INSTITUTE_LOGIN: inState(INSTITUTE, 'newer-copy', () => loginOf(INSTITUTE.email)), INSTITUTE_RECORD: inState(INSTITUTE, 'newer-copy', () => recordOf(INSTITUTE.name)),
     LONG_LOGIN: longWords(() => loginOf(LONGWORD.email)), LONG_RECORD: longWords(() => recordOf(LONGWORD.name)), LONG_BATCH: longWords(() => batchOf(recordOf(LONGWORD.name))),
     // 1.123.98: the school whose only person is its contact with no account, by its index row (it has no application).
-    PEOPLE_ZERO_RECORD: people0Record() };
+    PEOPLE_ZERO_RECORD: people0Record(),
+    // 1.123.99: the two mentors of the planner's line, by their accounts.
+    PLANNER_LINK_LOGIN: loginOf(PLANNER_MENTORS.link.email), PLANNER_NONE_LOGIN: loginOf(PLANNER_MENTORS.none.email),
+    // 1.123.99, S1: the school whose contact's account was removed, while that account is a former member of it.
+    REMOVED_CONTACT_RECORD: removedContactRecord(),
+    // The Report Cards today: Drew Example's account, the student the planner's mentor (Linden Example) mentors.
+    DREW_ID: userIdOf('drew.example@example.org'), DREW_LOGIN: loginOf('drew.example@example.org'), PLANNER_LINK_ID: userIdOf(PLANNER_MENTORS.link.email) };
 }
 
 /** The record of the settled school whose only person is its contact (PEOPLE0), while nobody holds its contact's address; or ''. */
@@ -801,6 +812,12 @@ async function make(newContext, BASE) {
   await soft('details-request-waiting-elsewhere', () => askElsewhere(newContext, BASE));
   // 1.123.98: the Overview's facts and figures in every state, and the school whose only person is its contact.
   overviewMore();
+  // 1.123.99: the two mentors of the planner's line.
+  mentorPlanner();
+  // 1.123.99, S1: a settled school whose contact's account was removed from it.
+  removedContact();
+  // Both Report Cards with real content: the planner's mentor and the design school's students.
+  reportCards();
 }
 
 /**
@@ -834,6 +851,57 @@ export function overviewMore() {
   const missed = out.filter(l => l.startsWith('not made'));
   if (missed.length || !out[out.length - 1].startsWith('[')) throw new Error(`the Overview's states were not all made: ${missed.join('; ') || out[out.length - 1]}`);
   return JSON.parse(out[out.length - 1]);
+}
+
+/**
+ * 1.123.99: two invented mentors who open their own Mentor Report Card, one with a meeting link set and one with none
+ * (seed-states.php, `mentor-planner`). Throws when either was not made.
+ */
+export function mentorPlanner() {
+  const stage = join(DOCKER, 'release/ui-rig');
+  mkdirSync(stage, { recursive: true });
+  copyFileSync(join(dirname(fileURLToPath(import.meta.url)), 'seed-states.php'), join(stage, 'seed-states.php'));
+  const out = wp(['eval-file', join(stage, 'seed-states.php'), JSON.stringify({ admin: process.env.WPCPM_UI_LOGIN || 'wpcredits-local', only: ['mentor-planner'] })], { all: true }).trim().split('\n');
+  for (const line of out.slice(0, -1)) console.log('  planner: ' + line);
+  const missed = out.filter(l => l.startsWith('not made'));
+  if (missed.length || !out[out.length - 1].startsWith('[')) throw new Error(`the planner's mentors were not made: ${missed.join('; ') || out[out.length - 1]}`);
+  return JSON.parse(out[out.length - 1]);
+}
+
+/**
+ * 1.123.99, S1: a settled school whose contact's account was attached and then removed (seed-states.php,
+ * `removed-contact`). Throws when it was not made.
+ */
+export function removedContact() {
+  const stage = join(DOCKER, 'release/ui-rig');
+  mkdirSync(stage, { recursive: true });
+  copyFileSync(join(dirname(fileURLToPath(import.meta.url)), 'seed-states.php'), join(stage, 'seed-states.php'));
+  const out = wp(['eval-file', join(stage, 'seed-states.php'), JSON.stringify({ schools: { [DESIGN.name]: recordOf(DESIGN.name) }, admin: process.env.WPCPM_UI_LOGIN || 'wpcredits-local', only: ['removed-contact'] })], { all: true }).trim().split('\n');
+  for (const line of out.slice(0, -1)) console.log('  removed contact: ' + line);
+  const missed = out.filter(l => l.startsWith('not made'));
+  if (missed.length || !out[out.length - 1].startsWith('[')) throw new Error(`the school whose contact was removed was not made: ${missed.join('; ') || out[out.length - 1]}`);
+  return JSON.parse(out[out.length - 1]);
+}
+
+/**
+ * Both Report Cards with real content (seed-states.php, `report-cards`): Linden Example's students, hours, notes, a call and a
+ * group session, and Drew Example's mentor and track. Throws when it was not made.
+ */
+export function reportCards() {
+  const stage = join(DOCKER, 'release/ui-rig');
+  mkdirSync(stage, { recursive: true });
+  copyFileSync(join(dirname(fileURLToPath(import.meta.url)), 'seed-states.php'), join(stage, 'seed-states.php'));
+  const out = wp(['eval-file', join(stage, 'seed-states.php'), JSON.stringify({ schools: { [DESIGN.name]: recordOf(DESIGN.name) }, admin: process.env.WPCPM_UI_LOGIN || 'wpcredits-local', only: ['report-cards'] })], { all: true }).trim().split('\n');
+  for (const line of out.slice(0, -1)) console.log('  report cards: ' + line);
+  const missed = out.filter(l => l.startsWith('not made'));
+  if (missed.length || !out[out.length - 1].startsWith('[')) throw new Error(`the Report Cards' content was not made: ${missed.join('; ') || out[out.length - 1]}`);
+  return JSON.parse(out[out.length - 1]);
+}
+
+/** The record of the school whose contact's account was removed (REMOVED_CONTACT), while that account is a former member of it; or ''. */
+export function removedContactRecord() {
+  const out = php(`$o = ''; foreach ( WPCPM_Institutions_Index::rows() as $id => $r ) { if ( is_array( $r ) && ${JSON.stringify(REMOVED_CONTACT.name)} === ( $r['name'] ?? '' ) ) { foreach ( WPCPM_Institution_Members::former_members_of( (string) $id ) as $f ) { if ( ${JSON.stringify(REMOVED_CONTACT.email)} === strtolower( $f->user_email ) ) { $o = (string) $id; } } } } echo $o;`);
+  return /^rec[A-Za-z0-9]{14}$/.test(out) ? out : '';
 }
 
 /** Two small pictures for the sponsor application's logos, in colour and in white, recorded for restore. */

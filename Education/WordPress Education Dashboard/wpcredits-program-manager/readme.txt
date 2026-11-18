@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.98
+Stable tag: 1.123.99
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,16 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.99 =
+
+* Mentor Report Card, Plan a group session: the form says where the link to the call comes from. It is the one in Where we meet, under Your availability for calls; a session has no link of its own. A mentor who has set no link is told so there, and where to add one.
+* Mentor guide, Group sessions: says the same.
+* Institution Dashboard, Representatives and tutors: when the school's contact had an account that was removed from the school, their row no longer says they have no account on this site. To representatives and Administrators it says their account is no longer among the institution's people and that an Administrator can add them again; a tutor reads only that the program records name them, and so does everyone when that account now belongs to another institution. The same on the Institutions screen's Accounts tab.
+* Institution Dashboard, Viewing as institution: a school's name too long for the box can be read whole by pointing at the box, and by assistive technology that reads titles. The box keeps its size and place.
+* Institution Dashboard, Invite a colleague: after Send invitation, the outcome (the invitation sent, or why nothing was sent) stands under the section's opening sentence, directly over the Email address box. The outcome of Resend or Cancel invitation stays over the invitations waiting.
+* Institution Dashboard, Agreement, for Administrators: the note at the top no longer repeats what the school's own sentence under it says. It drops the state for a generated template, a copy waiting for review or a returned copy, and its first sentence for no agreement or a revoked one. Where this site and Airtable disagree it reads as on the Overview. What Airtable records stays. The Overview's row reads as before, and a school's own page does not change.
+* Student Report Card, for Administrators: saving a student's report form, hours, a feedback form or removing a report picture on that student's card now brings you back to the same student's card, with the outcome there. Before, it opened the first student A to Z, and the outcome was shown on that other student's card. A student saving their own form lands where they did before.
 
 = 1.123.98 =
 

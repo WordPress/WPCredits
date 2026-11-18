@@ -1127,8 +1127,8 @@ ck( 'its label, beside its box, names the select', false !== strpos( $form, '<la
 ck(
 	'the select and the field carry the box\'s class and are described by the note, which is for screen readers',
 	array(
-		false !== strpos( $form, '<select class="wpcpm-ui-viewing__box" name="wpcpm_institution_view" id="wpcpm-institution-switcher" autocomplete="off" aria-describedby="wpcpm-institution-switcher-note">' ),
-		1 === preg_match( '#<input type="text" id="wpcpm-institution-switcher-input" class="wpcpm-dashboard__switcher-input wpcpm-ui-viewing__box" role="combobox"[^>]* placeholder="Find an institution" aria-describedby="wpcpm-institution-switcher-note" />#', $form ),
+		false !== strpos( $form, '<select class="wpcpm-ui-viewing__box" name="wpcpm_institution_view" id="wpcpm-institution-switcher" autocomplete="off" title="Exampleinstituteforappliedwebengineerings" aria-describedby="wpcpm-institution-switcher-note">' ),
+		1 === preg_match( '#<input type="text" id="wpcpm-institution-switcher-input" class="wpcpm-dashboard__switcher-input wpcpm-ui-viewing__box" role="combobox"[^>]* placeholder="Find an institution" title="Exampleinstituteforappliedwebengineerings" aria-describedby="wpcpm-institution-switcher-note" />#', $form ),
 		false !== strpos( $form, '<span class="screen-reader-text" id="wpcpm-institution-switcher-note">Only Administrators see this control. Choosing an institution opens its page.</span>' ),
 	),
 	array( true, true, true )
@@ -1287,7 +1287,39 @@ if ( '' === $node ) {
 	ck( 'and node ended with a status of 0, or of 1 when a scenario differed', $status, $differ ? 1 : 0 );
 }
 
+echo "\n=== S3 (1.123.99): a long name in the control can be read ===\n";
+
+// The select carries the chosen school's full name as its title, escaped, so a name the 320px box cuts can be read on
+// hover and by assistive technology that reads titles. Nothing else in the form moves.
+$rec3 = 'recEXA00000000003';
+$s3_name = 'Example Institute of Applied Web Engineering & Design, North';
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'][ $rec3 ] = array( 'record_id' => $rec3, 'name' => $s3_name, 'stage' => 'Confirmed', 'city' => 'Example City', 'country' => 'recCOUNTRYPOLAND1', 'country_name' => 'Poland', 'website' => '', 'contact_person' => '', 'contact_email' => '' );
+$GLOBALS['opts'][ 'wpcpm_agreement_' . $rec3 ] = array( 'v' => 1, 'settled' => true, 'site_state' => WPCPM_Institution_Agreement::SUMMARY_ACCEPTED, 'airtable_status' => 'Accepted' );
+$GLOBALS['kept'][ $rec3 ] = array( 'assigned' => 12 );
+$s3_case  = page_as( $admin, array( 'wpcpm_institution_view' => $rec3 ) );
+$s3_form  = cut( $s3_case, '<form class="wpcpm-ui-viewing"', '</form>' );
+$s3_title = static function ( $form ) {
+	return preg_match( '#<select [^>]*\btitle="([^"]*)"#', $form, $m ) ? $m[1] : null;
+};
+$s3_chosen = static function ( $form ) {
+	return preg_match( "#<option value=\"[^\"]*\" selected='selected'>([^<]*)</option>#", $form, $m ) ? $m[1] : null;
+};
+ck( 'S3: the select\'s title is the 60-character name, escaped once', array( strlen( $s3_name ), $s3_title( $s3_form ) ), array( 60, 'Example Institute of Applied Web Engineering &amp; Design, North' ) );
+ck( 'S3: the title is the chosen option\'s text, on every view', array(
+	$s3_title( $s3_form ) === $s3_chosen( $s3_form ),
+	$s3_title( cut( page_as( $admin, array( 'wpcpm_institution_view' => $rec3, 'wpcpm_view' => 'students' ) ), '<form class="wpcpm-ui-viewing"', '</form>' ) ),
+	$s3_title( cut( $head_case, '<form class="wpcpm-ui-viewing"', '</form>' ) ) === $s3_chosen( cut( $head_case, '<form class="wpcpm-ui-viewing"', '</form>' ) ),
+), array( true, 'Example Institute of Applied Web Engineering &amp; Design, North', true ) );
+ck( 'S3: two titles in the form, the select\'s and the same on the field the script shows in its place; the choice state, with no school chosen, has none', array(
+	substr_count( $s3_form, ' title="Example Institute of Applied Web Engineering &amp; Design, North"' ),
+	1 === preg_match( '#<input type="text" id="wpcpm-institution-switcher-input" [^>]*placeholder="Find an institution" title="Example Institute of Applied Web Engineering &amp; Design, North" aria-describedby#', $s3_form ),
+	substr_count( $s3_form, ' title=' ),
+	substr_count( cut( $choice_case, '<form class="wpcpm-ui-viewing"', '</form>' ), ' title=' ),
+), array( 2, true, 2, 0 ) );
+ck( 'S3: the form is the 40-character school\'s but for its names and values', str_replace( array( $rec3, 'Example Institute of Applied Web Engineering &amp; Design, North' ), array( $rec, 'Exampleinstituteforappliedwebengineerings' ), preg_replace( '#<option value="' . $rec . '">[^<]*</option>#', '', $s3_form ) ), preg_replace( '#<option value="' . $rec . '"( selected=\'selected\')?>[^<]*</option>#', '<option value="' . $rec . '" selected=\'selected\'>Exampleinstituteforappliedwebengineerings</option>', cut( $head_case, '<form class="wpcpm-ui-viewing"', '</form>' ), 1 ) );
+
 if ( function_exists( 'wpcpm_layout_keep' ) ) {
+	wpcpm_layout_keep( 'Viewing as institution: Administrator viewing a 60-character school name, Overview head (S3)', main_html( $s3_case ) );
 	wpcpm_layout_keep( 'Viewing as institution: Administrator viewing the 40-character school, Overview head', main_html( $head_case ) );
 	wpcpm_layout_keep( 'Viewing as institution: Administrator viewing the 40-character school, Students head', main_html( $view_case ) );
 	wpcpm_layout_keep( 'Viewing as institution: the choice state', main_html( $choice_case ) );
