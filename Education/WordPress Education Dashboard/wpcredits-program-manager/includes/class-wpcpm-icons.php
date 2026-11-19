@@ -57,6 +57,8 @@ class WPCPM_Icons {
 			'eye'          => '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/>',
 			'timeline'     => '<path d="M4 4v16h16"/><path d="M8 16v-3M12 16V9M16 16v-6"/><path d="M7 8.5l5-3 5 2.5" />',
 			'chart'        => '<path d="M4 4v16h16M8.5 16v-4M13 16V8M17.5 16v-6"/>',
+			// A speech bubble, for the Talks view (Institutions off Airtable, release 2, Task 16).
+			'chat'         => '<path d="M4.5 5.5h15v10h-8l-4.5 3.5v-3.5h-2.5z"/>',
 			'users'        => '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3 3-4.8 5.5-4.8s4.9 1.8 5.5 4.8"/><circle cx="17" cy="9" r="2.4"/><path d="M16 14.4c2.3.1 4 1.6 4.5 4.1"/>',
 			'building'     => '<path d="M4.5 20V8.5L12 4.5l7.5 4V20M3 20h18M9.5 20v-4.5h5V20M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01"/>',
 			'tag'          => '<path d="M3.5 12.5v-8h8l9 9-8 8z"/><circle cx="8" cy="9" r="1.3"/>',

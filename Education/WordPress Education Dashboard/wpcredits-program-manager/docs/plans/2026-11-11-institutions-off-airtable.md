@@ -435,7 +435,7 @@ Built from main after R1 is merged and after the Institutions testing reports of
 
 - [ ] **Step 1: Write the failing checks:**
   - Notes: `add()` stores a private post with the text, the key, the author's ID or `author_name`, the given date and source; `for_key()` newest first; a text over 5000 characters or empty is refused; `rekey()` moves every note of a key and returns the count; `has_source()`; the privacy guard lists the type; uninstall deletes them.
-  - The four scripts, through the record and a note, compared byte for byte after a read back: "Uniwersytet Źródlany", "Universitatea Babeș-Bolyai", "جامعة القاهرة", "東京大学" (Task 14 adds the same check for a lead).
+  - The four scripts, through the record and a note, compared byte for byte after a read back: "Wyższa Szkoła Górnołąćka", "Universitatea Câmpiei Rîușițeni", "جامعة الواحة الخضراء المتخيلة", "架空山学園大学" (Task 14 adds the same check for a lead).
   - `facts()` of an index row with a record holding `next_step` "Send the deck" and `follow_up` 2026-11-04 returns them with the row's name and stage; of an unknown key, null; `all_facts()` reads the records once (one `answers_for()` call counted).
 
 - [ ] **Step 2: Run** `php bin/test-institution-notes.php`, `php bin/test-institution-talks.php`. Expected: FAIL.
@@ -698,7 +698,7 @@ Built from main after R1 is merged and after the Institutions testing reports of
 
 1. Build starts after the Institutions testing reports of 20 November 2026, from main with R1 merged.
 2. Final whole-branch review; fixes in one wave.
-3. Docker trial with invented data (Airtable faked by a stand-in that records every request): the import from a made-up read, the setting on, the Talks view and card, a lead added and promoted, the weekly email captured, the copy's PATCHes recorded; four leads named "Uniwersytet Źródlany", "Universitatea Babeș-Bolyai", "جامعة القاهرة" and "東京大学", each with a note, then `wp db query` reading `HEX()` of their stored names and notes: single UTF-8 (`Ł` as `C581`), never `C385C281`. Report and screenshots under the release folder.
+3. Docker trial with invented data (Airtable faked by a stand-in that records every request): the import from a made-up read, the setting on, the Talks view and card, a lead added and promoted, the weekly email captured, the copy's PATCHes recorded; four leads named "Wyższa Szkoła Górnołąćka", "Universitatea Câmpiei Rîușițeni", "جامعة الواحة الخضراء المتخيلة" and "架空山学園大学", each with a note, then `wp db query` reading `HEX()` of their stored names and notes: single UTF-8 (`Ł` as `C581`), never `C385C281`. Report and screenshots under the release folder.
 4. `release.py check`, `build`, `scan`, `review` for `<R2>`; on the product owner's yes `mirror` and `deploy` with the setting off (R2 then behaves as R1 until the switch).
 
 **The switch (first week of December 2026; every live step on the product owner's yes, and only that yes starts step 2)**

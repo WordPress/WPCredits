@@ -98,6 +98,9 @@ define( 'MINUTE_IN_SECONDS', 60 );
 // be the table's.
 $GLOBALS['dropped'] = array();
 function wp_cache_delete( $key, $group = '' ) { $GLOBALS['dropped'][] = $group . ':' . $key; return true; }
+// The copy reads its list's entries in the lists of options known absent and autoloaded; this suite caches none.
+function wp_cache_get( $key, $group = '' ) { return false; }
+function wp_cache_set( $key, $value, $group = '' ) { return true; }
 // The extra sync run a patch asks for while a sync holds its lock; no sync runs in this suite.
 function wp_next_scheduled( $hook, $args = array() ) { return false; }
 function wp_schedule_single_event( $at, $hook, $args = array(), $wp_error = false ) { return true; }
@@ -207,10 +210,28 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index
 // The lock the index's patch holds, over the options table this suite keeps in `$GLOBALS['opts']`.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
 require_once __DIR__ . '/stubs/options-lock-wpdb.php';
+
+/**
+ * The same table, with one way to die (the outside review, O5): while `$GLOBALS['die_at_lock']` names a lock, the
+ * request dies as it asks for that lock, once, before anything of it is written. Off, as every check before O5 runs,
+ * it is the shared stand-in unchanged.
+ */
+class WPCPM_Test_Dying_Wpdb extends WPCPM_Test_Options_Wpdb {
+	public function query( $sql ) {
+		if ( ! empty( $GLOBALS['die_at_lock'] ) && 0 === strpos( (string) $sql, 'INSERT IGNORE' ) && false !== strpos( (string) $sql, "'" . $GLOBALS['die_at_lock'] . "'" ) ) {
+			$GLOBALS['die_at_lock'] = '';
+			throw new Exception( 'died' );
+		}
+		return parent::query( $sql );
+	}
+}
+$GLOBALS['wpdb'] = new WPCPM_Test_Dying_Wpdb();
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-audit.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-record.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-application.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-details.php';
+// The Airtable copy the site writes in site mode (Institutions release 2), through the same journaled client.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-copy.php';
 
 $fail = 0;
 function ck( $label, $actual, $expected ) {
@@ -1002,6 +1023,82 @@ $GLOBALS['record_fails'] = 'meta';
 $result = WPCPM_Institution_Details::write( REC, WPCPM_Institution_Details::changes( REC, array( 'city' => 'Heredia', 'contact_role' => 'Registrar' ) ), 7, 'member' );
 
 ck( 'after an Airtable change the base took, a record the site could not keep leaves the change standing, as it cannot be undone with the base', array( $result, WPCPM_Institutions_Index::row( REC )['city'], $GLOBALS['journal'], count( audit_rows() ) ), array( true, 'Heredia', array( 'airtable', 'option:wpcpm_institutions_index', 'audit' ), 1 ) );
+
+echo "\n-- write() in site mode: the site first, then the copy --------------------------\n";
+
+reset_world();
+$GLOBALS['settings']['institutions_on_site'] = true;
+
+$changes = WPCPM_Institution_Details::changes( REC, array( 'contact_person' => 'Eva Example', 'contact_role' => 'Registrar', 'city' => 'Heredia' ) );
+
+ck( 'in site mode a change is written and says true', WPCPM_Institution_Details::write( REC, $changes, 7, 'member' ), true );
+ck( 'the index comes first and the copy\'s mark with it (the outside review, O5), then the record, the history and the one PATCH to Airtable', $GLOBALS['journal'], array( 'option:wpcpm_institutions_index', 'option:wpcpm_institution_copy_pending', 'record', 'audit', 'airtable' ) );
+ck(
+	'the copy is one PATCH of exactly the changed columns, from the site\'s values',
+	$GLOBALS['patched'],
+	array( array( 'tblInstitutions1', array( array( 'id' => REC, 'fields' => array( 'City' => 'Heredia', 'Contact Person' => 'Eva Example' ) ) ) ) )
+);
+ck( 'and nothing is pending', WPCPM_Institution_Copy::pending(), array() );
+
+// O5: a request that dies as its send() begins, after the site's change: the keys are marked already, and the hourly
+// retry sends them.
+reset_world();
+$GLOBALS['settings']['institutions_on_site'] = true;
+$GLOBALS['die_at_lock'] = WPCPM_Institution_Copy::LOCK . '_' . REC;
+$o5_died                = '';
+try {
+	WPCPM_Institution_Details::write( REC, WPCPM_Institution_Details::changes( REC, array( 'city' => 'Heredia' ) ), 7, 'member' );
+} catch ( Exception $e ) {
+	$o5_died = $e->getMessage();
+}
+$GLOBALS['die_at_lock'] = '';
+$o5_marked              = WPCPM_Institution_Copy::pending()[ REC ]['keys'] ?? null;
+$o5_retried             = WPCPM_Institution_Copy::retry();
+ck( 'o5_details_marked_with_change: a write whose send() dies leaves the city marked, and the hourly retry sends it',
+	array( $o5_died, WPCPM_Institutions_Index::row( REC )['city'], $o5_marked, $GLOBALS['patched'], $o5_retried, WPCPM_Institution_Copy::pending() ),
+	array( 'died', 'Heredia', array( 'city' ), array( array( 'tblInstitutions1', array( array( 'id' => REC, 'fields' => array( 'City' => 'Heredia' ) ) ) ) ), 1, array() ) );
+
+reset_world();
+$GLOBALS['settings']['institutions_on_site'] = true;
+$GLOBALS['airtable']                         = new WP_Error( 'http_request_failed', 'cURL error 28: Operation timed out' );
+
+$result = WPCPM_Institution_Details::write( REC, WPCPM_Institution_Details::changes( REC, array( 'contact_person' => 'Eva Example', 'contact_role' => 'Registrar', 'city' => 'Heredia' ) ), 7, 'member' );
+
+ck( 'a copy Airtable does not take still returns true: the site\'s change is made', $result, true );
+ck(
+	'the index, the record and the history hold it',
+	array( WPCPM_Institutions_Index::row( REC )['city'], WPCPM_Institutions_Index::row( REC )['contact_person'], WPCPM_Institution_Record::get( REC )['contact_role'], count( audit_rows() ) ),
+	array( 'Heredia', 'Eva Example', 'Registrar', 1 )
+);
+ck( 'and the school is pending for the two columns, with the error', array( WPCPM_Institution_Copy::pending()[ REC ]['keys'], WPCPM_Institution_Copy::pending()[ REC ]['error'], WPCPM_Institution_Copy::pending()[ REC ]['tries'] ), array( array( 'city', 'contact_person' ), 'cURL error 28: Operation timed out', 1 ) );
+
+reset_world();
+$GLOBALS['settings']['institutions_on_site'] = true;
+
+// Another request holds the index's lock for longer than a patch waits.
+$GLOBALS['opts']['wpcpm_institutions_index_lock'] = (string) ( time() + 60 );
+
+$index_before = $GLOBALS['opts']['wpcpm_institutions_index'];
+$record_before = WPCPM_Institution_Record::get( REC );
+$result        = WPCPM_Institution_Details::write( REC, WPCPM_Institution_Details::changes( REC, array( 'city' => 'Heredia', 'contact_role' => 'Registrar' ) ), 7, 'member' );
+
+ck(
+	'a patch the index could not make refuses the change, in the site\'s words',
+	array( is_wp_error( $result ) ? $result->get_error_code() : $result, is_wp_error( $result ) ? $result->get_error_message() : '' ),
+	array( 'wpcpm_details_index', 'The change could not be saved on the site, so nothing was changed. Try again in a while.' )
+);
+ck(
+	'and nothing was sent or written: no copy, no index change, no record, no history, nothing pending',
+	array( $GLOBALS['patched'], $GLOBALS['opts']['wpcpm_institutions_index'] === $index_before, WPCPM_Institution_Record::get( REC ) === $record_before, audit_rows(), WPCPM_Institution_Copy::pending() ),
+	array( array(), true, true, array(), array() )
+);
+
+unset( $GLOBALS['opts']['wpcpm_institutions_index_lock'] );
+
+reset_world();
+$GLOBALS['settings']['institutions_on_site'] = true;
+
+ck( 'in site mode a change of the record\'s answers alone sends no copy', array( WPCPM_Institution_Details::write( REC, WPCPM_Institution_Details::changes( REC, array( 'contact_role' => 'Registrar' ) ), 7, 'member' ), $GLOBALS['patched'], $GLOBALS['journal'] ), array( true, array(), array( 'record', 'audit' ) ) );
 
 echo "\n-- the source ------------------------------------------------------------\n";
 

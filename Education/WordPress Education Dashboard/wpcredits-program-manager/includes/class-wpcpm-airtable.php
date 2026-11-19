@@ -339,6 +339,84 @@ class WPCPM_Airtable {
 	}
 
 	/**
+	 * Read every comment of one record, page by page (Institutions off Airtable, release 2: the import).
+	 *
+	 * Airtable keeps a record's comments apart from its cells, behind a scope of their own
+	 * (`data.recordComments:read`): a token without it is answered 403, which comes back here as the
+	 * request's error with its status, so the caller can say which scope to add. One read stops at a
+	 * hundred pages, as `fetch_all()` does.
+	 *
+	 * @param string $table     Table ID or name.
+	 * @param string $record_id Airtable record ID.
+	 * @return array|WP_Error Each comment, oldest page first, as `array( 'id', 'text', 'created' (Airtable's
+	 *                        ISO 8601 time), 'author_name', 'author_email' )`, every value a string.
+	 */
+	public function fetch_comments( $table, $record_id ) {
+		$guard = $this->guard();
+		if ( is_wp_error( $guard ) ) {
+			return $guard;
+		}
+
+		if ( empty( $table ) ) {
+			return new WP_Error( 'wpcpm_no_table', __( 'No Airtable table was specified.', 'wpcredits-program-manager' ) );
+		}
+
+		if ( ! self::is_record_id( $record_id ) ) {
+			return new WP_Error( 'wpcpm_airtable_record', __( 'That is not an Airtable record ID.', 'wpcredits-program-manager' ) );
+		}
+
+		$base     = $this->table_url( $table ) . '/' . rawurlencode( trim( (string) $record_id ) ) . '/comments?';
+		$comments = array();
+		$offset   = '';
+		$pages    = 0;
+
+		do {
+			$query = array( 'pageSize' => self::PAGE_SIZE );
+
+			if ( '' !== $offset ) {
+				$query['offset'] = $offset;
+			}
+
+			$response = $this->request( $base . http_build_query( $query, '', '&', PHP_QUERY_RFC3986 ) );
+
+			if ( is_wp_error( $response ) ) {
+				return $response;
+			}
+
+			foreach ( ( isset( $response['comments'] ) && is_array( $response['comments'] ) ) ? $response['comments'] : array() as $comment ) {
+				if ( ! is_array( $comment ) ) {
+					continue;
+				}
+
+				$author     = isset( $comment['author'] ) && is_array( $comment['author'] ) ? $comment['author'] : array();
+				$comments[] = array(
+					'id'           => isset( $comment['id'] ) && is_scalar( $comment['id'] ) ? (string) $comment['id'] : '',
+					'text'         => isset( $comment['text'] ) && is_scalar( $comment['text'] ) ? (string) $comment['text'] : '',
+					'created'      => isset( $comment['createdTime'] ) && is_scalar( $comment['createdTime'] ) ? (string) $comment['createdTime'] : '',
+					'author_name'  => isset( $author['name'] ) && is_scalar( $author['name'] ) ? (string) $author['name'] : '',
+					'author_email' => isset( $author['email'] ) && is_scalar( $author['email'] ) ? (string) $author['email'] : '',
+				);
+			}
+
+			$offset = isset( $response['offset'] ) && is_scalar( $response['offset'] ) ? (string) $response['offset'] : '';
+			++$pages;
+		} while ( '' !== $offset && $pages < 100 );
+
+		if ( '' !== $offset ) {
+			return new WP_Error(
+				'wpcpm_airtable_capped',
+				sprintf(
+					/* translators: %s: the most rows one read takes, as a number. */
+					__( 'Airtable has more than %s rows to give for this read, and one read stops at that many, so nothing was counted.', 'wpcredits-program-manager' ),
+					number_format_i18n( 10000 )
+				)
+			);
+		}
+
+		return $comments;
+	}
+
+	/**
 	 * Create records.
 	 *
 	 * `typecast` is deliberately **not** sent: it lets Airtable coerce an unknown single-select

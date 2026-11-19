@@ -74,6 +74,8 @@ class WPCPM_Institutions_Index {
 		if ( 'recCCCCCCCCCCCCC3' === $id ) { return array( 'name' => 'Sin Pais' ); }
 		return 'recAAAAAAAAAAAAA1' === $id ? array( 'name' => 'Universidad Example', 'country_name' => 'Costa Rica' ) : null;
 	}
+	/** Contract: whether the site keeps the record (release 2); off here, so the page link is the details card's. */
+	public static function on_site() { return false; }
 }
 class WPCPM_Settings_Choices {
 	public static function manager_accounts() { $o = array(); foreach ( $GLOBALS['managers'] as $id ) { $o[ $id ] = $GLOBALS['names'][ $id ]; } asort( $o ); return $o; }

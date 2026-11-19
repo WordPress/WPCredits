@@ -1028,23 +1028,33 @@ class WPCPM_Mentors_Sync {
 			// and teams showed a list of student names.
 			$name_field = ! empty( $primaries[ $table ] ) ? $primaries[ $table ] : $fallback_field;
 
-			$records = $airtable->fetch_all( $table, array( 'fields' => array( $name_field ) ) );
+			// Once the site keeps the record of institutions, their names are the site's (release 2).
+			$map     = self::site_names( $table, $settings );
+			$records = array();
 
-			if ( is_wp_error( $records ) ) {
-				return $records;
+			if ( is_wp_error( $map ) ) {
+				return $map;
 			}
 
-			$map = array();
+			if ( null === $map ) {
+				$records = $airtable->fetch_all( $table, array( 'fields' => array( $name_field ) ) );
 
-			foreach ( $records as $record ) {
-				if ( empty( $record['id'] ) || empty( $record['fields'] ) || ! is_array( $record['fields'] ) ) {
-					continue;
+				if ( is_wp_error( $records ) ) {
+					return $records;
 				}
 
-				$name = trim( WPCPM_Airtable::flatten( isset( $record['fields'][ $name_field ] ) ? $record['fields'][ $name_field ] : '' ) );
+				$map = array();
 
-				if ( '' !== $name ) {
-					$map[ (string) $record['id'] ] = $name;
+				foreach ( $records as $record ) {
+					if ( empty( $record['id'] ) || empty( $record['fields'] ) || ! is_array( $record['fields'] ) ) {
+						continue;
+					}
+
+					$name = trim( WPCPM_Airtable::flatten( isset( $record['fields'][ $name_field ] ) ? $record['fields'][ $name_field ] : '' ) );
+
+					if ( '' !== $name ) {
+						$map[ (string) $record['id'] ] = $name;
+					}
 				}
 			}
 
@@ -1091,8 +1101,23 @@ class WPCPM_Mentors_Sync {
 				continue;
 			}
 
+			$site_map = self::site_names( $table, $settings );
+
+			// The Countries table, once the site keeps the record: the stored map's names, and no read. An
+			// empty map is answered as a failed read is, below, so the list of the last whole read stands.
+			if ( is_array( $site_map ) ) {
+				$state['lookups'][ $key ] = $site_map;
+
+				return true;
+			}
+
 			$name_field = ! empty( $primaries[ $table ] ) ? $primaries[ $table ] : '';
-			$records    = '' === $name_field ? new WP_Error( 'wpcpm_directory_no_primary', __( 'its first column is not known', 'wpcredits-program-manager' ) ) : $airtable->fetch_all( $table, array( 'fields' => array( $name_field ) ) );
+
+			if ( is_wp_error( $site_map ) ) {
+				$records = $site_map;
+			} else {
+				$records = '' === $name_field ? new WP_Error( 'wpcpm_directory_no_primary', __( 'its first column is not known', 'wpcredits-program-manager' ) ) : $airtable->fetch_all( $table, array( 'fields' => array( $name_field ) ) );
+			}
 
 			if ( is_wp_error( $records ) ) {
 				$state['lookups'][ $key ] = false;
@@ -1125,6 +1150,60 @@ class WPCPM_Mentors_Sync {
 		$state['offset'] = null;
 
 		return true;
+	}
+
+	/**
+	 * The names a lookup takes from the site and not from the base, or null when it reads the base.
+	 *
+	 * Once the site keeps the record of institutions (`WPCPM_Institutions_Index::on_site()`, release 2),
+	 * nothing reads the Institutions or the Countries table: a lookup of the Institutions table is the
+	 * index's names, trimmed, a nameless row left out as a nameless record is, and a lookup of the
+	 * Countries table (the public list's Country link) is the stored countries map's names, and a WP_Error
+	 * when the site holds no map, so the lookup is answered as a failed read is and the public list of the
+	 * last whole read stands. Every other table, and both of these with the setting off, is read as it
+	 * always was. Behind `class_exists()`, so a request that loaded neither class reads the base, as it
+	 * did before.
+	 *
+	 * @param string $table    The Airtable table ID a lookup reads.
+	 * @param array  $settings Plugin settings.
+	 * @return array<string, string>|WP_Error|null Record ID => name, a WP_Error for an empty countries map,
+	 *                                             or null.
+	 */
+	private static function site_names( $table, array $settings ) {
+		if ( ! class_exists( 'WPCPM_Institutions_Index' ) || ! WPCPM_Institutions_Index::on_site() ) {
+			return null;
+		}
+
+		$table = trim( (string) $table );
+		$rows  = null;
+
+		if ( '' !== $table && isset( $settings['institutions_table'] ) && trim( (string) $settings['institutions_table'] ) === $table ) {
+			$rows = WPCPM_Institutions_Index::rows();
+		} elseif ( '' !== $table && isset( $settings['countries_table'] ) && trim( (string) $settings['countries_table'] ) === $table && class_exists( 'WPCPM_Countries' ) ) {
+			$rows = WPCPM_Countries::all();
+		}
+
+		if ( null === $rows ) {
+			return null;
+		}
+
+		$countries = ! ( isset( $settings['institutions_table'] ) && trim( (string) $settings['institutions_table'] ) === $table );
+
+		if ( $countries && empty( $rows ) ) {
+			return new WP_Error( 'wpcpm_no_countries_map', __( 'the site holds no countries map', 'wpcredits-program-manager' ) );
+		}
+
+		$map = array();
+
+		foreach ( $rows as $record_id => $row ) {
+			$name = is_array( $row ) && isset( $row['name'] ) && is_scalar( $row['name'] ) ? trim( (string) $row['name'] ) : '';
+
+			if ( '' !== $name && self::is_record_id( $record_id ) ) {
+				$map[ (string) $record_id ] = $name;
+			}
+		}
+
+		return $map;
 	}
 
 	/**

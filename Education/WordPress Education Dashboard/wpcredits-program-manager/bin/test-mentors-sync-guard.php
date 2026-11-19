@@ -98,13 +98,19 @@ class WPCPM_Airtable {
 	public static function flatten( $value ) {
 		return is_array( $value ) ? implode( ', ', array_map( 'strval', $value ) ) : (string) $value;
 	}
+	/** The record ID's shape, as the real client holds it: the index keys its rows by it. */
+	public static function is_record_id( $value ) {
+		return is_scalar( $value ) && 1 === preg_match( '/^rec[A-Za-z0-9]{14}$/', trim( (string) $value ) );
+	}
 	/** The schema read, which a token without its scope is refused; the run goes on without it. */
 	public function fetch_schema() {
 		return new WP_Error( 'wpcpm_airtable_error', 'The token has no schema scope.' );
 	}
-	/** A lookup table's read: none of its rows, here. */
+	/** A lookup table's read: the rows a check gave the table, none by default, each read noted by its table. */
 	public function fetch_all( $table, array $args = array() ) {
-		return array();
+		$GLOBALS['lookup_reads'][] = (string) $table;
+
+		return isset( $GLOBALS['lookup_rows'][ $table ] ) ? $GLOBALS['lookup_rows'][ $table ] : array();
 	}
 }
 
@@ -131,6 +137,10 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-provision.php';
+// The index and the countries map, which name institutions and countries once the site keeps the record
+// (Institutions off Airtable, release 2).
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-countries.php';
 
 $fails = 0;
 $total = 0;
@@ -418,6 +428,110 @@ ck( 'a tick whose lock was taken over in a non-paging phase stops before its nex
 	array( isset( $GLOBALS['after_write'][ WPCPM_Mentors_Sync::OPT_STATE ] ), state() === $restarted_run, WPCPM_Lock::until( WPCPM_Mentors_Sync::OPT_LOCK ) ),
 	array( false, true, time() + 900 ) );
 unset( $GLOBALS['after_write'] );
+
+echo "\n=== The lookups once the site keeps the record of institutions (R2) ===\n";
+
+/**
+ * The lookups step, run as ticks run it, one table a slice, until it hands over to the mentors.
+ *
+ * @return array The run's state after it.
+ */
+function lookups_run() {
+	$GLOBALS['lookup_reads'] = array();
+	$state                   = array(
+		'phase'   => 'lookups',
+		'offset'  => null,
+		'started' => time(),
+		'touched' => time(),
+		'steps'   => array(),
+		'stats'   => WPCPM_Mentors_Sync::empty_stats(),
+		'notices' => array(),
+	);
+	$method                  = new ReflectionMethod( 'WPCPM_Mentors_Sync', 'phase_lookups' );
+	if ( PHP_VERSION_ID < 80100 ) {
+		$method->setAccessible( true );
+	}
+
+	for ( $slice = 0; $slice < 10 && 'lookups' === $state['phase']; $slice++ ) {
+		$method->invokeArgs( null, array( &$state, new WPCPM_Airtable(), WPCPM_Settings::get() ) );
+	}
+
+	return $state;
+}
+
+/** A site whose index holds two schools and whose countries map holds two countries, the directory linking the Countries table. */
+function lookups_site( $on_site ) {
+	fresh(
+		array(
+			'institutions_on_site'    => $on_site,
+			'countries_table'         => 'Countries',
+			'institutions_name_field' => 'Name',
+			'teams_name_field'        => 'Name',
+		)
+	);
+	update_option(
+		WPCPM_Mentors_Sync::OPT_FIELDS,
+		array(
+			'primaries' => array( 'Institutions' => 'Name', 'Teams' => 'Name', 'Countries' => 'Name', 'Languages' => 'Name' ),
+			'directory' => array( 'country' => 'Countries', 'languages' => 'Languages' ),
+		)
+	);
+	WPCPM_Institutions_Index::write(
+		array(
+			'recEXA00000000001' => array( 'record_id' => 'recEXA00000000001', 'name' => 'Example School One ' ),
+			'recEXA00000000002' => array( 'record_id' => 'recEXA00000000002', 'name' => 'Example School Two' ),
+			'recEXA00000000003' => array( 'record_id' => 'recEXA00000000003', 'name' => '' ),
+		),
+		time()
+	);
+	update_option(
+		WPCPM_Countries::OPT_NAME,
+		array(
+			'v'    => WPCPM_Countries::VERSION,
+			'read' => time(),
+			'rows' => array(
+				'recEXA00000000011' => array( 'name' => 'Example Country', 'manager' => '', 'email' => '', 'calendly' => '' ),
+				'recEXA00000000012' => array( 'name' => 'Other Country', 'manager' => '', 'email' => '', 'calendly' => '' ),
+			),
+		)
+	);
+	$GLOBALS['lookup_rows'] = array(
+		'Institutions' => array( array( 'id' => 'recEXA00000000021', 'fields' => array( 'Name' => 'From Airtable' ) ) ),
+		'Countries'    => array( array( 'id' => 'recEXA00000000031', 'fields' => array( 'Name' => 'Country From Airtable' ) ) ),
+		'Teams'        => array( array( 'id' => 'recEXA00000000041', 'fields' => array( 'Name' => 'Example Team' ) ) ),
+		'Languages'    => array( array( 'id' => 'recEXA00000000051', 'fields' => array( 'Name' => 'Example Language' ) ) ),
+	);
+}
+
+lookups_site( true );
+$site_state = lookups_run();
+ck( 'Review Focus 2: in site mode the lookups read no Institutions and no Countries table, and still read the others',
+	$GLOBALS['lookup_reads'],
+	array( 'Teams', 'Languages' ) );
+ck( 'the institutions are named from the index\'s names, trimmed, a nameless row left out, and stored for the mentor page; the directory\'s countries from the stored map',
+	array( $site_state['lookups']['institutions'], get_option( WPCPM_Mentors_Sync::OPT_LOOKUPS )['institutions'], $site_state['lookups']['directory_country'], $site_state['lookups']['teams'], $site_state['phase'] ),
+	array(
+		array( 'recEXA00000000001' => 'Example School One', 'recEXA00000000002' => 'Example School Two' ),
+		array( 'recEXA00000000001' => 'Example School One', 'recEXA00000000002' => 'Example School Two' ),
+		array( 'recEXA00000000011' => 'Example Country', 'recEXA00000000012' => 'Other Country' ),
+		array( 'recEXA00000000041' => 'Example Team' ),
+		'mentors',
+	) );
+
+lookups_site( false );
+$airtable_state = lookups_run();
+ck( 'with the setting off, the lookups read every table as before, Institutions and Countries among them',
+	array( $GLOBALS['lookup_reads'], $airtable_state['lookups']['institutions'], $airtable_state['lookups']['directory_country'] ),
+	array( array( 'Institutions', 'Teams', 'Countries', 'Languages' ), array( 'recEXA00000000021' => 'From Airtable' ), array( 'recEXA00000000031' => 'Country From Airtable' ) ) );
+
+// An empty stored countries map in site mode does not blank the public list: the lookup is false, as a
+// failed read's is, with the same notice, so the list of the last whole read stands. Still no read.
+lookups_site( true );
+update_option( WPCPM_Countries::OPT_NAME, array( 'v' => WPCPM_Countries::VERSION, 'read' => time(), 'rows' => array() ) );
+$empty_state = lookups_run();
+ck( 'in site mode an empty countries map makes that lookup false with the failed lookup\'s notice, and reads nothing of Countries',
+	array( $empty_state['lookups']['directory_country'], $empty_state['notices'], $GLOBALS['lookup_reads'] ),
+	array( false, array( 'The public list of mentors was not updated: the names in the linked table Countries could not be read (the site holds no countries map).' ), array( 'Teams', 'Languages' ) ) );
 
 ck( 'and nothing was asked of the stand-ins that they do not model', $GLOBALS['unmodeled'], array() );
 

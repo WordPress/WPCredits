@@ -34,7 +34,8 @@
  *   - A closed request (`request_resolved`) reads its state, and for a withdrawal the ground it was made
  *     on, so it keeps its outcome when its note cannot be shown. The raise of a details request, and the
  *     details saved, have words of their own.
- *   - The kinds are checked both ways: every kind passed to `WPCPM_Institution_Audit::record(` in
+ *   - The kinds are checked both ways: every kind passed to `WPCPM_Institution_Audit::record(` (or to
+ *     `record_lead(`, whose rows a promoted lead's school keeps) in
  *     `includes/`, found by reading the source, has words, and every kind listed here is written
  *     (but the two the retired notes wrote, whose words stay for the rows an older site holds).
  * - **Every string is escaped at output.**
@@ -115,6 +116,10 @@ class WPCPM_Mentors_Sync {
  * The form's five site-only questions, in the form's order, with the labels it asks them under.
  * Checked against the class's source below.
  */
+/** The switch of the institutions' record, as the people card's reason words ask it (T5). */
+class WPCPM_Institutions_Index {
+	public static function on_site() { return ! empty( $GLOBALS['t5_on_site'] ); }
+}
 class WPCPM_Institution_Application {
 	public static function site_fields() {
 		return array(
@@ -494,7 +499,7 @@ $shown = WPCPM_Institution_History::render( $sponsored );
 
 echo "\n=== Plain sentences ===\n";
 
-// The thirty-five kinds the plugin has written about an institution (the two the retired notes wrote
+// The thirty-eight kinds the plugin has written about an institution (the two the retired notes wrote
 // among them), and where each is declared. The source is read below, so a kind renamed there fails here
 // rather than reaching a row unworded.
 $kinds = array(
@@ -533,12 +538,15 @@ $kinds = array(
 	'assignment_changed',
 	'tutor_added',
 	'tutor_removed',
+	'talks_stage',
+	'talks_saved',
+	'talks_imported',
 );
 
-ck( 'thirty-five kinds, each once', array( count( $kinds ), count( array_unique( $kinds ) ) ), array( 35, 35 ) );
+ck( 'thirty-eight kinds, each once', array( count( $kinds ), count( array_unique( $kinds ) ) ), array( 38, 38 ) );
 
 $declared = '';
-foreach ( array_merge( glob( __DIR__ . '/../includes/modules/class-wpcpm-institution-*.php' ), array( __DIR__ . '/../includes/modules/class-wpcpm-institutions.php', __DIR__ . '/../includes/modules/class-wpcpm-agreement-generate.php' ) ) as $file ) {
+foreach ( array_merge( glob( __DIR__ . '/../includes/modules/class-wpcpm-institution-*.php' ), array( __DIR__ . '/../includes/modules/class-wpcpm-institutions.php', __DIR__ . '/../includes/modules/class-wpcpm-agreement-generate.php', __DIR__ . '/../includes/modules/class-wpcpm-institutions-move.php' ) ) as $file ) {
 	$declared .= (string) file_get_contents( $file );
 }
 
@@ -593,9 +601,16 @@ $stored = array(
 	'assignment_changed'    => 'Ana Admin is now the assigned Administrator.',
 	'tutor_added'           => 'Tess Tutor was added to the tutors.',
 	'tutor_removed'         => 'Tess Tutor was removed from the tutors.',
+	// As the agreement path stores it in site mode (Institutions off Airtable, release 2, Task 13).
+	'talks_stage'           => 'The stage of the talks moved from Agreement Sent to Confirmed.',
+	// As a lead's save stores it (Institutions off Airtable, release 2, Task 14), the row the school keeps once
+	// the lead is promoted.
+	'talks_saved'           => 'The talks were updated: Next step, Follow up on.',
+	// As the import stores it (Institutions off Airtable, release 2, Task 18).
+	'talks_imported'        => 'Brought over from Airtable: 4 notes, the next step and the follow-up.',
 );
 
-ck( 'the stored messages above cover the same thirty-five kinds', array_keys( $stored ), $kinds );
+ck( 'the stored messages above cover the same thirty-eight kinds', array_keys( $stored ), $kinds );
 
 // What may never show: a record ID, a kind slug, or a meta key. The slug is matched as a word, so
 // "extend" does not count against "extended".
@@ -666,8 +681,11 @@ foreach ( $kinds as $kind ) {
 		}
 	}
 }
-ck( 'for all thirty-five kinds, a stored message, an empty one or a leaking one gives a sentence with no ID, slug or key', $problems, array() );
-ck( 'each kind has words of its own', array( count( $worded ), count( array_unique( $worded ) ) ), array( 35, 35 ) );
+ck( 'for all thirty-eight kinds, a stored message, an empty one or a leaking one gives a sentence with no ID, slug or key', $problems, array() );
+ck( 'each kind has words of its own', array( count( $worded ), count( array_unique( $worded ) ) ), array( 38, 38 ) );
+ck( 'the import\'s row has its own words, and keeps the stored sentence, which says what came', array( $worded['talks_imported'], $returned['talks_imported'] ), array( 'The institution\'s talks were brought over from Airtable.', 'Brought over from Airtable: 4 notes, the next step and the follow-up.' ) );
+ck( 'the talks\' save has its own words, and keeps the stored sentence, which names the fields', array( $worded['talks_saved'], $returned['talks_saved'] ), array( 'The talks with the institution were updated.', 'The talks were updated: Next step, Follow up on.' ) );
+ck( 'the stage row has its own words, and keeps the stored sentence, which names the stages', array( $worded['talks_stage'], $returned['talks_stage'] ), array( 'The stage of the talks with the institution was changed.', 'The stage of the talks moved from Agreement Sent to Confirmed.' ) );
 ck( 'the tutor rows have their own words, and keep the stored sentence, which names the person', array( $worded['tutor_added'], $worded['tutor_removed'], $returned['tutor_added'], $returned['tutor_removed'] ), array( 'A tutor was added to the institution\'s list.', 'A tutor was removed from the institution\'s list.', 'Tess Tutor was added to the tutors.', 'Tess Tutor was removed from the tutors.' ) );
 ck( 'the assignment row has its own words, and keeps the stored one when it is plain', array( $worded['assignment_changed'], $returned['assignment_changed'] ), array( 'The institution\'s assigned Administrator was changed.', 'Ana Admin is now the assigned Administrator.' ) );
 ck( 'and a sentence ends with a full stop', array_values( array_filter( $worded, static function ( $sentence ) { return '.' !== substr( $sentence, -1 ); } ) ), array() );
@@ -786,6 +804,15 @@ foreach ( $reasons as $reason => $words ) {
 		array( 'Renamed Member is no longer a member. ' . $words . '.', $words )
 	);
 }
+// T5 (the trial's second pass): once the site keeps the record, a revoked membership ended when the school left the
+// active stages, by the Talks card's move or the sync's revoke phase; with the setting off, the words as before.
+$GLOBALS['t5_on_site'] = true;
+$t5_on                 = array( WPCPM_Institution_People::reason_label( 'revoked' ), $member_row( 'member_removed', array( 'user' => 10, 'reason' => 'revoked' ) ), WPCPM_Institution_People::reason_label( 'removed' ) );
+$GLOBALS['t5_on_site'] = false;
+ck( 'T5: in site mode the revoked reason reads "Ended when the institution left the active stages", in the label and the History row; the other reasons and the setting off as before', array( $t5_on, WPCPM_Institution_People::reason_label( 'revoked' ) ), array(
+	array( 'Ended when the institution left the active stages', 'Renamed Member is no longer a member. Ended when the institution left the active stages.', 'Their access was removed' ),
+	'Ended by the institutions sync',
+) );
 
 $provisioned = $member_row( 'member_added', array( 'user' => 7, 'how' => 'provisioned' ), 'Test Member was added as a member (provisioned).' );
 ck( 'a stored "(provisioned)" never shows, nor its slug', array( $provisioned, false !== strpos( $provisioned, '(' ), false !== stripos( $provisioned, 'provisioned' ) ), array( 'Test Member was added as a member. Added by the institutions sync.', false, false ) );
@@ -989,8 +1016,8 @@ function code_without_comments( $code ) {
 }
 
 /**
- * The kinds the plugin passes to `WPCPM_Institution_Audit::record(`, found by reading the source, and the calls
- * it could not read.
+ * The kinds the plugin passes to `WPCPM_Institution_Audit::record(` and `::record_lead(` (a lead's rows, which
+ * become a school's when the lead is promoted), found by reading the source, and the calls it could not read.
  *
  * Every call is read, whatever follows `record(`. A call's kind is a quoted literal (`'some_kind'`), a constant of
  * its own class (`self::LOG_RAISED`) or of another (`WPCPM_Institution_Audit::KIND_MEMBER_ADDED`, read from
@@ -1023,7 +1050,7 @@ function written_kinds( array $source, array $allowed ) {
 	$computed = array();
 
 	foreach ( $clean as $name => $code ) {
-		if ( ! preg_match_all( '/WPCPM_Institution_Audit::record\(/', $code, $found, PREG_OFFSET_CAPTURE ) ) {
+		if ( ! preg_match_all( '/WPCPM_Institution_Audit::record(?:_lead)?\(/', $code, $found, PREG_OFFSET_CAPTURE ) ) {
 			continue;
 		}
 
@@ -1151,6 +1178,9 @@ foreach ( $unreadable as $why => $code ) {
 $r = $fixture( "// Passed to WPCPM_Institution_Audit::record( by every writer.\n/**\n * Calls WPCPM_Institution_Audit::record() once.\n */\nclass WPCPM_Fixture {\n\tfunction f() {\n\t\tWPCPM_Institution_Audit::record_sponsor( \$entry );\n\t\tWPCPM_Institution_Audit::record_program( \$entry );\n\t}\n}\n" );
 ck( 'a comment that names record( is not a call, and neither are record_sponsor( and record_program(', array( $r['calls'], $r['kinds'], $r['unresolved'] ), array( 0, array(), array() ) );
 
+$r = $fixture( $call( "'kind'        => 'a_lead_kind',", 'WPCPM_Institution_Audit::record_lead( array(' ) );
+ck( 'a call to record_lead( is read as record( is, since a promoted lead\'s rows are its school\'s', array( $r['kinds'], $r['calls'], $r['unresolved'] ), array( array( 'a_lead_kind' ), 1, array() ) );
+
 $computed = "class WPCPM_Fixture {\n\tconst LOG_A = 'a_one';\n\tconst LOG_B = 'b_two';\n\tconst LOG_C = 'c_three';\n\tfunction f() {\n\t\tself::log( self::LOG_A );\n\t\tself::log( self::LOG_B );\n\t}\n\tfunction log( \$kind ) {\n\t\tWPCPM_Institution_Audit::record( array(\n\t\t\t'kind'        => \$kind,\n\t\t) );\n\t}\n}\n";
 $allowed  = array( 'class-wpcpm-fixture.php' => array( 'reason' => 'log() is handed a constant', 'constants' => array( 'LOG_A', 'LOG_B' ) ) );
 $r        = $fixture( $computed, $allowed );
@@ -1169,7 +1199,7 @@ sort( $listed );
 $generic = WPCPM_Institution_History::sentence( array( 'kind' => 'a_kind_nothing_writes', 'message' => '' ) );
 
 ck( 'every call to record( in includes/ is read: none is left whose kind cannot be told, and the calls are found', array( $scan['unresolved'], $scan['calls'] > 25 ), array( array(), true ) );
-ck( 'the source of includes/ passes 33 kinds to record(', count( $written ), 33 );
+ck( 'the source of includes/ passes 36 kinds to record( and record_lead(', count( $written ), 36 );
 ck( 'every kind it passes is in this suite\'s list, so a new one is a line here before it reaches a row', array_values( array_diff( $written, $listed ) ), array() );
 ck( 'and every kind in the list but the two retired ones is passed there, so a kind renamed or dropped fails here', array_values( array_diff( $listed, $written ) ), array() );
 ck(

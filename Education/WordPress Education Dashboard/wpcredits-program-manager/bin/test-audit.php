@@ -49,10 +49,18 @@ function wp_insert_post( array $a, $wp_error = false ) {
 	return $id;
 }
 // As core's: what is written is unslashed first, at any depth.
-function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ $id ][ $k ] = stripslashes_deep( $v ); return true; }
+// Each meta write is kept in order, and a check can kill the request before a named key lands (`$GLOBALS['kill_before']`).
+class Killed extends Exception {}
+function update_post_meta( $id, $k, $v ) {
+	if ( isset( $GLOBALS['kill_before'] ) && $GLOBALS['kill_before'] === $k ) { $GLOBALS['kill_before'] = null; throw new Killed( $k ); }
+	$GLOBALS['meta_order'][] = $k;
+	$GLOBALS['pmeta'][ $id ][ $k ] = stripslashes_deep( $v );
+	return true;
+}
 function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
 function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function get_post_meta( $id, $k, $single = false ) { return isset( $GLOBALS['pmeta'][ $id ][ $k ] ) ? $GLOBALS['pmeta'][ $id ][ $k ] : ''; }
+function delete_post_meta( $id, $k ) { unset( $GLOBALS['pmeta'][ $id ][ $k ] ); return true; }
 // As core's: the post it deleted, or false.
 function wp_delete_post( $id, $force = false ) {
 	if ( ! isset( $GLOBALS['posts'][ $id ] ) ) { return false; }
@@ -255,6 +263,57 @@ ck( 'a time of zero deletes nothing', array( $delete( 0 ), $alive( $edge ), $ali
 ck( 'a limit of zero deletes nothing', array( $delete( strtotime( '2027-01-01 00:00:00 UTC' ), 0 ), $alive( $edge ), $alive( $new_a ) ), array( 0, true, true ) );
 ck( 'a later cut deletes the rest of the calls, five in all, and still no row of another key', array( $delete( strtotime( '2026-11-01 00:00:00 UTC' ) ), $alive( $edge ), $alive( $new_a ), $alive( $mcp ), $alive( $named ), $alive( $typed_call ), $alive( $old_inst ), $alive( $old_sponsor ), $alive( $old_prog ), $alive( $prog_row ) ), array( 5, false, false, false, false, false, true, true, true, true ) );
 ck( 'and the readers of the other keys list their rows as before', array( count( WPCPM_Institution_Audit::entries_for( $I ) ) > 0, count( WPCPM_Institution_Audit::sponsor_entries() ) > 0, $mcp_read( 0 ) ), array( true, true, array() ) );
+
+echo "\n=== A lead's rows, and moving them to the record it became (Institutions release 2) ===\n";
+// A fifth key, for a school the program has not talked to yet: its rows are about a lead key until the lead is
+// promoted, when they become the new record's. Asked through guards, so a missing writer fails these checks.
+$lead_key   = defined( 'WPCPM_Institution_Audit::META_LEAD' ) ? constant( 'WPCPM_Institution_Audit::META_LEAD' ) : '_wpcpm_log_lead';
+$lead_write = static function ( array $entry ) {
+	return method_exists( 'WPCPM_Institution_Audit', 'record_lead' ) ? WPCPM_Institution_Audit::record_lead( $entry ) : new WP_Error( 'no_writer', 'record_lead() is not there' );
+};
+$lead_read  = static function ( $key, $limit = 50 ) {
+	return method_exists( 'WPCPM_Institution_Audit', 'entries_for_lead' ) ? WPCPM_Institution_Audit::entries_for_lead( $key, $limit ) : array();
+};
+$lead_move  = static function ( $from, $to ) {
+	return method_exists( 'WPCPM_Institution_Audit', 'move_lead_rows' ) ? WPCPM_Institution_Audit::move_lead_rows( $from, $to ) : -1;
+};
+$L   = 'lead-41';
+$N   = 'recNEWRECORD00001';
+$la  = $lead_write( array_merge( $base, array( 'kind' => 'talks_saved', 'lead' => $L, 'subject' => $L, 'message' => 'Next step was changed.', 'data' => array( 'changed' => array( 'next_step' ) ) ) ) );
+$lb  = $lead_write( array_merge( $base, array( 'kind' => 'assignment_changed', 'lead' => $L, 'subject' => $L, 'institution' => $I, 'message' => 'Ana Admin is now the assigned Administrator.' ) ) );
+$lc  = $lead_write( array_merge( $base, array( 'kind' => 'talks_saved', 'lead' => 'lead-42', 'subject' => 'lead-42', 'message' => 'City was changed.' ) ) );
+$lup = $lead_write( array_merge( $base, array( 'kind' => 'talks_saved', 'lead' => 'LEAD-41', 'message' => 'x' ) ) );
+ck( 'the lead key is the log stem\'s', $lead_key, '_wpcpm_log_lead' );
+ck( 'a lead\'s row is written under it, and under no other key, whatever the entry named', is_int( $lb ) ? array( get_post_meta( $lb, $lead_key, true ), isset( $GLOBALS['pmeta'][ $lb ][ WPCPM_Institution_Audit::META_INSTITUTION ] ), isset( $GLOBALS['pmeta'][ $lb ][ WPCPM_Institution_Audit::META_SPONSOR ] ), $GLOBALS['posts'][ $lb ]->post_status ) : 'no row', array( $L, false, false, 'private' ) );
+ck( 'a key that is no lead\'s is refused with its own code', array( is_wp_error( $lup ) ? $lup->get_error_code() : '', ( static function () use ( $lead_write, $base ) { $r = $lead_write( array_merge( $base, array( 'kind' => 'x', 'lead' => 'lead-0' ) ) ); return is_wp_error( $r ) ? $r->get_error_code() : ''; } )() ), array( 'wpcpm_audit_lead', 'wpcpm_audit_lead' ) );
+ck( 'and the ground is still checked', ( static function () use ( $lead_write, $base, $L ) { $r = $lead_write( array_merge( $base, array( 'kind' => 'x', 'lead' => $L, 'ground' => 'nobody' ) ) ); return is_wp_error( $r ) ? $r->get_error_code() : ''; } )(), 'wpcpm_audit_ground' );
+ck( 'entries_for_lead() lists the lead\'s rows, newest first, and no other lead\'s', array_column( $lead_read( $L ), 'id' ), array( $lb, $la ) );
+ck( 'no institution, sponsor or call reader lists them', array( in_array( $lb, array_column( WPCPM_Institution_Audit::entries_for( $I, 0 ), 'id' ), true ), in_array( $la, array_column( WPCPM_Institution_Audit::sponsor_entries( '', 0 ), 'id' ), true ), in_array( $la, array_column( $mcp_read( 0 ), 'id' ), true ) ), array( false, false, false ) );
+ck( 'a key in other case is no lead\'s key, so it lists nothing', $lead_read( 'LEAD-41' ), array() );
+ck( 'move_lead_rows() moves the lead\'s two rows and says none is left (the outside review, O4: it answers how many it could not move)', $lead_move( $L, $N ), 0 );
+ck( 'they are the record\'s now, about it, and the lead\'s key is gone from them', is_int( $la ) ? array( array_column( WPCPM_Institution_Audit::entries_for( $N, 0 ), 'id' ), get_post_meta( $la, WPCPM_Institution_Audit::META_SUBJECT, true ), isset( $GLOBALS['pmeta'][ $la ][ $lead_key ] ), $lead_read( $L ) ) : 'no row', array( array( $lb, $la ), $N, false, array() ) );
+ck( 'the other lead\'s row stayed where it was', array_column( $lead_read( 'lead-42' ), 'id' ), array( $lc ) );
+ck( 'a move between keys of the wrong shape moves nothing', array( $lead_move( 'lead-42', 'not-a-record' ), $lead_move( $I, $N ), count( $lead_read( 'lead-42' ) ) ), array( 0, 0, 1 ) );
+
+echo "\n=== The key that lists a row is written last (Task 18 fix round 2) ===\n";
+
+$GLOBALS['meta_order'] = array();
+WPCPM_Institution_Audit::record( array( 'kind' => 'member_added', 'institution' => 'recKEY00000000001', 'subject' => '5', 'actor' => 0, 'ground' => 'system', 'evidence' => 'index', 'message' => 'A row.', 'data' => array( 'from' => 'airtable' ) ) );
+ck( 'every meta before the institution\'s key, the data among them, so a row killed half way is never listed without them', $GLOBALS['meta_order'], array( '_wpcpm_log_kind', '_wpcpm_log_subject', '_wpcpm_log_actor', '_wpcpm_log_ground', '_wpcpm_log_evidence', '_wpcpm_log_data', '_wpcpm_log_institution' ) );
+$GLOBALS['meta_order'] = array();
+WPCPM_Institution_Audit::record_lead( array( 'kind' => 'talks_saved', 'lead' => 'lead-77', 'subject' => 'lead-77', 'actor' => 0, 'ground' => 'system', 'evidence' => 'index', 'message' => 'A row.' ) );
+ck( 'a lead\'s key last too', end( $GLOBALS['meta_order'] ), '_wpcpm_log_lead' );
+
+$GLOBALS['kill_before'] = '_wpcpm_log_institution';
+try {
+	WPCPM_Institution_Audit::record( array( 'kind' => 'member_added', 'institution' => 'recKEY00000000002', 'subject' => '5', 'actor' => 0, 'ground' => 'system', 'evidence' => 'index', 'message' => 'Killed.', 'data' => array( 'from' => 'airtable' ) ) );
+	$died = false;
+} catch ( Killed $e ) {
+	$died = true;
+}
+$listed_after_kill = count( WPCPM_Institution_Audit::entries_for( 'recKEY00000000002', 0 ) );
+WPCPM_Institution_Audit::record( array( 'kind' => 'member_added', 'institution' => 'recKEY00000000002', 'subject' => '5', 'actor' => 0, 'ground' => 'system', 'evidence' => 'index', 'message' => 'Again.', 'data' => array( 'from' => 'airtable' ) ) );
+ck( 'a kill before the key leaves nothing listed, and the rerun writes one row with its data', array( $died, $listed_after_kill, array_map( static function ( $e ) { return array( $e['message'], $e['data'] ); }, WPCPM_Institution_Audit::entries_for( 'recKEY00000000002', 0 ) ) ), array( true, 0, array( array( 'Again.', array( 'from' => 'airtable' ) ) ) ) );
 
 echo "\n=== House rules ===\n";
 ck( 'no em or en dash in the class', preg_match( '/\x{2013}|\x{2014}/u', (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-institution-audit.php' ) ), 0 );

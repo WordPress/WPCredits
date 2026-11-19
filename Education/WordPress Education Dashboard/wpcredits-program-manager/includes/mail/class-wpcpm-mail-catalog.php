@@ -197,6 +197,8 @@ final class WPCPM_Mail_Catalog {
 			'institution-details-withdrawn'      => array( __( 'Institution withdrew its request to correct its details, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
 			// An institution assigned to an Administrator (Institutions off Airtable, release 1).
 			'institution-assigned'               => array( __( 'Institution assigned, to the Administrator', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
+			// The Monday email of follow-ups due (Institutions release 2).
+			'institution-follow-ups-weekly'      => array( __( 'Institution follow-ups due this week, to the Administrator', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
 			// Semester reports.
 			'report-drafted'                     => array( __( 'Semester report drafted, to Administrators', 'wpcredits-program-manager' ), $r, self::TYPE_ADMIN ),
 			'report-approved'                    => array( __( 'Semester report approved, to the institution', 'wpcredits-program-manager' ), $r, self::TYPE_INSTITUTION ),

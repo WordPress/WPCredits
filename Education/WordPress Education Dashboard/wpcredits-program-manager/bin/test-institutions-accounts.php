@@ -366,6 +366,15 @@ class WPCPM_Institution_Audit {
 class WPCPM_Institution_Record {
 	public static function init() {}
 }
+class WPCPM_Institution_Talk_Notes {
+	public static function init() {}
+}
+class WPCPM_Institution_Leads {
+	public static function init() {}
+}
+class WPCPM_Institution_Talks {
+	public static function init() {}
+}
 class WPCPM_Ceiling {
 	public static function init() {}
 }
@@ -441,6 +450,10 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.ph
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
+// The Airtable copy's notice the screen draws under the not-connected one (release 2): nothing here is pending.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-copy.php';
+// And the Monday email of follow-ups due (release 2), which boot() starts.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-talks-weekly.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php';
 // The real rule for a test name and the one helper that asks it (Ruling 21).

@@ -174,7 +174,8 @@
 	// pressed has no box any more (a row's action, which the stylesheets hide while its card is open)
 	// or is an At a glance tile, in the strip's list of tiles on either page, and the browser has
 	// given the focus to nothing else, it goes to the title of the disclosure the link opened, the
-	// card's own for a tile or a row's action. Any other link still on screen keeps what the browser
+	// card's own for a tile or a row's action. A link marked `data-wpcpm-focus-card` (the Talks view's
+	// Add a lead, in its head) does the same. Any other link still on screen keeps what the browser
 	// did with the focus, and so does a target that takes the focus itself.
 	function focusCard( disclosure, link ) {
 		var summary = summaryOf( disclosure );
@@ -182,7 +183,7 @@
 
 		if (
 			! summary ||
-			( link.getClientRects().length && ! link.closest( '.wpcpm-attention__tiles' ) ) ||
+			( link.getClientRects().length && ! link.closest( '.wpcpm-attention__tiles' ) && ! link.closest( '[data-wpcpm-focus-card]' ) ) ||
 			( active && active !== document.body && active !== link )
 		) {
 			return;

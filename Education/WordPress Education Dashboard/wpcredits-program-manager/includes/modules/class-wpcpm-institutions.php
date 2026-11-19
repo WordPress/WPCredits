@@ -461,10 +461,13 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	public function boot() {
 		// The private post types this module keeps, registered on `init` the way the Students
 		// module boots its helpers: the agreements, the audit log and, since 1.123.29, the
-		// institutions' own records.
+		// institutions' own records, and, since Institutions release 2, the notes of the talks and the leads.
 		WPCPM_Institution_Agreement::init();
 		WPCPM_Institution_Audit::init();
 		WPCPM_Institution_Record::init();
+		WPCPM_Institution_Talk_Notes::init();
+		WPCPM_Institution_Leads::init();
+		WPCPM_Institution_Talks::init();
 
 		// The daily jobs, put back on the clock whenever they are missing: see the method.
 		add_action( 'init', array( __CLASS__, 'schedule_cron' ), 20 );
@@ -497,6 +500,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		WPCPM_Institutions_Sync::register_cron();
 
+		// Once the site keeps the record (release 2), the hourly retry of the copies Airtable did not take, and the
+		// Monday email of follow-ups due, on the clock in site mode only.
+		WPCPM_Institution_Copy::init();
+		WPCPM_Institution_Talks_Weekly::init();
+
 		add_action( 'admin_post_' . self::ACTION_SYNC, array( $this, 'handle_sync' ) );
 		add_action( 'admin_post_' . self::ACTION_CANCEL, array( $this, 'handle_cancel' ) );
 		add_action( 'admin_post_' . self::ACTION_PROBE, array( $this, 'handle_probe' ) );
@@ -528,13 +536,15 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 *
 	 * The countries refresh is best effort. It needs a connected base, and activation must
 	 * finish whether or not one is configured yet; the sync's own `countries` phase reads the
-	 * table again on its first run anyway.
+	 * table again on its first run anyway. Once the site keeps the record of institutions
+	 * (`WPCPM_Institutions_Index::on_site()`, release 2), the table is not read: the map stays as
+	 * last read.
 	 */
 	public function activate() {
 		WPCPM_Private_Files::ensure();
 		WPCPM_Private_Files::probe();
 
-		if ( WPCPM_Settings::is_connected() ) {
+		if ( WPCPM_Settings::is_connected() && ! WPCPM_Institutions_Index::on_site() ) {
 			WPCPM_Countries::refresh();
 		}
 
@@ -612,7 +622,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Deactivation: the sync's schedule, and the six daily jobs `schedule_cron()` puts on the clock.
+	 * Deactivation: the sync's schedule, the Airtable copy's hourly retry and the Monday email's daily event
+	 * (release 2), and the six daily jobs `schedule_cron()` puts on the clock.
 	 *
 	 * Off the clock with the plugin, as the Sponsors module takes its own: a daily event with no
 	 * listener is what deactivation would otherwise leave behind. The single events, a semester
@@ -622,6 +633,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 */
 	public function deactivate() {
 		WPCPM_Institutions_Sync::deactivate();
+		WPCPM_Institution_Copy::unschedule();
+		WPCPM_Institution_Talks_Weekly::unschedule();
 
 		foreach ( self::daily_jobs() as $hook ) {
 			wp_clear_scheduled_hook( $hook );
@@ -645,6 +658,13 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		delete_option( WPCPM_Institutions_Index::OPT_NAME );
 		delete_option( WPCPM_Institutions_Index::OPT_LOCK );
+		// The copies Airtable has not taken yet (release 2), and their hourly retry.
+		delete_option( WPCPM_Institution_Copy::OPT_PENDING );
+		WPCPM_Institution_Copy::unschedule();
+		// The Monday email's week, the lock a run that died left, and its daily event (release 2).
+		delete_option( WPCPM_Institution_Talks_Weekly::OPT_WEEK );
+		delete_option( WPCPM_Institution_Talks_Weekly::LOCK );
+		WPCPM_Institution_Talks_Weekly::unschedule();
 		delete_option( WPCPM_Test_Institutions::OPTION );
 		delete_option( WPCPM_Countries::OPT_NAME );
 		delete_option( WPCPM_Private_Files::OPT_PROBE );
@@ -686,6 +706,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		// The institutions' own records (1.123.29) outlive the applications' purge on purpose, so
 		// this is the one thing that removes the answers an application told us.
 		WPCPM_Institution_Record::delete_all();
+		// And the talks notes (Institutions release 2), which nothing else ever removes.
+		WPCPM_Institution_Talk_Notes::delete_all();
+		// And the leads, which name a contact person and an address, and are never anywhere else.
+		WPCPM_Institution_Leads::delete_all();
 		// The batch posts hold a school's list of names and addresses, so they go with the
 		// rest rather than outliving the plugin that made them.
 		WPCPM_Institution_Import::delete_all();
@@ -2756,6 +2780,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 			$this->render_status_notice( $this->outcome_messages( $tab ) );
 			$this->render_not_connected();
+			WPCPM_Institution_Copy::render_pending_notice();
+			WPCPM_Institutions_Sync::render_behind_notice();
 
 			WPCPM_Screen_Tabs::render( $this->page_slug(), self::tab_labels(), $tab );
 
@@ -3877,13 +3903,16 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * What Airtable already holds under this name or this address.
+	 * What is already held under this name or this address: Airtable's Institutions table, or, once the
+	 * site keeps the record of institutions, the site's own list.
 	 *
-	 * The one live read on this screen, and it happens only for an application somebody has
-	 * opened: the queue itself never touches the base, so a screen full of rows costs no
-	 * requests. Two tests, because the base is full of records promoted from outreach that
-	 * have a name and no `Contact Email` at all, and matching only on the address would miss
-	 * every one of them.
+	 * With the setting off this is the one live read on this screen, and it happens only for an
+	 * application somebody has opened: the queue itself never touches the base, so a screen full of
+	 * rows costs no requests; with Airtable not connected no search is made, and that is said. In site
+	 * mode the search reads the site's list alone and asks Airtable nothing, so whether Airtable is
+	 * connected does not matter. Two tests either way, because the list is full of records promoted
+	 * from outreach that have a name and no `Contact Email` at all, and matching only on the address
+	 * would miss every one of them.
 	 *
 	 * A match is information and never an action: whether this is the same institution is a
 	 * judgment, and the approval makes the same search again when it is pressed.
@@ -3891,15 +3920,19 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * @param WP_Post $post The application.
 	 */
 	private function render_duplicate_search( WP_Post $post ) {
-		echo '<h3>' . esc_html__( 'What Airtable already has', 'wpcredits-program-manager' ) . '</h3>';
+		$on_site = WPCPM_Institutions_Index::on_site();
 
-		if ( ! WPCPM_Settings::is_connected() ) {
+		echo '<h3>' . esc_html( $on_site ? __( 'What the site already has', 'wpcredits-program-manager' ) : __( 'What Airtable already has', 'wpcredits-program-manager' ) ) . '</h3>';
+
+		if ( ! $on_site && ! WPCPM_Settings::is_connected() ) {
 			echo '<p>' . esc_html__( 'Airtable is not connected, so no search was made.', 'wpcredits-program-manager' ) . '</p>';
 
 			return;
 		}
 
 		$matches = self::duplicate_search( trim( (string) $post->post_title ), self::application_email( $post ) );
+		// In site mode the leads of this name or this address are named after the institutions (the owner's wave, X2).
+		$leads = $on_site ? self::lead_matches_html( trim( (string) $post->post_title ), self::application_email( $post ), ! is_wp_error( $matches ) && ! empty( $matches ) ) : '';
 
 		if ( is_wp_error( $matches ) ) {
 			printf(
@@ -3912,7 +3945,13 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		}
 
 		if ( empty( $matches ) ) {
-			echo '<p>' . esc_html__( 'No Institutions record carries this name or this address. Approving creates one.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p>' . esc_html(
+				$on_site
+					? __( 'No institution on the site carries this name or this address. Approving creates one.', 'wpcredits-program-manager' )
+					: __( 'No Institutions record carries this name or this address. Approving creates one.', 'wpcredits-program-manager' )
+			) . '</p>';
+
+			echo $leads; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in lead_matches_html().
 
 			return;
 		}
@@ -3930,6 +3969,52 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		}
 
 		echo '</ul>';
+		echo $leads; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in lead_matches_html().
+	}
+
+	/**
+	 * The paragraph that names the leads of the talks an application's name or address matches (the owner's wave of
+	 * release 2, X2), each a link to its page in the Talks view: an application approved under a lead's name would make an
+	 * institution, the lead's move into the talks would then be refused as taken, and its notes would stay on the lead.
+	 * Approving is not blocked: moved first, the lead is the institution the approval adopts.
+	 *
+	 * When an institution of that name or address already matched, a move of the lead would be refused as taken, so the
+	 * paragraph says instead that the lead's notes are to be copied by hand (the owner's wave, round 2, I2).
+	 *
+	 * @param string $name    The institution's name, as applied under.
+	 * @param string $email   The application's address.
+	 * @param bool   $matched Whether an institution of the site matched.
+	 * @return string Escaped markup, '' when no lead matches.
+	 */
+	private static function lead_matches_html( $name, $email, $matched = false ) {
+		$leads = WPCPM_Institution_Leads::matching( (string) $name, (string) $email );
+
+		if ( empty( $leads ) ) {
+			return '';
+		}
+
+		$links = array();
+
+		foreach ( $leads as $key => $lead ) {
+			$named   = isset( $lead['name'] ) && '' !== trim( (string) $lead['name'] ) ? trim( (string) $lead['name'] ) : (string) $key;
+			$links[] = '<a href="' . esc_url( WPCPM_Institution_Talks::url( (string) $key ) ) . '">' . esc_html( $named ) . '</a>';
+		}
+
+		if ( $matched ) {
+			/* translators: %s: the names of the leads, each a link to its page, as a list. */
+			$sentence = esc_html__( 'Also in the talks under this name or this address: %s. A lead\'s notes do not move by themselves: copy what matters to the institution\'s Talks card.', 'wpcredits-program-manager' );
+		} elseif ( count( $leads ) > 1 ) {
+			/* translators: %s: the names of the leads, each a link to its page, as a list. */
+			$sentence = esc_html__( 'Leads in the talks carry this name or this address: %s. Move the right one into the talks as an institution before you approve, so its notes come with it. Approving then adopts that institution.', 'wpcredits-program-manager' );
+		} elseif ( '' !== (string) ( reset( $leads )['closed'] ?? '' ) ) {
+			/* translators: %s: the lead's name, a link to its page. */
+			$sentence = esc_html__( 'A closed lead in the talks carries this name or this address: %s. Reopen it and move it into the talks as an institution before you approve, so its notes come with it. Approving then adopts that institution.', 'wpcredits-program-manager' );
+		} else {
+			/* translators: %s: the lead's name, a link to its page. */
+			$sentence = esc_html__( 'A lead in the talks carries this name or this address: %s. Move it into the talks as an institution before you approve, so its notes come with it. Approving then adopts that institution.', 'wpcredits-program-manager' );
+		}
+
+		return '<p>' . sprintf( $sentence, wp_sprintf_l( '%l', $links ) ) . '</p>';
 	}
 
 	/**
@@ -3940,11 +4025,28 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * address half goes through `formula_in()` with its `LOWER()` flag, which is what that
 	 * flag is for.
 	 *
+	 * Once the site keeps the record (`WPCPM_Institutions_Index::on_site()`, release 2), the base is not
+	 * asked: the index is the record, and `WPCPM_Institutions_Index::matching()` holds the same rule.
+	 *
 	 * @param string $name  The institution name as applied under.
 	 * @param string $email The address as applied under.
 	 * @return array[]|WP_Error Matches: `record_id`, `name`, `stage`.
 	 */
 	private static function duplicate_search( $name, $email ) {
+		if ( WPCPM_Institutions_Index::on_site() ) {
+			$matches = array();
+
+			foreach ( WPCPM_Institutions_Index::matching( (string) $name, (string) $email ) as $record_id => $row ) {
+				$matches[] = array(
+					'record_id' => (string) $record_id,
+					'name'      => isset( $row['name'] ) ? trim( (string) $row['name'] ) : '',
+					'stage'     => isset( $row['stage'] ) ? trim( (string) $row['stage'] ) : '',
+				);
+			}
+
+			return $matches;
+		}
+
 		$airtable = new WPCPM_Airtable();
 		$columns  = WPCPM_Institutions_Sync::fields();
 		$settings = WPCPM_Settings::get();
@@ -5475,8 +5577,12 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 					'<p class="description">%s</p>',
 					esc_html(
 						sprintf(
-							/* translators: %s: the institution's Current Stage in Airtable. */
-							__( 'At the stage "%s", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again.', 'wpcredits-program-manager' ),
+							// Once the site keeps the record (release 2), the stage is moved on the school's Talks card.
+							WPCPM_Institutions_Index::on_site()
+								/* translators: %s: the institution's stage. */
+								? __( 'At the stage "%s", which is outside the pipeline. Move it to an active stage on its Talks card first: reinstated now, the next institutions sync would close it again.', 'wpcredits-program-manager' )
+								/* translators: %s: the institution's Current Stage in Airtable. */
+								: __( 'At the stage "%s", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again.', 'wpcredits-program-manager' ),
 							self::stage_label( $item['stage'] )
 						)
 					)

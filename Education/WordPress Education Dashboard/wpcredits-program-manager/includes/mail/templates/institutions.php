@@ -67,12 +67,54 @@ $wpcpm_placeholders = static function () use ( $wpcpm_sample_changes ) {
 	$day = static function ( $days = 0 ) {
 		return ( new DateTimeImmutable( 'now', wp_timezone() ) )->modify( ( $days < 0 ? '-' : '+' ) . abs( (int) $days ) . ' days' )->format( 'Y-m-d' );
 	};
+	// A day some whole days ago, on the site's clock, in its date format: the follow-ups' examples.
+	$on = static function ( $days ) {
+		return ( new DateTimeImmutable( 'now', wp_timezone() ) )->modify( '-' . abs( (int) $days ) . ' days' )->format( (string) get_option( 'date_format' ) );
+	};
 	// How many working days the program takes to read an agreement, as set.
 	$days = static function () {
 		return max( 1, (int) ( class_exists( 'WPCPM_Settings' ) ? WPCPM_Settings::get_value( 'agreement_review_days', 3 ) : 3 ) );
 	};
 
-	return array(
+	// The Monday email of follow-ups due (Institutions release 2).
+	$follow_ups = array(
+		'count'                 => array(
+			'means'   => __( 'How many follow-ups the email lists.', 'wpcredits-program-manager' ),
+			'example' => '3',
+		),
+		'follow_ups'            => array(
+			'means'     => __( 'The follow-ups due of the schools assigned to the Administrator, oldest first, a line to each: the school, the next step, the day and the link to its talks. Empty leaves the list and its heading out. The email needs it or the other list, in its body.', 'wpcredits-program-manager' ),
+			'example'   => static function () use ( $on ) {
+				$talks = WPCPM_Mail_Templates::page_of_type( WPCPM_Mail_Catalog::TYPE_ADMIN );
+				$talks = '' !== $talks ? add_query_arg( 'wpcpm_view', 'talks', $talks ) : home_url( '/' );
+
+				return 'Example University: Send the agreement again, due ' . $on( 7 ) . ': ' . $talks . "\r\n"
+					. 'Example College, due ' . $on( 2 ) . ': ' . $talks;
+			},
+			'body_only' => true,
+			'one_of'    => true,
+		),
+		'unassigned_follow_ups' => array(
+			'means'     => __( 'The follow-ups due of the schools assigned to nobody that the Administrator\'s Talks view lists as theirs, in the same lines. Empty leaves the list and its heading out. The email needs it or the other list, in its body.', 'wpcredits-program-manager' ),
+			'example'   => static function () use ( $on ) {
+				$talks = WPCPM_Mail_Templates::page_of_type( WPCPM_Mail_Catalog::TYPE_ADMIN );
+
+				return 'Example Institute: Call the dean, due ' . $on( 1 ) . ': ' . ( '' !== $talks ? add_query_arg( 'wpcpm_view', 'talks', $talks ) : home_url( '/' ) );
+			},
+			'body_only' => true,
+			'one_of'    => true,
+		),
+		'talks_link'            => array(
+			'means'   => __( 'The Talks view of the Administrator Dashboard. The email needs it, in its body.', 'wpcredits-program-manager' ),
+			'example' => static function () {
+				$page = WPCPM_Mail_Templates::page_of_type( WPCPM_Mail_Catalog::TYPE_ADMIN );
+
+				return '' !== $page ? add_query_arg( 'wpcpm_view', 'talks', $page ) : home_url( '/' );
+			},
+		),
+	);
+
+	return $follow_ups + array(
 		'site_name'          => array(
 			'means'   => __( 'The site\'s name.', 'wpcredits-program-manager' ),
 			'example' => static function () {
@@ -362,6 +404,11 @@ $wpcpm_take = static function ( array $names, array $required, array $own = arra
 			'required'  => in_array( $name, $required, true ),
 			'body_only' => ! empty( $all[ $name ]['body_only'] ),
 		);
+
+		// The Monday email's two lists: its body needs one of them (`WPCPM_Mail_Templates::one_of()`).
+		if ( ! empty( $all[ $name ]['one_of'] ) ) {
+			$out[ $name ]['one_of'] = true;
+		}
 	}
 
 	return $out;
@@ -984,5 +1031,29 @@ return array(
 		),
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'institution_name', 'country_phrase', 'institution_link' ), array( 'institution_link' ) ),
+	),
+	// The Monday email of follow-ups due (Institutions release 2): the two parts are each left out with their heading
+	// when they have no line, and an Administrator with no line is sent nothing.
+	'institution-follow-ups-weekly'      => array(
+		'trigger'      => __( 'On Mondays at 07:00 UTC, once a week, once the site keeps the record of institutions: to each Administrator with an area or an assigned school who has follow-ups due in the Talks view\'s Mine. Nothing goes to an Administrator with none.', 'wpcredits-program-manager' ),
+		'subject'      => sprintf(
+			/* translators: 1: site name, 2: a number of follow-ups. */
+			__( '[%1$s] Follow-ups due this week: %2$s', 'wpcredits-program-manager' ),
+			'{site_name}',
+			'{count}'
+		),
+		'body'         => $wpcpm_body(
+			array(
+				__( 'These follow-ups are due, oldest first:', 'wpcredits-program-manager' ) . "\n{follow_ups}",
+				__( 'Not assigned to anybody:', 'wpcredits-program-manager' ) . "\n{unassigned_follow_ups}",
+				sprintf(
+					/* translators: %s: a link. */
+					__( 'Open the Talks view: %s', 'wpcredits-program-manager' ),
+					'{talks_link}'
+				),
+			)
+		),
+		'eol'          => "\r\n",
+		'placeholders' => $wpcpm_take( array( 'site_name', 'count', 'follow_ups', 'unassigned_follow_ups', 'talks_link' ), array( 'talks_link' ) ),
 	),
 );

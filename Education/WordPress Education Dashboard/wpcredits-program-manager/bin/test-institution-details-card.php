@@ -323,6 +323,8 @@ class WPCPM_Institutions_Index {
 	}
 	/** Contract: this request's copy of the index is dropped, so the next read is the table's. */
 	public static function forget_cached() { $GLOBALS['events'][] = 'forget index'; }
+	/** Contract: whether the site keeps the record (release 2); this suite's card writes in Airtable mode, unless a check says `on_site`. */
+	public static function on_site() { return ! empty( $GLOBALS['on_site'] ); }
 }
 class WPCPM_Roster_Index {
 	public static function rows( $id ) { return $GLOBALS['rosters'][ trim( (string) $id ) ] ?? array(); }
@@ -1533,6 +1535,15 @@ $GLOBALS['manage'] = array( 1, 12 );
 $gone = assign_part( draw( 1 ) );
 ck( 'an account that lost the capability reads so, and is not offered or chosen again', array( has( plain( $gone ), 'Cy Chief (not an Administrator now)' ), array_keys( end( $GLOBALS['combos'] )['options'] ), end( $GLOBALS['combos'] )['current'] ), array( true, array( 0, 12, 1 ), 0 ) );
 $GLOBALS['manage'] = array( 1, 12, 13 );
+
+// Once the site keeps the record (R2, Task 15), who follows a school up is changed on its Talks card, and the details card
+// draws the section no more; the assignment email's link lands on the Talks card.
+$GLOBALS['on_site'] = true;
+$on_site_page       = draw( 1 );
+ck( 'in site mode the details card draws no Assigned Administrator section, and the rest of the card as before', array( has( $on_site_page, 'Assigned Administrator' ), has( $on_site_page, 'wpcpm_institution_assign' ), has( $on_site_page, 'Tracks offered' ), has( $on_site_page, 'Contact and agreement' ) ), array( false, false, true, true ) );
+ck( 'and the assignment\'s page link is the Talks card on the For Administrators view', WPCPM_Institution_Assignment::page_url( A ), 'https://example.test/institution-dashboard/?wpcpm_view=administrators&wpcpm_institution_view=' . A . '#wpcpm-talks' );
+$GLOBALS['on_site'] = false;
+ck( 'while the setting is off the section is drawn and the link is the details card, as before', array( has( draw( 1 ), 'Assigned Administrator' ), WPCPM_Institution_Assignment::page_url( A ) ), array( true, 'https://example.test/institution-dashboard/?wpcpm_view=institution&wpcpm_institution_view=' . A . '#wpcpm-details' ) );
 
 echo "\n-- the handler --\n";
 

@@ -145,8 +145,40 @@ function add_filter( $h, $c, $p = 10, $n = 1 ) { return true; }
 function remove_filter( $h, $c, $p = 10 ) { return true; }
 function register_post_type( $t, $a = array() ) { $GLOBALS['post_types'][ $t ] = $a; return (object) $a; }
 
-function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
-function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
+/**
+ * The options table, and, while `$GLOBALS['option_cache']` is on, this request's cache of it as WordPress keeps one:
+ * a value read once is read from the cache after that, and a name read while absent is in `notoptions` until the
+ * cache is told otherwise. Another request's write is a write to `$GLOBALS['opts']` that this cache never sees.
+ */
+function get_option( $k, $d = false ) {
+	if ( ! empty( $GLOBALS['option_cache'] ) ) {
+		if ( isset( $GLOBALS['ocache']['notoptions'][ $k ] ) ) { return $d; }
+		if ( array_key_exists( $k, $GLOBALS['ocache']['options'] ) ) { return $GLOBALS['ocache']['options'][ $k ]; }
+		if ( ! array_key_exists( $k, $GLOBALS['opts'] ) ) { $GLOBALS['ocache']['notoptions'][ $k ] = true; return $d; }
+		$GLOBALS['ocache']['options'][ $k ] = $GLOBALS['opts'][ $k ];
+	}
+	return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d;
+}
+function option_cached( $k, $v ) {
+	if ( ! empty( $GLOBALS['option_cache'] ) ) {
+		$GLOBALS['ocache']['options'][ $k ] = $v;
+		unset( $GLOBALS['ocache']['notoptions'][ $k ] );
+	}
+}
+// A write the database refuses (the outside review, O6): while `$GLOBALS['write_fails']` names the option, the write answers
+// false and changes nothing.
+function update_option( $k, $v, $a = null ) { if ( in_array( $k, (array) ( $GLOBALS['write_fails'] ?? array() ), true ) ) { return false; } $GLOBALS['opts'][ $k ] = $v; option_cached( $k, $v ); return true; }
+function wp_cache_get( $key, $group = '' ) {
+	return 'options' === $group && 'notoptions' === $key && ! empty( $GLOBALS['option_cache'] ) ? $GLOBALS['ocache']['notoptions'] : false;
+}
+function wp_cache_set( $key, $value, $group = '' ) {
+	if ( 'options' === $group && 'notoptions' === $key ) { $GLOBALS['ocache']['notoptions'] = (array) $value; }
+	return true;
+}
+function wp_cache_delete( $key, $group = '' ) {
+	if ( 'options' === $group ) { unset( $GLOBALS['ocache']['options'][ $key ] ); }
+	return true;
+}
 function add_option( $k, $v, $x = '', $a = null ) {
 	if ( array_key_exists( $k, $GLOBALS['opts'] ) ) { return false; }
 	// A lock somebody else takes between two claims of this process's own. It is the only way
@@ -160,9 +192,13 @@ function add_option( $k, $v, $x = '', $a = null ) {
 			return false;
 		}
 	}
-	$GLOBALS['opts'][ $k ] = $v; return true;
+	$GLOBALS['opts'][ $k ] = $v; option_cached( $k, $v ); return true;
 }
-function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
+function delete_option( $k ) {
+	unset( $GLOBALS['opts'][ $k ] );
+	if ( ! empty( $GLOBALS['option_cache'] ) ) { unset( $GLOBALS['ocache']['options'][ $k ] ); $GLOBALS['ocache']['notoptions'][ $k ] = true; }
+	return true;
+}
 
 /**
  * Post meta that behaves like WordPress's: repeated rows, and `true` returns the first.
@@ -270,6 +306,10 @@ function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolo
 // no `&lt;` and would pass every check made with it.
 require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/stubs/cleaners.php';
+if ( ! function_exists( 'wp_check_invalid_utf8' ) ) {
+	/** The on-file route reads its Drive link verbatim (`WPCPM_Request::posted_verbatim()`). */
+	function wp_check_invalid_utf8( $s, $strip = false ) { return (string) $s; }
+}
 function sanitize_file_name( $s ) { return preg_replace( '/[^A-Za-z0-9._-]/', '-', (string) $s ); }
 function sanitize_title( $s ) { return trim( preg_replace( '/-+/', '-', preg_replace( '/[^a-z0-9]/', '-', strtolower( (string) $s ) ) ), '-' ); }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
@@ -482,6 +522,43 @@ if ( ! class_exists( 'WPCPM_Institutions_Sync' ) ) {
 				'agr_template'     => 'Agreement Template Version',
 			);
 		}
+		/** A patch of the index asks for one more run while a tick holds the run's lock; none is held here. */
+		public static function read_again_soon() {
+			return false;
+		}
+		/** Whether a run is in flight, and the time of the last complete read: `$GLOBALS['sync_running']`, `$GLOBALS['sync_read']`. */
+		public static function is_running() {
+			return ! empty( $GLOBALS['sync_running'] );
+		}
+		public static function last_read() {
+			return (int) ( $GLOBALS['sync_read'] ?? 0 );
+		}
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Lock' ) ) {
+	/**
+	 * The short lock a patch of the index reads and writes under, at its two calls (Institutions off Airtable, R2).
+	 *
+	 * `$GLOBALS['index_lock_held']` stands for another request holding it for as long as a patch waits, so a patch
+	 * refused by its lock can be asserted; every ask is counted.
+	 */
+	class WPCPM_Lock {
+		public static function take( $name, $ttl ) {
+			$GLOBALS['index_lock_asks'] = ( $GLOBALS['index_lock_asks'] ?? 0 ) + 1;
+			// Another request's write in the moment this lock is asked for, played once (`$GLOBALS['on_take'][ name ]`).
+			if ( isset( $GLOBALS['on_take'][ $name ] ) ) {
+				$then = $GLOBALS['on_take'][ $name ];
+				unset( $GLOBALS['on_take'][ $name ] );
+				$then();
+			}
+			$held = in_array( $name, (array) ( $GLOBALS['held_locks'] ?? array() ), true )
+				|| ( ! empty( $GLOBALS['index_lock_held'] ) && WPCPM_Institutions_Index::OPT_LOCK === $name );
+			return $held ? '' : 'token-' . $GLOBALS['index_lock_asks'];
+		}
+		public static function release( $name, $token ) {
+			return true;
+		}
 	}
 }
 
@@ -513,6 +590,7 @@ if ( ! class_exists( 'WPCPM_Airtable' ) ) {
 	/** Both routes, journaled, so their order among the other writes can be asserted. */
 	class WPCPM_Airtable {
 		public function __construct( $settings = null ) {}
+		public static function is_record_id( $value ) { return WPCPM_Mentors_Sync::is_record_id( $value ); }
 		public function get_record( $table, $record_id ) {
 			$GLOBALS['journal'][] = 'airtable-read';
 			if ( $GLOBALS['live'] instanceof WP_Error ) { return $GLOBALS['live']; }
@@ -521,6 +599,8 @@ if ( ! class_exists( 'WPCPM_Airtable' ) ) {
 		public function update_records( $table, array $records ) {
 			$GLOBALS['journal'][] = 'airtable';
 			$GLOBALS['patched'][] = array( $table, $records );
+			// Whether a school's agreement lock was held as the request left (fix wave, D2).
+			$GLOBALS['locked_requests'][] = array() !== preg_grep( '/^wpcpm_agreement_lock_/', array_keys( $GLOBALS['opts'] ) );
 			if ( $GLOBALS['airtable'] instanceof WP_Error ) { return $GLOBALS['airtable']; }
 			if ( is_array( $GLOBALS['airtable'] ) ) { return $GLOBALS['airtable']; }
 			return array( $records[0]['id'] => true );
@@ -694,6 +774,25 @@ if ( ! class_exists( 'WPCPM_Institution_Record' ) ) {
 		public static function get( $record_id ) {
 			return isset( $GLOBALS['kept'][ $record_id ] ) ? $GLOBALS['kept'][ $record_id ] : array();
 		}
+		public static function forget_cached( $record_id ) {}
+		/** Overwrites the answers it is given, a blank one clearing its key, and says whether the record changed. */
+		public static function set( $record_id, array $answers ) {
+			$held = self::get( $record_id );
+			$kept = $held;
+			foreach ( $answers as $key => $value ) {
+				if ( '' === trim( (string) $value ) ) {
+					unset( $kept[ $key ] );
+					continue;
+				}
+				$kept[ $key ] = $value;
+			}
+			if ( $kept === $held ) {
+				return false;
+			}
+			$GLOBALS['kept'][ $record_id ] = $kept;
+			$GLOBALS['record_writes'][]    = array( $record_id, $answers );
+			return true;
+		}
 	}
 }
 
@@ -705,6 +804,8 @@ if ( ! class_exists( 'WPCPM_Manager_Booking' ) ) {
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-pdf-check.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-assignment.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-talks.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-copy.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php';
 
 $fail = 0;
@@ -754,6 +855,13 @@ function reset_world() {
 	$GLOBALS['queries']     = array();
 	$GLOBALS['lock_claims'] = 0;
 	$GLOBALS['lock_steal']  = 0;
+	$GLOBALS['index_lock_held']  = false;
+	$GLOBALS['held_locks']       = array();
+	$GLOBALS['on_take']          = array();
+	$GLOBALS['option_cache']     = false;
+	$GLOBALS['ocache']           = array( 'options' => array(), 'notoptions' => array() );
+	$GLOBALS['index_lock_asks']  = 0;
+	$GLOBALS['record_writes']    = array();
 	$GLOBALS['settings']    = array(
 		'institutions_table'        => 'tbl4V0FEbzRP7I2w2',
 		'agreement_max_mb'          => 10,
@@ -2234,6 +2342,45 @@ ck( 'a rebuild that finds the lock held is not reported as an open account', $ou
 ck( 'the acceptance itself stands: one PATCH, and the document is accepted', array( count( $GLOBALS['patched'] ), get_post_meta( $id, '_wpcpm_agr_state', true ) ), array( 1, 'accepted' ) );
 ck( 'the gate is shut until the next sync writes the option', WPCPM_Institution_Agreement::is_settled( 'recAAAAAAAAAAAAA1' ), false );
 ck( 'and every member was told all the same, because nothing sends that message later', mail_log(), array( 'agreement-accepted to ola@example.edu', 'agreement-accepted to bo@example.edu' ) );
+
+/* ---- site mode: the stage from the index row, and no read (R2) ---------- */
+
+echo "\n=== handle_accept() in site mode: the stage is the index row's, and nothing is read ===\n";
+
+if ( ! function_exists( 'wp_cache_delete' ) ) {
+	/** The options cache, as far as a read under a lock drops its copy of the index. */
+	function wp_cache_delete( $key, $group = '' ) {
+		return true;
+	}
+}
+
+// The base would answer Not Moving Forward; the site's record says Under Review, and the site's word is the one.
+$id                                          = review_world( 'template', 'Not Moving Forward' );
+$GLOBALS['settings']['institutions_on_site'] = true;
+$outcome                                     = run( 'handle_accept' );
+ck( 'Review Focus 2: in site mode the acceptance reads the stage from the index row and asks Airtable nothing before its one PATCH',
+	array( $outcome, in_array( 'airtable-read', $GLOBALS['journal'], true ), count( $GLOBALS['patched'] ), patched_cells()['Current Stage'] ?? null, $GLOBALS['audit'][0]['evidence'] ?? null, $GLOBALS['audit'][0]['data']['stage'] ?? null ),
+	array( 'agreement-accepted', false, 1, 'Confirmed', 'index', 'Under Review' ) );
+
+$id = review_world( 'template', 'Under Review' );
+seed_index( 'recAAAAAAAAAAAAA1', 'Universidad Example', 'Revisit Later' );
+$GLOBALS['settings']['institutions_on_site'] = true;
+ck( 'a school the index holds at a terminal stage is refused by name, with nothing read or written',
+	array( run( 'handle_accept' ), in_array( 'airtable-read', $GLOBALS['journal'], true ), $GLOBALS['patched'], array_key_exists( 'wpcpm_agreement_lock_recAAAAAAAAAAAAA1', $GLOBALS['opts'] ) ),
+	array( 'agreement-stage', false, array(), false ) );
+
+$id = review_world( 'template', 'Under Review' );
+seed_index( 'recAAAAAAAAAAAAA1', 'TEST - Universidad Example', 'Agreement Sent' );
+$GLOBALS['settings']['institutions_on_site'] = true;
+run( 'handle_accept' );
+ck( 'a test institution the index holds keeps its stage in site mode too', array( array_key_exists( 'Current Stage', patched_cells() ), in_array( 'airtable-read', $GLOBALS['journal'], true ) ), array( false, false ) );
+
+$id = review_world( 'template', 'Under Review' );
+WPCPM_Institutions_Index::write( array(), time() );
+$GLOBALS['settings']['institutions_on_site'] = true;
+ck( 'a school the index does not hold is not accepted, with an outcome of its own: nothing is read or written, and the lock is let go',
+	array( run( 'handle_accept' ), in_array( 'airtable-read', $GLOBALS['journal'], true ), $GLOBALS['patched'], array_key_exists( 'wpcpm_agreement_lock_recAAAAAAAAAAAAA1', $GLOBALS['opts'] ) ),
+	array( 'agreement-unlisted', false, array(), false ) );
 
 /* ---- a test institution keeps its stage -------------------------------- */
 
@@ -3820,6 +3967,583 @@ ck( 'a refused upload keeps the kind chosen and nothing else; a kind nobody know
 	'uploaded, an earlier refusal kept' => array( 'agreement-uploaded', null ),
 ) );
 ck( 'the kept forms\' names', array( WPCPM_Institution_Agreement::KEPT_UPLOAD, WPCPM_Institution_Agreement::KEPT_ON_FILE ), array( 'agreement-upload:', 'agreement-on-file:' ) );
+
+/* ---- Institutions off Airtable, release 2, Task 13: the agreement path on the site's record ---- */
+
+echo "\n=== Site mode: every settling path keeps the index row in step, and a sync after it changes nothing (R2, Task 13) ===\n";
+
+/**
+ * The site-mode sync's records, rebuild and revoke phases, as `WPCPM_Institutions_Sync` runs them over the
+ * real `rebuild()` and `rebuild_block()`: index changes owed are paid first, each row's option is rebuilt
+ * from its agreement block and the link kept in the record (else the option's), a school still owed a change
+ * is not rebuilt from a row that lacks it, and a school outside the active stages loses its gate and its
+ * members.
+ */
+function site_sync() {
+	WPCPM_Institution_Agreement::pay_index_debts();
+	WPCPM_Institutions_Index::forget_cached();
+
+	$active = array( 'First Contact Made', 'Info Sent', 'Waiting on Reply', 'Under Review', 'Call Scheduled', 'Agreement Sent', 'Confirmed', 'Student' );
+
+	foreach ( WPCPM_Institutions_Index::rows() as $id => $row ) {
+		if ( WPCPM_Institution_Agreement::owes_index( $id ) ) {
+			continue;
+		}
+		$doc = WPCPM_Institution_Agreement::record_document( $id );
+		if ( '' === $doc ) {
+			$option = WPCPM_Institution_Agreement::option( $id );
+			$doc    = is_array( $option ) ? (string) $option['drive_url'] : '';
+		}
+		WPCPM_Institution_Agreement::rebuild( $id, WPCPM_Institutions_Index::rebuild_block( $row, $doc ) );
+	}
+
+	foreach ( WPCPM_Institutions_Index::rows() as $id => $row ) {
+		if ( '' !== trim( (string) $row['stage'] ) && ! in_array( $row['stage'], $active, true ) ) {
+			delete_option( WPCPM_Institution_Agreement::option_name( $id ) );
+			unset( $GLOBALS['members'][ $id ] );
+		}
+	}
+}
+
+/** The index row as the table holds it now. */
+function index_row( $record = 'recAAAAAAAAAAAAA1' ) {
+	WPCPM_Institutions_Index::forget_cached();
+	return WPCPM_Institutions_Index::row( $record );
+}
+
+/** The talks_stage rows the audit was handed. */
+function stage_rows() {
+	return array_values(
+		array_filter(
+			$GLOBALS['audit'],
+			static function ( $row ) {
+				return WPCPM_Institution_Talks::LOG_STAGE === $row['kind'];
+			}
+		)
+	);
+}
+
+/** A submitted document, the school at `$stage` in the index, and the switch on. */
+function site_review_world( $stage = 'Agreement Sent', $confirmed_on = '' ) {
+	$id = review_world( 'template', $stage );
+	seed_index( 'recAAAAAAAAAAAAA1', 'Universidad Example', $stage );
+	if ( '' !== $confirmed_on ) {
+		$GLOBALS['index_rows']['recAAAAAAAAAAAAA1']['confirmed_on'] = $confirmed_on;
+		WPCPM_Institutions_Index::write( $GLOBALS['index_rows'], time() );
+	}
+	$GLOBALS['settings']['institutions_on_site'] = true;
+	return $id;
+}
+
+$today = gmdate( 'Y-m-d' );
+
+$id      = site_review_world();
+$outcome = run( 'handle_accept' );
+$row     = index_row();
+ck( 'an acceptance at Agreement Sent in site mode: one PATCH, carrying the stage and Confirmed on today',
+	array( $outcome, count( $GLOBALS['patched'] ), patched_cells()['Current Stage'] ?? null, patched_cells()['Confirmed on'] ?? null ),
+	array( 'agreement-accepted', 1, 'Confirmed', $today ) );
+ck( 'the index row is at Confirmed, confirmed on today, its agreement block Accepted with what the PATCH said',
+	array( $row['stage'], $row['confirmed_on'], $row['agreement']['status'], $row['agreement']['kind'], $row['agreement']['accepted_on'], $row['agreement']['accepted_by'], $row['agreement']['template_version'] ),
+	array( 'Confirmed', $today, 'Accepted', 'Program template', $today, 'Kasia Manager', '2025-11-04' ) );
+ck( 'and one talks_stage row says the stage moved, from and to, on the manager\'s ground',
+	array( count( stage_rows() ), stage_rows()[0]['data'] ?? null, stage_rows()[0]['ground'] ?? null, stage_rows()[0]['evidence'] ?? null, stage_rows()[0]['message'] ?? null ),
+	array( 1, array( 'from' => 'Agreement Sent', 'to' => 'Confirmed' ), 'manager', 'index', 'The stage of the talks moved from Agreement Sent to Confirmed.' ) );
+site_sync();
+ck( 'a site-mode sync after it neither unsettles the school nor detaches a member',
+	array( WPCPM_Institution_Agreement::is_settled( 'recAAAAAAAAAAAAA1' ), $GLOBALS['members']['recAAAAAAAAAAAAA1'] ?? array() ),
+	array( true, array( 4, 5 ) ) );
+
+$id = site_review_world( 'Under Review', '2024-05-01' );
+run( 'handle_accept' );
+ck( 'a school confirmed once before keeps its Confirmed on: the stage moves, the date is not sent and not replaced',
+	array( patched_cells()['Current Stage'] ?? null, array_key_exists( 'Confirmed on', patched_cells() ), index_row()['stage'], index_row()['confirmed_on'] ),
+	array( 'Confirmed', false, 'Confirmed', '2024-05-01' ) );
+
+$id = site_review_world( 'Confirmed', '2024-05-01' );
+run( 'handle_accept' );
+ck( 'a replacement accepted at Confirmed moves nothing: no stage, no date, no talks_stage row, and the block says Accepted',
+	array( array_key_exists( 'Current Stage', patched_cells() ), array_key_exists( 'Confirmed on', patched_cells() ), count( stage_rows() ), index_row()['confirmed_on'], index_row()['agreement']['status'] ),
+	array( false, false, 0, '2024-05-01', 'Accepted' ) );
+
+$id = site_review_world( 'Revisit Later' );
+ck( 'an acceptance at Revisit Later is refused as today, and the index row is left as it was',
+	array( run( 'handle_accept' ), $GLOBALS['patched'], index_row()['stage'], index_row()['agreement']['status'], stage_rows() ),
+	array( 'agreement-stage', array(), 'Revisit Later', '', array() ) );
+
+$id = review_world( 'template', 'Agreement Sent' );
+seed_index( 'recAAAAAAAAAAAAA1', 'Universidad Example', 'Agreement Sent' );
+run( 'handle_accept' );
+ck( 'outside site mode an acceptance sends no Confirmed on, patches no index row and writes no talks_stage row',
+	array( patched_cells()['Current Stage'] ?? null, array_key_exists( 'Confirmed on', patched_cells() ), index_row()['stage'], index_row()['agreement']['status'], stage_rows(), $GLOBALS['index_lock_asks'] ),
+	array( 'Confirmed', false, 'Agreement Sent', '', array(), 0 ) );
+
+/** An Administrator recording a Drive link for a school at `$stage`, the switch on or off. */
+function site_on_file_world( $stage = 'Agreement Sent', $on_site = true ) {
+	reset_world();
+	seed_index( 'recAAAAAAAAAAAAA1', 'Universidad Example', $stage );
+	sign_in( 1, 'Kasia Manager', 'kasia@example.org', true );
+	$GLOBALS['members']['recAAAAAAAAAAAAA1'] = array( 4, 5 );
+	$GLOBALS['users'][4]                     = new WP_User( 4, 'Ola Member', 'ola@example.edu' );
+	$GLOBALS['users'][5]                     = new WP_User( 5, 'Bo Nowak', 'bo@example.edu' );
+	$GLOBALS['settings']['institutions_on_site'] = $on_site;
+	$_POST = array(
+		'wpcpm_agreement_record'    => 'recAAAAAAAAAAAAA1',
+		'wpcpm_agreement_drive'     => 'https://drive.google.com/file/d/SITEDOC0003/view',
+		'wpcpm_agreement_signed_on' => '2023-03-01',
+		'wpcpm_agreement_where'     => '',
+	);
+}
+
+site_on_file_world();
+$outcome = run( 'handle_on_file' );
+$row     = index_row();
+ck( 'on file in site mode: one PATCH with the stage and Confirmed on, and the record keeps the Drive link',
+	array( $outcome, count( $GLOBALS['patched'] ), patched_cells()['Current Stage'] ?? null, patched_cells()['Confirmed on'] ?? null, WPCPM_Institution_Agreement::record_document( 'recAAAAAAAAAAAAA1' ) ),
+	array( 'agreement-on-file', 1, 'Confirmed', $today, 'https://drive.google.com/file/d/SITEDOC0003/view' ) );
+ck( 'the index row is at Confirmed, its block On file, Legacy, signed and holding a document',
+	array( $row['stage'], $row['confirmed_on'], $row['agreement']['status'], $row['agreement']['kind'], $row['agreement']['signed_on'], $row['agreement']['accepted_on'], $row['agreement']['has_document'] ),
+	array( 'Confirmed', $today, 'On file', 'Legacy', '2023-03-01', $today, true ) );
+ck( 'and a talks_stage row says so', array( count( stage_rows() ), stage_rows()[0]['data'] ?? null ), array( 1, array( 'from' => 'Agreement Sent', 'to' => 'Confirmed' ) ) );
+delete_option( WPCPM_Institution_Agreement::option_name( 'recAAAAAAAAAAAAA1' ) );
+site_sync();
+ck( 'a site-mode sync after it settles the school from the row and the record alone, members kept',
+	array( WPCPM_Institution_Agreement::is_settled( 'recAAAAAAAAAAAAA1' ), WPCPM_Institution_Agreement::option( 'recAAAAAAAAAAAAA1' )['drive_url'] ?? null, $GLOBALS['members']['recAAAAAAAAAAAAA1'] ?? array() ),
+	array( true, 'https://drive.google.com/file/d/SITEDOC0003/view', array( 4, 5 ) ) );
+
+site_on_file_world( 'Agreement Sent', false );
+run( 'handle_on_file' );
+ck( 'outside site mode the on-file route moves no stage, sends no date, and keeps nothing in the record or the index',
+	array( array_key_exists( 'Current Stage', patched_cells() ), array_key_exists( 'Confirmed on', patched_cells() ), $GLOBALS['record_writes'], index_row()['stage'], index_row()['agreement']['status'], stage_rows() ),
+	array( false, false, array(), 'Agreement Sent', '', array() ) );
+
+$id = settled_world();
+$GLOBALS['settings']['institutions_on_site'] = true;
+ck( 'a revoke in site mode puts Revoked in the index row\'s block', array( run( 'handle_revoke' ), index_row()['agreement']['status'] ), array( 'agreement-revoked', 'Revoked' ) );
+site_sync();
+ck( 'and a sync after it leaves the school revoked', array( WPCPM_Institution_Agreement::is_settled( 'recAAAAAAAAAAAAA1' ), WPCPM_Institution_Agreement::option( 'recAAAAAAAAAAAAA1' )['airtable_status'] ?? null ), array( false, 'Revoked' ) );
+
+$_POST = array( 'wpcpm_agreement_post' => $id );
+ck( 'a reinstatement in site mode puts Accepted back in the block', array( run( 'handle_reinstate' ), index_row()['agreement']['status'] ), array( 'agreement-reinstated', 'Accepted' ) );
+site_sync();
+ck( 'and a sync after it keeps the school open', WPCPM_Institution_Agreement::is_settled( 'recAAAAAAAAAAAAA1' ), true );
+
+$id = site_review_world( 'Under Review' );
+$_POST['wpcpm_agreement_note'] = 'The signature page is missing; send the whole document again, signed on every page.';
+ck( 'a return in site mode puts Returned in the block', array( run( 'handle_return' ), index_row()['agreement']['status'] ), array( 'agreement-returned', 'Returned' ) );
+
+upload_world();
+$GLOBALS['settings']['institutions_on_site'] = true;
+$outcome = run( 'handle_upload' );
+$row     = index_row();
+ck( 'an upload in site mode puts Awaiting review, the kind and the day in the block',
+	array( $outcome, $row['agreement']['status'], $row['agreement']['kind'], $row['agreement']['submitted_on'] ),
+	array( 'agreement-uploaded', 'Awaiting review', 'Program template', $today ) );
+
+upload_world();
+$GLOBALS['settings']['institutions_on_site'] = true;
+$GLOBALS['airtable']                         = new WP_Error( 'http', 'down' );
+run( 'handle_upload' );
+ck( 'and does so when the base refused the copy too: the site is the record, and the copy is retried', index_row()['agreement']['status'], 'Awaiting review' );
+
+echo "\n=== Site mode: a patch its lock refuses is a change owed, paid before the next sync reads the rows (R2, Task 13) ===\n";
+
+$id                         = site_review_world();
+$GLOBALS['index_lock_held'] = true;
+$outcome                    = run( 'handle_accept' );
+ck( 'an acceptance whose index patch the lock refuses still stands: the gate is open, and the change is owed',
+	array( $outcome, WPCPM_Institution_Agreement::is_settled( 'recAAAAAAAAAAAAA1' ), WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ), index_row()['stage'], index_row()['agreement']['status'] ),
+	array( 'agreement-accepted', true, true, 'Agreement Sent', '' ) );
+site_sync();
+ck( 'a sync while the lock is still held does not rebuild the school from the row that lacks the change',
+	array( WPCPM_Institution_Agreement::is_settled( 'recAAAAAAAAAAAAA1' ), WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ), $GLOBALS['members']['recAAAAAAAAAAAAA1'] ?? array() ),
+	array( true, true, array( 4, 5 ) ) );
+$GLOBALS['index_lock_held'] = false;
+site_sync();
+$row = index_row();
+ck( 'the next sync pays the change first: the row is at Confirmed, confirmed on today, Accepted, the school open, nothing owed',
+	array( $row['stage'], $row['confirmed_on'], $row['agreement']['status'], WPCPM_Institution_Agreement::is_settled( 'recAAAAAAAAAAAAA1' ), WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ) ),
+	array( 'Confirmed', $today, 'Accepted', true, false ) );
+
+$id                         = settled_world();
+$GLOBALS['settings']['institutions_on_site'] = true;
+$GLOBALS['index_lock_held'] = true;
+run( 'handle_revoke' );
+$GLOBALS['index_lock_held'] = false;
+$_POST                      = array( 'wpcpm_agreement_post' => $id );
+run( 'handle_reinstate' );
+ck( 'a later agreement write for the school pays what is owed with its own change, in order', array( index_row()['agreement']['status'], WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ) ), array( 'Accepted', false ) );
+
+$id = site_review_world();
+WPCPM_Institutions_Index::write( array(), time() );
+ck( 'a school the index does not hold owes nothing: there is no row to keep in step', array( run( 'handle_accept' ), WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ) ), array( 'agreement-unlisted', false ) );
+
+echo "\n=== Site mode: the Drive link the option gets is kept in the record (R2, Task 13) ===\n";
+
+reset_world();
+seed_index( 'recAAAAAAAAAAAAA1', 'Universidad Example', 'Confirmed' );
+$GLOBALS['settings']['institutions_on_site'] = true;
+WPCPM_Institution_Agreement::rebuild( 'recAAAAAAAAAAAAA1', block( 'On file', 'https://drive.google.com/file/d/SITEDOC0004/view' ) );
+ck( 'a rebuild in site mode that gives the option a link keeps it in the record', WPCPM_Institution_Agreement::record_document( 'recAAAAAAAAAAAAA1' ), 'https://drive.google.com/file/d/SITEDOC0004/view' );
+$writes = count( $GLOBALS['record_writes'] );
+WPCPM_Institution_Agreement::rebuild( 'recAAAAAAAAAAAAA1', block( 'On file', 'https://drive.google.com/file/d/SITEDOC0004/view' ) );
+ck( 'and writes nothing when the record holds it already', count( $GLOBALS['record_writes'] ), $writes );
+
+reset_world();
+seed_index( 'recAAAAAAAAAAAAA1', 'Universidad Example', 'Confirmed' );
+WPCPM_Institution_Agreement::rebuild( 'recAAAAAAAAAAAAA1', block( 'On file', 'https://drive.google.com/file/d/SITEDOC0004/view' ) );
+ck( 'outside site mode a rebuild writes nothing to the record', $GLOBALS['record_writes'], array() );
+
+/* ---- Task 13, fix round 1 ------------------------------------------------ */
+
+echo "\n=== Fix round 1 (I1): the list of changes owed is changed under a lock of its own, and read fresh ===\n";
+
+$owed_opt = 'wpcpm_agreement_index_owed';
+$rec_b    = 'recBBBBBBBBBBBBB2';
+$b_debt   = array( 'block' => array( 'status' => 'Awaiting review' ), 'confirm' => '', 'ground' => '', 'actor' => 0 );
+
+// (a) Another request (an upload for B) keeps its change owed while this request had read the list as absent.
+$id = site_review_world();
+seed_index( $rec_b, 'Escola Example', 'Under Review' );
+$GLOBALS['option_cache'] = true;
+get_option( $owed_opt );
+$GLOBALS['opts'][ $owed_opt ] = array( $rec_b => $b_debt );
+$GLOBALS['index_lock_held']   = true;
+run( 'handle_accept' );
+$owed_now = array_keys( (array) ( $GLOBALS['opts'][ $owed_opt ] ?? array() ) );
+sort( $owed_now );
+ck( 'I1 (a): a change owed by another request while this one had read the list as absent is kept beside this one', $owed_now, array( 'recAAAAAAAAAAAAA1', $rec_b ) );
+
+// (b) A change another request makes owed while this one pays A's is not dropped with A's.
+$id = site_review_world();
+seed_index( $rec_b, 'Escola Example', 'Under Review' );
+$GLOBALS['index_lock_held'] = true;
+run( 'handle_accept' );
+$GLOBALS['index_lock_held'] = false;
+$GLOBALS['option_cache']    = true;
+get_option( $owed_opt );
+$GLOBALS['on_take'][ WPCPM_Institutions_Index::OPT_LOCK ] = static function () use ( $owed_opt, $rec_b, $b_debt ) {
+	$GLOBALS['opts'][ $owed_opt ][ $rec_b ] = $b_debt;
+};
+WPCPM_Institution_Agreement::pay_index_debts();
+ck( 'I1 (b): paying A\'s change keeps the one another request made owed meanwhile',
+	array( index_row()['stage'], array_keys( (array) ( $GLOBALS['opts'][ $owed_opt ] ?? array() ) ) ),
+	array( 'Confirmed', array( $rec_b ) ) );
+
+// (c) Within one sync run: the list read as absent, then an acceptance's request makes a change owed.
+reset_world();
+seed_index( 'recAAAAAAAAAAAAA1', 'Universidad Example', 'Agreement Sent' );
+$GLOBALS['settings']['institutions_on_site'] = true;
+$GLOBALS['option_cache']                     = true;
+$before                                      = WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' );
+$GLOBALS['opts'][ $owed_opt ]                = array( 'recAAAAAAAAAAAAA1' => $b_debt );
+ck( 'I1 (c): whether a school is owed is read fresh, so a change owed meanwhile is seen', array( $before, WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ) ), array( false, true ) );
+
+// The list's own lock held past the wait: the change cannot be kept, and the site's error log says so.
+$log = sys_get_temp_dir() . '/wpcpm-agreement-' . getmypid() . '.log';
+@unlink( $log );
+$was_log = ini_set( 'error_log', $log );
+$id      = site_review_world();
+$GLOBALS['index_lock_held'] = true;
+$GLOBALS['held_locks']      = array( 'wpcpm_agreement_index_owed_lock' );
+$outcome                    = run( 'handle_accept' );
+ini_set( 'error_log', (string) $was_log );
+$logged = (string) @file_get_contents( $log );
+@unlink( $log );
+ck( 'a change the list\'s lock keeps from being owed is said in the site\'s error log, by record ID, and the acceptance stands',
+	array( $outcome, false !== strpos( $logged, 'recAAAAAAAAAAAAA1' ), false !== strpos( $logged, 'WPCredits: the index change of' ) ),
+	array( 'agreement-accepted', true, true ) );
+
+echo "\n=== Fix round 1 (M3): an index that reads as empty pays and drops nothing ===\n";
+
+$id                         = site_review_world();
+$GLOBALS['index_lock_held'] = true;
+run( 'handle_accept' );
+$GLOBALS['index_lock_held'] = false;
+WPCPM_Institutions_Index::write( array(), time() );
+ck( 'M3: with the index empty, pay_index_debts() pays nothing and the change stays owed',
+	array( WPCPM_Institution_Agreement::pay_index_debts(), WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ) ),
+	array( 0, true ) );
+
+echo "\n=== Fix round 1 (M4): the talks_stage row is written when the row's stage moves ===\n";
+
+$id                         = site_review_world();
+$GLOBALS['index_lock_held'] = true;
+run( 'handle_accept' );
+$at_accept                  = count( stage_rows() );
+$GLOBALS['index_lock_held'] = false;
+$GLOBALS['uid']             = 0;
+WPCPM_Institution_Agreement::pay_index_debts();
+ck( 'M4: a move that became a change owed writes no row at the acceptance, and one when it is paid, naming who accepted',
+	array( $at_accept, count( stage_rows() ), stage_rows()[0]['data'] ?? null, stage_rows()[0]['actor'] ?? null, stage_rows()[0]['ground'] ?? null ),
+	array( 0, 1, array( 'from' => 'Agreement Sent', 'to' => 'Confirmed' ), 1, 'manager' ) );
+
+$id                         = site_review_world();
+$GLOBALS['index_lock_held'] = true;
+run( 'handle_accept' );
+$GLOBALS['index_lock_held'] = false;
+WPCPM_Institutions_Index::patch( 'recAAAAAAAAAAAAA1', array( 'stage' => 'Revisit Later' ) );
+WPCPM_Institution_Agreement::pay_index_debts();
+ck( 'M4: a change owed that finds the stage moved elsewhere writes no stage and no row, and its block still lands',
+	array( count( stage_rows() ), index_row()['stage'], index_row()['agreement']['status'], WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ) ),
+	array( 0, 'Revisit Later', 'Accepted', false ) );
+
+echo "\n=== Fix round 1 (copy): a paid change that moves the stage sends the stage to the copy ===\n";
+
+$id = site_review_world();
+$GLOBALS['opts'][ WPCPM_Institution_Copy::OPT_PENDING ] = array( 'recAAAAAAAAAAAAA1' => array( 'keys' => array( 'stage' ), 'since' => time() - 3600, 'error' => '', 'tries' => 0, 'tried' => 0, 'missing' => 0 ) );
+$GLOBALS['index_lock_held'] = true;
+run( 'handle_accept' );
+WPCPM_Institution_Copy::retry();
+$retried                    = end( $GLOBALS['patched'] )[1][0]['fields']['Current Stage'] ?? null;
+$GLOBALS['index_lock_held'] = false;
+$patches_before             = count( $GLOBALS['patched'] );
+WPCPM_Institution_Agreement::pay_index_debts();
+$paid_sent = count( $GLOBALS['patched'] ) - $patches_before;
+$marked    = WPCPM_Institution_Copy::pending()['recAAAAAAAAAAAAA1']['keys'] ?? null;
+WPCPM_Institution_Copy::retry();
+$last = end( $GLOBALS['patched'] )[1][0];
+ck( 'the hourly retry sent the old stage; paying the change sends nothing and marks the stage and its date owed to the copy, and the next retry sends Confirmed, with Confirmed on',
+	array( $retried, $paid_sent, $marked, $last['id'], $last['fields']['Current Stage'] ?? null, $last['fields']['Confirmed on'] ?? null ),
+	array( 'Agreement Sent', 0, array( 'stage', 'confirmed_on' ), 'recAAAAAAAAAAAAA1', 'Confirmed', $today ) );
+
+echo "\n=== Fix wave (D2): no request leaves while the school's agreement lock is held ===\n";
+
+$id                         = site_review_world();
+$GLOBALS['index_lock_held'] = true;
+run( 'handle_accept' );
+$GLOBALS['index_lock_held'] = false;
+$GLOBALS['locked_requests'] = array();
+WPCPM_Institution_Agreement::take_lock( 'recAAAAAAAAAAAAA1' );
+WPCPM_Institution_Agreement::keep_index( 'recAAAAAAAAAAAAA1', array() );
+$under_lock = $GLOBALS['locked_requests'];
+WPCPM_Institution_Agreement::release_lock( 'recAAAAAAAAAAAAA1' );
+ck( 'D2: a change owed that moves the stage, paid under the agreement lock, sends no request there, and leaves the stage owed to the copy',
+	array( $under_lock, index_row()['stage'], WPCPM_Institution_Copy::pending()['recAAAAAAAAAAAAA1']['keys'] ?? null ),
+	array( array(), 'Confirmed', array( 'stage', 'confirmed_on' ) ) );
+
+$id                         = site_review_world();
+$GLOBALS['index_lock_held'] = true;
+run( 'handle_accept' );
+$GLOBALS['index_lock_held'] = false;
+$GLOBALS['locked_requests'] = array();
+$_POST                      = array(
+	'wpcpm_agreement_post' => $id,
+	'wpcpm_agreement_note' => 'The rector has asked us to pause every agreement the university holds until the privacy review is finished.',
+);
+$revoked = run( 'handle_revoke' );
+ck( 'D2: an agreement write that pays it sends only its own PATCH while its lock is held',
+	array( $revoked, count( array_filter( $GLOBALS['locked_requests'] ) ), WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ) ),
+	array( 'agreement-revoked', 1, false ) );
+
+echo "\n=== Fix wave, round 2 (D2): a confirming debt is taken off only once its stage is marked for the copy ===\n";
+
+$id                         = site_review_world();
+$GLOBALS['index_lock_held'] = true;
+run( 'handle_accept' );
+$GLOBALS['index_lock_held'] = false;
+$rows_before                = count( stage_rows() );
+$patches_before             = count( $GLOBALS['patched'] );
+$GLOBALS['held_locks']      = array( WPCPM_Institution_Copy::LOCK );
+$log = sys_get_temp_dir() . '/wpcpm-agreement-mark-' . getmypid() . '.log';
+@unlink( $log );
+$was_log = ini_set( 'error_log', $log );
+WPCPM_Institution_Agreement::pay_index_debts();
+ini_set( 'error_log', (string) $was_log );
+$logged = array_values( array_filter( explode( "\n", (string) @file_get_contents( $log ) ) ) );
+@unlink( $log );
+$GLOBALS['held_locks'] = array();
+ck( 'mark_refused_keeps_debt: with the pending list\'s lock held, paying leaves the debt owed, sends no request, and writes one log line',
+	array( WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ), count( $GLOBALS['patched'] ) - $patches_before, count( $logged ), false !== strpos( $logged[0] ?? '', 'recAAAAAAAAAAAAA1' ), WPCPM_Institution_Copy::pending(), index_row()['stage'] ),
+	array( true, 0, 1, true, array(), 'Confirmed' ) );
+WPCPM_Institution_Agreement::pay_index_debts();
+ck( 'mark_written_then_paid: with the lock free the next payment marks stage and confirmed_on, takes the debt off, and adds no second stage row',
+	array( WPCPM_Institution_Copy::pending()['recAAAAAAAAAAAAA1']['keys'] ?? null, WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ), count( stage_rows() ) - $rows_before, count( $GLOBALS['patched'] ) - $patches_before ),
+	array( array( 'stage', 'confirmed_on' ), false, 1, 0 ) );
+
+echo "\n=== Fix wave (D1): a debt paid while it changed keeps only what differs from what was paid ===\n";
+
+$id = site_review_world();
+$GLOBALS['opts'][ $owed_opt ] = array( 'recAAAAAAAAAAAAA1' => array( 'block' => array( 'status' => 'Awaiting review' ), 'confirm' => '', 'ground' => '', 'actor' => 0 ) );
+// While the payment's patch takes the index's lock, another request adds a change of its own to the debt.
+$GLOBALS['on_take'][ WPCPM_Institutions_Index::OPT_LOCK ] = static function () use ( $owed_opt ) {
+	$GLOBALS['opts'][ $owed_opt ]['recAAAAAAAAAAAAA1']['block']['submitted_on'] = '2026-11-17';
+};
+WPCPM_Institution_Agreement::keep_index( 'recAAAAAAAAAAAAA1', array( 'status' => 'Accepted' ) );
+$left_owed = $GLOBALS['opts'][ $owed_opt ]['recAAAAAAAAAAAAA1'] ?? null;
+WPCPM_Institution_Agreement::pay_index_debts();
+ck( 'D1: the debt left holds only the other request\'s change, so a later payment writes no stale Awaiting review over Accepted',
+	array( $left_owed['block'] ?? null, index_row()['agreement']['status'], index_row()['agreement']['submitted_on'] ?? null, WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ) ),
+	array( array( 'submitted_on' => '2026-11-17' ), 'Accepted', '2026-11-17', false ) );
+
+echo "\n=== Fix round 1 (I2): on file at a closed stage, and for a school the index does not hold, in site mode ===\n";
+
+foreach ( array( 'Revisit Later' => 'agreement-on-file-revisit', 'Not Moving Forward' => 'agreement-on-file-not-moving', 'SPAM' => 'agreement-on-file-spam' ) as $closed => $slug ) {
+	site_on_file_world( $closed );
+	$before = serialize( get_option( WPCPM_Institutions_Index::OPT_NAME ) );
+	ck( "I2: on file at $closed is refused before anything is written: no PATCH, no document, no option, no record, no index change",
+		array( run( 'handle_on_file' ), $GLOBALS['patched'], shapes_of( 'recAAAAAAAAAAAAA1' ), WPCPM_Institution_Agreement::option( 'recAAAAAAAAAAAAA1' ), $GLOBALS['record_writes'], serialize( get_option( WPCPM_Institutions_Index::OPT_NAME ) ) === $before, $GLOBALS['audit'] ),
+		array( $slug, array(), array(), null, array(), true, array() ) );
+}
+
+site_on_file_world();
+WPCPM_Institutions_Index::write( array(), time() );
+ck( 'I2: on file for a school the index does not hold answers agreement-on-file-unlisted, its own outcome, and writes nothing',
+	array( run( 'handle_on_file' ), $GLOBALS['patched'], shapes_of( 'recAAAAAAAAAAAAA1' ) ),
+	array( 'agreement-on-file-unlisted', array(), array() ) );
+// And the same answer from record_on_file() itself, for a row gone between the handler's check and the lock.
+$unlisted_write = method_body( file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php' ), 'record_on_file' );
+ck( 'I2: record_on_file() answers a row it does not find with agreement-on-file-unlisted, never acceptance\'s outcome',
+	array( false !== strpos( $unlisted_write, "'agreement-on-file-unlisted'" ), false !== strpos( $unlisted_write, "'agreement-unlisted'" ) ),
+	array( true, false ) );
+
+site_on_file_world( 'Revisit Later', false );
+ck( 'outside site mode on file at Revisit Later is recorded as today, with no stage written',
+	array( run( 'handle_on_file' ), count( $GLOBALS['patched'] ), array_key_exists( 'Current Stage', patched_cells() ) ),
+	array( 'agreement-on-file', 1, false ) );
+site_on_file_world( 'Revisit Later', false );
+WPCPM_Institutions_Index::write( array(), time() );
+ck( 'and for a school the index does not hold answers as today', run( 'handle_on_file' ), 'agreement-unknown' );
+
+// The whole-branch wave, W1, the reviewer's sequence end to end. The setting off; an agreement accepted, so the option
+// reads settled while the row still holds the status of the last read; the switch is refused, naming the school; the
+// row brought up to date as a sync's read would; the switch passes; and the first rebuild in site mode leaves the
+// school settled.
+$id = review_world( 'template', 'Agreement Sent' );
+seed_index( 'recAAAAAAAAAAAAA1', 'Universidad Example', 'Agreement Sent' );
+// The last read: the row holds the status Airtable held then, which is the one the option was rebuilt with.
+$GLOBALS['index_rows']['recAAAAAAAAAAAAA1']['agreement']['status'] = (string) WPCPM_Institution_Agreement::option( 'recAAAAAAAAAAAAA1' )['airtable_status'];
+WPCPM_Institutions_Index::write( $GLOBALS['index_rows'], time() );
+$e2e_read_status         = index_row()['agreement']['status'];
+$GLOBALS['sync_running'] = false;
+$GLOBALS['sync_read']    = time() - 60;
+$e2e_before              = WPCPM_Institutions_Index::may_turn_on();
+run( 'handle_accept' );
+$e2e_option = WPCPM_Institution_Agreement::option( 'recAAAAAAAAAAAAA1' );
+$e2e_held   = array( ! empty( $e2e_option['settled'] ), $e2e_option['airtable_status'] ?? null, index_row()['agreement']['status'] === $e2e_read_status, '' !== $e2e_read_status && 'Accepted' !== $e2e_read_status );
+$e2e_guard  = WPCPM_Institutions_Index::may_turn_on();
+
+ck( 'switch_sequence_refused: off, an acceptance settles the option while the row still reads the last read, and the switch is refused naming the school',
+	array( $e2e_before, $e2e_held, is_wp_error( $e2e_guard ) ? array( $e2e_guard->get_error_code(), $e2e_guard->get_error_message() ) : $e2e_guard ),
+	array( true, array( true, 'Accepted', true, true ), array( 'wpcpm_move_behind', 'The institutions\' record was not moved: the site\'s list is behind on the agreement of Universidad Example. Run the sync on Institutions > Sync and storage, then save again.' ) ) );
+
+// As a sync's read: the row's block from the cells Airtable was sent, and the option rebuilt from them.
+$e2e_cells = patched_cells();
+$GLOBALS['index_rows']['recAAAAAAAAAAAAA1']['stage']     = (string) $e2e_cells['Current Stage'];
+$GLOBALS['index_rows']['recAAAAAAAAAAAAA1']['agreement'] = array_merge(
+	$GLOBALS['index_rows']['recAAAAAAAAAAAAA1']['agreement'],
+	array(
+		'status'           => (string) $e2e_cells['Agreement Status'],
+		'kind'             => (string) ( $e2e_cells['Agreement Kind'] ?? '' ),
+		'accepted_on'      => (string) ( $e2e_cells['Agreement Accepted On'] ?? '' ),
+		'accepted_by'      => (string) ( $e2e_cells['Agreement Accepted By'] ?? '' ),
+		'template_version' => (string) ( $e2e_cells['Agreement Template Version'] ?? '' ),
+	)
+);
+WPCPM_Institutions_Index::write( $GLOBALS['index_rows'], time() );
+WPCPM_Institution_Agreement::rebuild( 'recAAAAAAAAAAAAA1', WPCPM_Institutions_Index::rebuild_block( index_row(), '' ) );
+$GLOBALS['sync_read'] = time();
+$e2e_after            = WPCPM_Institutions_Index::may_turn_on();
+
+$GLOBALS['settings']['institutions_on_site'] = true;
+site_sync();
+
+ck( 'switch_sequence_passes: the row brought up to date as a sync would, the switch passes, and the first rebuild in site mode leaves the school settled, members kept',
+	array( $e2e_after, WPCPM_Institution_Agreement::is_settled( 'recAAAAAAAAAAAAA1' ), WPCPM_Institution_Agreement::option( 'recAAAAAAAAAAAAA1' )['airtable_status'] ?? null, $GLOBALS['members']['recAAAAAAAAAAAAA1'] ?? array() ),
+	array( true, true, 'Accepted', array( 4, 5 ) ) );
+
+$GLOBALS['settings']['institutions_on_site'] = false;
+$GLOBALS['sync_read']                        = 0;
+
+// The whole-branch wave, W2: a change owed from an earlier time in site mode is not paid after the setting went off
+// and on again. The save that changes the setting empties the list first, under its own lock.
+$id                         = site_review_world();
+$GLOBALS['index_lock_held'] = true;
+run( 'handle_accept' );
+$GLOBALS['index_lock_held'] = false;
+$w2_owed                    = WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' );
+$GLOBALS['held_locks']      = array();
+$w2_forgot                  = WPCPM_Institution_Agreement::forget_index_debts();
+$GLOBALS['settings']['institutions_on_site'] = false;
+// Off: the sync writes the row from Airtable meanwhile.
+$GLOBALS['index_rows']['recAAAAAAAAAAAAA1']['stage'] = 'Under Review';
+WPCPM_Institutions_Index::write( $GLOBALS['index_rows'], time() );
+$w2_row_before = serialize( index_row() );
+WPCPM_Institution_Agreement::forget_index_debts();
+$GLOBALS['settings']['institutions_on_site'] = true;
+
+ck( 'owed_list_emptied_at_switch: a change owed, the setting saved off and on again, and the first payment writes nothing over the row the sync wrote since',
+	array( $w2_owed, $w2_forgot, WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ), WPCPM_Institution_Agreement::pay_index_debts(), serialize( index_row() ) === $w2_row_before, array_key_exists( WPCPM_Institution_Agreement::OPT_INDEX_OWED, $GLOBALS['opts'] ) ),
+	array( true, true, false, 0, true, false ) );
+
+$GLOBALS['held_locks'] = array( WPCPM_Institution_Agreement::INDEX_OWED_LOCK );
+$GLOBALS['opts'][ WPCPM_Institution_Agreement::OPT_INDEX_OWED ] = array( 'recAAAAAAAAAAAAA1' => array( 'block' => array( 'status' => 'Accepted' ), 'confirm' => '', 'ground' => '', 'actor' => 0 ) );
+$w2_asked_before = $GLOBALS['index_lock_asks'] ?? 0;
+$w2_unlocked     = WPCPM_Institution_Agreement::forget_index_debts();
+$GLOBALS['held_locks'] = array();
+
+ck( 'and it is emptied under the list\'s own lock: asked first, and a lock held past its wait still empties it, said as not taken',
+	array( ( $GLOBALS['index_lock_asks'] ?? 0 ) - $w2_asked_before, $w2_unlocked, array_key_exists( WPCPM_Institution_Agreement::OPT_INDEX_OWED, $GLOBALS['opts'] ) ),
+	array( WPCPM_Institution_Agreement::INDEX_OWED_TRIES, false, false ) );
+
+$GLOBALS['settings']['institutions_on_site'] = false;
+
+echo "\n=== Outside review (O2): paying an owed index change holds the school's agreement lock ===\n";
+
+// A change owed (an acceptance whose index patch the list's lock refused), then the school's agreement lock held by
+// another request: the payment passes the school over and writes nothing.
+$id                         = site_review_world();
+$GLOBALS['index_lock_held'] = true;
+run( 'handle_accept' );
+$GLOBALS['index_lock_held'] = false;
+$o2_lock                    = WPCPM_Institution_Agreement::lock_name( 'recAAAAAAAAAAAAA1' );
+$o2_row_before              = serialize( index_row() );
+$GLOBALS['opts'][ $o2_lock ] = time();
+$o2_paid                    = WPCPM_Institution_Agreement::pay_index_debts();
+$o2_still_held              = array_key_exists( $o2_lock, $GLOBALS['opts'] );
+unset( $GLOBALS['opts'][ $o2_lock ] );
+ck( 'o2_lock_held_passes_over: a payment while the school\'s agreement lock is held pays nothing, writes no row and leaves the change owed, the other request\'s lock kept',
+	array( $o2_paid, serialize( index_row() ) === $o2_row_before, WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ), $o2_still_held ),
+	array( 0, true, true, true ) );
+ck( 'and with the lock free the next payment pays it and lets the lock go',
+	array( WPCPM_Institution_Agreement::pay_index_debts(), index_row()['stage'], WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ), array_key_exists( $o2_lock, $GLOBALS['opts'] ) ),
+	array( 1, 'Confirmed', false, false ) );
+
+// The finding's interleaving: a payment that read an old "Awaiting review", and an acceptance in the moment its patch
+// asks for the index's lock. Under the agreement lock the acceptance is told the school is busy; pressed again once the
+// payment is done, it lands, and the row holds Accepted with nothing owed.
+$id = site_review_world();
+$GLOBALS['opts'][ $owed_opt ] = array( 'recAAAAAAAAAAAAA1' => array( 'block' => array( 'status' => 'Awaiting review' ), 'confirm' => '', 'ground' => '', 'actor' => 0 ) );
+$o2_between                   = null;
+$GLOBALS['on_take'][ WPCPM_Institutions_Index::OPT_LOCK ] = static function () use ( &$o2_between ) {
+	$o2_between = run( 'handle_accept' );
+};
+WPCPM_Institution_Agreement::pay_index_debts();
+$o2_again = run( 'handle_accept' );
+ck( 'o2_interleaving_ends_accepted: the acceptance in between is told busy, the second press lands, and the row holds Accepted with nothing owed',
+	array( $o2_between, $o2_again, index_row()['agreement']['status'], index_row()['stage'], WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ) ),
+	array( 'agreement-busy', 'agreement-accepted', 'Accepted', 'Confirmed', false ) );
+
+$GLOBALS['settings']['institutions_on_site'] = false;
+
+echo "\n=== Outside review (O6): a confirming debt whose copy mark was not stored stays owed ===\n";
+
+$id                         = site_review_world();
+$GLOBALS['index_lock_held'] = true;
+run( 'handle_accept' );
+$GLOBALS['index_lock_held'] = false;
+$GLOBALS['write_fails']     = array( WPCPM_Institution_Copy::OPT_PENDING );
+WPCPM_Institution_Agreement::pay_index_debts();
+$GLOBALS['write_fails']     = array();
+ck( 'o6_debt_kept_when_mark_not_stored: the pending list\'s write refused, paying leaves the debt owed and nothing marked, and the row moved',
+	array( WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ), WPCPM_Institution_Copy::pending(), index_row()['stage'] ),
+	array( true, array(), 'Confirmed' ) );
+WPCPM_Institution_Agreement::pay_index_debts();
+ck( 'and the next payment, the write let through, marks stage and confirmed_on and takes the debt off',
+	array( WPCPM_Institution_Copy::pending()['recAAAAAAAAAAAAA1']['keys'] ?? null, WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ) ),
+	array( array( 'stage', 'confirmed_on' ), false ) );
+
+$GLOBALS['settings']['institutions_on_site'] = false;
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

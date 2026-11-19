@@ -550,18 +550,26 @@ Step by step: [[Change the words of an email and test it]].
 
 ### The Advanced tab
 
-Eleven rarely changed settings, at `WPCredits Program > Settings`, tab **Advanced**. Four sections: **Pipeline stages**, **Applications**, **Agreements** and **Invitations**. Each number box takes only its range.
+Twelve rarely changed settings, at `WPCredits Program > Settings`, tab **Advanced**. Four sections: **Pipeline stages**, **Applications**, **Agreements** and **Invitations**. Each number box takes only its range.
 
 Step by step: [[Change how long applications and files are kept]].
 
 #### Pipeline stages
 
-Chosen from the Institutions table's Current Stage options.
+The stages are chosen from the Institutions table's Current Stage options.
 
+- **Institutions' record**: one box, **The site keeps the record, and Airtable gets a copy**. Ticked, the sync stops reading the Institutions and Countries tables, and every change Airtable has a column for is copied to Airtable. Off, the sync reads Airtable again and rewrites the site's list. Default: off.
 - **Institution starting stage**: the stage an approved application's institution is created at in Airtable. Default: *First Contact Made*.
 - **Institution pipeline stages**: an institution at a ticked stage is in the pipeline; any other has left it, and a school with no stage at all is left alone. Default: eight, *First Contact Made* to *Student*.
 
-Neither can be blank: a blank one gets its default back, with a notice. When Airtable cannot list the stages, you type the starting stage, and the pipeline stages one per line.
+Neither stage setting can be blank: a blank one gets its default back, with a notice. When Airtable cannot list the stages, you type the starting stage, and the pipeline stages one per line.
+
+Rules for **Institutions' record**:
+- The save that ticks it is refused while the sync runs, when the site has not finished reading the Institutions table in the last 15 minutes, or while the site's list is behind on a school's agreement. It then stays off, and the rest of the tab is saved.
+- The save that unticks it warns when Airtable has not received a school's last changes, and names the schools: the site will not send those changes later.
+- While it is ticked, the Talks view and the Talks card are shown, the Monday email of follow-ups due is sent, and a copy Airtable did not take is tried again by itself, less often after each refused try, and at least once a day.
+
+Step by step: [[Let the site keep the record of institutions]]; [[Give the record back to Airtable]].
 
 #### Keeping applications
 

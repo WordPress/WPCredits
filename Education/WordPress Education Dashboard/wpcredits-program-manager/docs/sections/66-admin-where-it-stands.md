@@ -4,7 +4,7 @@ Each table follows one path from first contact to the end. Find the words you se
 
 ### Where a school stands
 
-A school's state shows on the Administrator Dashboard's **Overview** cards, on `Institutions > Pipeline` and, for you alone, on its Institution Dashboard: a row on the **Overview**, and the first line of **Agreement**.
+A school's state shows on the Administrator Dashboard's **Overview** cards, on `Institutions > Pipeline` and, for you alone, on its Institution Dashboard: a row on the **Overview**, and the first line of **Agreement**. Once the site keeps the record of institutions, the talks show on **Talks** and on each school's Talks card.
 
 | What you see | What it means | What to do next |
 |---|---|---|
@@ -23,6 +23,13 @@ A school's state shows on the Administrator Dashboard's **Overview** cards, on `
 | "3 students now" on its row in `Institutions > Pipeline` | The school has students on the program. | Follow its semester reports. |
 | A row under **Due for drafting** or **To review** on the **Semester reports** card | A finished semester has no report yet, or a draft waits for you. | See [[A semester report: draft, review, approve, reopen]]. |
 | "1 revoked agreement" on the **Collaboration Agreements** card, with **Reinstate**; *Revoked* in the **Agreement** column | The agreement was taken out of force. The school's representatives reach only **Overview** and **Agreement**, and its tutors no page. | See [[Take an agreement out of force, or put it back]]. |
+| A school in **Follow-ups due** on **Talks** | Its follow-up date is today or earlier, while its talks go on. | See [[Change a school's stage, next step and follow-up date]]. |
+| **Past due** on a school's Talks card | Its follow-up date is before today, at any stage. A closed lead shows **Closed** instead. | See [[Change a school's stage, next step and follow-up date]]. |
+| **Not assigned** on a row of **Talks** | Nobody who is an Administrator now follows the school up. | See [[Assign a school to another Administrator, or to nobody]]. |
+| A school under the stage Lead on **Talks** | A lead: a school the program has not talked to yet, kept on the site alone. | See [[Move a lead into the talks as an institution]], or [[Close a lead, or reopen it]]. |
+| **Closed** on a lead | The lead went nowhere. It is left out of the lists and the follow-ups due. | See [[Close a lead, or reopen it]] or [[Delete a lead]]. |
+| "This lead's move into the talks as an institution did not finish." on a lead's card | Airtable has its record, and the site's list does not yet. | See [[Move a lead into the talks as an institution]]. |
+| A school on the notice "These institutions' changes are not in Airtable yet." on `WPCredits Program > Institutions` | The site has its change, and Airtable has not taken it yet. | See [[Read the notice about Airtable's copy]]. |
 
 ### Where a student stands
 

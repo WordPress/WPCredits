@@ -401,6 +401,12 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 		const STAGE_ORDER     = array( 'First Contact Made', 'Info Sent', 'Waiting on Reply', 'Under Review', 'Call Scheduled', 'Agreement Sent', 'Confirmed', 'Student' );
 		const TERMINAL_STAGES = array( 'Not Moving Forward', 'SPAM', 'Revisit Later' );
 		const AIRTABLE_SETTLED = array( 'Accepted', 'On file' );
+		const RECORD_DOCUMENT  = 'agreement_document';
+		/** The Drive link the institution's record keeps, at the real one's contract: trimmed, '' for none. */
+		public static function record_document( $record_id ) {
+			$kept = $GLOBALS['site_records'][ $record_id ] ?? array();
+			return isset( $kept[ self::RECORD_DOCUMENT ] ) && is_scalar( $kept[ self::RECORD_DOCUMENT ] ) ? trim( (string) $kept[ self::RECORD_DOCUMENT ] ) : '';
+		}
 		public static function option_name( $record_id ) {
 			return self::OPT_PREFIX . trim( (string) $record_id );
 		}
@@ -605,6 +611,16 @@ if ( ! class_exists( 'WPCPM_Institution_Audit' ) ) {
 	}
 }
 
+/** The lock the index is written under (release 2): free, unless a check holds it for good. */
+$GLOBALS['index_lock_held'] = false;
+if ( ! function_exists( 'wp_cache_delete' ) ) {
+	/** No object cache here: every read is the table's. */
+	function wp_cache_delete( $key, $group = '' ) { return true; }
+}
+class WPCPM_Lock {
+	public static function take( $name, $ttl ) { return $GLOBALS['index_lock_held'] ? '' : 'token'; }
+	public static function release( $name, $token ) { return true; }
+}
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-countries.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-areas.php';
@@ -910,6 +926,21 @@ foreach ( get_post_meta( $app, WPCPM_Institution_Application::META_EVENT, false 
 	$events[] = $event['event'];
 }
 ck( 'the application says what was done to it', $events, array( 'record created', 'account created', 'approved' ) );
+
+echo "\n-- the index's lock held for good: the approval still has its row --\n";
+
+reset_world();
+$GLOBALS['create_answer']   = $institution;
+$GLOBALS['index_lock_held'] = true;
+$app                        = seed_application();
+$log_file                   = tempnam( sys_get_temp_dir(), 'wpcpm-approval-log-' );
+$was_log                    = ini_set( 'error_log', $log_file );
+$result                     = WPCPM_Institution_Approval::approve( $app, 7 );
+ini_set( 'error_log', (string) $was_log );
+$logged                     = (string) file_get_contents( $log_file );
+unlink( $log_file );
+$GLOBALS['index_lock_held'] = false;
+ck( 'approval_keeps_its_row_with_the_index_lock_held: approved as before, the row written without the lock, and the record ID logged', array( is_array( $result ) ? $result['record'] : $result, WPCPM_Institutions_Index::row( $institution )['name'] ?? null, false !== strpos( $logged, $institution ) ), array( $institution, 'Universidad Example', true ) );
 
 echo "\n-- the duplicate search: the formula, and what a hit does --\n";
 
@@ -1798,6 +1829,127 @@ ck( 'nor in this suite', preg_match( '/[\x{2013}\x{2014}]/u', $mine ), 0 );
 // the policy and nowhere else. Approval looks its records up in the index and hands them to
 // `attach()`; it never asks whether two of them are the same.
 ck( 'no institution ID is compared in this class', preg_match( '/\$record\s*(===|!==)/', $src ), 0 );
+
+echo "\n-- site mode (R2): approval reads nothing of Institutions; a new school is one create, an adopted one no request --\n";
+
+/** The Airtable calls the journal holds, in order. */
+function airtable_calls() {
+	return array_values( array_intersect( $GLOBALS['journal'], array( 'search', 'read', 'create' ) ) );
+}
+
+reset_world();
+$GLOBALS['extra_settings'] = array( 'institutions_on_site' => true );
+WPCPM_Institutions_Index::insert( array_merge( WPCPM_Institutions_Index::empty_row(), array( 'record_id' => rid( 'ELSEWHERE' ), 'name' => 'Another School', 'contact_email' => 'someone@example.test' ) ) );
+$GLOBALS['search_answer'] = array( array( 'id' => $other, 'fields' => adopted_cells() ) );
+$GLOBALS['create_answer'] = $institution;
+$site_new                 = WPCPM_Institution_Approval::approve( seed_application(), 7 );
+
+ck( 'Review Focus 2: a new institution\'s approval makes one Airtable request, its create_records(), and no search or read',
+	array( airtable_calls(), is_array( $site_new ) ? array( $site_new['record'], $site_new['adopted'] ) : $site_new ),
+	array( array( 'create' ), array( $institution, false ) ) );
+ck( 'and the new institution is in the index, as approval puts it there today, the audit row naming the index as its evidence',
+	array( WPCPM_Institutions_Index::has( $institution ), end( $GLOBALS['audit'] )['evidence'] ?? null ),
+	array( true, 'index' ) );
+ck( 'in site mode the record\'s estimated students is filled from the application\'s answer, as whole students (R2, Task 13)',
+	$GLOBALS['site_filled'],
+	array( array( $institution, array( 'estimated_students' => '25' ) ) ) );
+
+// Adopted: the index already holds the school, matched by its address in another case and under a
+// name typed otherwise; its record keeps the Drive link. No request at all, and the gate is rebuilt
+// from the row the index holds and the record's link.
+reset_world();
+$GLOBALS['extra_settings'] = array( 'institutions_on_site' => true );
+$held_row                  = array_merge(
+	WPCPM_Institutions_Index::empty_row(),
+	array(
+		'record_id'     => $other,
+		'name'          => 'Universidad Example Sede',
+		'stage'         => 'Confirmed',
+		'country'       => $country,
+		'contact_email' => 'contact@example.edu',
+		'agreement'     => array( 'status' => 'On file', 'kind' => 'Legacy', 'accepted_on' => '2024-05-07', 'has_document' => true ),
+	)
+);
+WPCPM_Institutions_Index::insert( $held_row );
+$GLOBALS['site_records'][ $other ] = array( 'agreement_document' => 'https://drive.google.com/file/d/SITEDOC0002/view' );
+$held_index                        = serialize( get_option( WPCPM_Institutions_Index::OPT_NAME ) );
+$adopt_app                         = seed_application( 'new', array(), array_merge( seeded_answers(), array( 'Name' => 'Universidad Example Main', 'Contact Email' => 'CONTACT@example.edu' ) ) );
+$site_adopted                      = WPCPM_Institution_Approval::approve( $adopt_app, 7 );
+
+ck( 'Review Focus 2: an adopted institution\'s approval makes no Airtable request at all',
+	array( airtable_calls(), is_array( $site_adopted ) ? array( $site_adopted['record'], $site_adopted['adopted'] ) : $site_adopted ),
+	array( array(), array( $other, true ) ) );
+ck( 'the adopted record is the index row already held, left as it was, and its gate is rebuilt from that row and the record\'s link',
+	array( serialize( get_option( WPCPM_Institutions_Index::OPT_NAME ) ) === $held_index, $GLOBALS['rebuilt'] ),
+	array( true, array( array( $other, array( 'status' => 'On file', 'kind' => 'Legacy', 'accepted_on' => '2024-05-07', 'signed_on' => '', 'accepted_by' => '', 'document' => 'https://drive.google.com/file/d/SITEDOC0002/view', 'submitted_on' => '', 'template_version' => '' ) ) ) ) );
+ck( 'an adopted record is offered the estimate only to fill what it lacks, as every answer of an application is',
+	$GLOBALS['site_filled'],
+	array( array( $other, array( 'estimated_students' => '25' ) ) ) );
+
+// A second application of the same school, the gate already standing: nothing is rebuilt over it.
+$GLOBALS['rebuilt'] = array();
+$GLOBALS['journal'] = array();
+$GLOBALS['users']   = array();
+$second             = WPCPM_Institution_Approval::approve( seed_application( 'new', array(), array_merge( seeded_answers(), array( 'Contact Email' => 'second@example.edu', 'Name' => 'universidad example sede ' ) ) ), 7 );
+ck( 'one matched by its trimmed name, whose gate stands, is adopted with no request and no rebuild',
+	array( airtable_calls(), $GLOBALS['rebuilt'], is_array( $second ) ? array( $second['record'], $second['adopted'] ) : $second ),
+	array( array(), array(), array( $other, true ) ) );
+
+// The owner's wave, round 2, L2: the index's matching folds a name as the leads' search does, so a moved lead's row,
+// two spaces in its name, is the institution an application typed with one is adopted into.
+reset_world();
+$GLOBALS['extra_settings'] = array( 'institutions_on_site' => true );
+WPCPM_Institutions_Index::insert( array_merge( WPCPM_Institutions_Index::empty_row(), array( 'record_id' => $other, 'name' => 'Universidad  Example   Movida', 'stage' => 'First Contact Made', 'country' => $country ) ) );
+$moved = WPCPM_Institution_Approval::approve( seed_application( 'new', array(), array_merge( seeded_answers(), array( 'Contact Email' => 'movida@example.edu', 'Name' => 'Universidad Example Movida' ) ) ), 7 );
+ck( 'L2: a moved lead\'s row, two spaces in its name, is adopted by an application typed with one, no request',
+	array( airtable_calls(), is_array( $moved ) ? array( $moved['record'], $moved['adopted'] ) : $moved ),
+	array( array(), array( $other, true ) ) );
+
+// A resume of an approval that adopted a school the index no longer holds: no live read; refused.
+reset_world();
+$GLOBALS['extra_settings'] = array( 'institutions_on_site' => true );
+$resume                    = seed_application( 'new', array( WPCPM_Institution_Application::META_RECORD => $other ) );
+adopted_on_an_earlier_press( $resume, $other );
+$refused = WPCPM_Institution_Approval::approve( $resume, 7 );
+ck( 'a resumed adoption of a school the index no longer holds reads nothing, writes no row and is refused',
+	array( airtable_calls(), WPCPM_Institutions_Index::has( $other ), is_wp_error( $refused ) ? $refused->get_error_code() : $refused ),
+	array( array(), false, 'wpcpm_app_record' ) );
+
+// An application with no estimate (one filed before the question was asked) fills nothing.
+reset_world();
+$GLOBALS['extra_settings'] = array( 'institutions_on_site' => true );
+$GLOBALS['create_answer']  = $institution;
+$no_estimate               = seeded_answers();
+unset( $no_estimate['Estimated number of students who may be interested'] );
+WPCPM_Institution_Approval::approve( seed_application( 'new', array(), $no_estimate ), 7 );
+ck( 'an application with no estimate fills no estimated students', $GLOBALS['site_filled'], array() );
+
+// M6 (fix round 1): the estimate alone never makes an approval refuse. An older application (no five answers) with an
+// estimate, and a record that cannot be written: approved as at e496cd8b, the miss said in the site's error log.
+$log = sys_get_temp_dir() . '/wpcpm-approval-' . getmypid() . '.log';
+@unlink( $log );
+$was_log = ini_set( 'error_log', $log );
+reset_world();
+$GLOBALS['extra_settings'] = array( 'institutions_on_site' => true );
+$GLOBALS['create_answer']  = $institution;
+$GLOBALS['site_fails']     = true;
+$older                     = seed_application();
+$older_out                 = WPCPM_Institution_Approval::approve( $older, 7 );
+ini_set( 'error_log', (string) $was_log );
+$logged = (string) @file_get_contents( $log );
+@unlink( $log );
+ck( 'M6: an older application with an estimate is approved when the record cannot be written, as before, and the miss is logged',
+	array( is_array( $older_out ) ? array( $older_out['record'], $older_out['adopted'] ) : $older_out, get_post_meta( $older, WPCPM_Institution_Application::META_STATE, true ), audit_kinds(), false !== strpos( $logged, $institution ) ),
+	array( array( $institution, false ), 'approved', array( 'application_approved' ), true ) );
+
+// With the five answers present, a record that cannot be written refuses as it did.
+reset_world();
+$GLOBALS['extra_settings'] = array( 'institutions_on_site' => true );
+$GLOBALS['create_answer']  = $institution;
+$GLOBALS['site_fails']     = true;
+$five_out                  = WPCPM_Institution_Approval::approve( seed_application( 'new', array( WPCPM_Institution_Application::META_SITE => $site ) ), 7 );
+ck( 'M6: with the five answers present, a record that cannot be written refuses as before', is_wp_error( $five_out ) ? $five_out->get_error_code() : $five_out, 'wpcpm_app_answers' );
+unset( $GLOBALS['extra_settings'] );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

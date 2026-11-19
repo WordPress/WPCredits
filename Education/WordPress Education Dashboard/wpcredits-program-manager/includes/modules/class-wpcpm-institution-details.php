@@ -46,8 +46,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  * application rules a typed answer meets (the scheme rule and the 200 characters of a web address
  * among them), so a request stored and replayed later by an approval is refused the way a typed one
  * is, whoever built it. It writes Airtable first and the site after: a base that refuses leaves the
- * site as it was, and the program never shows a school a detail Airtable does not hold. All static,
- * in the shape of `WPCPM_Institution_Record`.
+ * site as it was, and the program never shows a school a detail Airtable does not hold. Once the site
+ * keeps the record (`WPCPM_Institutions_Index::on_site()`, release 2) the order turns round: the site
+ * first, then a copy to Airtable that cannot fail the save (`WPCPM_Institution_Copy`). All static, in
+ * the shape of `WPCPM_Institution_Record`.
  */
 class WPCPM_Institution_Details {
 
@@ -338,7 +340,8 @@ class WPCPM_Institution_Details {
 	}
 
 	/**
-	 * Make a correction: Airtable first, then the index, then the record, then the history.
+	 * Make a correction: Airtable first, then the index, then the record, then the history; once the site
+	 * keeps the record of institutions, the site first and Airtable's copy after (`write_on_site()`).
 	 *
 	 * **In this order so a refusal costs nothing.** Airtable is the one write that can be turned
 	 * down for a reason the site cannot see (a column it does not take, a value it will not hold, a
@@ -409,6 +412,11 @@ class WPCPM_Institution_Details {
 			return new WP_Error( 'wpcpm_details_index', __( 'This institution is not in the program records yet, so nothing was saved.', 'wpcredits-program-manager' ) );
 		}
 
+		// Once the site keeps the record (release 2) the site's change is the change, and Airtable gets a copy.
+		if ( WPCPM_Institutions_Index::on_site() ) {
+			return self::write_on_site( $record_id, $prepared, $actor, $ground );
+		}
+
 		$settings = WPCPM_Settings::get();
 
 		if ( ! empty( $prepared['cells'] ) ) {
@@ -459,6 +467,70 @@ class WPCPM_Institution_Details {
 			}
 		}
 
+		self::log( $record_id, $prepared, $actor, $ground );
+
+		return true;
+	}
+
+	/**
+	 * Make a correction once the site keeps the record of institutions: the index, then the record, then
+	 * the history, then the copy to Airtable (`WPCPM_Institution_Copy::send()`).
+	 *
+	 * **The site first.** The index row is the record now, so it is patched first, and a patch that could
+	 * not be made (another request held the index's lock past the wait) refuses the whole correction
+	 * before anything else is written or sent: the school sees an error and its typed values, never half
+	 * a change. Then the record's answers, then one history row, as in Airtable mode.
+	 *
+	 * **The copy after, and it cannot fail the save.** The changed columns are marked owed with the index change
+	 * (`WPCPM_Institution_Copy::mark()`, no request), then one `send()` of their keys. A copy
+	 * Airtable refuses or that times out leaves the school pending for those columns, which the hourly
+	 * retry writes with the newest values; the correction stands and this answers true.
+	 *
+	 * @param string $record_id The institution's Airtable record ID.
+	 * @param array  $prepared  What `prepare()` made of the change.
+	 * @param int    $actor     The user who made it.
+	 * @param string $ground    The ground the policy allowed it on.
+	 * @return true|WP_Error
+	 */
+	private static function write_on_site( $record_id, array $prepared, $actor, $ground ) {
+		if ( ! empty( $prepared['cells'] ) && ! WPCPM_Institutions_Index::patch( $record_id, $prepared['row'] ) ) {
+			return new WP_Error( 'wpcpm_details_index', __( 'The change could not be saved on the site, so nothing was changed. Try again in a while.', 'wpcredits-program-manager' ) );
+		}
+
+		// The copy's mark is written with the change, right after the index took it (it sends no request): a request that
+		// dies before the send below still leaves the columns owed, for the hourly retry (the outside review, O5).
+		if ( ! empty( $prepared['cells'] ) ) {
+			WPCPM_Institution_Copy::mark( $record_id, array_keys( $prepared['cells'] ) );
+		}
+
+		if ( ! empty( $prepared['answers'] ) ) {
+			$kept = WPCPM_Institution_Record::set( $record_id, $prepared['answers'] );
+
+			// As in Airtable mode: alone, the answers are the whole correction; after an index change
+			// they are the next correction's to fill, and the change stands.
+			if ( ! $kept && empty( $prepared['cells'] ) ) {
+				return new WP_Error( 'wpcpm_details_record', __( 'The details could not be kept on the site, so nothing was saved. Try again in a while.', 'wpcredits-program-manager' ) );
+			}
+		}
+
+		self::log( $record_id, $prepared, $actor, $ground );
+
+		if ( ! empty( $prepared['cells'] ) ) {
+			WPCPM_Institution_Copy::send( $record_id, array_keys( $prepared['cells'] ) );
+		}
+
+		return true;
+	}
+
+	/**
+	 * The one history row a correction leaves: the details' keys and labels, none of their values.
+	 *
+	 * @param string $record_id The institution's Airtable record ID.
+	 * @param array  $prepared  What `prepare()` made of the change.
+	 * @param int    $actor     The user who made it.
+	 * @param string $ground    The ground the policy allowed it on.
+	 */
+	private static function log( $record_id, array $prepared, $actor, $ground ) {
 		WPCPM_Institution_Audit::record(
 			array(
 				'kind'        => self::LOG_SAVED,
@@ -475,8 +547,6 @@ class WPCPM_Institution_Details {
 				'data'        => array( 'fields' => $prepared['names'] ),
 			)
 		);
-
-		return true;
 	}
 
 	/**

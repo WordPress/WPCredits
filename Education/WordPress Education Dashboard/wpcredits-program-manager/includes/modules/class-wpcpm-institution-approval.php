@@ -69,6 +69,9 @@ class WPCPM_Institution_Approval {
 	/** What `Agreement Status` reads on a record this handler creates (design spec 7.4, T1). */
 	const AGREEMENT_NOT_STARTED = 'Not started';
 
+	/** The application's column that holds its estimate of interested students, as the form stores it. */
+	const COLUMN_ESTIMATED = 'Estimated number of students who may be interested';
+
 	/** Application events this handler writes, in the words the open application prints. */
 	const EVENT_RECORD_CREATED  = 'record created';
 	const EVENT_RECORD_ADOPTED  = 'record adopted';
@@ -261,13 +264,34 @@ class WPCPM_Institution_Approval {
 		// back instead, and a missing answer stops the approval here, with the state still
 		// approvable. The purge would otherwise delete the only copy of an answer the site never
 		// kept. The record and the account already made are stamped, so the next press finishes it.
-		$site = WPCPM_Institution_Application::site_answers( $application_id );
+		$five = WPCPM_Institution_Application::site_answers( $application_id );
+		$site = $five;
+
+		// Once the site keeps the record (release 2), the application's estimate is the Talks card's estimated students
+		// too (`WPCPM_Institution_Talks::RECORD_KEYS`), in whole students, filling only what the record lacks. It is also
+		// in the Airtable record, so it never makes an approval refuse: a miss is said in the site's error log.
+		if ( WPCPM_Institutions_Index::on_site() ) {
+			$estimated = self::cell( $stored, self::COLUMN_ESTIMATED );
+			// An answer that is not a number is left out.
+			$students = is_numeric( $estimated ) ? (int) $estimated : 0;
+
+			if ( $students > 0 ) {
+				$site['estimated_students'] = (string) $students;
+			}
+		}
 
 		if ( ! empty( $site ) ) {
 			WPCPM_Institution_Record::fill_empty( $record, $site );
 
-			if ( ! self::answers_kept( $site, WPCPM_Institution_Record::get( $record ) ) ) {
+			$held = WPCPM_Institution_Record::get( $record );
+
+			if ( ! empty( $five ) && ! self::answers_kept( $five, $held ) ) {
 				return self::refuse( $application_id, new WP_Error( 'wpcpm_app_answers', __( 'The answers this application gave could not be kept on the site, so it is not approved yet. Approve it again: the record and the account already made are kept.', 'wpcredits-program-manager' ) ) );
+			}
+
+			if ( isset( $site['estimated_students'] ) && ! self::answers_kept( array( 'estimated_students' => $site['estimated_students'] ), $held ) ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- An answer the record could not keep has no other place to be said.
+				error_log( sprintf( 'WPCredits: the estimated students of %s could not be kept in its record on the site.', $record ) );
 			}
 		}
 
@@ -297,7 +321,8 @@ class WPCPM_Institution_Approval {
 		// because the subject of this decision is an institution that did not exist when it was
 		// made; the ground is the manager capability, which is the only ground approval has.
 		// The evidence is `live`: what the duplicate search read from the base is what decided
-		// whether this institution was created or joined.
+		// whether this institution was created or joined. In site mode (release 2) the search was the
+		// index's, and the evidence says so.
 		WPCPM_Institution_Audit::record(
 			array(
 				'kind'        => self::LOG_APPROVED,
@@ -305,7 +330,7 @@ class WPCPM_Institution_Approval {
 				'subject'     => (string) $application_id,
 				'actor'       => $manager_id,
 				'ground'      => WPCPM_Institution_Audit::GROUND_MANAGER,
-				'evidence'    => WPCPM_Institution_Audit::EVIDENCE_LIVE,
+				'evidence'    => WPCPM_Institutions_Index::on_site() ? WPCPM_Institution_Audit::EVIDENCE_INDEX : WPCPM_Institution_Audit::EVIDENCE_LIVE,
 				'message'     => $adopted
 					? __( 'An application was approved and joined to a record the program already had.', 'wpcredits-program-manager' )
 					: __( 'An application was approved, and the institution record and its first account were created.', 'wpcredits-program-manager' ),
@@ -389,6 +414,11 @@ class WPCPM_Institution_Approval {
 	 * The fields asked for are the sync's list and nothing else, so the answer carries what
 	 * an index row is made of and none of the prose columns beside it.
 	 *
+	 * Once the site keeps the record (`WPCPM_Institutions_Index::on_site()`, release 2), the base is not
+	 * asked: the index is the record, an outreach school is in it the moment it is added, and the first
+	 * row `WPCPM_Institutions_Index::matching()` finds is the one adopted, with no cells (`index()` reads
+	 * the row it already holds).
+	 *
 	 * @param WPCPM_Airtable $airtable Client to read through.
 	 * @param array          $settings Plugin settings.
 	 * @param array          $fields   The sync's column map.
@@ -397,6 +427,22 @@ class WPCPM_Institution_Approval {
 	 * @return array|WP_Error `array( 'id' => string, 'cells' => array )`; `id` is '' for no hit.
 	 */
 	private static function search( WPCPM_Airtable $airtable, array $settings, array $fields, $name, $email ) {
+		if ( WPCPM_Institutions_Index::on_site() ) {
+			foreach ( array_keys( WPCPM_Institutions_Index::matching( $name, $email ) ) as $record_id ) {
+				if ( WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+					return array(
+						'id'    => trim( (string) $record_id ),
+						'cells' => array(),
+					);
+				}
+			}
+
+			return array(
+				'id'    => '',
+				'cells' => array(),
+			);
+		}
+
 		$formula = sprintf(
 			'OR( TRIM(LOWER({%1$s})) = %2$s, LOWER({%3$s}) = %4$s )',
 			$fields['name'],
@@ -517,8 +563,10 @@ class WPCPM_Institution_Approval {
 		$has_option = null !== WPCPM_Institution_Agreement::option( $record );
 
 		if ( ! $adopted ) {
+			// `true`: a lock the index cannot take falls back to the write this always made, so an approval
+			// never loses its row or refuses over it (release 2).
 			if ( ! $has_row ) {
-				WPCPM_Institutions_Index::insert( self::row_from_application( $record, $fields, $stored, $country_id ) );
+				WPCPM_Institutions_Index::insert( self::row_from_application( $record, $fields, $stored, $country_id ), true );
 			}
 
 			// Only when there is nothing readable there. `rebuild()` answers with an empty
@@ -533,6 +581,21 @@ class WPCPM_Institution_Approval {
 		}
 
 		if ( $has_row && $has_option ) {
+			return true;
+		}
+
+		// Site mode (release 2): the adopted record is the index row already held, and its gate is rebuilt
+		// from that row and the Drive link its record keeps. Nothing is read: a row the index no longer
+		// holds is not the program's record any more, and is not described from the application either.
+		if ( WPCPM_Institutions_Index::on_site() ) {
+			$row = WPCPM_Institutions_Index::row( $record );
+
+			if ( null === $row ) {
+				return new WP_Error( 'wpcpm_app_record', __( 'The institution this application was joined to is no longer in the site\'s list of institutions, so nothing more was done. Look at the institution before you approve again.', 'wpcredits-program-manager' ) );
+			}
+
+			WPCPM_Institution_Agreement::rebuild( $record, WPCPM_Institutions_Index::rebuild_block( $row, WPCPM_Institution_Agreement::record_document( $record ) ) );
+
 			return true;
 		}
 
@@ -551,7 +614,7 @@ class WPCPM_Institution_Approval {
 		}
 
 		if ( ! $has_row ) {
-			WPCPM_Institutions_Index::insert( self::row_from_cells( $record, $fields, $cells ) );
+			WPCPM_Institutions_Index::insert( self::row_from_cells( $record, $fields, $cells ), true );
 		}
 
 		WPCPM_Institution_Agreement::rebuild( $record, self::block_from_cells( $fields, $cells ) );

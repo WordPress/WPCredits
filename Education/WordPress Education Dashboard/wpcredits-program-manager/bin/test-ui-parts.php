@@ -907,6 +907,11 @@ ck( 'the part classes written by hand outside the helpers are only those no help
 	// Institution Dashboard, Task 15: the roster's groups print the card fold's section, disclosure, head and body by hand (planner's P7: a card shell would be drawn open); the filter bar's row of fields; a view's blocks. Each student is inner_open().
 	'includes/modules/class-wpcpm-institution-roster-view.php'  => array( 'wpcpm-ui-block', 'wpcpm-ui-fields', 'wpcpm-ui-fold', 'wpcpm-ui-fold-card', 'wpcpm-ui-fold__body', 'wpcpm-ui-fold__head' ),
 	'includes/modules/class-wpcpm-institution-student-view.php' => array( 'wpcpm-ui-block' ),
+	// Institutions off Airtable, release 2, Task 16: the Talks view's folded stage groups print the card fold's section,
+	// disclosure, head and body by hand, as the roster's groups do (a stage name is data, so no card shell); Mine or All is
+	// the head's one small control in the Viewing as control's classes, its label and a quiet link; Find is a row of fields,
+	// as the Students view's filter bar (fix round 1, V1).
+	'includes/modules/class-wpcpm-institution-talks-view.php'   => array( 'wpcpm-ui-fields', 'wpcpm-ui-fold', 'wpcpm-ui-fold-card', 'wpcpm-ui-fold__body', 'wpcpm-ui-fold__head', 'wpcpm-ui-viewing', 'wpcpm-ui-viewing__label' ),
 	// Institution Dashboard, Task 18: Semester reports is the view's content, a block with no head (M22); the report's document, as it prints, in a block that lets a long word break.
 	'includes/modules/class-wpcpm-semester-report-screen.php'   => array( 'wpcpm-ui-block', 'wpcpm-ui-doc' ),
 	'includes/modules/class-wpcpm-sponsor-application.php'      => array( 'wpcpm-ui-logo', 'wpcpm-ui-logo--white', 'wpcpm-ui-logo__caption', 'wpcpm-ui-logo__img', 'wpcpm-ui-logos' ),
@@ -952,11 +957,12 @@ ck( 'cell_sub: with markup it prints the markup the caller escaped; with none, t
 	WPCPM_UI::cell_sub( 'A <b>' ) === WPCPM_UI::cell_sub( 'A <b>', '' ),
 ), array( ' <span class="wpcpm-ui-cell__sub"><a href="x">School</a> <span class="wpcpm-badge wpcpm-badge--test">Test</span></span>', true ) );
 // The table of Students waiting to graduate prints the helper, the Institution Dashboard's Enroll students check
-// table (a data table's cell) and the head's title (the layout harness faults without it, Task 22b); no other file. A later task that needs it elsewhere changes this pin
-// on purpose and says so.
-ck( 'breakable: called by the Students waiting to graduate table, the Enroll students check table and the Institution Dashboard head alone', array_values( array_filter( array_map( static function ( $file ) {
+// table (a data table's cell) and the head's title (the layout harness faults without it, Task 22b), and the Talks card's
+// school name (Institutions off Airtable, release 2, Task 15: a 40-character word in it), and the Talks view's names, places
+// and next steps (Task 16); no other file. A later task that needs it elsewhere changes this pin on purpose and says so.
+ck( 'breakable: called by the Students waiting to graduate table, the Enroll students check table, the Institution Dashboard head, the Talks card and the Talks view alone', array_values( array_filter( array_map( static function ( $file ) {
 	return preg_match( '/WPCPM_UI::breakable\(/', (string) file_get_contents( $file ) ) ? basename( $file ) : '';
-}, array_merge( glob( __DIR__ . '/../includes/*.php' ), glob( __DIR__ . '/../includes/modules/*.php' ) ) ) ) ), array( 'class-wpcpm-administrators-cards.php', 'class-wpcpm-institution-import-form.php', 'class-wpcpm-institutions-dashboard.php' ) );
+}, array_merge( glob( __DIR__ . '/../includes/*.php' ), glob( __DIR__ . '/../includes/modules/*.php' ) ) ) ) ), array( 'class-wpcpm-administrators-cards.php', 'class-wpcpm-institution-import-form.php', 'class-wpcpm-institution-talks-view.php', 'class-wpcpm-institution-talks.php', 'class-wpcpm-institutions-dashboard.php' ) );
 
 // Institution Dashboard, Task 18 fix round 2: note() may print a quotation (a student's released words) and intro() may
 // carry a class of the caller's (a line the print sheet hides). Without the new argument each prints the bytes it printed

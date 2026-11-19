@@ -227,7 +227,7 @@ ck( 'an unknown view is the Overview', WPCPM_Institutions_Dashboard::view_url( '
 ck( 'a malformed school is not carried', WPCPM_Institutions_Dashboard::view_url( 'students', 'not-a-record' ), $page . '?wpcpm_view=students' );
 ck( 'an empty arg is not carried', WPCPM_Institutions_Dashboard::view_url( 'students', '', array( 'wpcpm_cohort' => '' ) ), $page . '?wpcpm_view=students' );
 
-$cards = array( 'roster' => 'students', 'student-status' => 'students', 'student-form' => 'students', 'student-invite' => 'students', 'import' => 'enroll', 'report' => 'reports', 'details' => 'institution', 'people' => 'institution', 'tutors' => 'institution', 'agreement' => 'agreement', 'sevents' => 'events', 'for-administrators' => 'administrators', 'admin-answers' => 'administrators', 'admin-history' => 'administrators' );
+$cards = array( 'roster' => 'students', 'student-status' => 'students', 'student-form' => 'students', 'student-invite' => 'students', 'import' => 'enroll', 'report' => 'reports', 'details' => 'institution', 'people' => 'institution', 'tutors' => 'institution', 'agreement' => 'agreement', 'sevents' => 'events', 'talks' => 'administrators', 'for-administrators' => 'administrators', 'admin-answers' => 'administrators', 'admin-history' => 'administrators' );
 foreach ( $cards as $card => $view ) {
 	ck( "card $card is on view $view", WPCPM_Institutions_Dashboard::view_of( $card ), $view );
 	ck( "card_url( $card ) ends at its anchor", substr( WPCPM_Institutions_Dashboard::card_url( $card ), -strlen( "#wpcpm-$card" ) ), "#wpcpm-$card" );

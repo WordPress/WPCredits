@@ -277,12 +277,21 @@ class WPCPM_Institution_Assignment {
 	/**
 	 * Where an Administrator opens an institution: its page on the Institution Dashboard, at the details
 	 * card on the Your institution view (`card_url()`), or the front page while the page has no address.
-	 * Not escaped: the assignment mail's link.
+	 * Once the site keeps the record (Institutions off Airtable, release 2), at its Talks card on the For
+	 * Administrators view, where the assignment is changed. Not escaped: the assignment mail's link.
 	 *
 	 * @param string $record_id The institution's record ID.
 	 * @return string An address.
 	 */
 	public static function page_url( $record_id ) {
+		if ( WPCPM_Institutions_Index::on_site() ) {
+			$talks = WPCPM_Institutions_Dashboard::card_url( 'talks', trim( (string) $record_id ) );
+
+			if ( '' !== $talks ) {
+				return $talks;
+			}
+		}
+
 		$url = WPCPM_Institutions_Dashboard::card_url( 'details', trim( (string) $record_id ), WPCPM_Institution_Details_Card::ANCHOR );
 
 		if ( '' !== $url ) {

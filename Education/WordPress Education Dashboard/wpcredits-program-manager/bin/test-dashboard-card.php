@@ -854,10 +854,22 @@ ck( 'after a press that opened a card and hid the link pressed, the focus moves 
 // what the browser did.
 ck( 'and after a press on an At a glance tile, which stays on screen, the focus moves to the card\'s summary as well: one condition names the strip\'s list of tiles, so any other link still on screen keeps what the browser did',
 	array(
-		1 === preg_match( "/\\( link\\.getClientRects\\(\\)\\.length && ! link\\.closest\\( '\\.wpcpm-attention__tiles' \\) \\)/", $focus ),
+		1 === preg_match( "/\\( link\\.getClientRects\\(\\)\\.length && ! link\\.closest\\( '\\.wpcpm-attention__tiles' \\) && ! link\\.closest\\( '\\[data-wpcpm-focus-card\\]' \\) \\)/", $focus ),
 		substr_count( $opener, 'wpcpm-attention__tiles' ),
 	),
 	array( true, 1 )
+);
+// Institutions off Airtable, release 2, Task 16 fix round 2 (F2): the Talks view's Add a lead stays on screen in the head
+// after it opens its fold; marked `data-wpcpm-focus-card`, it moves the focus to the fold's summary as a tile does. The
+// mark is the one condition, so no other link on either dashboard changes; only the Talks view prints it.
+ck( 'a link marked data-wpcpm-focus-card, still on screen, moves the focus to the summary of the fold it opened, and only the Talks view marks one (F2)',
+	array(
+		substr_count( $opener, "link.closest( '[data-wpcpm-focus-card]' )" ),
+		array_values( array_filter( array_map( static function ( $file ) {
+			return false !== strpos( (string) file_get_contents( $file ), 'wpcpm-focus-card' ) ? basename( $file ) : '';
+		}, array_merge( glob( dirname( __DIR__ ) . '/includes/*.php' ), glob( dirname( __DIR__ ) . '/includes/modules/*.php' ) ) ) ) ),
+	),
+	array( 1, array( 'class-wpcpm-institution-talks-view.php' ) )
 );
 // A summary that already has a place in the tab order and still did not take the focus keeps its
 // place: a tabindex of -1 would take it out of the tab order for good, so the tabindex is given only

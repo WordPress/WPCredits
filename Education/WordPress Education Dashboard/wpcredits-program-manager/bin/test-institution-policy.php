@@ -289,6 +289,9 @@ $expected_map = array(
 	// for it and decided on by the Administrators. Gated like every action but the agreement: a school
 	// whose agreement is not settled has no details card.
 	'edit_details'         => array( 'manager', 'member' ),
+	// Institutions off Airtable, release 2: the talks with a school are the program's own business, so the
+	// Administrators alone, as the semester report's editing is.
+	'talks'                => array( 'manager' ),
 );
 
 ck( 'grounds() is exactly the expected map, in order', $P::grounds(), $expected_map );

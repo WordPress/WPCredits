@@ -88,6 +88,12 @@
 	border-inline-start-color: var( --wpc-red, #b32d2e );
 }
 
+/* The warning tone (Institutions off Airtable, release 2, Task 15 fix round 2: a save kept in part, the question before
+   a move out of the talks), on the amber the status tags use. */
+.wpcpm-dashboard.wpcpm-institution.wpcpm-ui-on [data-wpcpm-card-message].is-warning {
+	border-inline-start-color: var( --wpcpm-f-amber );
+}
+
 /* -------------------------------------------------------------------------
  * The agreement's own controls.
  *

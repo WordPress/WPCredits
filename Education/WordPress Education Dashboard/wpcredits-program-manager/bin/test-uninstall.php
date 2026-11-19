@@ -762,10 +762,27 @@ $GLOBALS['opts']['wpcpm_interest_lock_recSEED0000000003_recSEED0000000004'] = (s
 // school, the time each runs to.
 $GLOBALS['opts']['wpcpm_req_lock_810']                     = (string) ( time() + 300 );
 $GLOBALS['opts']['wpcpm_req_lock_details_recSEED0000000001'] = (string) ( time() + 300 );
+$GLOBALS['opts']['wpcpm_req_lock_talks_note_recSEED0000000001'] = (string) ( time() + 10 );
+$GLOBALS['opts']['wpcpm_req_lock_talks_note_lead-41']           = (string) ( time() + 10 );
 // And the lock a patch of the institutions index holds while it rewrites the index, the same way.
 $GLOBALS['opts']['wpcpm_institutions_index_lock'] = (string) ( time() + 10 );
 // And the list of test institutions the institutions sync remembers beside the index (1.123.55).
 $GLOBALS['opts']['wpcpm_test_institutions'] = array( 'recSEED0000000001' );
+// And the copies Airtable has not taken yet (Institutions release 2), with the lock their list is written
+// under and a school's lock while its copy is written, each left by a request that died holding it.
+$GLOBALS['opts']['wpcpm_institution_copy_pending']                    = array( 'recSEED0000000001' => array( 'keys' => array( 'stage' ), 'since' => 1792000000, 'error' => 'timed out', 'tries' => 1 ) );
+$GLOBALS['opts']['wpcpm_institution_copy_lock']                       = (string) ( time() + 5 );
+// The Monday email of follow-ups due (Institutions release 2): the week it last went and a run's lock.
+$GLOBALS['opts']['wpcpm_institution_talks_week']                      = '2026-48';
+$GLOBALS['opts']['wpcpm_institution_talks_lock']                      = (string) ( time() + 600 );
+$GLOBALS['opts']['wpcpm_institution_copy_lock_recSEED0000000001']     = (string) ( time() + 120 );
+// The lock a lead is promoted under (Institutions release 2), left by a request that died holding it.
+$GLOBALS['opts']['wpcpm_lead_lock_41']                                 = (string) ( time() + 60 );
+$GLOBALS['opts']['wpcpm_lead_lock_add']                                = (string) ( time() + 60 );
+// And the index changes the agreement path owes (Institutions release 2, Task 13), with the lock their list is
+// written under, left by a request that died holding it.
+$GLOBALS['opts']['wpcpm_agreement_index_owed']      = array( 'recSEED0000000001' => array( 'block' => array( 'status' => 'Accepted' ), 'confirm' => '2026-11-19', 'ground' => 'manager', 'actor' => 7 ) );
+$GLOBALS['opts']['wpcpm_agreement_index_owed_lock'] = (string) ( time() + 5 );
 
 // Two mentors the Mentor Status Checker promoted and has not announced on Slack yet (1.122.4), a row
 // each, which the tool's own uninstall forgets.
@@ -814,7 +831,7 @@ set_transient( 'feed_example', 'kept', HOUR_IN_SECONDS );
 
 // One post of every type the clean-up removes, private as the modules keep them; an offer is found
 // through its sponsor, and every offer has one.
-$plugin_types = array( 'wpcpm_notice', 'wpcpm_dup_copy', 'wpcpm_track', 'wpcpm_inst_report', 'wpcpm_inst_request', 'wpcpm_inst_app', 'wpcpm_agreement', 'wpcpm_sponsor_app', 'wpcpm_audit_entry', 'wpcpm_import_batch', 'wpcpm_offer', 'wpcpm_mentor_call', 'wpcpm_mentor_note', 'wpcpm_inst_invite', 'wpcpm_sponsor_agr', 'wpcpm_sponsor_co', 'wpcpm_handbook', 'wpcpm_sponsor_report', 'wpcpm_sponsor_event', 'wpcpm_ment_app', 'wpcpm_inst_record', 'wpcpm_stu_reg', 'wpcpm_student_int' );
+$plugin_types = array( 'wpcpm_notice', 'wpcpm_dup_copy', 'wpcpm_track', 'wpcpm_inst_report', 'wpcpm_inst_request', 'wpcpm_inst_app', 'wpcpm_agreement', 'wpcpm_sponsor_app', 'wpcpm_audit_entry', 'wpcpm_import_batch', 'wpcpm_offer', 'wpcpm_mentor_call', 'wpcpm_mentor_note', 'wpcpm_inst_invite', 'wpcpm_sponsor_agr', 'wpcpm_sponsor_co', 'wpcpm_handbook', 'wpcpm_sponsor_report', 'wpcpm_sponsor_event', 'wpcpm_ment_app', 'wpcpm_inst_record', 'wpcpm_inst_note', 'wpcpm_inst_lead', 'wpcpm_stu_reg', 'wpcpm_student_int' );
 
 foreach ( $plugin_types as $type ) {
 	a_post( $type, 'private', 'wpcpm_offer' === $type ? array( '_wpcpm_offer_sponsor' => 'recSEED0000000003' ) : array() );
@@ -831,6 +848,16 @@ a_post( 'wpcpm_track', 'trash' );
 // thing that ever removes it, and it must take the trashed one with it.
 $institution_record = a_post( 'wpcpm_inst_record', 'private', array( '_wpcpm_inst_record' => 'recSEED0000000001', '_wpcpm_inst_answers' => array( 'contact_role' => 'Registrar', 'student_languages' => array( 'English' ) ) ) );
 $trashed_record     = a_post( 'wpcpm_inst_record', 'trash', array( '_wpcpm_inst_record' => 'recSEED0000000002', '_wpcpm_inst_answers' => array( 'contact_role' => 'Director' ) ) );
+
+// A talks note (Institutions release 2) with the key, author and source it holds, and one a command line
+// trashed: nothing else ever removes a note, so the clean-up must take the trashed one with it.
+$talks_note    = a_post( 'wpcpm_inst_note', 'private', array( '_wpcpm_inote_for' => 'recSEED0000000001', '_wpcpm_inote_author' => 1, '_wpcpm_inote_source' => 'airtable-notes:recSEED0000000001', '_wpcpm_inote_text' => 'Sent the deck.' ) );
+$trashed_note  = a_post( 'wpcpm_inst_note', 'trash', array( '_wpcpm_inote_for' => 'lead-5', '_wpcpm_inote_author_name' => 'An imported name', '_wpcpm_inote_text' => 'Met at an event.' ) );
+
+// A lead (Institutions release 2), which names a contact person and an address, with its source, and one a command
+// line trashed: nothing else ever removes a lead.
+$lead_post    = a_post( 'wpcpm_inst_lead', 'private', array( '_wpcpm_lead_fields' => array( 'name' => 'Example Polytechnic', 'contact_person' => 'Example Contact', 'contact_email' => 'contact@polytechnic.example' ), '_wpcpm_lead_source' => 'outreach:recSEED0000000009' ) );
+$trashed_lead = a_post( 'wpcpm_inst_lead', 'trash', array( '_wpcpm_lead_fields' => array( 'name' => 'Example Lyceum' ) ) );
 
 // A sponsor's annual report, with a real file under the private files' own base, at a path in the
 // shape WPCPM_Private_Files::store() returns: WPCPM_Sponsor_Report::delete_all() reads this path
@@ -975,9 +1002,9 @@ $program_event = a_post( 'wpcpm_sponsor_event', 'private', array( '_wpcpm_sevent
 $GLOBALS['opts']['wpcpm_sevent_lock_spoAAAA0000000001'] = time() - HOUR_IN_SECONDS;
 $GLOBALS['opts']['wpcpm_sevent_lock_program']           = time() - HOUR_IN_SECONDS;
 
-// The cron schedule: the thirteen hooks the file clears itself, the Claude access log's daily sweep
-// among them (1.123.30), every hook the modules and the tools clear, and one of core's.
-$file_hooks  = array( 'wpcpm_mentors_daily', 'wpcpm_mentors_sync_tick', 'wpcpm_students_daily', 'wpcpm_students_sync_tick', 'wpcpm_send_call_reminders', 'wpcpm_drain_invite_queue', 'wpcpm_institutions_sync_daily', 'wpcpm_institutions_sync_tick', 'wpcpm_handbook_sync_daily', 'wpcpm_handbook_sync_tick', 'wpcpm_outcome_figures_weekly', 'wpcpm_outcome_figures_retry', 'wpcpm_mcp_log_sweep' );
+// The cron schedule: the fifteen hooks the file clears itself, the Claude access log's daily sweep
+// among them (1.123.30), the Airtable copy's hourly retry and the Monday email of follow-ups due (Institutions release 2), every hook the modules and the tools clear, and one of core's.
+$file_hooks  = array( 'wpcpm_mentors_daily', 'wpcpm_mentors_sync_tick', 'wpcpm_students_daily', 'wpcpm_students_sync_tick', 'wpcpm_send_call_reminders', 'wpcpm_drain_invite_queue', 'wpcpm_institutions_sync_daily', 'wpcpm_institutions_sync_tick', 'wpcpm_handbook_sync_daily', 'wpcpm_handbook_sync_tick', 'wpcpm_outcome_figures_weekly', 'wpcpm_outcome_figures_retry', 'wpcpm_mcp_log_sweep', 'wpcpm_institution_copy_hourly', 'wpcpm_institution_talks_daily' );
 // The old sponsors sync's two hooks stay on the list: a site that upgrades holds them until the
 // move onto the site completes, and the Sponsors module's uninstall clears them through the names
 // the migration keeps (1.111.0).
@@ -1145,6 +1172,8 @@ echo "\n=== The posts ===\n";
 ck( 'a canceled call goes, though canceling put it in the trash', null === get_post( $canceled_call ), true );
 ck( 'every post of the plugin\'s goes, a trashed track, a trashed report, a trashed institution record, a canceled call and a legacy Handbook page included', left_of( $plugin_types ), array() );
 ck( 'the institution records go with their answers, whatever their status', array( null === get_post( $institution_record ), null === get_post( $trashed_record ), isset( $GLOBALS['pmeta'][ $institution_record ] ), isset( $GLOBALS['pmeta'][ $trashed_record ] ) ), array( true, true, false, false ) );
+ck( 'the leads go with their meta, whatever their status, and so does the lock a promotion left', array( null === get_post( $lead_post ), null === get_post( $trashed_lead ), isset( $GLOBALS['pmeta'][ $lead_post ] ), isset( $GLOBALS['pmeta'][ $trashed_lead ] ), get_option( 'wpcpm_lead_lock_41', 'gone' ), get_option( 'wpcpm_lead_lock_add', 'gone' ) ), array( true, true, false, false, 'gone', 'gone' ) );
+ck( 'the talks notes go with their meta, whatever their status', array( null === get_post( $talks_note ), null === get_post( $trashed_note ), isset( $GLOBALS['pmeta'][ $talks_note ] ), isset( $GLOBALS['pmeta'][ $trashed_note ] ) ), array( true, true, false, false ) );
 ck( 'with the revisions of each track', left_of( array( 'revision' ) ), array() );
 ck( 'and a page of the site\'s own stays', null !== get_post( $page ), true );
 
@@ -1157,7 +1186,7 @@ ck( 'a sponsor account gives back the posting capabilities its membership grante
 
 echo "\n=== The cron hooks ===\n";
 
-ck( 'the thirteen hooks the file clears itself are cleared, the outcome figures\' weekly event and its retry and the Claude access log\'s daily sweep among them', array_values( array_intersect( $file_hooks, scheduled() ) ), array() );
+ck( 'the fifteen hooks the file clears itself are cleared, the outcome figures\' weekly event and its retry, the Claude access log\'s daily sweep, the Airtable copy\'s hourly retry and the Monday email of follow-ups due among them', array_values( array_intersect( $file_hooks, scheduled() ) ), array() );
 ck( 'and so is every hook the modules and the tools clear', array_values( array_intersect( $other_hooks, scheduled() ) ), array() );
 ck( 'and so are the two single events scheduled with an ID, whatever it is', array_values( array_intersect( $single_hooks, scheduled() ) ), array() );
 ck( 'a hook of core\'s is left alone', scheduled(), array( 'wp_version_check' ) );
@@ -1168,8 +1197,12 @@ ck( 'the user meta the file names goes, and an account\'s own stays', $GLOBALS['
 ck( 'the three keys an activation leaves on a mentor\'s account go, the held invitation among them, and the account\'s own stays', $GLOBALS['umeta'][ $mentor ], array( 'nickname' => 'mentor-one' ) );
 ck( 'every stamp a school\'s membership leaves on an account goes, the tutor\'s level among them, and the account\'s own stays', $GLOBALS['umeta'][ $school_tutor ], array( 'nickname' => 'tutor-one' ) );
 ck( 'the locks a details request left behind, one per request and one per school, go with the rest', array( get_option( 'wpcpm_req_lock_810', 'gone' ), get_option( 'wpcpm_req_lock_details_recSEED0000000001', 'gone' ) ), array( 'gone', 'gone' ) );
+ck( 'and the lock a talks note was added under, a school\'s and a lead\'s (Task 15)', array( get_option( 'wpcpm_req_lock_talks_note_recSEED0000000001', 'gone' ), get_option( 'wpcpm_req_lock_talks_note_lead-41', 'gone' ) ), array( 'gone', 'gone' ) );
 ck( 'so does the lock a patch of the institutions index left behind, and the extra sync run a patch asked for', array( get_option( 'wpcpm_institutions_index_lock', 'gone' ), in_array( array( 'hook' => 'wpcpm_institutions_sync_daily', 'args' => array( 'again' ) ), $GLOBALS['cron'], true ) ), array( 'gone', false ) );
 ck( 'and so does the list of test institutions the sync remembers beside the index', get_option( 'wpcpm_test_institutions', 'gone' ), 'gone' );
+ck( 'and the list of copies Airtable has not taken, with the copy\'s locks', array( get_option( 'wpcpm_institution_copy_pending', 'gone' ), get_option( 'wpcpm_institution_copy_lock', 'gone' ), get_option( 'wpcpm_institution_copy_lock_recSEED0000000001', 'gone' ) ), array( 'gone', 'gone', 'gone' ) );
+ck( 'and the Monday email\'s week and the lock a run left', array( get_option( 'wpcpm_institution_talks_week', 'gone' ), get_option( 'wpcpm_institution_talks_lock', 'gone' ) ), array( 'gone', 'gone' ) );
+ck( 'and the index changes the agreement path owes, with their list\'s lock', array( get_option( 'wpcpm_agreement_index_owed', 'gone' ), get_option( 'wpcpm_agreement_index_owed_lock', 'gone' ) ), array( 'gone', 'gone' ) );
 ck( 'a lock an application left behind goes with the rest, and the two account keys of an activation', array( get_option( 'wpcpm_mapp_lock_501', 'gone' ), array_intersect_key( $GLOBALS['umeta'][ $mentor ], array_flip( array( 'wpcpm_mentor_row_pending', 'wpcpm_mentor_activated_at' ) ) ) ), array( 'gone', array() ) );
 ck( 'a lock a student registration left behind goes with the rest, and so does the hourly run\'s', array( get_option( 'wpcpm_sreg_lock_x', 'gone' ), get_option( 'wpcpm_sreg_lock_run', 'gone' ) ), array( 'gone', 'gone' ) );
 ck( 'a lock an interest in a mentor left behind goes with the rest', get_option( 'wpcpm_interest_lock_recSEED0000000003_recSEED0000000004', 'gone' ), 'gone' );
@@ -1251,6 +1284,17 @@ $names = array(
 	'WPCPM_Institution_Record::POST_TYPE'           => 'wpcpm_inst_record',
 	'WPCPM_Institution_Record::META_RECORD'         => '_wpcpm_inst_record',
 	'WPCPM_Institution_Record::META_ANSWERS'        => '_wpcpm_inst_answers',
+	'WPCPM_Institution_Talk_Notes::POST_TYPE'       => 'wpcpm_inst_note',
+	'WPCPM_Institution_Talk_Notes::META_FOR'        => '_wpcpm_inote_for',
+	'WPCPM_Institution_Talk_Notes::META_AUTHOR'     => '_wpcpm_inote_author',
+	'WPCPM_Institution_Talk_Notes::META_SOURCE'     => '_wpcpm_inote_source',
+	'WPCPM_Institution_Leads::POST_TYPE'            => 'wpcpm_inst_lead',
+	'WPCPM_Institution_Leads::META_FIELDS'          => '_wpcpm_lead_fields',
+	'WPCPM_Institution_Leads::META_SOURCE'          => '_wpcpm_lead_source',
+	'WPCPM_Institution_Leads::META_PROMOTED'        => '_wpcpm_lead_promoted',
+	'WPCPM_Institution_Leads::META_PROMOTED_STAGE'  => '_wpcpm_lead_promoted_stage',
+	'WPCPM_Institution_Leads::LOCK_ADD'             => 'wpcpm_lead_lock_add',
+	'WPCPM_Institution_Leads::LOCK_PREFIX'          => 'wpcpm_lead_lock_',
 	'WPCPM_Institution_Application::POST_TYPE'      => 'wpcpm_inst_app',
 	'WPCPM_Institution_Agreement::POST_TYPE'        => 'wpcpm_agreement',
 	'WPCPM_Sponsor_Application::POST_TYPE'          => 'wpcpm_sponsor_app',
@@ -1305,10 +1349,18 @@ $names = array(
 	'WPCPM_Institutions_Sync::AGAIN_ARGS'           => array( 'again' ),
 	'WPCPM_Institutions_Index::OPT_LOCK'            => 'wpcpm_institutions_index_lock',
 	'WPCPM_Test_Institutions::OPTION'              => 'wpcpm_test_institutions',
+	'WPCPM_Institution_Copy::OPT_PENDING'          => 'wpcpm_institution_copy_pending',
+	'WPCPM_Institution_Copy::CRON_HOURLY'          => 'wpcpm_institution_copy_hourly',
+	'WPCPM_Institution_Copy::LOCK'                 => 'wpcpm_institution_copy_lock',
+	'WPCPM_Institution_Talks_Weekly::CRON_DAILY'   => 'wpcpm_institution_talks_daily',
+	'WPCPM_Institution_Talks_Weekly::OPT_WEEK'     => 'wpcpm_institution_talks_week',
+	'WPCPM_Institution_Talks_Weekly::LOCK'         => 'wpcpm_institution_talks_lock',
 	'WPCPM_Ceiling::CRON_SWEEP'                     => 'wpcpm_ceiling_sweep',
 	'WPCPM_MCP::CRON_SWEEP'                         => 'wpcpm_mcp_log_sweep',
 	'WPCPM_Institutions::CRON_PURGE'                => 'wpcpm_purge_applications',
 	'WPCPM_Institution_Agreement::CRON_DISCARD'     => 'wpcpm_agreement_discard',
+	'WPCPM_Institution_Agreement::OPT_INDEX_OWED'   => 'wpcpm_agreement_index_owed',
+	'WPCPM_Institution_Agreement::INDEX_OWED_LOCK'  => 'wpcpm_agreement_index_owed_lock',
 	'WPCPM_Institution_Agreement::CRON_REMINDERS'   => 'wpcpm_agreement_reminders',
 	'WPCPM_Institution_Invite::CRON_EXPIRE'         => 'wpcpm_invite_expire',
 	'WPCPM_Semester_Report_Screen::CRON_ASK'        => 'wpcpm_report_ask_queue',

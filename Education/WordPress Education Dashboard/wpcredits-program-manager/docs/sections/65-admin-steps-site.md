@@ -497,6 +497,94 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 - The command never replaces what the site holds already: an area, a booking link, an assigned Administrator, a listed tutor or a school set to **Nobody**.
 - With areas set already, the summary says "The areas are already set on the site, so they were left as they are."
 
+### Run the import from Airtable
+
+*When:* once, before the site keeps the record of institutions, with the product owner. It brings over what Airtable alone holds of the talks. It needs command-line access to the server (WP-CLI), and the product owner runs it.
+
+1. Press **Sync institutions now** on `WPCredits Program > Institutions`, tab **Sync and storage**, and wait until it finishes. The import refuses a sync older than 30 minutes: "Run the institutions sync first: its last read is older than 30 minutes."
+2. The product owner runs `wp wpcredits institutions_import --dry-run`. Nothing is written.
+3. Read its summary together: the schools by stage, the notes and follow-ups that come over, the leads, the tutors, and each owner or country it cannot place. Settle those first.
+4. The product owner runs `wp wpcredits institutions_import` and answers "Write this to the site?".
+5. Read the line that starts with "Written:".
+
+**What happens next**
+
+- The talks fields are filled where the site has none. The Notes and Comments columns, the FreeScout column and the record comments come over as notes.
+- The Outreach Tracker's rows come over as leads. A row whose name matches a school or a lead is joined to it as notes.
+- Tutors are added to their schools' lists, and missing assignments are made.
+- No email is sent, and nothing is written to Airtable. A second run adds nothing twice.
+
+**Good to know**
+
+- `--skip-comments` leaves the record comments unread, for a token without the scope data.recordComments:read. A later run without it brings them over.
+- `--save=<file>` writes what was read to a file, for a rehearsal on a copy of the site, and `--from=<file>` reads that file instead of Airtable. The file holds personal data. A place inside the plugin, WordPress or a repository is refused.
+- A saved read must be from within 30 minutes of this site's last sync, except on a local copy of the site: "That saved read is not from this site's last sync. Read Airtable again."
+- Once the site keeps the record, the import is refused: "The site already keeps the record. The import runs before the switch."
+
+### Let the site keep the record of institutions
+
+*When:* the product owner has decided the switch, and the import is done. One save moves the record of institutions from Airtable to the site.
+
+1. Open `WPCredits Program > Institutions`, tab **Sync and storage**. Press **Sync institutions now** and wait until it finishes.
+2. Have the import run, its dry run first. See [[Run the import from Airtable]].
+3. Press **Sync institutions now** again, and wait until it finishes.
+4. Within 15 minutes, open `WPCredits Program > Settings`, tab **Advanced**. In the row **Institutions' record**, tick **The site keeps the record, and Airtable gets a copy**.
+5. Press **Save settings**.
+6. If the save says "The institutions' record was not moved", do what the rest of its sentence says, then save again.
+
+**What happens next**
+
+- The sync stops reading the Institutions and Countries tables, and every change Airtable has a column for is copied to Airtable. See [[Airtable's copy of the record]].
+- `Administrator Dashboard > Talks` is in the menu. Each school's Institution Dashboard has its Talks card first under **For Administrators**. The details card no longer holds **Assigned Administrator**.
+- The Monday email of follow-ups due starts, and so does the hourly retry of Airtable's copy.
+
+**Good to know**
+
+- The switch is refused, and stays off, with one of three sentences. The rest of the tab is still saved.
+  - "The institutions' record was not moved: the sync is running. Wait until it finishes, then save again."
+  - "The institutions' record was not moved: the site has not finished reading the Institutions table in the last 15 minutes. Run the sync on Institutions > Sync and storage, then save again."
+  - "The institutions' record was not moved: the site's list is behind on the agreement of {school}. Run the sync on Institutions > Sync and storage, then save again." With more schools it names five of them.
+- The product owner can make the same change with `wp wpcredits setting set institutions_on_site on`, which asks the same three questions, and `--dry-run` says what would happen.
+
+### Read the notice about Airtable's copy
+
+*When:* once the site keeps the record of institutions, `WPCredits Program > Institutions` shows "These institutions' changes are not in Airtable yet. The site tries again by itself: after an hour or two at first, then less often, and at least once a day."
+
+1. Read each line: the school, since when its change waits, and Airtable's error when there was one.
+2. Wait for the next tries. The change is saved on the site, and the site sends it again by itself.
+3. If a school stays on the notice for a day, tell the product owner, with the error's words.
+
+**What happens next**
+
+- A school leaves the notice once Airtable takes its change.
+
+**Good to know**
+
+- A school is listed once a try failed, or once its change has waited five minutes with no answer. The notice lists ten, then "and 2 more".
+- A new change goes with the next hourly run. After each refused try a school waits twice as long, two hours after the first, up to a day.
+- "The site's list of institutions does not hold this school." means the school is gone from the site's list. Such a school is dropped from the notice after 24 tries.
+- After an agreement is accepted or recorded on file, the site's own record shows the new stage at once. If Airtable's copy of it is late, the school is listed here until a retry sends it.
+- Before you give the record back to Airtable, wait until the notice is gone. See [[Give the record back to Airtable]].
+
+### Give the record back to Airtable
+
+*When:* the program goes back to keeping the record of institutions in Airtable.
+
+1. Open `WPCredits Program > Institutions` and read the notice about Airtable's copy. Wait until it is gone. See [[Read the notice about Airtable's copy]].
+2. Open `WPCredits Program > Settings`, tab **Advanced**, and untick **The site keeps the record, and Airtable gets a copy**.
+3. Press **Save settings**.
+
+**What happens next**
+
+- The next sync reads Airtable again and rewrites the site's list of institutions: the name, the stage, the country, the city, the website, the contact and the agreement.
+- If the notice was not empty, the save warns and names the schools: "The site reads Airtable again. Airtable never received the last changes of {school}, and the site will not send them later: write them in Airtable by hand if they matter." Those changes are not in Airtable, and the site drops them from its list of copies owed. Write them in Airtable yourself if they matter.
+- The Talks view, the Talks card, the Monday email and the hourly retry stop. **Assigned Administrator** is back on the details card.
+- What stays on the site is no longer kept in step with Airtable: the leads, the notes, **Program details**, **Estimated students**, **First students begin**, and each school's next step and follow-up date as they were. The sync does not read them.
+
+**Good to know**
+
+- Turning the setting on again later shows the talks as the site held them when the record went back, not what was changed in Airtable since. Do it only with the product owner. Each turn on asks the same three questions. See [[Let the site keep the record of institutions]].
+
 ### Before you uninstall the plugin
 
 *When:* the site will stop using the plugin for good. Deactivating it alone deletes no data; pressing **Delete** does.

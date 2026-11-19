@@ -20,7 +20,7 @@ if ( ! function_exists( 'wpcpm_test_institution_view_url' ) ) {
 			'institution'    => array( 'details', 'people', 'tutors' ),
 			'agreement'      => array( 'agreement' ),
 			'events'         => array( 'sevents' ),
-			'administrators' => array( 'for-administrators', 'admin-answers', 'admin-history' ),
+			'administrators' => array( 'talks', 'for-administrators', 'admin-answers', 'admin-history' ),
 		);
 	}
 

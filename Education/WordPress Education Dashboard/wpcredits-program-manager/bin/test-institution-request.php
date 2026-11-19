@@ -378,6 +378,8 @@ if ( ! class_exists( 'WPCPM_Institutions_Index' ) ) {
 			$GLOBALS['events'][]    = 'index';
 			return true;
 		}
+		/** Contract: whether the site keeps the record (release 2); this suite's approvals write in Airtable mode. */
+		public static function on_site() { return false; }
 	}
 }
 if ( ! class_exists( 'WPCPM_Roster_Index' ) ) {

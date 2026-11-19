@@ -52,12 +52,18 @@ final class WPCPM_Administrators_Dashboard {
 	 */
 	const VIEW_WATCH = 'watch';
 	/**
+	 * The Talks view (Institutions off Airtable, release 2, Task 16): every school's talks, at `?wpcpm_view=talks`, only
+	 * while the site keeps the record of institutions (`WPCPM_Institution_Talks_View::shown()`).
+	 */
+	const VIEW_TALKS = 'talks';
+	/**
 	 * The cards each view but the Overview holds, by their anchor's key: a link to a card goes to the view
 	 * that draws it (`card_url()`), and every other card is the Overview's.
 	 */
 	const VIEW_CARDS = array(
 		'watch'     => array( 'cohort-timeline', 'offers-low', 'duplicates', 'interests', 'tiers-ending', 'health', 'quiet-students' ),
 		'reference' => array( 'sponsors', 'programs', 'mentor-engagement' ),
+		'talks'     => array( 'add-lead' ),
 	);
 	/** What the menu marks as current on the Administrator guide (1.123.70), which is a page of its own, not a view. */
 	const VIEW_GUIDE = 'guide';
@@ -352,6 +358,8 @@ final class WPCPM_Administrators_Dashboard {
 				self::render_reference( $data, $viewer );
 			} elseif ( self::VIEW_WATCH === $view ) {
 				self::render_watch( $data );
+			} elseif ( self::VIEW_TALKS === $view ) {
+				self::render_talks( $viewer );
 			} else {
 				self::render_overview( $data, $wait );
 			}
@@ -380,7 +388,21 @@ final class WPCPM_Administrators_Dashboard {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- A view to read, which changes nothing.
 		$asked = isset( $_GET[ self::VIEW_ARG ] ) ? sanitize_key( wp_unslash( $_GET[ self::VIEW_ARG ] ) ) : '';
 
+		if ( self::VIEW_TALKS === $asked && self::talks_shown() ) {
+			return $asked;
+		}
+
 		return in_array( $asked, array( self::VIEW_REFERENCE, self::VIEW_WATCH ), true ) ? $asked : 'overview';
+	}
+
+	/**
+	 * Whether the Talks view is the page's (Task 16): only while the site keeps the record of institutions, so outside
+	 * site mode the menu has no Talks and `?wpcpm_view=talks` draws the Overview.
+	 *
+	 * @return bool
+	 */
+	private static function talks_shown() {
+		return class_exists( 'WPCPM_Institution_Talks_View' ) && WPCPM_Institution_Talks_View::shown();
 	}
 
 	/**
@@ -719,6 +741,21 @@ final class WPCPM_Administrators_Dashboard {
 			),
 		);
 
+		// Talks (Task 16), after Watch: the viewer's own follow-ups due beside it, in amber, and nothing when none is.
+		if ( self::talks_shown() ) {
+			$due     = WPCPM_Institution_Talks_View::due_count( get_current_user_id() );
+			$items[] = WPCPM_Dashboard_Frame::item(
+				__( 'Talks', 'wpcredits-program-manager' ),
+				self::view_url( self::VIEW_TALKS ),
+				'chat',
+				array(
+					'current' => self::VIEW_TALKS === $view,
+					'badge'   => $due > 0 ? number_format_i18n( $due ) : '',
+					'tone'    => 'amber',
+				)
+			);
+		}
+
 		if ( class_exists( 'WPCPM_Cohort_Timeline_View' ) ) {
 			$items[] = WPCPM_Dashboard_Frame::item( __( 'Cohort timeline', 'wpcredits-program-manager' ), self::view_url( 'cohort-timeline' ), 'timeline', array( 'current' => 'cohort-timeline' === $view ) );
 		}
@@ -902,6 +939,25 @@ final class WPCPM_Administrators_Dashboard {
 		);
 
 		echo '</div>';
+	}
+
+	/**
+	 * The Talks view (Task 16), drawn by its own class in this page's frame: the page's name for its head, and this page's
+	 * outcomes and card slot after the head, as the other views print them.
+	 *
+	 * @param WP_User $viewer The Administrator reading it.
+	 */
+	private static function render_talks( WP_User $viewer ) {
+		WPCPM_Institution_Talks_View::render(
+			$viewer,
+			array(
+				'page_name' => self::page_name(),
+				'messages'  => static function () {
+					self::render_messages();
+					echo WPCPM_Dashboard_Card::SLOT; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A fixed comment.
+				},
+			)
+		);
 	}
 
 	/**

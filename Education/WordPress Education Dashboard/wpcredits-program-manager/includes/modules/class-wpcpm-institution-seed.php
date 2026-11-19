@@ -97,8 +97,14 @@ class WPCPM_Institution_Seed {
 	 *                        - `nobody`: how many were set to Nobody on the site, and stay so.
 	 *                        - `tutors`: institution record ID => list of `array( 'name', 'email' )` to add.
 	 *                        - `unresolved`: each thing the seed could not place, as a sentence.
+	 *                        Refused with `wpcpm_seed_on_site`, before any read, once the site keeps the
+	 *                        record of institutions (release 2): the seed belongs to the time before the switch.
 	 */
 	public static function plan( WPCPM_Airtable $airtable ) {
+		if ( WPCPM_Institutions_Index::on_site() ) {
+			return new WP_Error( 'wpcpm_seed_on_site', __( 'The site keeps the record of institutions now, and the seed belongs to the time before the switch, so nothing was read or written.', 'wpcredits-program-manager' ) );
+		}
+
 		$institutions = $airtable->fetch_all(
 			(string) WPCPM_Settings::get_value( 'institutions_table', '' ),
 			array( 'fields' => array( self::FIELD_NAME, self::FIELD_COUNTRY, self::FIELD_ORIGINAL ) )
@@ -710,12 +716,13 @@ class WPCPM_Institution_Seed {
 	}
 
 	/**
-	 * Fill the plan's tutors.
+	 * Fill the plan's tutors. Public for the import of release 2 (`WPCPM_Institutions_Move::plan()`), which
+	 * lists a tutor the Tutors table gained since the seed by the same rules.
 	 *
-	 * @param array $plan       The plan, changed in place.
+	 * @param array $plan       The plan, changed in place: `tutors` and `unresolved`.
 	 * @param array $tutor_rows The Tutors rows.
 	 */
-	private static function plan_tutors( array &$plan, array $tutor_rows ) {
+	public static function plan_tutors( array &$plan, array $tutor_rows ) {
 		$no_address = 0;
 		$no_school  = 0;
 		$unknown    = array();
@@ -813,12 +820,13 @@ class WPCPM_Institution_Seed {
 	 * The Administrator a Team Members row stands for.
 	 *
 	 * Its Email resolves to an Administrator's account, else its Name, trimmed and compared case-insensitively
-	 * with each Administrator's display name, names exactly one; else nobody, and the reason.
+	 * with each Administrator's display name, names exactly one; else nobody, and the reason. Public for the
+	 * import of release 2, which resolves "Original program manager" and an Outreach row's Lead Owner by it.
 	 *
 	 * @param array $cells The row's fields.
 	 * @return array `array( user ID, reason )`: the ID is 0 for nobody, and the reason a `TEAM_*` constant ('' for a hit).
 	 */
-	private static function administrator_of( array $cells ) {
+	public static function administrator_of( array $cells ) {
 		$address = strtolower( trim( WPCPM_Airtable::flatten( isset( $cells[ self::TEAM_EMAIL ] ) ? $cells[ self::TEAM_EMAIL ] : '' ) ) );
 		$reason  = '';
 

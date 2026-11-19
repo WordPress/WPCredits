@@ -394,6 +394,153 @@ class WPCPM_CLI {
 	}
 
 	/**
+	 * Bring over, once and before the switch, what Airtable alone holds of the talks.
+	 *
+	 * Reads the talks columns, the application's answers, Notes, Comments and the person who first handled each
+	 * institution, the Outreach Tracker, the Tutors table and every record's comments, and writes them as the site's
+	 * dormant record: fields only where the site has none, notes, leads, tutors and the assignments still missing.
+	 * It asks for an institutions sync no older than 30 minutes and refuses once the site keeps the record. It sends
+	 * no email and writes nothing to Airtable, and a second run adds nothing twice. Run it with --dry-run first: the
+	 * summary names every owner and country it cannot place, for an Administrator to settle before the switch.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--dry-run]
+	 * : Print what would be written, and write nothing.
+	 *
+	 * [--skip-comments]
+	 * : Leave the record comments unread, for a token without the data.recordComments:read scope. A later run
+	 * without it brings them over.
+	 *
+	 * [--save=<file>]
+	 * : Write what was read to this file, as JSON, for the rehearsal on a copy of the site. It holds personal data:
+	 * keep it under ~/Projects/wpcredits-airtable-exit/, never in a repository or on the site. With - it goes to
+	 * standard output, the summary to standard error, and nothing is written to the site.
+	 *
+	 * [--from=<file>]
+	 * : Read a file --save wrote, instead of Airtable.
+	 *
+	 * [--yes]
+	 * : Write without asking first.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wpcredits institutions_import --dry-run
+	 *     wp wpcredits institutions_import --dry-run --save="$HOME/Projects/wpcredits-airtable-exit/read.json"
+	 *     wp wpcredits institutions_import --from="$HOME/Projects/wpcredits-airtable-exit/read.json"
+	 *     wp wpcredits institutions_import --yes
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Associative arguments.
+	 */
+	public function institutions_import( $args, $assoc_args ) {
+		unset( $args );
+
+		$save   = isset( $assoc_args['save'] ) ? (string) $assoc_args['save'] : '';
+		$piped  = '-' === $save;
+		$from   = isset( $assoc_args['from'] ) ? (string) $assoc_args['from'] : '';
+		$say    = function ( $line ) use ( $piped ) {
+			if ( $piped ) {
+				$this->to_stderr( $line );
+			} else {
+				WP_CLI::log( $line );
+			}
+		};
+		$ready  = WPCPM_Institutions_Move::ready( time() );
+		$client = null;
+
+		if ( '' === $from ) {
+			if ( is_wp_error( $ready ) ) {
+				WP_CLI::error( $ready->get_error_message() );
+			}
+
+			$client = $this->seed_client();
+		}
+
+		$read = '' !== $from
+			? WPCPM_Institutions_Move::read_file( $from )
+			: WPCPM_Institutions_Move::read( $client, array( 'comments' => empty( $assoc_args['skip-comments'] ) ) );
+
+		if ( is_wp_error( $read ) ) {
+			WP_CLI::error( $read->get_error_message() );
+		}
+
+		if ( $piped ) {
+			$this->to_stdout( WPCPM_Institutions_Move::encode( $read ) );
+		} elseif ( '' !== $save ) {
+			$saved = WPCPM_Institutions_Move::save( $read, $save );
+
+			if ( is_wp_error( $saved ) ) {
+				WP_CLI::error( $saved->get_error_message() );
+			}
+
+			/* translators: %s: a file's path. */
+			$say( sprintf( __( 'The read is saved in %s, for your account alone.', 'wpcredits-program-manager' ), $save ) );
+		}
+
+		$plan = WPCPM_Institutions_Move::plan( $read );
+
+		if ( is_wp_error( $plan ) ) {
+			WP_CLI::error( $plan->get_error_message() );
+		}
+
+		foreach ( WPCPM_Institutions_Move::summary( $plan ) as $line ) {
+			$say( $line );
+		}
+
+		if ( ! empty( $assoc_args['dry-run'] ) || $piped ) {
+			if ( $piped ) {
+				$this->to_stderr( __( 'Dry run: nothing was written.', 'wpcredits-program-manager' ) );
+			} else {
+				WP_CLI::success( __( 'Dry run: nothing was written.', 'wpcredits-program-manager' ) );
+			}
+
+			return;
+		}
+
+		WP_CLI::confirm( __( 'Write this to the site?', 'wpcredits-program-manager' ), $assoc_args );
+
+		$done = WPCPM_Institutions_Move::apply( $plan );
+
+		if ( is_wp_error( $done ) ) {
+			WP_CLI::error( $done->get_error_message() );
+		}
+
+		$written = WPCPM_Institutions_Move::written( $done );
+
+		if ( array() !== $done['failed'] ) {
+			WP_CLI::log( $written );
+			WP_CLI::error(
+				sprintf(
+					/* translators: %s: one sentence for each thing that was not written, run together. */
+					__( 'Not everything was written. %s', 'wpcredits-program-manager' ),
+					implode( ' ', $done['failed'] )
+				)
+			);
+		}
+
+		WP_CLI::success( $written );
+	}
+
+	/**
+	 * Write to standard output: the saved read, for `--save=-`. Not a command; a suite stands it in.
+	 *
+	 * @param string $text The text.
+	 */
+	protected function to_stdout( $text ) {
+		fwrite( STDOUT, $text . "\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite -- The command's own output stream.
+	}
+
+	/**
+	 * Write a line to standard error, beside a read piped to standard output. Not a command; a suite stands it in.
+	 *
+	 * @param string $line The line.
+	 */
+	protected function to_stderr( $line ) {
+		fwrite( STDERR, $line . "\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite -- The command's own error stream.
+	}
+
+	/**
 	 * The Airtable client the seed reads through, or the command's error when Airtable is not connected.
 	 *
 	 * Not a command: it is not public, and a suite stands it in.
@@ -863,6 +1010,15 @@ class WPCPM_CLI {
 			return;
 		}
 
+		// The switch of the institutions' record goes through the module's one way of changing it, as the settings
+		// screen's save does (`WPCPM_Institutions_Switch::change()`): off to on asks the guard, and a refusal is the
+		// guard's own sentence; a change empties the index changes owed first; back to Airtable with copies owed warns.
+		if ( 'institutions_on_site' === $key ) {
+			$this->set_record_switch( (bool) $value, $was, $dry );
+
+			return;
+		}
+
 		$saved   = WPCPM_Settings::patch( $changes, $dry );
 		$refused = WPCPM_Settings::last_refused();
 		$after   = isset( $saved[ $key ] ) ? $saved[ $key ] : $before;
@@ -891,6 +1047,50 @@ class WPCPM_CLI {
 		}
 
 		WP_CLI::success( sprintf( 'Changed %1$s from %2$s to %3$s.', $key, $was, $this->setting_shown( $key, $after ) ) );
+	}
+
+	/**
+	 * `setting set institutions_on_site`: the change made through `WPCPM_Institutions_Switch::change()`, the value
+	 * already known to differ from the one stored. A refusal is the guard's sentence as the error, nothing stored; a dry
+	 * run asks the guard and says what would change; the warning at going back follows the success.
+	 *
+	 * @param bool   $to  The value typed.
+	 * @param string $was The stored value, as `setting_shown()` says it.
+	 * @param bool   $dry Whether this is a dry run.
+	 */
+	private function set_record_switch( $to, $was, $dry ) {
+		$after = null;
+		$out   = WPCPM_Institutions_Switch::change(
+			$to,
+			static function ( $allowed ) use ( $to, &$after ) {
+				if ( ! $allowed ) {
+					return ! empty( WPCPM_Settings::get_value( 'institutions_on_site', false ) );
+				}
+
+				$after = WPCPM_Settings::patch( array( 'institutions_on_site' => $to ) );
+
+				return ! empty( $after['institutions_on_site'] );
+			},
+			$dry
+		);
+
+		if ( $out['refusal'] instanceof WP_Error ) {
+			WP_CLI::error( $out['refusal']->get_error_message() );
+		}
+
+		$shown = $this->setting_shown( 'institutions_on_site', $to );
+
+		if ( $dry ) {
+			WP_CLI::log( sprintf( 'Dry run: %1$s would change from %2$s to %3$s. Nothing was written.', 'institutions_on_site', $was, $shown ) );
+
+			return;
+		}
+
+		WP_CLI::success( sprintf( 'Changed %1$s from %2$s to %3$s.', 'institutions_on_site', $was, $this->setting_shown( 'institutions_on_site', (bool) $out['stored'] ) ) );
+
+		if ( '' !== $out['warning'] ) {
+			WP_CLI::warning( $out['warning'] );
+		}
 	}
 
 	/**

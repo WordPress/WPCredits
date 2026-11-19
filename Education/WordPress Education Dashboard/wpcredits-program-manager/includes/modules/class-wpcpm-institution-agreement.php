@@ -172,6 +172,35 @@ class WPCPM_Institution_Agreement {
 	/** The `Agreement Status` values under which the base considers the agreement in force. */
 	const AIRTABLE_SETTLED = array( 'Accepted', 'On file' );
 
+	/**
+	 * The key of the institution's record on the site (`WPCPM_Institution_Record`) that keeps the Drive
+	 * link of its agreement (Institutions off Airtable, release 2): the `Agreement Document` column's value,
+	 * kept where the site's own record is, since the index holds only whether there is one. Read through
+	 * `record_document()`, and by the institutions sync for every school at once in site mode.
+	 */
+	const RECORD_DOCUMENT = 'agreement_document';
+
+	/**
+	 * The index changes the agreement path owes, by record ID (Institutions off Airtable, release 2): what a
+	 * transition could not write to its index row because the index's lock stayed held (`keep_index()`). Each
+	 * is `block` (the agreement cells, in `rebuild()`'s words), `confirm` (the day of a move to Confirmed, or
+	 * ''), and `ground` and `actor` (who made that move and on what ground, for its `talks_stage` row). Paid by
+	 * the next agreement write for the school and by the sync before it reads the rows (`pay_index_debts()`).
+	 * Every change to it is read and written under `INDEX_OWED_LOCK`, the cached copies dropped first
+	 * (`with_debts()`), and every read of it is the table's (`index_debts()`). Shares the option prefix, so
+	 * uninstall's `delete_all()` removes it and its lock, and its suffix is no record ID, so `stored_records()`
+	 * never lists it.
+	 */
+	const OPT_INDEX_OWED = 'wpcpm_agreement_index_owed';
+
+	/** The lock every change to `OPT_INDEX_OWED` is made under (`WPCPM_Lock`), and how long one holds it. */
+	const INDEX_OWED_LOCK = 'wpcpm_agreement_index_owed_lock';
+	const INDEX_OWED_TTL  = 5;
+
+	/** How many times, and how far apart in microseconds, that lock is asked for before the change is logged as lost. */
+	const INDEX_OWED_TRIES = 60;
+	const INDEX_OWED_PAUSE = 100000;
+
 	/** The `Agreement Status` value a grid-recorded legacy agreement carries. */
 	const AIRTABLE_ON_FILE = 'On file';
 
@@ -430,6 +459,35 @@ class WPCPM_Institution_Agreement {
 	}
 
 	/**
+	 * Take the school's agreement lock (`lock_name()`), the one acceptance, recording on file and every other
+	 * agreement transition decide the school's stage under, for a caller outside this class that changes the stage:
+	 * the Talks card's save (Institutions off Airtable, release 2), so a stage cannot move between another path's
+	 * check and its write. Non-blocking, as every taker of it is: a held lock answers false at once, and a lock
+	 * older than `LOCK_TIMEOUT` is taken over. The caller lets it go with `release_lock()` on every path.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @return bool Whether it was taken; false for a malformed ID too.
+	 */
+	public static function take_lock( $record_id ) {
+		$record_id = trim( (string) $record_id );
+
+		return WPCPM_Mentors_Sync::is_record_id( $record_id ) && self::lock( $record_id );
+	}
+
+	/**
+	 * Let go of the lock `take_lock()` took.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 */
+	public static function release_lock( $record_id ) {
+		$record_id = trim( (string) $record_id );
+
+		if ( WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+			self::unlock( $record_id );
+		}
+	}
+
+	/**
 	 * One institution's stored row, or null when there is nothing the predicate may trust.
 	 *
 	 * Null covers an absent row, a row that is not an array, one at another version, one
@@ -449,6 +507,521 @@ class WPCPM_Institution_Agreement {
 		}
 
 		return self::validate( get_option( self::option_name( $record_id ) ) );
+	}
+
+	/**
+	 * The Drive link the institution's record on the site keeps (`RECORD_DOCUMENT`), trimmed, or ''.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @return string
+	 */
+	public static function record_document( $record_id ) {
+		$kept = WPCPM_Institution_Record::get( $record_id );
+
+		return isset( $kept[ self::RECORD_DOCUMENT ] ) && is_scalar( $kept[ self::RECORD_DOCUMENT ] ) ? trim( (string) $kept[ self::RECORD_DOCUMENT ] ) : '';
+	}
+
+	/**
+	 * Keep the school's index row in step with an agreement write, once the site keeps the record
+	 * (Institutions off Airtable, release 2).
+	 *
+	 * In site mode the index row is the record: the sync rebuilds every agreement option from the row's
+	 * agreement block (`WPCPM_Institutions_Index::rebuild_block()`), so a transition that told only Airtable
+	 * would be undone by the next run, an accepted school unsettled. Every path that writes the agreement
+	 * cells calls this after its Airtable write: `$changed` is what it wrote, in `rebuild()`'s words
+	 * (`status`, `kind`, `accepted_on`, `signed_on`, `accepted_by`, `submitted_on`, `template_version`, and
+	 * `document`, which the row keeps as whether there is one). `$confirm` is the day, when the write moved
+	 * the stage to Confirmed: the row's stage moves too, forward only, and its `confirmed_on` is stamped when
+	 * it is empty, both decided on the row as the table holds it under the index's lock
+	 * (`WPCPM_Institutions_Index::patch_by()`). The `talks_stage` row is written when the row's stage really
+	 * moves, on `$ground` and for the account acting now (or, for a change owed, the one that made it).
+	 *
+	 * **A patch the lock refuses is a change owed**, kept in `OPT_INDEX_OWED` (merged, under its own lock, into
+	 * what the table holds then) and paid by the next call for the school and by the sync before it reads the
+	 * rows (`pay_index_debts()`); until then the sync leaves the school's option as this write left it
+	 * (`owes_index()`). A paid change that moves the stage marks the stage and its date owed to the Airtable copy
+	 * (`WPCPM_Institution_Copy::mark()`, no request while a lock is held), since an hourly retry meanwhile sent the
+	 * row's old stage. A change owed that changed while it was paid keeps only what differs from what was paid. A school
+	 * the index does not hold owes nothing, unless the index reads as empty, which is a list lost. Outside site
+	 * mode nothing is written: the next sync brings the change from the base.
+	 *
+	 * **The list's lock held past its wait** (`INDEX_OWED_TRIES` asks, `INDEX_OWED_PAUSE` apart, about six
+	 * seconds): the change cannot be kept owed. It is said in the site's error log by record ID (`log()`), and
+	 * the write that made it stands; the school's option is the one that write rebuilt, until a sync rebuilds it
+	 * from the row.
+	 *
+	 * @param string $record  Institutions record ID.
+	 * @param array  $changed The cells written, in `rebuild()`'s words.
+	 * @param string $confirm `Y-m-d` when the stage moved to Confirmed, else ''.
+	 * @param string $ground  The ground the act was allowed on, for the `talks_stage` row of a move.
+	 * @return bool Whether the row was changed (true outside site mode, where there is nothing to change).
+	 */
+	public static function keep_index( $record, array $changed, $confirm = '', $ground = '' ) {
+		$record = trim( (string) $record );
+
+		if ( ! WPCPM_Institutions_Index::on_site() ) {
+			return true;
+		}
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+			return false;
+		}
+
+		$actor = get_current_user_id();
+		$owed  = self::index_debts();
+		$given = isset( $owed[ $record ] ) && is_array( $owed[ $record ] ) ? $owed[ $record ] : array();
+		$due   = self::merged_due( $given, $changed, $confirm, $ground, $actor );
+		$from  = null;
+
+		$patched = WPCPM_Institutions_Index::patch_by(
+			$record,
+			static function ( array $row ) use ( $due, &$from ) {
+				$fields = self::index_fields( $row, $due );
+
+				if ( isset( $fields['stage'] ) ) {
+					$from = trim( (string) $row['stage'] );
+				}
+
+				return $fields;
+			}
+		);
+
+		WPCPM_Institutions_Index::forget_cached();
+
+		if ( $patched ) {
+			// A debt that confirms is marked owed to the copy first, outside the list's lock and never sent here: the
+			// caller may hold the school's agreement lock or the Talks card's, and no request leaves under those. Its own
+			// later send or the hourly retry carries the keys. A mark that could not be written (logged by the copy)
+			// leaves the debt owed, so the next payment writes the same values again and marks again.
+			$marked = empty( $given['confirm'] ) || WPCPM_Institution_Copy::mark( $record, array( 'stage', 'confirmed_on' ) );
+
+			// The change read is paid; one another request made owed meanwhile stays, to be paid in its turn. Left owed
+			// whole while its mark is not written.
+			$taken_off = ! $marked || empty( $given ) ? true : self::with_debts(
+				static function ( array $stored ) use ( $record, $given ) {
+					if ( ! isset( $stored[ $record ] ) ) {
+						return $stored;
+					}
+
+					if ( $stored[ $record ] === $given || ! is_array( $stored[ $record ] ) ) {
+						unset( $stored[ $record ] );
+
+						return $stored;
+					}
+
+					// Changed while it was paid: what is left owed is only what differs from the debt just paid, so a
+					// later payment never writes the paid debt's old values over a newer change.
+					$left = self::unpaid( $stored[ $record ], $given );
+
+					if ( null === $left ) {
+						unset( $stored[ $record ] );
+					} else {
+						$stored[ $record ] = $left;
+					}
+
+					return $stored;
+				}
+			);
+
+			if ( ! $taken_off ) {
+				self::log( $record, 'was written to its index row, and could not be taken off the list of changes owed' );
+			}
+
+			if ( null !== $from ) {
+				self::record_stage_move( $record, $from, (string) $due['ground'], (int) $due['actor'] );
+			}
+
+			return true;
+		}
+
+		if ( ! WPCPM_Institutions_Index::has( $record ) ) {
+			// No row to keep in step, so nothing is owed; but an index that reads as empty is a list lost, and keeps it.
+			if ( ! empty( $given ) && array() !== WPCPM_Institutions_Index::rows() ) {
+				self::with_debts(
+					static function ( array $stored ) use ( $record ) {
+						unset( $stored[ $record ] );
+
+						return $stored;
+					}
+				);
+			}
+
+			return false;
+		}
+
+		// Read again under the list's lock, so a change another request made owed meanwhile is merged and not lost.
+		$kept = self::with_debts(
+			static function ( array $stored ) use ( $record, $changed, $confirm, $ground, $actor ) {
+				$entry             = isset( $stored[ $record ] ) && is_array( $stored[ $record ] ) ? $stored[ $record ] : array();
+				$stored[ $record ] = self::merged_due( $entry, $changed, $confirm, $ground, $actor );
+
+				return $stored;
+			}
+		);
+
+		if ( ! $kept ) {
+			self::log( $record, 'could not be written to its index row nor kept as owed: the row lacks it until a write or a sync of the school' );
+		}
+
+		return false;
+	}
+
+	/**
+	 * Write every index change the agreement path owes (`keep_index()`). The sync's records phase calls it
+	 * in site mode before it reads the rows, so no option is rebuilt from a row that lacks one. An index that
+	 * reads as empty pays and drops nothing: it is the state the sync's own empty-index guard stops on.
+	 *
+	 * Each school is paid under its agreement lock (`take_lock()`), as every agreement path calls `keep_index()`:
+	 * the change owed is read only once the lock is held, so a payment can never write a change it read before a
+	 * newer one over that newer one (the outside review of release 2, O2). One try: a lock held means its holder is
+	 * writing the school's agreement and pays the change itself, so the school is passed over this time.
+	 *
+	 * @return int How many schools' rows were written.
+	 */
+	public static function pay_index_debts() {
+		if ( ! WPCPM_Institutions_Index::on_site() ) {
+			return 0;
+		}
+
+		WPCPM_Institutions_Index::forget_cached();
+
+		if ( array() === WPCPM_Institutions_Index::rows() ) {
+			return 0;
+		}
+
+		$paid = 0;
+
+		foreach ( array_keys( self::index_debts() ) as $record ) {
+			$record = (string) $record;
+
+			if ( ! self::take_lock( $record ) ) {
+				continue;
+			}
+
+			try {
+				if ( self::keep_index( $record, array() ) ) {
+					++$paid;
+				}
+			} finally {
+				self::release_lock( $record );
+			}
+		}
+
+		return $paid;
+	}
+
+	/**
+	 * Whether the school's index row still lacks a change the agreement path made (`keep_index()`), read from
+	 * the table and never from this request's copy. Asked again after a payment, so it reads state that changes.
+	 *
+	 * @phpstan-impure
+	 *
+	 * @param string $record Institutions record ID.
+	 * @return bool
+	 */
+	public static function owes_index( $record ) {
+		return array_key_exists( trim( (string) $record ), self::index_debts() );
+	}
+
+	/**
+	 * The agreement status a school still owes its index row (`keep_index()`), read fresh, or '' when it owes none or
+	 * its change holds no status: what a reader that must write nothing (a page drawn) counts as the school's agreement
+	 * until the change is paid (Institutions off Airtable, release 2, Task 15).
+	 *
+	 * @param string $record Institutions record ID.
+	 * @return string
+	 */
+	public static function owed_status( $record ) {
+		$owed  = self::index_debts();
+		$entry = isset( $owed[ trim( (string) $record ) ] ) && is_array( $owed[ trim( (string) $record ) ] ) ? $owed[ trim( (string) $record ) ] : array();
+
+		return isset( $entry['block']['status'] ) && is_scalar( $entry['block']['status'] ) ? (string) $entry['block']['status'] : '';
+	}
+
+	/**
+	 * Empty the list of index changes owed (`OPT_INDEX_OWED`), under its own lock: what the settings screen's save
+	 * does before it stores a change of the setting `institutions_on_site`, in either direction (the whole-branch
+	 * wave of release 2, W2). Off, nothing adds to the list, and the sync writes every row from Airtable; a change
+	 * owed from an earlier time in site mode, paid after the setting is on again, would write its old values over
+	 * those rows.
+	 *
+	 * The lock held past its wait (`INDEX_OWED_TRIES` asks) does not keep the list: it is deleted all the same and
+	 * the site's error log says so, since a list kept across the switch is the harm.
+	 *
+	 * @return bool Whether the list was emptied under its lock.
+	 */
+	public static function forget_index_debts() {
+		$locked = self::with_debts(
+			static function () {
+				return array();
+			}
+		);
+
+		if ( ! $locked ) {
+			delete_option( self::OPT_INDEX_OWED );
+			self::forget_debts();
+
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- A list emptied without its lock has no other place to be said.
+			error_log( 'WPCredits: the list of index changes owed was emptied without its lock at a change of the institutions\' record: another request held the lock.' );
+		}
+
+		return $locked;
+	}
+
+	/**
+	 * The changes owed, as the table holds them now (every cached copy dropped first), or an empty list.
+	 *
+	 * @return array
+	 */
+	private static function index_debts() {
+		self::forget_debts();
+
+		$owed = get_option( self::OPT_INDEX_OWED, array() );
+
+		return is_array( $owed ) ? $owed : array();
+	}
+
+	/**
+	 * One school's change owed, with a later write's merged into it: the cells by key, the later one winning,
+	 * and the first move to Confirmed owed keeping its day, ground and actor (a later write is no second move).
+	 *
+	 * @param array  $entry   What is owed already, or an empty array.
+	 * @param array  $changed The cells a write made.
+	 * @param string $confirm Its day of a move to Confirmed, or ''.
+	 * @param string $ground  Its ground.
+	 * @param int    $actor   Its account.
+	 * @return array
+	 */
+	private static function merged_due( array $entry, array $changed, $confirm, $ground, $actor ) {
+		$first = ! empty( $entry['confirm'] );
+
+		return array(
+			'block'   => array_merge( isset( $entry['block'] ) ? (array) $entry['block'] : array(), $changed ),
+			'confirm' => $first ? (string) $entry['confirm'] : (string) $confirm,
+			'ground'  => $first ? (string) ( isset( $entry['ground'] ) ? $entry['ground'] : '' ) : ( '' !== (string) $confirm ? (string) $ground : '' ),
+			'actor'   => $first ? (int) ( isset( $entry['actor'] ) ? $entry['actor'] : 0 ) : ( '' !== (string) $confirm ? (int) $actor : 0 ),
+		);
+	}
+
+	/**
+	 * What of a school's change owed is left once `$paid` was written: the cells whose value differs from the
+	 * paid one (or that it did not hold), and the move to Confirmed with its ground and actor unless it is the
+	 * paid one. Null when nothing is left.
+	 *
+	 * @param array $stored The change owed as the table holds it now.
+	 * @param array $paid   The change owed that was just written.
+	 * @return array|null
+	 */
+	private static function unpaid( array $stored, array $paid ) {
+		$block      = isset( $stored['block'] ) ? (array) $stored['block'] : array();
+		$paid_block = isset( $paid['block'] ) ? (array) $paid['block'] : array();
+		$left       = array();
+
+		foreach ( $block as $key => $value ) {
+			if ( ! array_key_exists( $key, $paid_block ) || $paid_block[ $key ] !== $value ) {
+				$left[ $key ] = $value;
+			}
+		}
+
+		$confirm = isset( $stored['confirm'] ) ? (string) $stored['confirm'] : '';
+		$settled = isset( $paid['confirm'] ) ? (string) $paid['confirm'] : '';
+		$same    = $settled === $confirm;
+
+		if ( empty( $left ) && ( '' === $confirm || $same ) ) {
+			return null;
+		}
+
+		return array(
+			'block'   => $left,
+			'confirm' => $same ? '' : $confirm,
+			'ground'  => $same ? '' : (string) ( isset( $stored['ground'] ) ? $stored['ground'] : '' ),
+			'actor'   => $same ? 0 : (int) ( isset( $stored['actor'] ) ? $stored['actor'] : 0 ),
+		);
+	}
+
+	/**
+	 * Read the list of changes owed, change it and write it back, under `INDEX_OWED_LOCK`, as
+	 * `WPCPM_Institution_Copy` changes its list of pending copies.
+	 *
+	 * The lock is asked for past its lifetime (`INDEX_OWED_TRIES` asks, `INDEX_OWED_PAUSE` apart), so a request
+	 * that died holding it does not keep a change from being owed. Once it is held, every copy of the option
+	 * this request may have cached is dropped (`forget_debts()`), so the read is the table's.
+	 *
+	 * @param callable $change Takes the stored list and answers the list to store.
+	 * @return bool Whether the lock was taken.
+	 */
+	private static function with_debts( callable $change ) {
+		$token = '';
+
+		for ( $tries = 0; $tries < self::INDEX_OWED_TRIES; ++$tries ) {
+			$token = WPCPM_Lock::take( self::INDEX_OWED_LOCK, self::INDEX_OWED_TTL );
+
+			if ( '' !== $token ) {
+				break;
+			}
+
+			usleep( self::INDEX_OWED_PAUSE );
+		}
+
+		if ( '' === $token ) {
+			return false;
+		}
+
+		try {
+			self::forget_debts();
+
+			$stored = get_option( self::OPT_INDEX_OWED, array() );
+			$stored = is_array( $stored ) ? $stored : array();
+			$owed   = $change( $stored );
+
+			if ( $owed !== $stored ) {
+				if ( empty( $owed ) ) {
+					delete_option( self::OPT_INDEX_OWED );
+				} else {
+					update_option( self::OPT_INDEX_OWED, $owed, false );
+				}
+			}
+		} finally {
+			WPCPM_Lock::release( self::INDEX_OWED_LOCK, $token );
+		}
+
+		return true;
+	}
+
+	/**
+	 * Drop every copy of the list of changes owed this request may hold: its own key, and its entry in
+	 * WordPress's lists of options known absent (`notoptions`) and of autoloaded ones (`alloptions`).
+	 */
+	private static function forget_debts() {
+		wp_cache_delete( self::OPT_INDEX_OWED, 'options' );
+
+		foreach ( array( 'notoptions', 'alloptions' ) as $list ) {
+			$cached = wp_cache_get( $list, 'options' );
+
+			if ( is_array( $cached ) && array_key_exists( self::OPT_INDEX_OWED, $cached ) ) {
+				unset( $cached[ self::OPT_INDEX_OWED ] );
+				wp_cache_set( $list, $cached, 'options' );
+			}
+		}
+	}
+
+	/**
+	 * Say in the site's error log what of a school's index change could not be kept, so a lost change is never
+	 * silent. The school is named by its record ID alone.
+	 *
+	 * @param string $record Institutions record ID.
+	 * @param string $what   What happened, after "The index change of <ID> ".
+	 */
+	private static function log( $record, $what ) {
+		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- An index change that could not be kept owed has no other place to be said.
+		error_log( sprintf( 'WPCredits: the index change of %1$s %2$s.', (string) $record, (string) $what ) );
+	}
+
+	/**
+	 * The index row's keys an agreement write changes, worked out on the row as the table holds it.
+	 *
+	 * @param array $row The row.
+	 * @param array $due `block` and `confirm`, as `keep_index()` builds them.
+	 * @return array
+	 */
+	private static function index_fields( array $row, array $due ) {
+		$block = isset( $row['agreement'] ) && is_array( $row['agreement'] ) ? $row['agreement'] : array();
+
+		foreach ( (array) $due['block'] as $key => $value ) {
+			if ( 'document' === $key ) {
+				$block['has_document'] = '' !== trim( (string) $value );
+			} elseif ( array_key_exists( $key, $block ) && 'has_document' !== $key ) {
+				$block[ $key ] = (string) $value;
+			}
+		}
+
+		$fields = array( 'agreement' => $block );
+
+		// Forward only, as the write's own PATCH moved it, and asked of the row again: a stage moved since,
+		// by another path, is not walked back by a change owed.
+		if ( '' !== (string) $due['confirm'] && self::precedes_confirmed( isset( $row['stage'] ) ? $row['stage'] : '' ) ) {
+			$fields['stage'] = self::STAGE_CONFIRMED;
+
+			if ( '' === trim( (string) ( isset( $row['confirmed_on'] ) ? $row['confirmed_on'] : '' ) ) ) {
+				$fields['confirmed_on'] = (string) $due['confirm'];
+			}
+		}
+
+		return $fields;
+	}
+
+	/**
+	 * The cells with `Current Stage` set to Confirmed when the stage before it precedes Confirmed: the one stage
+	 * write of the plugin, for an acceptance and, in site mode, a recording on file (release 2).
+	 *
+	 * Forward only, and never off the end. An empty stage counts as preceding, because a record with no stage at
+	 * all is one nothing has moved yet. A test institution keeps its stage, so the public pages that list
+	 * Confirmed institutions never show it.
+	 *
+	 * @param array  $cells  The PATCH's cells.
+	 * @param string $stage  The stage the record is at.
+	 * @param string $record Institutions record ID.
+	 * @return array
+	 */
+	private static function with_stage_cell( array $cells, $stage, $record ) {
+		$fields = WPCPM_Institutions_Sync::fields();
+
+		if ( self::precedes_confirmed( $stage ) && ! WPCPM_Test_Institutions::is_test( $record ) ) {
+			$cells[ $fields['stage'] ] = self::STAGE_CONFIRMED;
+		}
+
+		return $cells;
+	}
+
+	/**
+	 * The audit row of a stage move an acceptance or a recording on file made on the index row, in site mode.
+	 *
+	 * @param string $record Institutions record ID.
+	 * @param string $from   The stage the row was at.
+	 * @param string $ground The ground the act was allowed on.
+	 * @param int    $actor  The account that made the move.
+	 */
+	private static function record_stage_move( $record, $from, $ground, $actor ) {
+		$from = trim( (string) $from );
+
+		WPCPM_Institution_Audit::record(
+			array(
+				'kind'        => WPCPM_Institution_Talks::LOG_STAGE,
+				'institution' => $record,
+				'subject'     => $record,
+				'actor'       => (int) $actor,
+				'ground'      => (string) $ground,
+				'evidence'    => WPCPM_Institution_Audit::EVIDENCE_INDEX,
+				'message'     => '' === $from
+					? sprintf(
+						/* translators: %s: the stage the talks moved to. */
+						__( 'The stage of the talks was set to %s.', 'wpcredits-program-manager' ),
+						self::STAGE_CONFIRMED
+					)
+					: sprintf(
+						/* translators: 1: the stage the talks were at, 2: the stage they moved to. */
+						__( 'The stage of the talks moved from %1$s to %2$s.', 'wpcredits-program-manager' ),
+						$from,
+						self::STAGE_CONFIRMED
+					),
+				'data'        => array(
+					'from' => $from,
+					'to'   => self::STAGE_CONFIRMED,
+				),
+			)
+		);
+	}
+
+	/**
+	 * Whether an agreement status as Airtable's cells hold it (and, in site mode, the index row's block) is one that
+	 * settles an agreement (`AIRTABLE_SETTLED`), trimmed: the question the site-mode sync asks of a row behind its
+	 * school's option (the outside review of release 2, round 2, R1), so the list is kept here alone.
+	 *
+	 * @param string $status An agreement status.
+	 * @return bool
+	 */
+	public static function status_settles( $status ) {
+		return is_scalar( $status ) && in_array( trim( (string) $status ), self::AIRTABLE_SETTLED, true );
 	}
 
 	/**
@@ -622,6 +1195,12 @@ class WPCPM_Institution_Agreement {
 		);
 
 		update_option( self::option_name( $record_id ), $option, false );
+
+		// Once the site keeps the record (release 2), the link the option got is kept in the institution's record
+		// too, which is where the sync reads it from: the index row says only whether there is one.
+		if ( '' !== $drive_url && WPCPM_Institutions_Index::on_site() && self::record_document( $record_id ) !== $drive_url ) {
+			WPCPM_Institution_Record::set( $record_id, array( self::RECORD_DOCUMENT => $drive_url ) );
+		}
 
 		self::unlock( $record_id );
 
@@ -880,9 +1459,10 @@ class WPCPM_Institution_Agreement {
 		// What an earlier refusal kept is dropped, as every handler that keeps does first (`WPCPM_Flash::forget()`).
 		WPCPM_Flash::forget( self::KEPT_ON_FILE . $record );
 
+		// In site mode in words of its own (release 2): the index is the record, and no sync brings the school.
 		if ( ! WPCPM_Institutions_Index::has( $record ) ) {
 			self::keep_on_file( $record );
-			self::bounce_on_file( 'agreement-unknown' );
+			self::bounce_on_file( WPCPM_Institutions_Index::on_site() ? 'agreement-on-file-unlisted' : 'agreement-unknown' );
 		}
 
 		// A link is a code, not prose: the one-line cleaner removes every `%XX`, which would rewrite a
@@ -969,6 +1549,36 @@ class WPCPM_Institution_Agreement {
 			return 'agreement-standing';
 		}
 
+		// In site mode a school the index does not hold is not one the program has, and one at a closed stage is
+		// one the program has said no to, or not now: nothing is recorded for either, as nothing is accepted
+		// (release 2). Recorded at a closed stage, the agreement would be taken away by the next sync's revoke
+		// phase, and nothing could make the school Confirmed after it.
+		$on_site = WPCPM_Institutions_Index::on_site();
+		$row     = null;
+		$stage   = '';
+
+		if ( $on_site ) {
+			WPCPM_Institutions_Index::forget_cached();
+
+			$row     = WPCPM_Institutions_Index::row( $record );
+			$stage   = is_array( $row ) ? trim( (string) $row['stage'] ) : '';
+			$closed  = array(
+				'Revisit Later'      => 'agreement-on-file-revisit',
+				'Not Moving Forward' => 'agreement-on-file-not-moving',
+				'SPAM'               => 'agreement-on-file-spam',
+			);
+			$refusal = null === $row ? 'agreement-on-file-unlisted' : '';
+
+			if ( '' === $refusal && in_array( $stage, self::TERMINAL_STAGES, true ) ) {
+				$refusal = $closed[ $stage ];
+			}
+
+			if ( '' !== $refusal ) {
+				self::unlock( $record );
+				return $refusal;
+			}
+		}
+
 		$today    = wp_date( 'Y-m-d' );
 		$actor    = wp_get_current_user();
 		$settings = WPCPM_Settings::get();
@@ -987,6 +1597,21 @@ class WPCPM_Institution_Agreement {
 
 		if ( '' !== $signed ) {
 			$cells[ $fields['agr_signed_on'] ] = $signed;
+		}
+
+		// Once the site keeps the record (release 2), recording an agreement on file is what confirms a school, as
+		// an acceptance is: nobody moves the stage in the base by hand any more. The stage is the index row's, read
+		// under this lock from the table, and it moves forward only, as an acceptance moves it; a test institution
+		// keeps its stage. The closed stages were refused above, before anything was written.
+		$moves = false;
+
+		if ( $on_site ) {
+			$cells = self::with_stage_cell( $cells, $stage, $record );
+			$moves = isset( $cells[ $fields['stage'] ] );
+
+			if ( $moves && '' === trim( (string) $row['confirmed_on'] ) ) {
+				$cells[ $fields['confirmed_on'] ] = $today;
+			}
 		}
 
 		$airtable = new WPCPM_Airtable( $settings );
@@ -1078,6 +1703,26 @@ class WPCPM_Institution_Agreement {
 				),
 			)
 		);
+
+		if ( $on_site ) {
+			self::keep_index(
+				$record,
+				array(
+					'status'      => self::AIRTABLE_ON_FILE,
+					'kind'        => self::AIRTABLE_KIND_LEGACY,
+					'accepted_on' => $today,
+					'signed_on'   => $signed,
+					'accepted_by' => $cells[ $fields['agr_accepted_by'] ],
+					'document'    => $drive,
+				),
+				$moves ? $today : '',
+				isset( $decision['ground'] ) ? (string) $decision['ground'] : ''
+			);
+
+			// The link goes in the record here and not only through the rebuild below, which skips when a sync
+			// holds the lock: the record is where the next sync reads it from.
+			WPCPM_Institution_Record::set( $record, array( self::RECORD_DOCUMENT => $drive ) );
+		}
 
 		// Released before the rebuild, which takes the same lock for its own critical
 		// section: a handler still holding it would make every successful recording report
@@ -1337,6 +1982,19 @@ class WPCPM_Institution_Agreement {
 			update_post_meta( $post_id, self::META_AIRTABLE_PENDING, 1 );
 		}
 
+		// In site mode the index row takes the same cells whether or not the base took them (release 2): the
+		// site is the record, and the copy is what the mark above retries.
+		self::keep_index(
+			$record,
+			empty( $summary['agreement_id'] )
+				? array(
+					'submitted_on' => $today,
+					'status'       => self::AIRTABLE_AWAITING,
+					'kind'         => self::airtable_kind( $kind ),
+				)
+				: array( 'submitted_on' => $today )
+		);
+
 		self::rebuild(
 			$record,
 			self::airtable_block( $record, ( $landed && empty( $summary['agreement_id'] ) ) ? array( 'status' => self::AIRTABLE_AWAITING ) : array() )
@@ -1507,17 +2165,37 @@ class WPCPM_Institution_Agreement {
 			self::bounce( 'agreement-gone' );
 		}
 
-		$settings = WPCPM_Settings::get();
-		$fields   = WPCPM_Institutions_Sync::fields();
-		$airtable = new WPCPM_Airtable( $settings );
-		$live     = $airtable->get_record( $settings['institutions_table'], $record );
+		$settings     = WPCPM_Settings::get();
+		$fields       = WPCPM_Institutions_Sync::fields();
+		$airtable     = new WPCPM_Airtable( $settings );
+		$on_site      = WPCPM_Institutions_Index::on_site();
+		$confirmed_on = '';
 
-		if ( is_wp_error( $live ) ) {
-			self::unlock( $record );
-			self::bounce( 'agreement-airtable' );
+		// Once the site keeps the record (release 2), the stage is the index row's, read under the lock
+		// from the table and not this request's copy, and the base is not read. A school the index does
+		// not hold is not one the program has, and nothing is accepted for it (`agreement-unlisted`).
+		if ( $on_site ) {
+			WPCPM_Institutions_Index::forget_cached();
+
+			$row = WPCPM_Institutions_Index::row( $record );
+
+			if ( null === $row ) {
+				self::unlock( $record );
+				self::bounce( 'agreement-unlisted' );
+			}
+
+			$stage        = trim( (string) $row['stage'] );
+			$confirmed_on = trim( (string) $row['confirmed_on'] );
+		} else {
+			$live = $airtable->get_record( $settings['institutions_table'], $record );
+
+			if ( is_wp_error( $live ) ) {
+				self::unlock( $record );
+				self::bounce( 'agreement-airtable' );
+			}
+
+			$stage = isset( $live['fields'][ $fields['stage'] ] ) ? trim( (string) $live['fields'][ $fields['stage'] ] ) : '';
 		}
-
-		$stage = isset( $live['fields'][ $fields['stage'] ] ) ? trim( (string) $live['fields'][ $fields['stage'] ] ) : '';
 
 		if ( in_array( $stage, self::TERMINAL_STAGES, true ) ) {
 			self::unlock( $record );
@@ -1542,11 +2220,14 @@ class WPCPM_Institution_Agreement {
 			$fields['agr_template']    => $version,
 		);
 
-		// Forward only, and never off the end. An empty stage counts as preceding, because a
-		// record with no stage at all is one nothing has moved yet. A test institution keeps its
-		// stage, so the public pages that list Confirmed institutions never show it.
-		if ( self::precedes_confirmed( $stage ) && ! WPCPM_Test_Institutions::is_test( $record ) ) {
-			$cells[ $fields['stage'] ] = self::STAGE_CONFIRMED;
+		// Forward only, never off the end, and never for a test institution (`with_stage_cell()`).
+		$cells = self::with_stage_cell( $cells, $stage, $record );
+		$moves = isset( $cells[ $fields['stage'] ] );
+
+		// In site mode a move to Confirmed stamps the day the school was confirmed, in the same PATCH, unless it
+		// was confirmed once already (release 2): the site keeps that date now, and the copy carries it.
+		if ( $on_site && $moves && '' === $confirmed_on ) {
+			$cells[ $fields['confirmed_on'] ] = $today;
 		}
 
 		$written = $airtable->update_records(
@@ -1586,15 +2267,33 @@ class WPCPM_Institution_Agreement {
 				'subject'     => (string) $post_id,
 				'actor'       => get_current_user_id(),
 				'ground'      => isset( $decision['ground'] ) ? (string) $decision['ground'] : '',
-				'evidence'    => WPCPM_Institution_Audit::EVIDENCE_LIVE,
+				// The stage was read from the base, or in site mode from the index row (release 2).
+				'evidence'    => WPCPM_Institutions_Index::on_site() ? WPCPM_Institution_Audit::EVIDENCE_INDEX : WPCPM_Institution_Audit::EVIDENCE_LIVE,
 				'message'     => __( 'A signed Collaboration Agreement was accepted, and the institution\'s account opened.', 'wpcredits-program-manager' ),
 				'data'        => array(
 					'kind'     => $kind,
 					'stage'    => $stage,
-					'confirms' => isset( $cells[ $fields['stage'] ] ) ? 1 : 0,
+					'confirms' => $moves ? 1 : 0,
 				),
 			)
 		);
+
+		// The site's record follows what the base was just told (release 2), under this lock still, so no other
+		// agreement write for the school comes between.
+		if ( $on_site ) {
+			self::keep_index(
+				$record,
+				array(
+					'status'           => self::AIRTABLE_ACCEPTED,
+					'kind'             => self::airtable_kind( $kind ),
+					'accepted_on'      => $today,
+					'accepted_by'      => $cells[ $fields['agr_accepted_by'] ],
+					'template_version' => $version,
+				),
+				$moves ? $today : '',
+				isset( $decision['ground'] ) ? (string) $decision['ground'] : ''
+			);
+		}
 
 		// Released before the rebuild, which takes the same lock for its own critical
 		// section, exactly as `record_on_file()` does. Nothing is left unguarded: the post is
@@ -1750,6 +2449,11 @@ class WPCPM_Institution_Agreement {
 				'data'        => array( 'replacement' => empty( $summary['agreement_id'] ) ? 0 : 1 ),
 			)
 		);
+
+		// In site mode the index row says Returned too (release 2), when the base was told so.
+		if ( empty( $summary['agreement_id'] ) ) {
+			self::keep_index( $record, array( 'status' => self::AIRTABLE_RETURNED ) );
+		}
 
 		self::unlock( $record );
 
@@ -1941,6 +2645,10 @@ class WPCPM_Institution_Agreement {
 			)
 		);
 
+		// In site mode the next sync writes the option from the index row, so the row says Revoked too
+		// (release 2), and the school stays revoked.
+		self::keep_index( $record, array( 'status' => self::AIRTABLE_REVOKED ) );
+
 		// No rebuild, so the lock is released with nothing left to do under it: an option
 		// this handler deleted is one the next sync writes from the base, which now says
 		// `Revoked`, and rebuilding here would put a row back for the sake of putting one
@@ -2067,6 +2775,9 @@ class WPCPM_Institution_Agreement {
 				),
 			)
 		);
+
+		// In site mode the index row says the status the base was told (release 2).
+		self::keep_index( $record, array( 'status' => $status ) );
 
 		// Released before the rebuild, which takes the same lock for its own critical
 		// section, exactly as `handle_accept()` does. Nothing is left unguarded: the post is

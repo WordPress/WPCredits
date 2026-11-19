@@ -881,7 +881,11 @@ class WPCPM_Institution_People {
 		$labels = array(
 			WPCPM_Institution_Members::REASON_REMOVED => __( 'Their access was removed', 'wpcredits-program-manager' ),
 			WPCPM_Institution_Members::REASON_LEFT    => __( 'They removed their own access', 'wpcredits-program-manager' ),
-			WPCPM_Institution_Members::REASON_REVOKED => __( 'Ended by the institutions sync', 'wpcredits-program-manager' ),
+			// Once the site keeps the record (release 2), a school leaves the active stages on its Talks card or in the
+			// sync's revoke phase, which then works from the site's list (the trial's round, T5).
+			WPCPM_Institution_Members::REASON_REVOKED => class_exists( 'WPCPM_Institutions_Index' ) && WPCPM_Institutions_Index::on_site()
+				? __( 'Ended when the institution left the active stages', 'wpcredits-program-manager' )
+				: __( 'Ended by the institutions sync', 'wpcredits-program-manager' ),
 		);
 
 		return isset( $labels[ $reason ] ) ? $labels[ $reason ] : __( 'Why this access ended was not recorded', 'wpcredits-program-manager' );

@@ -81,6 +81,10 @@ class WPCPM_Guide_Jobs {
 			'anchor' => 'students-who-have-gone-quiet',
 			'title'  => 'Students who have gone quiet',
 		),
+		'add-lead'                => array(
+			'anchor' => 'add-a-lead',
+			'title'  => 'Add a lead',
+		),
 		'syncs'                   => array(
 			'anchor' => 'run-a-sync-by-hand-and-read-its-report',
 			'title'  => 'Run a sync by hand and read its report',

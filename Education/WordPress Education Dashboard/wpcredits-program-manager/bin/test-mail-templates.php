@@ -298,6 +298,7 @@ ck(
 		'institution-details-declined',
 		'institution-details-withdrawn',
 		'institution-assigned',
+		'institution-follow-ups-weekly',
 		'report-drafted',
 		'report-approved',
 		'report-consent',
@@ -548,6 +549,9 @@ $shape = array(
 	'institution-details-withdrawn' => array( "\r\n", array(), array() ),
 	// An institution assigned to an Administrator: its link is needed, in the body or the subject.
 	'institution-assigned'          => array( "\r\n", array( 'institution_link' ), array() ),
+	// The Monday email of follow-ups due (Institutions release 2): the Talks view's link needed, the two lists in the
+	// body alone; neither list is needed, since each part is left out with its heading when it has no line.
+	'institution-follow-ups-weekly' => array( "\r\n", array( 'talks_link' ), array( 'follow_ups', 'unassigned_follow_ups' ) ),
 	'report-drafted'                => array( "\n", array( 'semester' ), array() ),
 	'report-approved'               => array( "\n", array( 'semester' ), array() ),
 	'report-consent'                => array( "\n", array( 'semester' ), array() ),
@@ -694,10 +698,10 @@ foreach ( $lists_1_123_26 as $id => $list ) {
 		$added[ $id ] = array_values( array_diff( $lists_now[ $id ], $was ) );
 	}
 }
-$details_emails = array( 'institution-details-saved', 'institution-details-request', 'institution-details-approved', 'institution-details-declined', 'institution-details-withdrawn', 'institution-assigned' );
+$details_emails = array( 'institution-details-saved', 'institution-details-request', 'institution-details-approved', 'institution-details-declined', 'institution-details-withdrawn', 'institution-assigned', 'institution-follow-ups-weekly' );
 $tutor_emails   = array( 'institution-invite-tutor', 'institution-invite-tutor-no-sender' );
 
-ck( 'the Institutions and the Semester reports have the 21 emails they had, the two invitations of a tutor of Institutions release 1 after the invitations, and the five about a school\'s details of Institutions release 2 and the assignment\'s after the Institutions\' own', array_keys( $lists_now ), array_merge( array_slice( array_keys( $lists_1_123_26 ), 0, 7 ), $tutor_emails, array_slice( array_keys( $lists_1_123_26 ), 7, 11 ), $details_emails, array_slice( array_keys( $lists_1_123_26 ), 18 ) ) );
+ck( 'the Institutions and the Semester reports have the 21 emails they had, the two invitations of a tutor of Institutions release 1 after the invitations, and the five about a school\'s details of Institutions release 2, the assignment\'s and the Monday email of follow-ups due after the Institutions\' own', array_keys( $lists_now ), array_merge( array_slice( array_keys( $lists_1_123_26 ), 0, 7 ), $tutor_emails, array_slice( array_keys( $lists_1_123_26 ), 7, 11 ), $details_emails, array_slice( array_keys( $lists_1_123_26 ), 18 ) ) );
 ck( 'the tutor\'s two invitations take the placeholders of the representative\'s two, with the same marks', array( $lists_now['institution-invite-tutor'], $lists_now['institution-invite-tutor-no-sender'] ), array( $lists_now['institution-invite'], $lists_now['institution-invite-no-sender'] ) );
 ck( 'no placeholder is taken out of any of their lists, none is made required and none is moved to the body alone, so no saved edit is set aside', $removed, array() );
 ck(

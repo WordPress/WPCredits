@@ -400,6 +400,7 @@ ck(
 		'Correction of institution details declined, to the institution / Institution member / Shipped text / institution-details-declined',
 		'Institution withdrew its request to correct its details, to Administrators / Administrator / Shipped text / institution-details-withdrawn',
 		'Institution assigned, to the Administrator / Administrator / Shipped text / institution-assigned',
+		'Institution follow-ups due this week, to the Administrator / Administrator / Shipped text / institution-follow-ups-weekly',
 		'Semester report drafted, to Administrators / Administrator / Shipped text / report-drafted',
 		'Semester report approved, to the institution / Institution member / Shipped text / report-approved',
 		'Consent for the semester report, to the student / Student / Shipped text / report-consent',
@@ -463,7 +464,7 @@ ck(
 		'Quiet students this week, to the Administrator / Administrator / Shipped text / student-quiet-weekly',
 	)
 );
-ck( 'and what sends each is the registry\'s sentence', array( html_entity_decode( $rows[0][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[6][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[25][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[53][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[68][3] ?? '', ENT_QUOTES ) ), array( WPCPM_Mail_Templates::get( 'invite-student' )['trigger'], WPCPM_Mail_Templates::get( 'call-booked-mentor' )['trigger'], WPCPM_Mail_Templates::get( 'institution-applied' )['trigger'], WPCPM_Mail_Templates::get( 'report-consent' )['trigger'], WPCPM_Mail_Templates::get( 'sponsor-post-returned' )['trigger'] ) );
+ck( 'and what sends each is the registry\'s sentence', array( html_entity_decode( $rows[0][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[6][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[25][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[54][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[69][3] ?? '', ENT_QUOTES ) ), array( WPCPM_Mail_Templates::get( 'invite-student' )['trigger'], WPCPM_Mail_Templates::get( 'call-booked-mentor' )['trigger'], WPCPM_Mail_Templates::get( 'institution-applied' )['trigger'], WPCPM_Mail_Templates::get( 'report-consent' )['trigger'], WPCPM_Mail_Templates::get( 'sponsor-post-returned' )['trigger'] ) );
 $templates_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/emails.css' );
 preg_match( '#\.wpcpm-emails__scroll\s*\{([^{}]*)\}#', $templates_css, $scroll_rule );
 ck( 'each of the ten areas, the Sponsor events among them and the Student interests since 1.123.64, has a table of its own, printed inside a box that scrolls sideways on a narrow screen, held by a position, so the page does not', array( substr_count( $home, '<table' ), preg_match_all( '#<h2 id="([a-z-]+)">[^<]*</h2><div class="wpcpm-emails__scroll" tabindex="0" role="region" aria-labelledby="\\1"><table class="widefat striped wpcpm-emails__templates">.*?</table></div>#s', $home ), 1 === preg_match( '/(^|;)\s*overflow-x\s*:\s*auto\s*;/', $scroll_rule[1] ?? '' ), 1 === preg_match( '/(^|;)\s*position\s*:\s*relative\s*;/', $scroll_rule[1] ?? '' ) ), array( 10, 10, true, true ) );
@@ -1001,9 +1002,9 @@ foreach ( WPCPM_Mail_Templates::all() as $id => $template ) {
 	}
 }
 ck(
-	'a save of an Institutions, a Sponsors or a Sponsor events email without a placeholder it needs, or with one that goes in the body alone in the subject, is refused with its sentence, stores nothing, and gives the typing back, for every such placeholder of the 71 emails of the three areas, the offer returned with a note among them since 1.123.18, the five about a school\'s details since Institutions release 2, the assignment\'s and the two invitations of a tutor of Institutions release 1',
+	'a save of an Institutions, a Sponsors or a Sponsor events email without a placeholder it needs, or with one that goes in the body alone in the subject, is refused with its sentence, stores nothing, and gives the typing back, for every such placeholder of the 72 emails of the three areas, the offer returned with a note among them since 1.123.18, the five about a school\'s details and the Monday email of follow-ups due since Institutions release 2, the assignment\'s and the two invitations of a tutor of Institutions release 1',
 	array( $dropped, $moved, $refusals_wrong ),
-	array( 110, 60, array() )
+	array( 111, 62, array() )
 );
 
 // An agreement returned, previewed as a member of the institution reads it: sent back today, on the

@@ -261,6 +261,11 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 			$row = get_option( 'wpcpm_agreement_' . trim( (string) $record_id ) );
 			return is_array( $row ) ? $row : null;
 		}
+		/** The index row kept in step (R2, Task 13), at its contract: every call, as made. */
+		public static function keep_index( $record, array $changed, $confirm = '' ) {
+			$GLOBALS['kept_index'][] = array( $record, $changed, $confirm );
+			return true;
+		}
 
 		/**
 		 * The site half of the summary, worked out from the posts the way the real one is.
@@ -560,6 +565,7 @@ function reset_world() {
 	$GLOBALS['post_fail'] = false;
 	$GLOBALS['settings']  = array();
 	$GLOBALS['next_id']   = 500;
+	$GLOBALS['kept_index'] = array();
 	$_GET                 = array();
 	$_POST                = array();
 	$_REQUEST             = array();
@@ -1555,6 +1561,30 @@ $_POST[ WPCPM_Agreement_Generate::FIELD_NAME ] = 'Universidad Example';
 WPCPM_Agreement_Generate::generate();
 
 ck( 'the option is read before the index, because a site transition rewrites it first', isset( $GLOBALS['patched'][0][1][0]['fields']['Agreement Status'] ), false );
+ck( 'outside site mode no index row is kept in step', $GLOBALS['kept_index'], array() );
+
+foreach ( array( 'Not started' => 'the base took it', 'Accepted' => 'the status moved past open' ) as $status => $why ) {
+	reset_world();
+	seed_index( 'recMEMBEROWN00001', $status );
+	sign_in( 31, false, 'recMEMBEROWN00001' );
+	$GLOBALS['settings']['institutions_on_site'] = true;
+	$_POST[ WPCPM_Agreement_Generate::FIELD_NAME ] = 'Universidad Example';
+	if ( 'Accepted' === $status ) {
+		$GLOBALS['airtable'] = new WP_Error( 'wpcpm_airtable_http', 'the base did not answer' );
+	}
+
+	WPCPM_Agreement_Generate::generate();
+
+	$cells = $GLOBALS['patched'][0][1][0]['fields'];
+	$want  = array(
+		'kind'             => $cells['Agreement Kind'],
+		'template_version' => $cells['Agreement Template Version'],
+	);
+	if ( isset( $cells['Agreement Status'] ) ) {
+		$want['status'] = $cells['Agreement Status'];
+	}
+	ck( "in site mode the index row takes the cells the generate wrote, whether or not the base took them ($why)", $GLOBALS['kept_index'], array( array( 'recMEMBEROWN00001', $want, '' ) ) );
+}
 
 /* ---- regenerate ---------------------------------------------------------- */
 

@@ -159,11 +159,19 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-agreeme
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-application.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-approval.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-record.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-talks.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-talk-notes.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-leads.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-talks-view.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-talks-weekly.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-details.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-copy.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institutions-switch.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-tracks.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-tutors.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-areas.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-seed.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institutions-move.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-assignment.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-history.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-student-form.php';
@@ -368,11 +376,14 @@ delete_metadata( 'user', 0, WPCPM_Student_Report_Form::META_IMAGES, '', true );
 // (1.122.32), which a request that dies sending leaves behind, one row per account; the lock an
 // application holds while it is made a mentor (1.122.33), one row per application, the same way; and
 // the locks a school's details request is raised, decided and withdrawn under (Institutions release 2),
-// one row per request and one per school. And the order a company keeps its Sponsor Dashboard's four
+// one row per request and one per school, and the lock a note of a school's talks is added under, one per school or
+// lead (the same prefix). And the order a company keeps its Sponsor Dashboard's four
 // sections in, one option per sponsor (Institutions release 3), beside the order each institution keeps
 // its Institution Dashboard's three in. And the lock a company's interest in a mentor is filed under
-// (1.123.58), one row per sponsor and mentor.
-foreach ( array( 'wpcpm_institution_modules_', 'wpcpm_sponsor_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX, '_transient_wpcpm_learn_', '_transient_timeout_wpcpm_learn_', WPCPM_Mail::INVITE_LOCK, WPCPM_Mentor_Application::LOCK_PREFIX, WPCPM_Student_Registration::LOCK_PREFIX, WPCPM_Institution_Request::LOCK_PREFIX, WPCPM_Sponsor_Mentors::INTEREST_LOCK ) as $wpcpm_prefix ) {
+// (1.123.58), one row per sponsor and mentor. And the locks the Airtable copy holds (Institutions release 2):
+// the one its list of pending copies is written under, and one per school while its copy is written. And the
+// lock a lead is promoted under (Institutions release 2), one row per lead.
+foreach ( array( 'wpcpm_institution_modules_', 'wpcpm_sponsor_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX, '_transient_wpcpm_learn_', '_transient_timeout_wpcpm_learn_', WPCPM_Mail::INVITE_LOCK, WPCPM_Mentor_Application::LOCK_PREFIX, WPCPM_Student_Registration::LOCK_PREFIX, WPCPM_Institution_Request::LOCK_PREFIX, WPCPM_Sponsor_Mentors::INTEREST_LOCK, WPCPM_Institution_Copy::LOCK, WPCPM_Institution_Leads::LOCK_PREFIX ) as $wpcpm_prefix ) {
 	foreach ( (array) $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( $wpcpm_prefix ) . '%' ) ) as $wpcpm_swept_option ) {
 		delete_option( $wpcpm_swept_option );
 	}
@@ -423,6 +434,10 @@ wp_clear_scheduled_hook( WPCPM_Institutions_Sync::CRON_DAILY );
 // release 2), on the same hook with arguments of its own, which a clear that names none leaves.
 wp_clear_scheduled_hook( WPCPM_Institutions_Sync::CRON_DAILY, WPCPM_Institutions_Sync::AGAIN_ARGS );
 wp_clear_scheduled_hook( WPCPM_Institutions_Sync::CRON_TICK );
+// The Airtable copy's hourly retry (Institutions release 2), which the module's deactivate() clears too.
+wp_clear_scheduled_hook( WPCPM_Institution_Copy::CRON_HOURLY );
+// The Monday email of follow-ups due (Institutions release 2), which the module's deactivate() clears too.
+wp_clear_scheduled_hook( WPCPM_Institution_Talks_Weekly::CRON_DAILY );
 // The Claude access log's daily sweep (1.123.30), which `WPCPM_MCP::deactivate()` clears too.
 wp_clear_scheduled_hook( WPCPM_MCP::CRON_SWEEP );
 // Named as literals because the classes that owned them are gone. A site upgrading from the

@@ -211,6 +211,12 @@ class WPCPM_Settings {
 			'institution_provision'         => false,
 			'institution_on_inactive'       => 'revoke',
 			'institution_home'              => true,
+			// Institutions off Airtable, release 2: off, Airtable keeps the record of institutions and the
+			// sync reads its Institutions and Countries tables; on, from the switch, the site keeps the
+			// record and reads neither table, and every change is copied to Airtable. One setting turns
+			// both on, so there is no moment when the site writes without a copy or reads Airtable while
+			// it writes. Off by default: the switch is a day the program chooses.
+			'institutions_on_site'          => false,
 			// The Sponsors module (design spec of 4 September 2026, section 5).
 			'sponsor_home'                  => true,
 			'sponsor_on_inactive'           => 'keep',
@@ -438,6 +444,7 @@ class WPCPM_Settings {
 				'mcp_log_days',
 			),
 			'advanced'                   => array(
+				'institutions_on_site',
 				'institution_new_stage',
 				'institution_active_stages',
 				'application_spam_days',
@@ -1058,7 +1065,7 @@ class WPCPM_Settings {
 		// not, so unticking one still switches it off through this same guarded read. Absent
 		// means "leave alone" for a patch and for a save that names no scope: a save given a
 		// scope has already read each of the scope's absent switches as off.
-		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'sponsor_tiers_live', 'duplicate_delete_enabled', 'mentor_applications_enabled', 'mentor_activation_enabled', 'student_registrations_enabled', 'student_interest_open', 'student_checklist_enabled', 'mentor_assigned_email', 'mcp_enabled' ) as $flag ) {
+		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'sponsor_tiers_live', 'duplicate_delete_enabled', 'mentor_applications_enabled', 'mentor_activation_enabled', 'student_registrations_enabled', 'student_interest_open', 'student_checklist_enabled', 'mentor_assigned_email', 'mcp_enabled', 'institutions_on_site' ) as $flag ) {
 			if ( array_key_exists( $flag, $input ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
 			}

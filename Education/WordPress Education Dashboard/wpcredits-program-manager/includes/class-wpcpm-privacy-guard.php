@@ -81,7 +81,8 @@ class WPCPM_Privacy_Guard {
 	 *
 	 * Calls and group sessions share one type, mentor and institution notes another; the audit log
 	 * has its own, and so, since 1.123.29, do the institutions' records, which name a contact and
-	 * who signs for the institution. These are the types `maybe_upgrade()` flips and
+	 * who signs for the institution, and, since Institutions release 2, the talks notes, which name the
+	 * people a school talks with, and the leads, which name a contact person and an address. These are the types `maybe_upgrade()` flips and
 	 * bin/test-privacy-guard.php holds to `private`.
 	 *
 	 * @return string[]
@@ -92,6 +93,8 @@ class WPCPM_Privacy_Guard {
 			WPCPM_Mentor_Notes::POST_TYPE,
 			WPCPM_Institution_Audit::POST_TYPE,
 			WPCPM_Institution_Record::POST_TYPE,
+			WPCPM_Institution_Talk_Notes::POST_TYPE,
+			WPCPM_Institution_Leads::POST_TYPE,
 		);
 	}
 

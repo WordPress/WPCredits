@@ -242,6 +242,18 @@ ck( 'the types read on 2026-11-11 are in the Institutions fixture', array_inters
 	'Original program manager' => 'multipleRecordLinks',
 	'Your Email'               => 'email',
 ) );
+// The copy the site writes once it keeps the record (Institutions release 2): every column it sends is one
+// the table has, since a column spelled any other way is a 422 for the whole record.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-copy.php';
+
+ck( 'every column of the Airtable copy is a field of the Institutions fixture', not_offered( array_values( WPCPM_Institution_Copy::COLUMNS ), $inst_fields ), array() );
+$copy_dates = array();
+
+foreach ( WPCPM_Institution_Copy::DATE_KEYS as $copy_key ) {
+	$copy_dates[ WPCPM_Institution_Copy::COLUMNS[ $copy_key ] ] = isset( $institutions['types'][ WPCPM_Institution_Copy::COLUMNS[ $copy_key ] ] ) ? $institutions['types'][ WPCPM_Institution_Copy::COLUMNS[ $copy_key ] ] : null;
+}
+
+ck( 'every column the copy sends as a date is a date column there, Confirmed on included', $copy_dates, array( 'Confirmed on' => 'date', 'Follow-Up Date' => 'date', 'Last Contact Date' => 'date' ) );
 ck( 'every type names a field the table has', array_values( array_diff( array_keys( isset( $institutions['types'] ) ? $institutions['types'] : array() ), $inst_fields ) ), array() );
 ck( 'the Outreach Tracker fixture was read on a date, and its table is the base\'s', array( isset( $outreach['read'] ) && 1 === preg_match( '/^\d{4}-\d{2}-\d{2}$/', $outreach['read'] ), isset( $outreach['outreach_tracker_table'] ) ? $outreach['outreach_tracker_table'] : null ), array( true, 'tblQssm68GvGEfAEH' ) );
 ck( 'its ten fields are listed once each, in byte order, and each has a type', array( count( isset( $outreach['fields'] ) ? $outreach['fields'] : array() ), in_byte_order( isset( $outreach['fields'] ) ? $outreach['fields'] : array() ), array_keys( isset( $outreach['types'] ) ? $outreach['types'] : array() ) === ( isset( $outreach['fields'] ) ? $outreach['fields'] : null ) ), array( 10, true, true ) );
@@ -249,6 +261,15 @@ ck( 'it has no contact people column: nothing there names a contact or an addres
 ck( 'Country there is text, and the primary column is the lead\'s name', array( isset( $outreach['types']['Country'] ) ? $outreach['types']['Country'] : null, isset( $outreach['types']['Ac'] ) ? $outreach['types']['Ac'] : null ), array( 'singleLineText', 'multilineText' ) );
 ck( 'the Tutors table is the settings default, with the seed\'s three columns', array( isset( $outreach['tutors_table'] ) ? $outreach['tutors_table'] : null, isset( $outreach['tutors_fields'] ) ? $outreach['tutors_fields'] : null ), array( WPCPM_Settings::defaults()['tutors_table'], array( WPCPM_Institution_Seed::TUTOR_EMAIL, WPCPM_Institution_Seed::TUTOR_LINK, WPCPM_Institution_Seed::TUTOR_NAME ) ) );
 ck( 'and types them: the link is a link', isset( $outreach['tutors_types']['Institutions Onboarding'] ) ? $outreach['tutors_types']['Institutions Onboarding'] : null, 'multipleRecordLinks' );
+
+// The import of release 2 (Task 18) reads the Outreach Tracker and the Institutions columns the sync does not; each
+// name it sends is one the base reported.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-move.php';
+
+ck( 'the import\'s Outreach Tracker is the fixture\'s table', WPCPM_Institutions_Move::OUTREACH_TABLE, isset( $outreach['outreach_tracker_table'] ) ? $outreach['outreach_tracker_table'] : null );
+ck( 'every Outreach Tracker column the import reads exists, and it reads no contact person', array( not_offered( array_values( WPCPM_Institutions_Move::OUTREACH_COLUMNS ), isset( $outreach['fields'] ) ? $outreach['fields'] : array() ), array_key_exists( 'contact_person', WPCPM_Institutions_Move::OUTREACH_COLUMNS ) ), array( array(), false ) );
+ck( 'the Outreach columns are typed as the import reads them: text, a date, a checkbox', array_intersect_key( isset( $outreach['types'] ) ? $outreach['types'] : array(), array_flip( array( 'Date of last contact', 'Promoted to Institutions', 'Lead Owner' ) ) ), array( 'Date of last contact' => 'date', 'Lead Owner' => 'singleLineText', 'Promoted to Institutions' => 'checkbox' ) );
+ck( 'every Institutions column the import reads exists, and Agreement Document is not among them', array( not_offered( array_values( WPCPM_Institutions_Move::INSTITUTION_COLUMNS ), $inst_fields ), in_array( 'Agreement Document', WPCPM_Institutions_Move::INSTITUTION_COLUMNS, true ) ), array( array(), false ) );
 
 /* ---- the students table ------------------------------------------------- */
 

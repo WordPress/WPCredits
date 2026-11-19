@@ -262,6 +262,7 @@ class WPCPM_Settings {
 			'schema_token'                => '',
 			'handbook_key'                => '',
 			'checker_slack_webhook'       => '',
+			'institutions_on_site'        => false,
 		);
 	}
 	public static function get() { return array_merge( self::defaults(), $GLOBALS['settings'] ); }
@@ -342,6 +343,38 @@ require_once __DIR__ . '/../includes/tools/class-wpcpm-mentor-checker-profile.ph
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-directory.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentors-dashboard.php';
 require_once __DIR__ . '/../includes/class-wpcpm-cli.php';
+
+/*
+ * The three pieces of the Institutions module the switch of the institutions' record asks (round 2 of the whole-branch
+ * wave, point 5), at their contracts: the guard's answer (`$GLOBALS['move_answer']`, true by default, each ask
+ * counted), the list of index changes owed (each emptying noting what the switch was stored as then), and the names of
+ * the schools whose copies Airtable has not taken (`$GLOBALS['copy_names']`). The switch itself is the real one.
+ */
+class WPCPM_Institutions_Index {
+	/** As the real one answers, for the mentors sync's question whether the site keeps the record. */
+	public static function on_site() { return ! empty( WPCPM_Settings::get_value( 'institutions_on_site', false ) ); }
+	public static function may_turn_on() {
+		$GLOBALS['move_asked'] = ( $GLOBALS['move_asked'] ?? 0 ) + 1;
+		return $GLOBALS['move_answer'] ?? true;
+	}
+}
+class WPCPM_Institution_Agreement {
+	public static function forget_index_debts() {
+		$GLOBALS['debts_forgotten'][] = ! empty( WPCPM_Settings::get()['institutions_on_site'] );
+		return true;
+	}
+}
+class WPCPM_Institution_Copy {
+	public static function forget_pending_marks() {
+		$GLOBALS['marks_forgotten'][] = ! empty( WPCPM_Settings::get()['institutions_on_site'] );
+		return true;
+	}
+	public static function pending_names() { return $GLOBALS['copy_names'] ?? array(); }
+}
+if ( ! function_exists( 'wp_sprintf_l' ) ) {
+	function wp_sprintf_l( $pattern, $args ) { $args = array_values( (array) $args ); if ( count( $args ) < 2 ) { return implode( '', $args ); } $last = array_pop( $args ); return implode( ', ', $args ) . ( count( $args ) > 1 ? ', and ' : ' and ' ) . $last; }
+}
+require_once __DIR__ . '/../includes/modules/class-wpcpm-institutions-switch.php';
 
 $fails = 0;
 $total = 0;
@@ -486,6 +519,113 @@ $exit                         = run_institutions_seed( array( 'yes' => true ) );
 ck( 'a read that fails is the error, and nothing is written',
     array( $exit, WP_CLI::$lines, WPCPM_Institution_Seed::$applied ),
     array( 1, array( 'error: Airtable said no.' ), 0 ) );
+
+echo "\n=== wp wpcredits institutions_import ===\n";
+
+/**
+ * The import, stood in: what the command does around it is read here (the import's own suite reads the import). Each
+ * call is recorded, and each answer is what a check sets.
+ */
+class WPCPM_Institutions_Move {
+	public static $ready   = true;
+	public static $read    = array( 'v' => 1, 'read' => 1 );
+	public static $file    = array( 'v' => 1, 'read' => 2 );
+	public static $saved   = true;
+	public static $plan    = array( 'plan' => true );
+	public static $done    = array( 'failed' => array() );
+	public static $calls   = array();
+	public static function ready( $at ) { self::$calls[] = 'ready'; return self::$ready; }
+	public static function read( $client, array $options = array() ) { self::$calls[] = 'read ' . ( false === $options['comments'] ? 'without comments' : 'with comments' ); return self::$read; }
+	public static function read_file( $path ) { self::$calls[] = 'read_file ' . $path; return self::$file; }
+	public static function encode( array $read ) { return '{"read":' . $read['read'] . '}'; }
+	public static function save( array $read, $path ) { self::$calls[] = 'save ' . $path; return self::$saved; }
+	public static function plan( array $read ) { self::$calls[] = 'plan ' . $read['read']; return self::$plan; }
+	public static function summary( array $plan ) { return array( 'Summary one.', 'Summary two.' ); }
+	public static function apply( array $plan ) { self::$calls[] = 'apply'; return self::$done; }
+	public static function written( array $done ) { return 'Written: it all.'; }
+}
+
+/** The command with its client and its two streams stood in. */
+class Import_CLI extends WPCPM_CLI {
+	protected function seed_client() { WPCPM_Institutions_Move::$calls[] = 'client'; return new stdClass(); }
+	protected function to_stdout( $text ) { WP_CLI::$lines[] = 'stdout: ' . $text; }
+	protected function to_stderr( $line ) { WP_CLI::$lines[] = 'stderr: ' . $line; }
+}
+
+function run_import( array $assoc ) {
+	WP_CLI::$lines                   = array();
+	WPCPM_Institutions_Move::$calls = array();
+
+	try {
+		( new Import_CLI() )->institutions_import( array(), $assoc );
+	} catch ( ExitSignal $e ) {
+		return 1;
+	}
+
+	return 0;
+}
+
+$exit = run_import( array( 'dry-run' => true ) );
+ck( '--dry-run reads with the comments, prints the summary and writes nothing',
+    array( $exit, WP_CLI::$lines, WPCPM_Institutions_Move::$calls ),
+    array( 0, array( 'log: Summary one.', 'log: Summary two.', 'success: Dry run: nothing was written.' ), array( 'ready', 'client', 'read with comments', 'plan 1' ) ) );
+
+$exit = run_import( array( 'dry-run' => true, 'skip-comments' => true ) );
+ck( '--skip-comments reads without them', WPCPM_Institutions_Move::$calls, array( 'ready', 'client', 'read without comments', 'plan 1' ) );
+
+$GLOBALS['confirm_yes'] = false;
+$exit                   = run_import( array() );
+ck( 'with no flag it prints the summary first and asks; on a no it writes nothing and exits non-zero',
+    array( $exit, WP_CLI::$lines, in_array( 'apply', WPCPM_Institutions_Move::$calls, true ) ),
+    array( 1, array( 'log: Summary one.', 'log: Summary two.', 'confirm: Write this to the site?', 'error: Aborted' ), false ) );
+
+$exit = run_import( array( 'yes' => true ) );
+ck( '--yes writes without asking, and says what was written',
+    array( $exit, WP_CLI::$lines, WPCPM_Institutions_Move::$calls ),
+    array( 0, array( 'log: Summary one.', 'log: Summary two.', 'success: Written: it all.' ), array( 'ready', 'client', 'read with comments', 'plan 1', 'apply' ) ) );
+
+WPCPM_Institutions_Move::$done = array( 'failed' => array( 'The note x was not added: no.' ) );
+$exit                          = run_import( array( 'yes' => true ) );
+ck( 'a refused write ends with an error naming it, after what was written',
+    array( $exit, array_slice( WP_CLI::$lines, -2 ) ),
+    array( 1, array( 'log: Written: it all.', 'error: Not everything was written. The note x was not added: no.' ) ) );
+WPCPM_Institutions_Move::$done = array( 'failed' => array() );
+
+$exit = run_import( array( 'dry-run' => true, 'save' => '/some/where/read.json' ) );
+ck( '--save writes the read to the file, says so, then the summary',
+    array( $exit, WP_CLI::$lines, WPCPM_Institutions_Move::$calls ),
+    array( 0, array( 'log: The read is saved in /some/where/read.json, for your account alone.', 'log: Summary one.', 'log: Summary two.', 'success: Dry run: nothing was written.' ), array( 'ready', 'client', 'read with comments', 'save /some/where/read.json', 'plan 1' ) ) );
+
+WPCPM_Institutions_Move::$saved = new WP_Error( 'wpcpm_import_save_place', 'That file would sit in a repository or on the site. Save it under ~/Projects/wpcredits-airtable-exit/ instead.' );
+$exit                           = run_import( array( 'yes' => true, 'save' => '/a/repo/read.json' ) );
+ck( 'a refused place stops the command before the plan, with the refusal',
+    array( $exit, WP_CLI::$lines, in_array( 'plan 1', WPCPM_Institutions_Move::$calls, true ) ),
+    array( 1, array( 'error: That file would sit in a repository or on the site. Save it under ~/Projects/wpcredits-airtable-exit/ instead.' ), false ) );
+WPCPM_Institutions_Move::$saved = true;
+
+$exit = run_import( array( 'yes' => true, 'save' => '-' ) );
+ck( '--save=- puts the read on standard output and the summary on standard error, and writes nothing to the site',
+    array( $exit, WP_CLI::$lines, in_array( 'apply', WPCPM_Institutions_Move::$calls, true ) ),
+    array( 0, array( 'stdout: {"read":1}', 'stderr: Summary one.', 'stderr: Summary two.', 'stderr: Dry run: nothing was written.' ), false ) );
+
+$exit = run_import( array( 'yes' => true, 'from' => '/some/where/read.json' ) );
+ck( '--from reads the file instead of Airtable, with no client, and plans and writes from it',
+    array( $exit, WPCPM_Institutions_Move::$calls ),
+    array( 0, array( 'ready', 'read_file /some/where/read.json', 'plan 2', 'apply' ) ) );
+
+WPCPM_Institutions_Move::$ready = new WP_Error( 'wpcpm_import_on_site', 'The site already keeps the record. The import runs before the switch.' );
+$exit                           = run_import( array( 'dry-run' => true ) );
+ck( 'a refusal before the read is the error, and nothing is read',
+    array( $exit, WP_CLI::$lines, WPCPM_Institutions_Move::$calls ),
+    array( 1, array( 'error: The site already keeps the record. The import runs before the switch.' ), array( 'ready' ) ) );
+WPCPM_Institutions_Move::$ready = true;
+
+WPCPM_Institutions_Move::$read = new WP_Error( 'wpcpm_import_comments', 'Airtable refused the record comments, so nothing was brought over.' );
+$exit                          = run_import( array( 'dry-run' => true ) );
+ck( 'a read Airtable refuses is the error, and nothing is planned',
+    array( $exit, WP_CLI::$lines, in_array( 'plan 1', WPCPM_Institutions_Move::$calls, true ) ),
+    array( 1, array( 'error: Airtable refused the record comments, so nothing was brought over.' ), false ) );
+WPCPM_Institutions_Move::$read = array( 'v' => 1, 'read' => 1 );
 
 echo "\n=== wp wpcredits check_mentors ===\n";
 
@@ -1482,6 +1622,84 @@ ck( 'a status list a live track holds is left, and the CLI says why',
     array( cli_lines( 'setting', array( 'set', 'student_statuses', 'Paused' ) ), WPCPM_Settings::get()['student_statuses'] ),
     array( array( 'error: student_statuses was left as it was: a track on the live site runs on a status this change would take out, or would make past. Take the track off the live site in the Track Builder first.' ), array( 'In Sensei', 'Paused' ) ) );
 WPCPM_Settings::$hold = array();
+
+// Round 2 of the whole-branch wave, point 5: `setting set institutions_on_site` asks the guard, empties the changes
+// owed and warns at going back, through the same method the settings screen's save calls.
+echo "\n=== wp wpcredits setting set institutions_on_site ===\n";
+
+/**
+ * Set the switch from the command line, from a stored value, and say what happened.
+ *
+ * @param string $typed  The value typed.
+ * @param bool   $from   The switch as stored before.
+ * @param array  $assoc  The flags.
+ * @return array The lines, the switch after, what patch() was asked, the guard's asks and the emptyings.
+ */
+function cli_switch( $typed, $from, array $assoc = array() ) {
+	$GLOBALS['settings']        = array( 'institutions_on_site' => $from );
+	$GLOBALS['move_asked']      = 0;
+	$GLOBALS['debts_forgotten'] = array();
+	WPCPM_Settings::$patched    = array();
+	$lines                      = cli_lines( 'setting', array( 'set', 'institutions_on_site', $typed ), $assoc );
+
+	return array( $lines, WPCPM_Settings::get()['institutions_on_site'], count( WPCPM_Settings::$patched ), $GLOBALS['move_asked'], $GLOBALS['debts_forgotten'] );
+}
+
+$cli_refusals = array(
+	'running' => 'The institutions\' record was not moved: the sync is running. Wait until it finishes, then save again.',
+	'stale'   => 'The institutions\' record was not moved: the site has not finished reading the Institutions table in the last 15 minutes. Run the sync on Institutions > Sync and storage, then save again.',
+	'behind'  => 'The institutions\' record was not moved: the site\'s list is behind on the agreement of Universidad Example. Run the sync on Institutions > Sync and storage, then save again.',
+);
+$cli_refused = array();
+$cli_want    = array();
+
+foreach ( $cli_refusals as $why => $sentence ) {
+	$GLOBALS['move_answer'] = new WP_Error( 'wpcpm_move_' . $why, $sentence );
+	$cli_refused[ $why ]    = cli_switch( 'on', false );
+	$cli_want[ $why ]       = array( array( 'error: ' . $sentence ), false, 0, 1, array() );
+}
+
+ck( 'cli_switch_refused: on, refused by each of the three questions, is the guard\'s own sentence as the error, nothing stored and nothing emptied', $cli_refused, $cli_want );
+
+$GLOBALS['move_answer'] = true;
+ck( 'cli_switch_on: on with all clean stores it, the changes owed emptied first, before the value is stored',
+    cli_switch( 'on', false ),
+    array( array( 'success: Changed institutions_on_site from off to on.' ), true, 1, 1, array( false ) ) );
+
+$GLOBALS['copy_names'] = array( 'Universidad Example' );
+$cli_off_one           = cli_switch( 'off', true );
+$GLOBALS['copy_names'] = array( 'School 1', 'School 2', 'School 3', 'School 4', 'School 5', 'School 6', 'School 7' );
+$cli_off_many          = cli_switch( 'off', true );
+$GLOBALS['copy_names'] = array();
+ck( 'cli_switch_off_warns: off with copies pending stores it, empties the changes owed, asks nothing, and warns after with the screen\'s sentence',
+    array( $cli_off_one, $cli_off_many[0], cli_switch( 'off', true )[0] ),
+    array(
+        array( array( 'success: Changed institutions_on_site from on to off.', 'warning: The site reads Airtable again. Airtable never received the last changes of Universidad Example, and the site will not send them later: write them in Airtable by hand if they matter.' ), false, 1, 0, array( true ) ),
+        array( 'success: Changed institutions_on_site from on to off.', 'warning: The site reads Airtable again. Airtable never received the last changes of 7 institutions (School 1, School 2, School 3, School 4, and School 5), and the site will not send them later: write them in Airtable by hand if they matter.' ),
+        array( 'success: Changed institutions_on_site from on to off.' ),
+    ) );
+
+$GLOBALS['move_answer'] = new WP_Error( 'wpcpm_move_running', $cli_refusals['running'] );
+$cli_dry_refused        = cli_switch( 'on', false, array( 'dry-run' => true ) );
+$GLOBALS['move_answer'] = true;
+ck( 'cli_switch_dry: --dry-run asks the guard and says its refusal, or what would change, and stores and empties nothing',
+    array( $cli_dry_refused, cli_switch( 'on', false, array( 'dry-run' => true ) ) ),
+    array( array( array( 'error: ' . $cli_refusals['running'] ), false, 0, 1, array() ), array( array( 'log: Dry run: institutions_on_site would change from off to on. Nothing was written.' ), false, 0, 1, array() ) ) );
+
+$GLOBALS['move_answer'] = new WP_Error( 'wpcpm_move_running', $cli_refusals['running'] );
+ck( 'cli_switch_same: already on, set on asks nothing and empties nothing; get is unchanged',
+    array( cli_switch( 'on', true ), cli_lines( 'setting', array( 'get', 'institutions_on_site' ) ) ),
+    array( array( array( 'log: institutions_on_site is already on. Nothing was written.' ), true, 0, 0, array() ), array( 'line: on' ) ) );
+$GLOBALS['move_answer'] = true;
+// T1: the copies owed to Airtable are emptied at every change, before the store turning on and after it going back; a
+// dry run and an unchanged value empty nothing.
+$cli_marks = array();
+foreach ( array( 'on' => array( 'on', false, array() ), 'off' => array( 'off', true, array() ), 'dry' => array( 'off', true, array( 'dry-run' => true ) ), 'same' => array( 'on', true, array() ) ) as $how => $call ) {
+	$GLOBALS['marks_forgotten'] = array();
+	cli_switch( $call[0], $call[1], $call[2] );
+	$cli_marks[ $how ] = $GLOBALS['marks_forgotten'];
+}
+ck( 'T1: cli_switch_marks: on empties the marks before the value is stored, off after it, a dry run and an unchanged value not at all', $cli_marks, array( 'on' => array( false ), 'off' => array( false ), 'dry' => array(), 'same' => array() ) );
 
 $GLOBALS['settings'] = array();
 

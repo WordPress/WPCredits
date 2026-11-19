@@ -831,6 +831,21 @@ class WPCPM_Agreement_Generate {
 			)
 		);
 
+		// Once the site keeps the record (release 2), its index row takes the same cells whether or not the
+		// base took them: the site is the record, and the pending mark retries the copy.
+		if ( WPCPM_Institutions_Index::on_site() ) {
+			$changed = array(
+				'kind'             => self::AIRTABLE_KIND,
+				'template_version' => $version,
+			);
+
+			if ( isset( $cells[ $fields['agr_status'] ] ) ) {
+				$changed['status'] = self::AIRTABLE_STATUS;
+			}
+
+			WPCPM_Institution_Agreement::keep_index( $record, $changed );
+		}
+
 		// An empty result is a failure too: `update_records()` drops a record it cannot send
 		// and answers with the ones it did, so "nothing was updated" must not read as done.
 		return ! is_wp_error( $written ) && ! empty( $written );

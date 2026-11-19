@@ -434,6 +434,23 @@ ck( 'on an index of another version a patch is false, and writes nothing rather 
 
 WPCPM_Institutions_Index::write( $rows, $read_at );
 
+// patch_by() (R2, Task 13): the keys worked out from the row as the table holds it, under the same lock.
+$handed = null;
+ck( 'patch_by() hands the change the row as the table holds it, shaped, and writes the keys it answers',
+	array(
+		WPCPM_Institutions_Index::patch_by( 'recSEED0000000008', static function ( array $row ) use ( &$handed ) { $handed = $row; return array( 'city' => $row['city'] . ' Norte', 'department' => 'x' ); } ),
+		array( $handed['record_id'], $handed['city'], array_keys( $handed ) ),
+		WPCPM_Institutions_Index::row( 'recSEED0000000008' )['city'],
+		isset( WPCPM_Institutions_Index::row( 'recSEED0000000008' )['department'] ),
+	),
+	array( true, array( 'recSEED0000000008', $kept_row['city'], $contract ), $kept_row['city'] . ' Norte', false ) );
+$asked = false;
+ck( 'and for a row the index does not hold is false without asking the change',
+	array( WPCPM_Institutions_Index::patch_by( 'recNOPE0000000000', static function () use ( &$asked ) { $asked = true; return array( 'city' => 'Nowhere' ); } ), $asked ),
+	array( false, false ) );
+
+WPCPM_Institutions_Index::write( $rows, $read_at );
+
 /* ---- patch() under a lock of its own ------------------------------------- */
 
 echo "\n=== patch(): two at once, and a sync reading meanwhile ===\n";
@@ -510,6 +527,43 @@ ck( 'a patch that cannot take the lock after a short wait says false, as for a r
 ck( 'it asked again a few times, a short while apart, then gave up within a second or two', array( $asked, index_const( 'LOCK_TRIES' ), $waited > 0.5, $waited < 3 ), array( index_const( 'LOCK_TRIES' ), 10, true, true ) );
 ck( 'and the lock it never took is left to its holder', $GLOBALS['opts'][ INDEX_LOCK ] ?? null, $held_until );
 unset( $GLOBALS['opts'][ INDEX_LOCK ] );
+
+echo "\n=== insert() under the same lock (release 2, Task 14's fix round) ===\n";
+
+// A patch of another school between its read and its write when an insert starts: the insert waits for it,
+// reads the table afresh, and both survive.
+WPCPM_Institutions_Index::write( $rows, $read_at );
+$GLOBALS['events'] = array();
+$read_by_other     = WPCPM_Institutions_Index::read();
+$GLOBALS['opts'][ INDEX_LOCK ] = (string) ( time() + 10 );
+other_patch(
+	static function () use ( $read_by_other ) {
+		$read_by_other['rows']['recSEED0000000008']['city'] = 'Heredia';
+		update_option( WPCPM_Institutions_Index::OPT_NAME, $read_by_other, false );
+		unset( $GLOBALS['opts'][ INDEX_LOCK ] );
+	}
+);
+$inserted = WPCPM_Institutions_Index::insert( array( 'record_id' => 'recNEWLEAD0000001', 'name' => 'Example Promoted School', 'stage' => 'First Contact Made' ) );
+ck( 'insert_keeps_a_patch_made_meanwhile: a patch landing during an insert is kept, and the insert says true', array( $inserted, WPCPM_Institutions_Index::row( 'recSEED0000000008' )['city'], WPCPM_Institutions_Index::row( 'recNEWLEAD0000001' )['name'] ?? null ), array( true, 'Heredia', 'Example Promoted School' ) );
+ck( 'it read the index under the lock, from the table, and let the lock go', array( in_order( $GLOBALS['events'], array( 'lock insert', 'forget options:wpcpm_institutions_index', 'read index', 'write index', 'lock delete' ) ), array_key_exists( INDEX_LOCK, $GLOBALS['opts'] ) ), array( true, false ) );
+
+// The lock held for good: the insert says false and writes nothing, unless its caller asks for the write it
+// always made (the approval), which is then made and said true.
+$GLOBALS['opts'][ INDEX_LOCK ] = (string) ( time() + 10 );
+$stored_before                 = get_option( WPCPM_Institutions_Index::OPT_NAME );
+ck( 'insert_refused_by_the_lock_says_false: and writes nothing', array( WPCPM_Institutions_Index::insert( array( 'record_id' => 'recNEWLEAD0000002', 'name' => 'Example Waiting School' ) ), get_option( WPCPM_Institutions_Index::OPT_NAME ) === $stored_before ), array( false, true ) );
+$log_file = tempnam( sys_get_temp_dir(), 'wpcpm-index-log-' );
+$was_log  = ini_set( 'error_log', $log_file );
+$GLOBALS['events'] = array();
+$fallback = WPCPM_Institutions_Index::insert( array( 'record_id' => 'recNEWLEAD0000002', 'name' => 'Example Waiting School' ), true );
+$fallback_events   = $GLOBALS['events'];
+ini_set( 'error_log', (string) $was_log );
+$logged = (string) file_get_contents( $log_file );
+unlink( $log_file );
+ck( 'and with the unlocked write asked for, it is made, said true, and the record ID logged with no name', array( $fallback, WPCPM_Institutions_Index::has( 'recNEWLEAD0000002' ), false !== strpos( $logged, 'recNEWLEAD0000002' ), false !== strpos( $logged, 'Example Waiting School' ) ), array( true, true, true, false ) );
+ck( 'insert_unlocked_reads_fresh: the unlocked write too reads the index past this request\'s cache', in_order( $fallback_events, array( 'forget options:wpcpm_institutions_index', 'read index', 'write index' ) ), true );
+unset( $GLOBALS['opts'][ INDEX_LOCK ] );
+ck( 'a malformed ID is not inserted, and insert says false', WPCPM_Institutions_Index::insert( array( 'record_id' => 'nonsense', 'name' => 'Nope' ) ), false );
 
 // The sync reads the Institutions table and writes the whole index once it has read the last page. A patch
 // made while a tick holds the sync's lock can be written over by values read before it, so the patch asks for

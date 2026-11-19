@@ -758,6 +758,9 @@ class WPCPM_Institution_History {
 			'assignment_changed'    => __( 'The institution\'s assigned Administrator was changed.', 'wpcredits-program-manager' ),
 			'tutor_added'           => __( 'A tutor was added to the institution\'s list.', 'wpcredits-program-manager' ),
 			'tutor_removed'         => __( 'A tutor was removed from the institution\'s list.', 'wpcredits-program-manager' ),
+			'talks_stage'           => __( 'The stage of the talks with the institution was changed.', 'wpcredits-program-manager' ),
+			'talks_saved'           => __( 'The talks with the institution were updated.', 'wpcredits-program-manager' ),
+			'talks_imported'        => __( 'The institution\'s talks were brought over from Airtable.', 'wpcredits-program-manager' ),
 		);
 	}
 }

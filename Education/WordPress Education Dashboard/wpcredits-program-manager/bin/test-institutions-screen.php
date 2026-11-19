@@ -512,6 +512,20 @@ if ( ! class_exists( 'WPCPM_Institutions_Index' ) ) {
 		public static function has( $id ) { return null !== self::row( $id ); }
 		public static function write( array $rows, $read ) { update_option( self::OPT_NAME, array( 'v' => 1, 'read' => (int) $read, 'rows' => $rows ), false ); }
 		public static function insert( array $row ) { $r = self::read(); $r['rows'][ $row['record_id'] ] = $row; update_option( self::OPT_NAME, $r, false ); }
+		/** The setting, as the real one reads it (release 2). */
+		public static function on_site() { return ! empty( WPCPM_Settings::get_value( 'institutions_on_site', false ) ); }
+		/** The real one's contract: the rows whose name trimmed and lowercase, or whose address lowercase, is the one given; an empty one matches nothing. */
+		public static function matching( $name, $email ) {
+			$name  = mb_strtolower( trim( (string) $name ) );
+			$email = mb_strtolower( trim( (string) $email ) );
+			$out   = array();
+			foreach ( self::rows() as $id => $row ) {
+				if ( ( '' !== $name && mb_strtolower( trim( (string) $row['name'] ) ) === $name ) || ( '' !== $email && mb_strtolower( trim( (string) ( $row['contact_email'] ?? '' ) ) ) === $email ) ) {
+					$out[ $id ] = $row;
+				}
+			}
+			return $out;
+		}
 		/**
 		 * The real one's contract: the stages with rows, `STAGE_ORDER` then the terminal stages, then
 		 * any stage the lists do not know as stored (so "SPAM " and "Paused" are groups of their own),
@@ -890,6 +904,37 @@ if ( ! class_exists( 'WPCPM_Institution_Record' ) ) {
 	}
 }
 
+if ( ! class_exists( 'WPCPM_Institution_Talk_Notes' ) ) {
+	/** Stands in for the talks notes (Institutions release 2): booted and swept at uninstall, drawn nowhere here. */
+	class WPCPM_Institution_Talk_Notes {
+		const POST_TYPE = 'wpcpm_inst_note';
+		public static function init() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Talk_Notes::init' ); }
+		public static function delete_all() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Talk_Notes::delete_all' ); return 0; }
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Institution_Talks' ) ) {
+	/** Stands in for the Talks card (Institutions release 2, Task 15): its handlers booted, drawn nowhere here. */
+	class WPCPM_Institution_Talks {
+		public static function init() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Talks::init' ); }
+		public static function url( $key ) { return 'https://example.test/administrator-dashboard/?wpcpm_view=talks&wpcpm_lead=' . $key; }
+	}
+}
+if ( ! function_exists( 'wp_sprintf_l' ) ) {
+	function wp_sprintf_l( $pattern, $args ) { $args = array_values( (array) $args ); if ( count( $args ) < 2 ) { return implode( '', $args ); } $last = array_pop( $args ); return implode( ', ', $args ) . ( count( $args ) > 1 ? ', and ' : ' and ' ) . $last; }
+}
+
+if ( ! class_exists( 'WPCPM_Institution_Leads' ) ) {
+	/** Stands in for the leads (Institutions release 2): booted and swept at uninstall, drawn nowhere here. */
+	class WPCPM_Institution_Leads {
+		const POST_TYPE = 'wpcpm_inst_lead';
+		public static function init() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Leads::init' ); }
+		public static function delete_all() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Leads::delete_all' ); return 0; }
+		/** The leads an application names (the owner's wave, X2): as a check sets them, each ask recorded. */
+		public static function matching( $name, $email ) { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Leads::matching', $name, $email ); return $GLOBALS['lead_matches'] ?? array(); }
+	}
+}
+
 // The Administrator an application or an institution is assigned to, and the areas that give a country its
 // Administrator (Institutions off Airtable, R1), the real classes over their two reads: the account and the
 // booking link on it.
@@ -904,8 +949,38 @@ if ( ! class_exists( 'WPCPM_Manager_Booking' ) ) {
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-areas.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-assignment.php';
 
+if ( ! class_exists( 'WPCPM_Institution_Copy' ) ) {
+	/**
+	 * Stands in for the Airtable copy (release 2): its own suite, bin/test-institution-copy.php, pins
+	 * what it writes, retries and prints. Here only where the screen draws its notice, and that the
+	 * module starts it, takes it off the clock and forgets its list.
+	 */
+	class WPCPM_Institution_Copy {
+		const OPT_PENDING = 'wpcpm_institution_copy_pending';
+		public static function init() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Copy::init' ); }
+		public static function unschedule() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Copy::unschedule' ); }
+		public static function render_pending_notice() { echo isset( $GLOBALS['copy_notice'] ) ? $GLOBALS['copy_notice'] : ''; }
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Institution_Talks_Weekly' ) ) {
+	/**
+	 * Stands in for the Monday email of follow-ups due (release 2): its own suite,
+	 * bin/test-institution-talks-weekly.php, pins what it sends and when. Here only that the module starts it, takes
+	 * it off the clock and forgets its week and its lock.
+	 */
+	class WPCPM_Institution_Talks_Weekly {
+		const OPT_WEEK = 'wpcpm_institution_talks_week';
+		const LOCK     = 'wpcpm_institution_talks_lock';
+		public static function init() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Talks_Weekly::init' ); }
+		public static function unschedule() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Talks_Weekly::unschedule' ); }
+	}
+}
+
 if ( ! class_exists( 'WPCPM_Institutions_Sync' ) ) {
 	class WPCPM_Institutions_Sync {
+		/** The notice of a lagging list (round 3, P3), as the copy's stand-in draws its own: what a check plants, else nothing. */
+		public static function render_behind_notice() { echo isset( $GLOBALS['behind_notice'] ) ? $GLOBALS['behind_notice'] : ''; }
 		const CRON_DAILY = 'wpcpm_institutions_sync_daily';
 		const CRON_TICK  = 'wpcpm_institutions_sync_tick';
 		const OPT_STATE  = 'wpcpm_institutions_state';
@@ -3338,6 +3413,15 @@ ck( 'a revoked school at a stage outside the pipeline is listed, with the line i
 	isset( $stage_by[7101] ),
 ), array( 3, true, true, false, false, false ) );
 ck( 'a revoked school with no stage, and one at an active stage, keep the form', array( isset( $stage_by[7102] ), isset( $stage_by[7103] ), substr_count( $stage_card, '<form' ) ), array( true, true, 2 ) );
+// F3 (b): once the site keeps the record, the stage is moved on the school's Talks card, and the line says so.
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = true;
+$site_card = render_tab( 'agreements' );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = false;
+ck( 'F3: in site mode the line sends the Administrator to the Talks card, the rest word for word; off, it reads as before', array(
+	false !== strpos( $site_card, esc_html( 'At the stage "Not Moving Forward", which is outside the pipeline. Move it to an active stage on its Talks card first: reinstated now, the next institutions sync would close it again.' ) ),
+	false !== strpos( $site_card, 'in Airtable first' ),
+	false !== strpos( render_tab( 'agreements' ), $left_line ),
+), array( true, false, true ) );
 $stage_rows[ $force_ids[0] ]['stage'] = 'Paused <i>';
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $stage_rows;
 $paused_card = render_tab( 'agreements' );
@@ -4516,6 +4600,11 @@ ck( 'the queue tab named in the address opens it the same, and another tab draws
 	cards_of( render_tab( 'pipeline', array( WPCPM_Institutions::ARG_APPLICATION => 501 ) ) ),
 ), array( true, array( 'Pipeline', 'Consent' ) ) );
 ck( 'and says so when it finds nothing', false !== strpos( $open, 'No Institutions record carries this name or this address.' ), true );
+ck( 'with the setting off the search is headed by what Airtable has, never the site', array(
+	false !== strpos( $open, '<h3>What Airtable already has</h3>' ),
+	false !== strpos( $open, 'What the site already has' ),
+	false !== strpos( $open, 'No institution on the site carries' ),
+), array( true, false, false ) );
 
 $GLOBALS['airtable_page'] = array(
 	'records' => array( array( 'id' => 'recSEED0000000008', 'fields' => array( 'Name' => 'Universidad Example ', 'Current Stage' => 'Under Review' ) ) ),
@@ -4534,6 +4623,119 @@ ck( 'a search that could not be made says so and shows the application anyway', 
 	false !== strpos( render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) ), 'APP-2026-0007' ),
 ), array( true, true ) );
 $GLOBALS['airtable_page'] = array( 'records' => array(), 'offset' => null );
+
+// Site mode (release 2): the queue's duplicate search matches the index, the name trimmed and lowercase
+// or the address lowercase, and asks Airtable nothing. A hit the base would answer is not drawn.
+$index_was = get_option( WPCPM_Institutions_Index::OPT_NAME );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = true;
+WPCPM_Institutions_Index::write(
+	array(
+		'recEXA00000000001' => array( 'record_id' => 'recEXA00000000001', 'name' => ' UNIVERSIDAD example ', 'stage' => 'Info Sent', 'contact_email' => '' ),
+		'recEXA00000000002' => array( 'record_id' => 'recEXA00000000002', 'name' => 'Another Name', 'stage' => 'Call Scheduled', 'contact_email' => 'ana@example.test' ),
+		'recEXA00000000003' => array( 'record_id' => 'recEXA00000000003', 'name' => 'Universidad Example Norte', 'stage' => 'Confirmed', 'contact_email' => 'norte@example.test' ),
+	),
+	time()
+);
+$GLOBALS['airtable_page'] = array(
+	'records' => array( array( 'id' => 'recEXA00000000099', 'fields' => array( 'Name' => 'Universidad Example', 'Current Stage' => 'Under Review' ) ) ),
+	'offset'  => null,
+);
+$GLOBALS['calls'] = array();
+$site_matched     = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) );
+ck( 'Review Focus 2: in site mode the duplicate search asks Airtable nothing, and lists the index\'s rows by trimmed name and by address, not the one that only begins with the name',
+	array(
+		array_values( array_filter( $GLOBALS['calls'], static function ( $call ) { return is_array( $call ) && 'fetch_page' === $call[0]; } ) ),
+		false !== strpos( $site_matched, 'recEXA00000000001' ) && false !== strpos( $site_matched, 'Info Sent' ),
+		false !== strpos( $site_matched, 'recEXA00000000002' ) && false !== strpos( $site_matched, 'Call Scheduled' ),
+		false !== strpos( $site_matched, 'recEXA00000000003' ),
+		false !== strpos( $site_matched, 'recEXA00000000099' ),
+	),
+	array( array(), true, true, false, false ) );
+WPCPM_Institutions_Index::write( array(), time() );
+$GLOBALS['calls'] = array();
+$site_none        = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) );
+ck( 'and an index that holds neither says no institution on the site carries them, still asking nothing',
+	array( false !== strpos( $site_none, 'No institution on the site carries this name or this address. Approving creates one.' ), array_values( array_filter( $GLOBALS['calls'], static function ( $call ) { return is_array( $call ) && 'fetch_page' === $call[0]; } ) ) ),
+	array( true, array() ) );
+ck( 'in site mode the search is headed by what the site has, and names no Airtable record', array(
+	false !== strpos( $site_none, '<h3>What the site already has</h3>' ),
+	false !== strpos( $site_none, 'What Airtable already has' ),
+	false !== strpos( $site_none, 'No Institutions record carries' ),
+	false !== strpos( $site_matched, '<h3>What the site already has</h3>' ),
+), array( true, false, false, true ) );
+// Round 2, point 1: in site mode the search reads only the site's list, so Airtable not connected changes nothing.
+$token_was = $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] ?? null;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] = '';
+$site_unconnected = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) );
+ck( 'site_search_without_airtable: in site mode, Airtable not connected, the search is made and its result drawn, no "not connected" sentence', array(
+	false !== strpos( $site_unconnected, '<h3>What the site already has</h3>' ),
+	false !== strpos( $site_unconnected, 'No institution on the site carries this name or this address. Approving creates one.' ),
+	false !== strpos( $site_unconnected, 'Airtable is not connected, so no search was made.' ),
+), array( true, true, false ) );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] = $token_was ?? '';
+
+// The owner's wave, X2: in site mode the panel also names the leads of this name or this address, each a link to its
+// page in the Talks view, after what it says of the institutions; approving is not blocked.
+$x2_one    = array( 'lead-41' => array( 'key' => 'lead-41', 'name' => 'Universidad <Example>', 'closed' => '' ) );
+$x2_closed = array( 'lead-42' => array( 'key' => 'lead-42', 'name' => 'Universidad Example Cerrada', 'closed' => '2026-11-01' ) );
+$x2_link   = '<a href="https://example.test/administrator-dashboard/?wpcpm_view=talks&wpcpm_lead=lead-41">Universidad &lt;Example&gt;</a>';
+$GLOBALS['lead_matches'] = $x2_one;
+$GLOBALS['calls']        = array();
+$x2_page                 = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) );
+$x2_asked                = array_values( array_filter( $GLOBALS['calls'], static function ( $call ) { return is_array( $call ) && 'WPCPM_Institution_Leads::matching' === $call[0]; } ) );
+ck( 'X2: one open lead: one paragraph after what is said of the institutions, its name a link to its page', array(
+	false !== strpos( $x2_page, '<p>A lead in the talks carries this name or this address: ' . $x2_link . '. Move it into the talks as an institution before you approve, so its notes come with it. Approving then adopts that institution.</p>' ),
+	strpos( $x2_page, 'No institution on the site carries this name' ) < strpos( $x2_page, 'A lead in the talks carries' ),
+	count( $x2_asked ),
+), array( true, true, 1 ) );
+ck( 'X2: the leads are asked by the application\'s name and address', array( $x2_asked[0][1] ?? null, '' !== (string) ( $x2_asked[0][2] ?? '' ) ), array( 'Universidad Example', true ) );
+$GLOBALS['lead_matches'] = $x2_closed;
+ck( 'X2: one closed lead: its own sentence', false !== strpos( render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) ), '<p>A closed lead in the talks carries this name or this address: <a href="https://example.test/administrator-dashboard/?wpcpm_view=talks&wpcpm_lead=lead-42">Universidad Example Cerrada</a>. Reopen it and move it into the talks as an institution before you approve, so its notes come with it. Approving then adopts that institution.</p>' ), true );
+$GLOBALS['lead_matches'] = $x2_one + $x2_closed;
+ck( 'X2: more than one: the linked names joined as a list', false !== strpos( render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) ), '<p>Leads in the talks carry this name or this address: ' . $x2_link . ' and <a href="https://example.test/administrator-dashboard/?wpcpm_view=talks&wpcpm_lead=lead-42">Universidad Example Cerrada</a>. Move the right one into the talks as an institution before you approve, so its notes come with it. Approving then adopts that institution.</p>' ), true );
+WPCPM_Institutions_Index::write( array( 'recEXA00000000001' => array( 'record_id' => 'recEXA00000000001', 'name' => 'Universidad Example', 'stage' => 'Info Sent', 'contact_email' => '' ) ), time() );
+$GLOBALS['lead_matches'] = array();
+$x2_alone                = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) );
+$GLOBALS['lead_matches'] = $x2_one;
+$x2_both                 = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) );
+// Round 2, I2: an institution of that name already matched, so the move would be refused as taken: the one sentence that
+// says so, for one lead or several, open or closed.
+$x2_also = '<p>Also in the talks under this name or this address: ' . $x2_link . '. A lead&#039;s notes do not move by themselves: copy what matters to the institution&#039;s Talks card.</p>';
+ck( 'I2: when an institution matched, the leads are named after it in their own sentence, and nothing else of the page changes', array(
+	false !== strpos( $x2_both, 'recEXA00000000001' ),
+	strpos( $x2_both, 'recEXA00000000001' ) < strpos( $x2_both, 'Also in the talks under this name' ),
+	str_replace( $x2_also, '', $x2_both ) === $x2_alone,
+	false !== strpos( $x2_both, 'Move it into the talks' ),
+), array( true, true, true, false ) );
+$GLOBALS['lead_matches'] = $x2_one + $x2_closed;
+ck( 'I2: the same sentence for several leads, a closed one among them', false !== strpos( render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) ), '<p>Also in the talks under this name or this address: ' . $x2_link . ' and <a href="https://example.test/administrator-dashboard/?wpcpm_view=talks&wpcpm_lead=lead-42">Universidad Example Cerrada</a>. A lead&#039;s notes do not move by themselves: copy what matters to the institution&#039;s Talks card.</p>' ), true );
+$GLOBALS['lead_matches'] = $x2_closed;
+ck( 'I2: and for one closed lead', false !== strpos( render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) ), 'Also in the talks under this name or this address: <a href="https://example.test/administrator-dashboard/?wpcpm_view=talks&wpcpm_lead=lead-42">Universidad Example Cerrada</a>. A lead' ), true );
+WPCPM_Institutions_Index::write( array(), time() );
+$GLOBALS['lead_matches'] = array();
+ck( 'X2: no lead matched, nothing more is said', false !== strpos( render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) ), 'in the talks carr' ), false );
+$GLOBALS['lead_matches'] = $x2_one;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = false;
+$GLOBALS['calls'] = array();
+ck( 'X2: with the setting off the panel is unchanged: no lead named, none asked for', array( false !== strpos( render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) ), 'in the talks carr' ), count( array_filter( $GLOBALS['calls'], static function ( $call ) { return is_array( $call ) && 'WPCPM_Institution_Leads::matching' === $call[0]; } ) ) ), array( false, 0 ) );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = true;
+$GLOBALS['lead_matches'] = array();
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] = '';
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = false;
+ck( 'and with the setting off, Airtable not connected, no search is made and that is said, as before', array(
+	false !== strpos( render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) ), 'Airtable is not connected, so no search was made.' ),
+), array( true ) );
+if ( null === $token_was ) {
+	unset( $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] );
+} else {
+	$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] = $token_was;
+}
+if ( false === $index_was ) {
+	unset( $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] );
+} else {
+	$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = $index_was;
+}
+$GLOBALS['airtable_page']                                            = array( 'records' => array(), 'offset' => null );
 
 /**
  * How many forms of each of the six decisions a render draws for one application, counted by the
@@ -5824,10 +6026,13 @@ ck( 'boot() wires every handler this module has, the retention cron and the scre
 // Everything `boot()` starts, in order. Read as a slice so a handler added later fails here
 // rather than passing unnoticed: this assertion is the only thing that says the module's
 // pieces are actually started, and a subset check would say nothing.
-ck( 'boots the post types, then every module this screen owns (the institution\'s notes among them no more), then hands the cron to the sync', array_slice( $GLOBALS['calls'], 0, 11 ), array(
+ck( 'boots the post types and the Talks card\'s handlers, then every module this screen owns (the institution\'s notes among them no more), then hands the cron to the sync', array_slice( $GLOBALS['calls'], 0, 14 ), array(
 	array( 'WPCPM_Institution_Agreement::init' ),
 	array( 'WPCPM_Institution_Audit::init' ),
 	array( 'WPCPM_Institution_Record::init' ),
+	array( 'WPCPM_Institution_Talk_Notes::init' ),
+	array( 'WPCPM_Institution_Leads::init' ),
+	array( 'WPCPM_Institution_Talks::init' ),
 	array( 'add_action', 'init' ),
 	array( 'ceiling_init' ),
 	array( 'application_init' ),
@@ -5840,6 +6045,7 @@ ck( 'boots the post types, then every module this screen owns (the institution\'
 $started = array_map( function ( $c ) { return $c[0]; }, $GLOBALS['calls'] );
 ck( 'and starts the resend of a student\'s invitation right after graduate and withdraw, the card\'s other student control',
 	array_slice( $started, (int) array_search( 'students_init', $started, true ), 2 ), array( 'students_init', 'resend_init' ) );
+ck( 'and the Airtable copy\'s hourly retry and the Monday email of follow-ups due right after the sync\'s cron (release 2)', array_slice( $started, (int) array_search( 'WPCPM_Institutions_Sync::register_cron', $started, true ), 3 ), array( 'WPCPM_Institutions_Sync::register_cron', 'WPCPM_Institution_Copy::init', 'WPCPM_Institution_Talks_Weekly::init' ) );
 ck( 'and the school\'s details card, whose handlers post to the requests it raises, right after the requests', array_slice( $started, (int) array_search( 'request_init', $started, true ), 2 ), array( 'request_init', 'details_card_init' ) );
 
 // The six daily jobs are scheduled from boot as well as from activation, because the
@@ -5907,6 +6113,17 @@ $module->activate();
 ck( 'but does not touch Airtable when nothing is connected', in_array( 'WPCPM_Countries::refresh', array_map( function ( $c ) { return $c[0]; }, $GLOBALS['calls'] ), true ), false );
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] = 'pat';
 
+// Site mode (release 2): connected, and still no read of the Countries table; the sync is scheduled.
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = true;
+$GLOBALS['calls'] = array();
+$module->activate();
+$names = array_map( function ( $c ) { return $c[0]; }, $GLOBALS['calls'] );
+ck( 'and once the site keeps the record, activate() refreshes no countries and still schedules the sync', array(
+	in_array( 'WPCPM_Countries::refresh', $names, true ),
+	in_array( 'WPCPM_Institutions_Sync::activate', $names, true ),
+), array( false, true ) );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = false;
+
 // Off the clock with the plugin, as the Sponsors module takes its own: a daily event with no
 // listener is what deactivation would otherwise leave behind. The single events (a report's ask
 // queue, an import's next slice) stay: a due event with no listener is dropped, and a reactivation
@@ -5914,11 +6131,13 @@ $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] = 'pat';
 $GLOBALS['calls'] = array();
 $module->deactivate();
 $cleared = array_map( function ( $c ) { return $c[1]; }, array_filter( $GLOBALS['calls'], function ( $c ) { return 'unschedule' === $c[0]; } ) );
-ck( 'deactivate() still hands the sync its own, and takes off the clock exactly the jobs schedule_cron() puts on it', array(
+ck( 'deactivate() still hands the sync its own, the Airtable copy its hourly retry and the Monday email its daily event, and takes off the clock exactly the jobs schedule_cron() puts on it', array(
 	in_array( array( 'WPCPM_Institutions_Sync::deactivate' ), $GLOBALS['calls'], true ),
+	in_array( array( 'WPCPM_Institution_Copy::unschedule' ), $GLOBALS['calls'], true ),
+	in_array( array( 'WPCPM_Institution_Talks_Weekly::unschedule' ), $GLOBALS['calls'], true ),
 	array_values( $cleared ),
 	count( $GLOBALS['calls'] ),
-), array( true, array_values( $scheduled ), 1 + count( $scheduled ) ) );
+), array( true, true, true, array_values( $scheduled ), 3 + count( $scheduled ) ) );
 ck( 'both read the one list, and deactivate() names no job of its own', array(
 	false !== strpos( body_of_method( $institutions_src, 'schedule_cron' ), 'self::daily_jobs()' ),
 	false !== strpos( body_of_method( $institutions_src, 'deactivate' ), 'self::daily_jobs()' ),
@@ -5942,14 +6161,20 @@ ck( 'uninstall() drops the three options, every delete_all(), the membership sta
 	in_array( 'WPCPM_Institution_Request::delete_all', $names, true ),
 	// The institutions' own records (1.123.29) outlive the applications' purge, so this is what removes them.
 	in_array( 'WPCPM_Institution_Record::delete_all', $names, true ),
+	// And the talks notes (Institutions release 2), which nothing else removes.
+	in_array( 'WPCPM_Institution_Talk_Notes::delete_all', $names, true ),
+	// And the leads (Institutions release 2), which name a contact person and an address.
+	in_array( 'WPCPM_Institution_Leads::delete_all', $names, true ),
 	in_array( 'delete_option:wpcpm_institutions_state', $names, true ) && in_array( 'delete_option:wpcpm_institutions_report', $names, true ) && in_array( 'delete_option:wpcpm_institutions_last_sync', $names, true ) && in_array( 'delete_option:wpcpm_institutions_last_error', $names, true ) && in_array( 'delete_option:wpcpm_institutions_lock', $names, true ),
 	in_array( 'delete_metadata:wpcpm_institution_record_id', $names, true ),
 	in_array( 'delete_metadata:wpcpm_institution_record_id_was', $names, true ),
 	in_array( 'delete_metadata:wpcpm_institution_profile', $names, true ),
 	// A manager's rows-per-page choice for the institution accounts, which core keeps as user meta.
 	in_array( 'delete_metadata:wpcpm_institutions_per_page', $names, true ),
-), array( true, true, true, true, true, true, true, true, true, true, true, true, true, true, true ) );
+), array( true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true ) );
 ck( 'and the lock a patch of the index holds while it rewrites it, which a request that died holding it leaves', in_array( 'delete_option:wpcpm_institutions_index_lock', $names, true ), true );
+ck( 'and the list of copies Airtable has not taken yet (release 2), with the copy\'s hourly retry', array( in_array( 'delete_option:wpcpm_institution_copy_pending', $names, true ), in_array( 'WPCPM_Institution_Copy::unschedule', $names, true ) ), array( true, true ) );
+ck( 'and the Monday email\'s week and lock, with its daily event (release 2)', array( in_array( 'delete_option:wpcpm_institution_talks_week', $names, true ), in_array( 'delete_option:wpcpm_institution_talks_lock', $names, true ), in_array( 'WPCPM_Institution_Talks_Weekly::unschedule', $names, true ) ), array( true, true, true ) );
 ck( 'and leaves the signed files where they are', is_file( $base . 'agreements/2026/abc.pdf' ), true );
 // The form's page is the site's to keep, but the plugin's note of which page it is goes, and so does
 // the stamp of its one-time move to /institution-application/, or a reinstall would never move it.
@@ -7327,6 +7552,25 @@ ck( 'under the real switch the Institutions screen\'s Waiting for review tab is 
 	preg_match( '/wpcpm-ui-/', (string) $tab_real ),
 	WPCPM_UI::surface(),
 ), array( array( 'administrator', 'institution' ), true, true, 0, '' ) );
+
+/* ---- the Airtable copy's notice (release 2) ------------------------------- */
+
+echo "\n=== The copies Airtable has not taken ===\n";
+
+// What the notice says, and when, is bin/test-institution-copy.php's; here, where it is drawn: under the
+// not-connected notice, over the tabs, on every tab.
+$GLOBALS['copy_notice']                                   = '<div class="notice notice-warning wpcpm-copy-pending">copy marker</div>';
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] = '';
+$copy_html                                                = render_screen();
+$copy_tabs                                                = render_tab( 'pipeline' );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] = 'pat';
+unset( $GLOBALS['copy_notice'] );
+
+ck( 'the pending-copy notice is drawn after the not-connected notice and before the tabs, on the queue and on another tab', array(
+	false !== strpos( $copy_html, 'copy marker' ) && strpos( $copy_html, 'Open settings' ) < strpos( $copy_html, 'copy marker' ) && strpos( $copy_html, 'copy marker' ) < strpos( $copy_html, 'nav-tab-wrapper' ),
+	false !== strpos( $copy_tabs, 'copy marker' ) && strpos( $copy_tabs, 'copy marker' ) < strpos( $copy_tabs, 'nav-tab-wrapper' ),
+	false !== strpos( body_of_method( $module_src, 'render_admin_page' ), "\$this->render_not_connected();\n\t\t\tWPCPM_Institution_Copy::render_pending_notice();" ),
+), array( true, true, true ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

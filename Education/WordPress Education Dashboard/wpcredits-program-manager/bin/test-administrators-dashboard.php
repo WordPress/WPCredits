@@ -2780,6 +2780,49 @@ ck( 'and taken, so it shows once', isset( $GLOBALS['flash']['institutions'] ), f
 $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] = WPCPM_Administrators_Dashboard::VIEW_WATCH;
 $out_watch = WPCPM_Administrators_Dashboard::render( array() );
 unset( $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] );
+// The Talks view (Institutions off Airtable, release 2, Task 16): its own class draws it (bin/test-institution-talks-view.php);
+// here the page's part, with the view stood in for at its contract, declared only now so every check above ran without it.
+echo "\n=== The Talks view in the frame (Task 16) ===\n";
+if ( ! class_exists( 'WPCPM_Institution_Talks_View' ) ) {
+	class WPCPM_Institution_Talks_View {
+		public static function shown() { return ! empty( $GLOBALS['talks_on'] ); }
+		public static function due_count( $viewer_id ) { $GLOBALS['talks_due_for'][] = (int) $viewer_id; return (int) ( $GLOBALS['talks_due'] ?? 0 ); }
+		public static function render( WP_User $viewer, array $frame = array() ) {
+			echo '<p data-talks-view="' . (int) $viewer->ID . '">' . $frame['page_name'] . '</p>';
+			call_user_func( $frame['messages'] );
+		}
+	}
+}
+$talks_kept      = array( $GLOBALS['uid'], $GLOBALS['manage'] );
+$GLOBALS['uid']  = 3;
+$GLOBALS['manage'] = array( 3 );
+$talks_menu_before = array_keys( menu_items( WPCPM_Administrators_Dashboard::render( array() ) ) );
+$GLOBALS['talks_on'] = false;
+$_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] = WPCPM_Administrators_Dashboard::VIEW_TALKS;
+$talks_off = WPCPM_Administrators_Dashboard::render( array() );
+ck( 'Talks: outside site mode the menu has no Talks item and ?wpcpm_view=talks draws the Overview', array( array_keys( menu_items( $talks_off ) ) === $talks_menu_before, has( $talks_off, 'wpcpm-administrator--overview' ), has( $talks_off, 'data-talks-view' ), isset( menu_items( $talks_off )['Talks'] ) ), array( true, true, false, false ) );
+$GLOBALS['talks_on']      = true;
+$GLOBALS['talks_due']     = 3;
+$GLOBALS['talks_due_for'] = array();
+$talks_on  = WPCPM_Administrators_Dashboard::render( array() );
+$talks_nav = menu_items( $talks_on );
+$talks_at  = array_search( 'Talks', array_keys( $talks_nav ), true );
+ck( 'Talks: in site mode the view is drawn in the page\'s root, named talks, with the page\'s name and its messages and card slot', array( has( $talks_on, 'wpcpm-administrator--talks' ), has( $talks_on, 'data-talks-view="' . (int) $GLOBALS['uid'] . '"' ), substr_count( $talks_on, '<!-- wpcpm-card-message -->' ) ), array( true, true, 0 ) );
+ck( 'Talks: the menu item after Watch, current on the view, the viewer\'s own due count in amber', array( array_keys( $talks_nav )[ $talks_at - 1 ] ?? null, $talks_nav['Talks']['current'] ?? null, $talks_nav['Talks']['badge'] ?? null, $talks_nav['Talks']['tone'] ?? null, $talks_nav['Talks']['url'] ?? null, array_values( array_unique( $GLOBALS['talks_due_for'] ) ) ), array( 'Watch', true, '3', 'amber', WPCPM_Administrators_Dashboard::page_url() . '?wpcpm_view=talks', array( (int) $GLOBALS['uid'] ) ) );
+ck( 'Talks: its icon is the chat bubble', has( $talks_on, WPCPM_Icons::svg( 'chat', 20 ) ) || has( $talks_on, 'M4.5 5.5h15v10h-8l-4.5 3.5v-3.5h-2.5z' ), true );
+$GLOBALS['talks_due'] = 0;
+unset( $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] );
+$talks_zero = menu_items( WPCPM_Administrators_Dashboard::render( array() ) );
+ck( 'Talks: with nothing due the item has no badge, and on the Overview it is not current', array( $talks_zero['Talks']['badge'] ?? null, $talks_zero['Talks']['current'] ?? null ), array( '', false ) );
+$GLOBALS['uid'] = 0;
+$_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] = WPCPM_Administrators_Dashboard::VIEW_TALKS;
+$talks_out = WPCPM_Administrators_Dashboard::render( array() );
+ck( 'Talks: a signed-out visitor asking for the view is asked to log in, and nothing of it is drawn', array( has( $talks_out, 'Log in to see the Administrator Dashboard.' ), has( $talks_out, 'data-talks-view' ) ), array( true, false ) );
+$GLOBALS['uid'] = 21;
+$talks_member   = WPCPM_Administrators_Dashboard::render( array() );
+ck( 'Talks: an account that is no Administrator asking for the view is told the page has nothing for it, and nothing of it is drawn', array( has( $talks_member, 'data-talks-view' ), has( $talks_member, 'wpcpm-frame' ) ), array( false, false ) );
+list( $GLOBALS['uid'], $GLOBALS['manage'] ) = $talks_kept;
+unset( $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ], $GLOBALS['talks_on'], $GLOBALS['talks_due'], $GLOBALS['talks_due_for'] );
 // The Reference view, at the page's own address with ?wpcpm_view=reference, and the Overview with every
 // queue holding something but the Events card's, which is no queue while Sponsor tiers is off: the one
 // sponsor offer waiting for review the fixture read above is put back for it, and a student waiting to graduate

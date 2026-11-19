@@ -466,6 +466,7 @@ The program's schools, at `WPCredits Program > Institutions`, in six tabs: **Wai
 
 - The result of a press is said above the tabs.
 - While Airtable is not connected, a warning above the tabs says so, with **Open settings**.
+- Once the site keeps the record of institutions, a notice above the tabs lists the schools whose changes are not in Airtable yet. See [[Read the notice about Airtable's copy]].
 - The menu entry's bubble counts the applications, signed agreements and requests waiting. At 200 or more it reads *200+*.
 
 #### The Waiting for review tab
@@ -498,6 +499,7 @@ Step by step: [[A school applied]]; [[A signed Collaboration Agreement arrived]]
 - every answer under its Airtable column, and the consent: the sentence, when, and the policy's address;
 - five answers kept on this site only: the contact's role, the students' languages, who will sign, their title and the school's page about WordPress Credits;
 - **What Airtable already has**: records with the same name or address. Approving adopts the first instead of creating one.
+- Once the site keeps the record, **What the site already has** in its place: the institutions in the site's list with the same name or address, then the leads in the talks. A lead named here is moved into the talks before you approve, so its notes come with it. When an institution matched as well, the paragraph says to copy what matters from the lead's notes to the institution's Talks card.
 
 **Where it is decided** says where the decisions are. The dashboard's **Institution applications** card lists the 50 oldest open applications. One past them is decided here. A rejected, spam or approved one has its record-keeping here.
 
@@ -516,7 +518,7 @@ Step by step: [[The application's address is not confirmed]]; [[Finish an approv
 
 #### The Pipeline tab
 
-Every institution record by stage, as the last institutions sync read it. Each row: **Institution** (it opens the Institution Dashboard), **Country**, **City**, **Contact** (*email on record* or *no email*), **Consent**, **Created** and **Agreement**.
+Every institution record by stage, as the last institutions sync read it. Once the site keeps the record, the site's own list, with each change made on a Talks card. Each row: **Institution** (it opens the Institution Dashboard), **Country**, **City**, **Contact** (*email on record* or *no email*), **Consent**, **Created** and **Agreement**.
 
 - *N students now* beside a name: students enrolled now, with or without a mentor. Each stage's heading adds *N with students now*.
 - *no area* beside a country: no area of responsibility covers it. A line lists those countries.
@@ -595,7 +597,7 @@ Step by step: [[A semester report: draft, review, approve, reopen]].
 - It needs **Why it is revoked, in your own words**: 20 to 2,000 characters, emailed to every member.
 - Members keep their accounts. Since 1.123.96 a representative reaches only the **Overview** and **Agreement** views, and a tutor no page. Pending invitations are canceled.
 - Airtable is updated first. If that fails, nothing changes.
-- The stage stays. If the partnership ended, change it in Airtable.
+- The stage stays. If the partnership ended, change it in Airtable, or on the school's Talks card once the site keeps the record.
 - A refused note comes back to its box.
 - **Reinstate**, under **Revoked agreements**, puts it back.
 
@@ -604,7 +606,7 @@ Step by step: [[A semester report: draft, review, approve, reopen]].
 - Airtable is updated first. The school's people get "Your agreement is in force again".
 - The press comes back to the **Agreements** tab. The Administrator Dashboard's **Collaboration Agreements** card still offers it while a signed agreement waits for review.
 - It is refused when an accepted agreement already stands, and for any but the most recently revoked one.
-- A school at a stage outside the active ones is listed without the button, with the line "At the stage "{stage}", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." A school with no stage keeps the button.
+- A school at a stage outside the active ones is listed without the button, with the line "At the stage "{stage}", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." A school with no stage keeps the button. Once the site keeps the record, the line reads "Move it to an active stage on its Talks card first".
 
 Step by step: [[Record an agreement the program already holds]]; [[Take an agreement out of force, or put it back]].
 

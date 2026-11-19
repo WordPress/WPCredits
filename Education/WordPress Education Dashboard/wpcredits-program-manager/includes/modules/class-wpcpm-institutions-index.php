@@ -51,6 +51,12 @@ class WPCPM_Institutions_Index {
 	/** How long a patch waits between two asks for its lock, in microseconds: a tenth of a second. */
 	const LOCK_PAUSE = 100000;
 
+	/** How old, in minutes, the last complete read of the Institutions table may be when the setting is turned on. */
+	const MOVE_READ_MINUTES = 15;
+
+	/** How many schools a refusal of the switch names at most. */
+	const MOVE_NAMES = 5;
+
 	/**
 	 * The keys every row carries, with the value each takes when Airtable has none.
 	 *
@@ -85,6 +91,218 @@ class WPCPM_Institutions_Index {
 				'has_document'     => false,
 			),
 		);
+	}
+
+	/**
+	 * Whether the site keeps the record of institutions (Institutions off Airtable, release 2).
+	 *
+	 * The setting `institutions_on_site`, off by default. On, nothing reads the Institutions or the
+	 * Countries table: the sync builds its run from these rows and the countries map as last read, the
+	 * queue's duplicate search and the approval's adoption search match these rows (`matching()`), the
+	 * acceptance reads the stage from its row, and the mentors sync names institutions from them. Off,
+	 * every one of those paths reads Airtable as it always did, and the next sync rewrites this index.
+	 *
+	 * @return bool
+	 */
+	public static function on_site() {
+		return ! empty( WPCPM_Settings::get_value( 'institutions_on_site', false ) );
+	}
+
+	/**
+	 * Whether the setting may be turned from off to on now (the whole-branch wave of release 2, W1).
+	 *
+	 * Off, the agreement paths write Airtable and the school's agreement option, never the index row: the next
+	 * sync brings the row. On, the first run rebuilds every option from its row, so a row behind its option would
+	 * lock a settled school out, and nothing reads Airtable again to repair it. Three questions, asked in this
+	 * order: a sync run in flight (stalled included, since it resumes); no complete read of the Institutions table
+	 * in the last `MOVE_READ_MINUTES` (the index's own `read`, which only `write()` sets, and only a read of Airtable
+	 * calls it: a run in site mode reads nothing and moves it not; `patch_by()` and `insert()` keep it); a row whose school's agreement
+	 * option exists with an Airtable status that is not the row's agreement status, both trimmed.
+	 *
+	 * Asked by the settings screen's save that turns the setting on, and by nothing that turns it off or saves it
+	 * already on. A write made another way (`WPCPM_Settings::patch()`, so `wp wpcredits setting`, or a direct
+	 * option write) does not ask it.
+	 *
+	 * @return true|WP_Error `wpcpm_move_running`, `wpcpm_move_stale` or `wpcpm_move_behind`, with its sentence.
+	 */
+	public static function may_turn_on() {
+		if ( WPCPM_Institutions_Sync::is_running() ) {
+			return new WP_Error( 'wpcpm_move_running', __( 'The institutions\' record was not moved: the sync is running. Wait until it finishes, then save again.', 'wpcredits-program-manager' ) );
+		}
+
+		// The time the Institutions table was last read into this list, not the time of the last completed run.
+		self::forget_cached();
+
+		$read = (int) self::read()['read'];
+
+		if ( $read <= 0 || time() - $read > self::MOVE_READ_MINUTES * 60 ) {
+			return new WP_Error(
+				'wpcpm_move_stale',
+				sprintf(
+					/* translators: %d: how many minutes old the last read of the Institutions table may be. */
+					__( 'The institutions\' record was not moved: the site has not finished reading the Institutions table in the last %d minutes. Run the sync on Institutions > Sync and storage, then save again.', 'wpcredits-program-manager' ),
+					self::MOVE_READ_MINUTES
+				)
+			);
+		}
+
+		$behind = array_values( self::behind_on_agreements() );
+		$count  = count( $behind );
+
+		if ( 0 === $count ) {
+			return true;
+		}
+
+		if ( 1 === $count ) {
+			return new WP_Error(
+				'wpcpm_move_behind',
+				sprintf(
+					/* translators: %s: an institution's name. */
+					__( 'The institutions\' record was not moved: the site\'s list is behind on the agreement of %s. Run the sync on Institutions > Sync and storage, then save again.', 'wpcredits-program-manager' ),
+					$behind[0]
+				)
+			);
+		}
+
+		return new WP_Error(
+			'wpcpm_move_behind',
+			sprintf(
+				/* translators: 1: how many institutions, 2: the names of the first five of them. */
+				_n( 'The institutions\' record was not moved: the site\'s list is behind on the agreements of %1$d institutions (%2$s). Run the sync on Institutions > Sync and storage, then save again.', 'The institutions\' record was not moved: the site\'s list is behind on the agreements of %1$d institutions (%2$s). Run the sync on Institutions > Sync and storage, then save again.', $count, 'wpcredits-program-manager' ),
+				$count,
+				wp_sprintf_l( '%l', array_slice( $behind, 0, self::MOVE_NAMES ) )
+			)
+		);
+	}
+
+	/**
+	 * The schools the site's list is behind on: those whose agreement option exists with an Airtable status that is not
+	 * their row's agreement status, both trimmed, in the index's order. The switch's third question
+	 * (`may_turn_on()`), and what is asked once more after the switch is saved.
+	 *
+	 * @return array<string, string> Record ID => the school's name, trimmed, or its record ID for a school with none.
+	 */
+	public static function behind_on_agreements() {
+		// The table's copy, not this request's.
+		self::forget_cached();
+
+		$behind = array();
+
+		foreach ( self::rows() as $record_id => $row ) {
+			$record_id = (string) $record_id;
+			$option    = WPCPM_Institution_Agreement::option( $record_id );
+
+			if ( ! is_array( $option ) ) {
+				continue;
+			}
+
+			$held   = isset( $option['airtable_status'] ) && is_scalar( $option['airtable_status'] ) ? trim( (string) $option['airtable_status'] ) : '';
+			$listed = isset( $row['agreement']['status'] ) && is_scalar( $row['agreement']['status'] ) ? trim( (string) $row['agreement']['status'] ) : '';
+
+			if ( $held !== $listed ) {
+				$name                 = isset( $row['name'] ) ? trim( (string) $row['name'] ) : '';
+				$behind[ $record_id ] = '' !== $name ? $name : $record_id;
+			}
+		}
+
+		return $behind;
+	}
+
+	/**
+	 * The rows that are this institution, by name or by contact address: what the base was asked before
+	 * the site kept the record (release 2), asked of the index instead.
+	 *
+	 * The rule: the row's name folded (`fold()`, the one fold the leads' search uses too, so a lead moved into the
+	 * talks is the institution the queue said the approval would adopt: the owner's wave, round 2, L2) equals the name
+	 * folded, or the row's contact address lowercase equals the address lowercase. Asked only in site mode (the
+	 * approval's search and the queue's), so nothing changes while the setting is off. An empty name or
+	 * address matches nothing, so a nameless application never adopts a nameless record. The index's
+	 * order is kept, so "the first of them" is one row and always the same one.
+	 *
+	 * @param string $name  The institution's name, as typed.
+	 * @param string $email The contact address.
+	 * @return array[] Matching rows, keyed by record ID.
+	 */
+	public static function matching( $name, $email ) {
+		$name    = self::fold( $name );
+		$email   = self::lower( $email );
+		$matches = array();
+
+		if ( '' === $name && '' === $email ) {
+			return $matches;
+		}
+
+		foreach ( self::rows() as $record_id => $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			$row_name  = isset( $row['name'] ) && is_scalar( $row['name'] ) ? self::fold( $row['name'] ) : '';
+			$row_email = isset( $row['contact_email'] ) && is_scalar( $row['contact_email'] ) ? self::lower( $row['contact_email'] ) : '';
+
+			if ( ( '' !== $name && $row_name === $name ) || ( '' !== $email && $row_email === $email ) ) {
+				$matches[ (string) $record_id ] = $row;
+			}
+		}
+
+		return $matches;
+	}
+
+	/**
+	 * The block `WPCPM_Institution_Agreement::rebuild()` takes, from one row's agreement block and the
+	 * Drive link, which the row does not hold (it says only whether there is one).
+	 *
+	 * The sync's records phase rebuilds every option from this, and in site mode it is the whole of
+	 * what the gate is rebuilt from: the row, and the link kept in the institution's record.
+	 *
+	 * @param array  $row      An index row.
+	 * @param string $document The Drive link, or ''.
+	 * @return array
+	 */
+	public static function rebuild_block( array $row, $document ) {
+		$block = self::shape( array_merge( $row, array( 'record_id' => '' ) ) )['agreement'];
+
+		return array(
+			'status'           => $block['status'],
+			'kind'             => $block['kind'],
+			'accepted_on'      => $block['accepted_on'],
+			'signed_on'        => $block['signed_on'],
+			'accepted_by'      => $block['accepted_by'],
+			'document'         => trim( (string) $document ),
+			'submitted_on'     => $block['submitted_on'],
+			'template_version' => $block['template_version'],
+		);
+	}
+
+	/**
+	 * A school's name as two are compared, the one fold for the index's matching, the leads' search and their names
+	 * taken (the owner's wave, round 2, L2): trimmed, runs of spaces as one, composed letters (NFC, where the intl
+	 * extension offers it), lowercase.
+	 *
+	 * @param mixed $name A name.
+	 * @return string
+	 */
+	public static function fold( $name ) {
+		$name = is_scalar( $name ) ? trim( (string) preg_replace( '/\s+/u', ' ', (string) $name ) ) : '';
+
+		if ( '' !== $name && function_exists( 'normalizer_normalize' ) ) {
+			$normal = normalizer_normalize( $name, Normalizer::FORM_C );
+			$name   = is_string( $normal ) ? $normal : $name;
+		}
+
+		return function_exists( 'mb_strtolower' ) ? mb_strtolower( $name, 'UTF-8' ) : strtolower( $name );
+	}
+
+	/**
+	 * A value trimmed and lowercase, as an address is compared.
+	 *
+	 * @param mixed $value Candidate.
+	 * @return string
+	 */
+	private static function lower( $value ) {
+		$value = is_scalar( $value ) ? trim( (string) $value ) : '';
+
+		return function_exists( 'mb_strtolower' ) ? mb_strtolower( $value ) : strtolower( $value );
 	}
 
 	/**
@@ -213,18 +431,59 @@ class WPCPM_Institutions_Index {
 	 * Add or replace one row, keeping the read time.
 	 *
 	 * For the approval handler, which needs the new institution in the index before it
-	 * can attach an account to it and cannot wait for the institutions sync. The read time is
-	 * the table's, not this row's: the rest of the index is still as old as it was.
+	 * can attach an account to it and cannot wait for the institutions sync, and for a lead's
+	 * promotion (release 2). The read time is the table's, not this row's: the rest of the index
+	 * is still as old as it was.
 	 *
-	 * @param array $row The row.
+	 * **Under the patches' lock** (release 2, Task 14's fix round): the whole index is read and written
+	 * back, so it is read from the table and not this request's copy, under `OPT_LOCK`, as `patch_by()`
+	 * does; a patch landing meanwhile is kept. A lock it cannot take after the short wait is an insert not
+	 * made, said false, unless the caller asks for the unlocked write this always made before
+	 * (`$or_unlocked`, the approval's, which must not start refusing over it): that write is then made
+	 * and the record ID logged.
+	 *
+	 * @param array $row         The row.
+	 * @param bool  $or_unlocked Whether a lock that cannot be taken falls back to the unlocked write.
+	 * @return bool Whether the row was written; false for a row with no record ID and for a lock not taken.
 	 */
-	public static function insert( array $row ) {
+	public static function insert( array $row, $or_unlocked = false ) {
 		$row = self::shape( $row );
 
 		if ( '' === $row['record_id'] ) {
-			return;
+			return false;
 		}
 
+		$token = self::take_lock();
+
+		if ( '' === $token ) {
+			if ( ! $or_unlocked ) {
+				return false;
+			}
+
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- A write made without the lock is said where an operator reads it; only the record ID, never a name.
+			error_log( 'WPCredits Program Manager: the institutions index was written without its lock for ' . $row['record_id'] );
+			self::forget_cached();
+			self::insert_unlocked( $row );
+
+			return true;
+		}
+
+		try {
+			self::forget_cached();
+			self::insert_unlocked( $row );
+		} finally {
+			WPCPM_Lock::release( self::OPT_LOCK, $token );
+		}
+
+		return true;
+	}
+
+	/**
+	 * The write `insert()` makes: the index as read, with the row added or replaced.
+	 *
+	 * @param array $row The row, shaped, with a record ID.
+	 */
+	private static function insert_unlocked( array $row ) {
 		$index                              = self::read();
 		$index['rows'][ $row['record_id'] ] = $row;
 
@@ -263,6 +522,29 @@ class WPCPM_Institutions_Index {
 	 *              be taken.
 	 */
 	public static function patch( $record_id, array $fields ) {
+		return self::patch_by(
+			$record_id,
+			static function () use ( $fields ) {
+				return $fields;
+			}
+		);
+	}
+
+	/**
+	 * `patch()`, with the keys worked out from the row as the table holds it, under the patch's own lock.
+	 *
+	 * For a change that depends on the row it lands on (Institutions off Airtable, release 2): the agreement
+	 * path merges its cells into the row's agreement block and moves the stage only forward
+	 * (`WPCPM_Institution_Agreement::keep_index()`), so it has to read the row it writes, and read it under the
+	 * lock, or a patch made between its read and its write would be lost. `$change` is handed the row, shaped,
+	 * and answers the keys to change, as `patch()` takes them; it writes nothing itself. Answered as `patch()`
+	 * answers: false for a row the index does not hold and for a lock that could not be taken.
+	 *
+	 * @param string   $record_id Airtable record ID.
+	 * @param callable $change    `function ( array $row ): array`, the keys of `empty_row()` to change.
+	 * @return bool
+	 */
+	public static function patch_by( $record_id, callable $change ) {
 		if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
 			return false;
 		}
@@ -282,7 +564,8 @@ class WPCPM_Institutions_Index {
 			$index = self::read();
 
 			if ( isset( $index['rows'][ $record_id ] ) && is_array( $index['rows'][ $record_id ] ) ) {
-				$row = $index['rows'][ $record_id ];
+				$row    = $index['rows'][ $record_id ];
+				$fields = (array) call_user_func( $change, self::shape( array_merge( $row, array( 'record_id' => $record_id ) ) ) );
 
 				foreach ( array_intersect_key( $fields, self::empty_row() ) as $key => $value ) {
 					if ( 'record_id' !== $key ) {

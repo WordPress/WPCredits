@@ -127,7 +127,7 @@ A school has one request at a time.
 - Representatives read the list and the program's contact address to write to. That is the Emails tool's **Contact address in emails**, or a built-in address while it is empty.
 - A save adds a line to the school's history. The list is kept on the site, never in Airtable.
 - A track taken off the live site drops out, and does not count toward the two below. It comes back, still ticked, when published again.
-- **Assigned Administrator**: change it under **Change who follows it up**.
+- **Assigned Administrator**: change it under **Change who follows it up**. Once the site keeps the record of institutions, the details card has no such section: the Talks card holds it.
 
 With two or more tracks ticked, the form at `/student-registration/` requires "Which track would you like to join?", with the tracks and **Not sure yet**:
 - The answer goes to the Students table's **Requested track** column in Airtable. It shows under **Answers and consent** on the **Registrations** tab.
@@ -161,14 +161,15 @@ Step by step: [[Open a school's Institution Dashboard]]; [[A school's other requ
 
 ### The For Administrators section of an institution's page
 
-**For Administrators** is the last view in the menu of every school's Institution Dashboard. Nobody who acts for the institution sees it. It holds two cards.
+**For Administrators** is the last view in the menu of every school's Institution Dashboard. Nobody who acts for the institution sees it. It holds two cards, and three once the site keeps the record of institutions.
 
+- **Talks**: the first card, once the site keeps the record. The school's stage, next step, follow-up date, assigned Administrator, notes and **Program details**. See [[The Talks card]].
 - **From the application**: the application's answers that Airtable has no column for, such as who signs the agreement. They stay after the application is removed. An institution approved before the site kept these answers has none: **Nothing kept from the application.**
 - **History**: the latest 100 things that happened to the institution, newest first.
 
 A History row gives when, who and what. Member rows and closed requests read in today's words; other rows show the sentence they were recorded with. A row recorded under an older name for Administrators reads in today's words too. Who is the account's name now. It reads **The site** when the site did it, and **A removed account** when the account is gone.
 
-- Rows cover members, invitations with the address each went to, the application, the Collaboration Agreement, details, tracks, the assigned Administrator, tutors, requests, imports, students and roster refusals.
+- Rows cover members, invitations with the address each went to, the application, the Collaboration Agreement, details, tracks, the assigned Administrator, tutors, requests, imports, students and roster refusals, and the talks: a stage moved, the talks updated, the talks brought over from Airtable.
 - A member row says how the account joined, in the words of **Representatives and tutors**, such as **Joined by invitation**, or why it left, such as **They removed their own access**.
 - A closed request says how it was closed, with the Administrator's note when it can be shown.
 

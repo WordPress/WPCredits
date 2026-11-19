@@ -87,7 +87,8 @@ function add_filter( $hook, $callback = null ) {
 	$id = is_array( $callback ) ? $callback[0] . '::' . $callback[1] : (string) $callback;
 	$GLOBALS['filters'][ $hook ][ $id ] = $callback;
 }
-function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
+// A name in `stale` reads as absent, as a stale cache can answer, while the table still holds it.
+function get_option( $k, $d = false ) { if ( in_array( $k, (array) ( $GLOBALS['stale'] ?? array() ), true ) ) { return $d; } return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function update_option( $k, $v, $a = null ) {
 	$GLOBALS['opts'][ $k ]     = $v;
 	$GLOBALS['autoload'][ $k ] = $a;
@@ -109,8 +110,15 @@ function add_option( $k, $v, $dep = '', $a = null ) {
 }
 function delete_option( $k ) {
 	$GLOBALS['calls']['delete_option'][] = $k;
+	$GLOBALS['calls']['order'][]         = 'delete ' . $k;
+	// As core's: whether an option stood and was deleted. One another request deleted first answers false.
+	if ( in_array( $k, (array) ( $GLOBALS['deleted_elsewhere'] ?? array() ), true ) ) {
+		unset( $GLOBALS['opts'][ $k ] );
+		return false;
+	}
+	$had = array_key_exists( $k, $GLOBALS['opts'] );
 	unset( $GLOBALS['opts'][ $k ] );
-	return true;
+	return $had;
 }
 function wp_next_scheduled( $hook ) { return isset( $GLOBALS['cron'][ $hook ] ) ? $GLOBALS['cron'][ $hook ] : false; }
 /**
@@ -278,6 +286,7 @@ class WPCPM_Airtable {
 	}
 
 	public function fetch_all( $table, array $args = array() ) {
+		$GLOBALS['calls']['fetch_all'][] = array( 'table' => $table, 'args' => $args );
 		$records = array();
 		$offset  = null;
 		do {
@@ -290,6 +299,12 @@ class WPCPM_Airtable {
 			$offset  = $page['offset'];
 		} while ( $offset );
 		return $records;
+	}
+
+	/** One record's read, recorded: no path of the sync makes one, and site mode must not. */
+	public function get_record( $table, $record_id ) {
+		$GLOBALS['calls']['get_record'][] = array( 'table' => $table, 'args' => array( 'id' => $record_id ) );
+		return new WP_Error( 'wpcpm_airtable_http', 'Not modeled.' );
 	}
 
 	/* Copied from the real client: the sync leans on both. */
@@ -374,7 +389,12 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 		const TERMINAL_STAGES  = array( 'Not Moving Forward', 'SPAM', 'Revisit Later' );
 		const AIRTABLE_SETTLED = array( 'Accepted', 'On file' );
 		const OPT_PREFIX    = 'wpcpm_agreement_';
+		const RECORD_DOCUMENT = 'agreement_document';
 		public static function option_name( $record_id ) { return self::OPT_PREFIX . $record_id; }
+		public static function option( $record_id ) {
+			$option = get_option( self::option_name( $record_id ) );
+			return is_array( $option ) ? $option : null;
+		}
 		/**
 		 * The retry, run every three hours, at the two things this file cares about: it is
 		 * called, its answer is a count, and a mark it clears ends in a `rebuild()` that writes
@@ -398,9 +418,50 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 			update_option( self::option_name( $record_id ), $option, false );
 			return $option;
 		}
+		/** Whether a status Airtable's cells hold settles an agreement, at the real class's contract (round 2, R1). */
+		public static function status_settles( $status ) {
+			return in_array( trim( (string) $status ), self::AIRTABLE_SETTLED, true );
+		}
 		public static function is_settled( $record_id ) {
 			$option = get_option( self::option_name( $record_id ) );
 			return is_array( $option ) && ! empty( $option['settled'] );
+		}
+		/** The index changes the agreement path owes (R2, Task 13): counted; `$GLOBALS['owed']` names the schools still owed. */
+		public static function pay_index_debts() {
+			$GLOBALS['calls']['pay_index_debts'] = ( $GLOBALS['calls']['pay_index_debts'] ?? 0 ) + 1;
+			return 0;
+		}
+		/**
+		 * Whether a school is still owed, asked by the rebuild slice in site mode. `$GLOBALS['write_meanwhile']` is an
+		 * agreement write landing on a row after the records phase read the rows: patched in the moment it is first asked.
+		 */
+		public static function owes_index( $record_id ) {
+			$GLOBALS['calls']['owes_index'][] = $record_id;
+			if ( isset( $GLOBALS['write_meanwhile'][ $record_id ] ) ) {
+				WPCPM_Institutions_Index::patch( $record_id, $GLOBALS['write_meanwhile'][ $record_id ] );
+				// The write's own rebuild leaves the option at the status it wrote, as every agreement path does; set here
+				// without a `rebuild` call, so the run's own rebuild is still the one the checks read (the outside review, O1).
+				$written = $GLOBALS['write_meanwhile'][ $record_id ]['agreement']['status'] ?? null;
+				if ( null !== $written && is_array( $GLOBALS['opts'][ self::option_name( $record_id ) ] ?? null ) ) {
+					$GLOBALS['opts'][ self::option_name( $record_id ) ]['airtable_status'] = $written;
+				}
+				unset( $GLOBALS['write_meanwhile'][ $record_id ] );
+			}
+			return in_array( $record_id, (array) ( $GLOBALS['owed'] ?? array() ), true );
+		}
+		/** The record's Drive link, as the real one reads it from the site's answers (`$GLOBALS['site_answers']`). */
+		public static function record_document( $record_id ) {
+			$kept = $GLOBALS['site_answers'][ (string) $record_id ] ?? array();
+			return isset( $kept[ self::RECORD_DOCUMENT ] ) ? trim( (string) $kept[ self::RECORD_DOCUMENT ] ) : '';
+		}
+		/** A school's index change owed, paid (R2, Task 13): noted; `$GLOBALS['pays']` names the schools a pay clears. */
+		public static function keep_index( $record, array $changed, $confirm = '', $ground = '' ) {
+			$GLOBALS['calls']['keep_index'][] = (string) $record;
+			if ( in_array( (string) $record, (array) ( $GLOBALS['pays'] ?? array() ), true ) ) {
+				$GLOBALS['owed'] = array_values( array_diff( (array) ( $GLOBALS['owed'] ?? array() ), array( (string) $record ) ) );
+				return true;
+			}
+			return false;
 		}
 		public static function stored_records() {
 			$out = array();
@@ -511,6 +572,7 @@ if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 		}
 		public static function detach( $user_id, $reason, $actor_id ) {
 			$GLOBALS['calls']['detach'][] = array( $user_id, $reason, $actor_id );
+			$GLOBALS['calls']['order'][]  = 'detach ' . $user_id;
 			unset( $GLOBALS['members'][ $user_id ] );
 			$GLOBALS['users'][ $user_id ]['roles'] = array( 'subscriber' );
 			return true;
@@ -547,6 +609,17 @@ if ( ! class_exists( 'WPCPM_Institution_Request' ) ) {
 if ( ! class_exists( 'WPCPM_Institution_Record' ) ) {
 	class WPCPM_Institution_Record {
 		public static function forget_cached( $record_id ) { $GLOBALS['calls']['record_forgotten'][] = (string) $record_id; }
+		/** The answers kept on the site, from `$GLOBALS['site_answers']`, for the IDs asked that have some; each ask noted. */
+		public static function answers_for( array $record_ids ) {
+			$GLOBALS['calls']['answers_for'][] = count( $record_ids );
+			$out                               = array();
+			foreach ( $record_ids as $record_id ) {
+				if ( isset( $GLOBALS['site_answers'][ (string) $record_id ] ) ) {
+					$out[ (string) $record_id ] = $GLOBALS['site_answers'][ (string) $record_id ];
+				}
+			}
+			return $out;
+		}
 	}
 }
 
@@ -686,6 +759,9 @@ function airtable_pages( array $seed, array $override = array() ) {
  *
  * @return int Ticks taken.
  */
+/** Whether the markup holds the text (round 3, P3). */
+function has_text( $html, $text ) { return false !== strpos( (string) $html, (string) $text ); }
+
 function run_to_end() {
 	$ticks = 0;
 	while ( WPCPM_Institutions_Sync::is_running() && $ticks < 50 ) {
@@ -722,6 +798,7 @@ function reset_site( array $seed, array $override = array() ) {
 	$GLOBALS['areas']           = array();
 	$GLOBALS['assigned']        = array();
 	$GLOBALS['assign_refuses']  = false;
+	$GLOBALS['site_answers']    = array();
 
 	$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array_merge(
 		WPCPM_Settings::defaults(),
@@ -1024,6 +1101,20 @@ ck( 'and the no-agreement wording names the Drive link, which is what a manager 
 	false !== strpos( WPCPM_Institutions_Sync::provision_message( WPCPM_Institutions_Sync::BLOCK_NO_AGREEMENT ), 'Drive link' ),
 	'' === WPCPM_Institutions_Sync::provision_message( 'something else' ),
 ), array( true, true ) );
+// F3 (c): once the site keeps the record, a school is Confirmed by its agreement, not by a stage set in Airtable.
+$f3_was = $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] ?? null;
+$f3_off = WPCPM_Institutions_Sync::provision_message( WPCPM_Institutions_Sync::BLOCK_NOT_CONFIRMED );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = true;
+$f3_on = WPCPM_Institutions_Sync::provision_message( WPCPM_Institutions_Sync::BLOCK_NOT_CONFIRMED );
+if ( null === $f3_was ) {
+	unset( $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] );
+} else {
+	$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = $f3_was;
+}
+ck( 'F3: the not-Confirmed refusal names the agreement in site mode, and Airtable with the setting off', array( $f3_on, $f3_off ), array(
+	'Only a Confirmed institution is given an account. It is Confirmed once its Collaboration Agreement is accepted or recorded as on file.',
+	'Only a Confirmed institution is given an account. Move it to Confirmed in Airtable first.',
+) );
 ck( 'provision() refuses the same way, with the reason in the error data', array(
 	is_wp_error( WPCPM_Institutions_Sync::provision( $confirmed ) ),
 	WPCPM_Institutions_Sync::provision( $confirmed )->get_error_code(),
@@ -2095,6 +2186,555 @@ ck( 'ten new records in a covered country: all ten assigned, five emailed',
 		array_map( array( 'WPCPM_Institution_Assignment', 'stored_of' ), array_keys( $ten ) ),
 	),
 	array( 10, 5, array_fill( 0, 10, 11 ) ) );
+
+/* ---- the record on the site: a run that reads nothing of Institutions or Countries (R2) ---- */
+
+echo "\n=== Site mode: the record on the site, and no read of Institutions or Countries ===\n";
+
+// A site the Airtable mode has filled: the index and the countries map as the last read left them, and
+// the agreement options that read wrote.
+reset_site( $seed );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+
+$site_rows = WPCPM_Institutions_Index::rows();
+$with_doc  = 'recSEED0000000008'; // Confirmed: its Drive link is in its record on the site.
+$opt_doc   = 'recSEED0000000010'; // Not Moving Forward: the link only its agreement option holds.
+
+ck( 'the Airtable-mode run left an index and a countries map to keep', array( count( $site_rows ) > 0, count( WPCPM_Countries::all() ) > 0 ), array( true, true ) );
+
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = true;
+$GLOBALS['site_answers'][ $with_doc ] = array( WPCPM_Institution_Agreement::RECORD_DOCUMENT => ' https://drive.google.com/file/d/SITEDOC0001/view ' );
+$GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $opt_doc ) ]['drive_url'] = 'https://drive.google.com/file/d/OPTDOC0001/view';
+
+member( 50, $not_moving );
+member( 51, $confirmed );
+member( 52, $gone );
+
+// Were Airtable read, this run would meet a school new to the index in a country with an Administrator,
+// and would assign it and mail them. It is not read, so nothing of that happens.
+$GLOBALS['areas'] = array();
+foreach ( $seed['countries'] as $c ) {
+	$GLOBALS['areas'][ $c['id'] ] = 11;
+}
+$GLOBALS['pages']['tbl4V0FEbzRP7I2w2'][0][] = array( 'id' => 'recNEWSITE0000001', 'createdTime' => '2026-11-19T10:00:00.000Z', 'fields' => array( 'Name' => 'New School', 'Current Stage' => 'Info Sent', 'Country' => array( $seed['countries'][0]['id'] ) ) );
+
+$index_before     = serialize( get_option( WPCPM_Institutions_Index::OPT_NAME ) );
+$countries_before = serialize( get_option( WPCPM_Countries::OPT_NAME ) );
+$tests_before     = serialize( get_option( WPCPM_Test_Institutions::OPTION ) );
+$GLOBALS['calls'] = array();
+
+ck( 'the setting is what on_site() says', WPCPM_Institutions_Index::on_site(), true );
+ck( 'start() accepts a site-mode run', WPCPM_Institutions_Sync::start(), true );
+run_to_end();
+$site_report = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
+
+$site_reads = array();
+foreach ( array( 'fetch_page', 'fetch_all', 'get_record' ) as $site_kind ) {
+	foreach ( isset( $GLOBALS['calls'][ $site_kind ] ) ? $GLOBALS['calls'][ $site_kind ] : array() as $site_call ) {
+		$site_reads[] = $site_kind . ' ' . $site_call['table'];
+	}
+}
+$named_tables = array_values( array_filter( $site_reads, static function ( $read ) {
+	$settings = WPCPM_Settings::get();
+	return false !== strpos( $read, (string) $settings['institutions_table'] ) || false !== strpos( $read, (string) $settings['countries_table'] );
+} ) );
+ck( 'Review Focus 2: the whole run makes no fetch_page, fetch_all or get_record of any table, none naming Institutions or Countries, and refreshes no countries map',
+	array( $site_reads, $named_tables, isset( $GLOBALS['calls']['countries_refresh'] ) ),
+	array( array(), array(), false ) );
+ck( 'the index, the countries map and the remembered test institutions are left byte for byte as they were',
+	array( serialize( get_option( WPCPM_Institutions_Index::OPT_NAME ) ) === $index_before, serialize( get_option( WPCPM_Countries::OPT_NAME ) ) === $countries_before, serialize( get_option( WPCPM_Test_Institutions::OPTION ) ) === $tests_before ),
+	array( true, true, true ) );
+ck( 'the countries phase counts the stored map, and the records phase the index\'s rows, every one rebuilt',
+	array( $site_report['stats']['countries'], $site_report['stats']['records_seen'], $site_report['stats']['rebuilt'] ),
+	array( count( WPCPM_Countries::all() ), count( $site_rows ), count( $site_rows ) ) );
+ck( 'the run read the records\' links once, for every row at once', isset( $GLOBALS['calls']['answers_for'] ) ? $GLOBALS['calls']['answers_for'] : null, array( count( $site_rows ) ) );
+
+$want_blocks = array();
+foreach ( $site_rows as $record_id => $row ) {
+	$block                     = $row['agreement'];
+	$want_blocks[ $record_id ] = array(
+		'status'           => $block['status'],
+		'kind'             => $block['kind'],
+		'accepted_on'      => $block['accepted_on'],
+		'signed_on'        => $block['signed_on'],
+		'accepted_by'      => $block['accepted_by'],
+		'document'         => $with_doc === $record_id ? 'https://drive.google.com/file/d/SITEDOC0001/view' : ( $opt_doc === $record_id ? 'https://drive.google.com/file/d/OPTDOC0001/view' : '' ),
+		'submitted_on'     => $block['submitted_on'],
+		'template_version' => $block['template_version'],
+	);
+}
+ck( 'every agreement option is rebuilt from the index row\'s agreement block and the record\'s link, trimmed, and a school whose record has no link keeps the one its option holds',
+	$GLOBALS['calls']['rebuild'],
+	$want_blocks );
+ck( 'the revoke phase runs as today: the members of the school at Not Moving Forward and of the one the index does not hold are detached, the Confirmed one\'s member kept',
+	array( array_map( static function ( $call ) { return $call[0]; }, isset( $GLOBALS['calls']['detach'] ) ? $GLOBALS['calls']['detach'] : array() ), isset( $GLOBALS['members'][51] ) ),
+	array( array( 50, 52 ), true ) );
+ck( 'and retry_agreements() runs as today', isset( $GLOBALS['calls']['retry_airtable'] ) ? $GLOBALS['calls']['retry_airtable'] : 0, 1 );
+ck( 'no school is given an Administrator and no assignment email goes',
+	array( isset( $GLOBALS['calls']['assign'] ), isset( $GLOBALS['calls']['assigned_mail'] ), WPCPM_Institutions_Index::has( 'recNEWSITE0000001' ) ),
+	array( false, false, false ) );
+ck( 'the run pays the index changes the agreement path owes, once, and asks of every school rebuilt whether one is still owed',
+	array( $GLOBALS['calls']['pay_index_debts'] ?? 0, count( $GLOBALS['calls']['owes_index'] ?? array() ) ),
+	array( 1, count( $site_rows ) ) );
+
+// An acceptance whose index patch its lock refused: the school is still owed, so its option, which the acceptance
+// wrote, is not rebuilt from a row that lacks the change. And an agreement write that lands on a row after the
+// records phase read the rows: the option is rebuilt from the row as it is now, not as the run first read it.
+$owed_school       = $confirmed;
+$meanwhile         = $opt_doc;
+$owed_option       = get_option( WPCPM_Institution_Agreement::option_name( $owed_school ) );
+$meanwhile_block   = WPCPM_Institutions_Index::row( $meanwhile )['agreement'];
+$GLOBALS['owed']   = array( $owed_school );
+$GLOBALS['calls']  = array();
+$GLOBALS['write_meanwhile'] = array( $meanwhile => array( 'agreement' => array_merge( $meanwhile_block, array( 'status' => 'Revoked' ) ) ) );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+ck( 'in site mode a school still owed an index change keeps the option its agreement write left, and is not rebuilt',
+	array( array_key_exists( $owed_school, $GLOBALS['calls']['rebuild'] ?? array() ), get_option( WPCPM_Institution_Agreement::option_name( $owed_school ) ) === $owed_option ),
+	array( false, true ) );
+ck( 'and a row an agreement write changed after the records phase read it is rebuilt as it is now',
+	$GLOBALS['calls']['rebuild'][ $meanwhile ]['status'] ?? null,
+	'Revoked' );
+$GLOBALS['owed'] = array();
+WPCPM_Institutions_Index::patch( $meanwhile, array( 'agreement' => $meanwhile_block ) );
+
+// The outside review, O1: a row behind its school's option (an agreement decided in the instant the setting was turned
+// on, or a change to the row that was lost) never takes the school's access away. The option stays, the school is
+// counted and named; a school whose option and row agree is rebuilt as today; one with a change owed is passed over
+// without the notice.
+$o1_school = $confirmed;
+$o1_name   = trim( (string) WPCPM_Institutions_Index::row( $o1_school )['name'] );
+$o1_block  = WPCPM_Institutions_Index::row( $o1_school )['agreement'];
+WPCPM_Institutions_Index::patch( $o1_school, array( 'agreement' => array_merge( $o1_block, array( 'status' => 'Awaiting review' ) ) ) );
+$GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $o1_school ) ] = array( 'v' => 1, 'settled' => true, 'airtable_status' => ' Accepted ', 'drive_url' => '', 'updated' => 1 );
+$o1_option = get_option( WPCPM_Institution_Agreement::option_name( $o1_school ) );
+$o1_wrote  = serialize( $GLOBALS['opts'] );
+$GLOBALS['calls'] = array();
+WPCPM_Institutions_Sync::start();
+run_to_end();
+$o1_report   = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
+$o1_sentence = 'The site\'s list is behind on the agreement of ' . $o1_name . ', so its page was left as it is. Tell the product owner.';
+ck( 'o1_behind_left_as_is: a row behind its school\'s option leaves the option as it is, settled, not rebuilt; the school counted beside rebuilt and settled, and named in one notice',
+	array( get_option( WPCPM_Institution_Agreement::option_name( $o1_school ) ) === $o1_option, array_key_exists( $o1_school, $GLOBALS['calls']['rebuild'] ?? array() ), $o1_report['stats']['behind'] ?? null, $o1_report['stats']['rebuilt'] ?? null, count( array_keys( (array) $o1_report['notices'], $o1_sentence, true ) ) ),
+	array( true, false, 1, count( $site_rows ) - 1, 1 ) );
+ck( 'and its settled option is still counted settled; every other school is rebuilt as today',
+	array( ( $o1_report['stats']['settled'] ?? 0 ) >= 1, count( $GLOBALS['calls']['rebuild'] ?? array() ) ),
+	array( true, count( $site_rows ) - 1 ) );
+
+// A school with no name is named by its record ID.
+WPCPM_Institutions_Index::patch( $o1_school, array( 'name' => '' ) );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+ck( 'a school with no name is named by its record ID',
+	in_array( 'The site\'s list is behind on the agreement of ' . $o1_school . ', so its page was left as it is. Tell the product owner.', (array) get_option( WPCPM_Institutions_Sync::OPT_REPORT )['notices'], true ),
+	true );
+WPCPM_Institutions_Index::patch( $o1_school, array( 'name' => $o1_name ) );
+
+// A change owed for that school: passed over as today, with no notice and no count.
+$GLOBALS['owed']  = array( $o1_school );
+$GLOBALS['calls'] = array();
+WPCPM_Institutions_Sync::start();
+run_to_end();
+$o1_owed = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
+ck( 'a school with a change owed is passed over as today, without the notice',
+	array( array_key_exists( $o1_school, $GLOBALS['calls']['rebuild'] ?? array() ), $o1_owed['stats']['behind'] ?? null, in_array( $o1_sentence, (array) $o1_owed['notices'], true ) ),
+	array( false, 0, false ) );
+$GLOBALS['owed'] = array();
+
+// Option and row agreeing again: rebuilt as today, no notice. The option as a rebuild from that row leaves it: settled
+// only when its status settles (round 2, R1).
+WPCPM_Institutions_Index::patch( $o1_school, array( 'agreement' => $o1_block ) );
+$GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $o1_school ) ]['airtable_status'] = (string) $o1_block['status'];
+$GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $o1_school ) ]['settled']         = WPCPM_Institution_Agreement::status_settles( $o1_block['status'] );
+$GLOBALS['calls'] = array();
+WPCPM_Institutions_Sync::start();
+run_to_end();
+$o1_agree = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
+ck( 'a school whose option and row agree is rebuilt as today',
+	array( array_key_exists( $o1_school, $GLOBALS['calls']['rebuild'] ?? array() ), $o1_agree['stats']['behind'] ?? null, $o1_agree['stats']['rebuilt'] ?? null, in_array( $o1_sentence, (array) $o1_agree['notices'], true ) ),
+	array( true, 0, count( $site_rows ), false ) );
+
+// Round 2, R1: only a settled option over a row whose status does not settle, with nothing owed, is passed over. A
+// row ahead of its option (a template generated, an upload whose own Airtable write was refused) is rebuilt from the
+// row, as before O1.
+$r1_run = static function ( array $option, $row_status ) use ( $o1_school, $o1_block, $o1_sentence ) {
+	WPCPM_Institutions_Index::patch( $o1_school, array( 'agreement' => array_merge( $o1_block, array( 'status' => $row_status ) ) ) );
+	$GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $o1_school ) ] = array_merge( array( 'v' => 1, 'drive_url' => '', 'updated' => 1 ), $option );
+	$before           = get_option( WPCPM_Institution_Agreement::option_name( $o1_school ) );
+	$GLOBALS['calls'] = array();
+	WPCPM_Institutions_Sync::start();
+	run_to_end();
+	$report = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
+	return array(
+		array_key_exists( $o1_school, $GLOBALS['calls']['rebuild'] ?? array() ),
+		$report['stats']['behind'] ?? null,
+		in_array( $o1_sentence, (array) $report['notices'], true ),
+		get_option( WPCPM_Institution_Agreement::option_name( $o1_school ) ) === $before,
+	);
+};
+ck( 'r1_settled_over_awaiting: a settled option over a row at Awaiting review is passed over, counted, named, the option untouched', $r1_run( array( 'settled' => true, 'airtable_status' => 'Accepted' ), 'Awaiting review' ), array( false, 1, true, true ) );
+ck( 'r1_settled_over_sent: and over a row at Sent the same', $r1_run( array( 'settled' => true, 'airtable_status' => 'On file' ), 'Sent' ), array( false, 1, true, true ) );
+ck( 'r1_template_generated: an option at Not started over a row at Template generated is rebuilt from the row, no notice, not counted', $r1_run( array( 'settled' => false, 'airtable_status' => 'Not started' ), 'Template generated' ), array( true, 0, false, false ) );
+ck( 'r1_refused_upload: an option at Awaiting review over a row at Awaiting review (an upload whose write was refused) is rebuilt, no notice', array_slice( $r1_run( array( 'settled' => false, 'airtable_status' => 'Awaiting review' ), 'Awaiting review' ), 0, 3 ), array( true, 0, false ) );
+ck( 'r1_settled_over_settled: a settled option over a settled row with another status (Accepted over On file) is rebuilt, no notice', array_slice( $r1_run( array( 'settled' => true, 'airtable_status' => 'Accepted' ), 'On file' ), 0, 3 ), array( true, 0, false ) );
+
+// Round 3, P3: the Institutions screen draws one warning notice naming each school the rule protects now, found by the
+// one predicate the run uses; read only when the last finished run counted one, and never outside site mode.
+$p3_notice = static function () {
+	$GLOBALS['calls']['owes_index'] = array();
+	ob_start();
+	WPCPM_Institutions_Sync::render_behind_notice();
+	return array( (string) ob_get_clean(), count( $GLOBALS['calls']['owes_index'] ) );
+};
+$p3_line   = static function ( $name ) {
+	return '<li>' . esc_html( 'The site\'s list is behind on the agreement of ' . $name . ', so its page was left as it is. Tell the product owner.' ) . '</li>';
+};
+$p3_second       = $opt_doc;
+$p3_second_name  = trim( (string) WPCPM_Institutions_Index::row( $p3_second )['name'] );
+$p3_second_block = WPCPM_Institutions_Index::row( $p3_second )['agreement'];
+$p3_second_opt   = get_option( WPCPM_Institution_Agreement::option_name( $p3_second ) );
+// At an active stage for these checks, so the run's revoke phase keeps its option (it is at Not Moving Forward).
+$p3_second_stage = (string) WPCPM_Institutions_Index::row( $p3_second )['stage'];
+WPCPM_Institutions_Index::patch( $p3_second, array( 'stage' => 'Confirmed' ) );
+$r1_run( array( 'settled' => true, 'airtable_status' => 'Accepted' ), 'Awaiting review' );
+list( $p3_one, $p3_one_reads ) = $p3_notice();
+ck( 'p3_one_school: in site mode the screen draws one warning notice in WordPress\'s markup, one line for the one school, as the sync says it',
+	array( substr_count( $p3_one, '<div class="notice notice-warning' ), substr_count( $p3_one, '<li>' ), has_text( $p3_one, $p3_line( $o1_name ) ), $p3_one_reads > 0 ),
+	array( 1, 1, true, true ) );
+WPCPM_Institutions_Index::patch( $p3_second, array( 'agreement' => array_merge( $p3_second_block, array( 'status' => 'Sent' ) ) ) );
+$GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $p3_second ) ] = array( 'v' => 1, 'settled' => true, 'airtable_status' => 'On file', 'drive_url' => 'https://drive.google.com/file/d/OPTDOC0001/view', 'updated' => 1 );
+$r1_run( array( 'settled' => true, 'airtable_status' => 'Accepted' ), 'Awaiting review' );
+list( $p3_two ) = $p3_notice();
+ck( 'p3_two_schools: with two such schools, one notice, a line for each',
+	array( get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['behind'], substr_count( $p3_two, '<div class="notice notice-warning' ), substr_count( $p3_two, '<li>' ), has_text( $p3_two, $p3_line( $o1_name ) ), has_text( $p3_two, $p3_line( $p3_second_name ) ) ),
+	array( 2, 1, 2, true, true ) );
+// A school the rule does not protect (its row ahead of its option) is rebuilt by the run, and the screen does not list it.
+$GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $p3_second ) ] = array( 'v' => 1, 'settled' => false, 'airtable_status' => 'Not started', 'drive_url' => '', 'updated' => 1 );
+WPCPM_Institutions_Index::patch( $p3_second, array( 'agreement' => array_merge( $p3_second_block, array( 'status' => 'Template generated' ) ) ) );
+list( $p3_rebuilt ) = $p3_notice();
+ck( 'p3_rebuilt_not_listed: a school that is rebuilt, not protected, is not listed', array( substr_count( $p3_rebuilt, '<li>' ), has_text( $p3_rebuilt, $p3_second_name ) ), array( 1, false ) );
+// The last finished run counted none: nothing is read and nothing is drawn.
+$p3_report = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_REPORT ]['stats']['behind'] = 0;
+ck( 'p3_report_none_reads_nothing: a report with behind at 0 reads no school and draws nothing', $p3_notice(), array( '', 0 ) );
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_REPORT ] = $p3_report;
+// The setting off: nothing is read and nothing is drawn.
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = false;
+ck( 'p3_setting_off: with the setting off nothing is read and nothing is drawn', $p3_notice(), array( '', 0 ) );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = true;
+ck( 'p3_one_predicate: rebuild_slice() and the screen ask the one public predicate, and the screen draws it after the copy\'s notice, above the tabs',
+	array( 1 === preg_match( '/function rebuild_slice\(.*?self::is_behind\(/s', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-sync.php' ) ), 1 === preg_match( '/WPCPM_Institution_Copy::render_pending_notice\(\);\s*WPCPM_Institutions_Sync::render_behind_notice\(\);\s*WPCPM_Screen_Tabs::render\(/', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php' ) ) ),
+	array( true, true ) );
+WPCPM_Institutions_Index::patch( $p3_second, array( 'agreement' => $p3_second_block, 'stage' => $p3_second_stage ) );
+$GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $p3_second ) ] = $p3_second_opt;
+WPCPM_Institutions_Index::patch( $o1_school, array( 'agreement' => $o1_block ) );
+$GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $o1_school ) ]['airtable_status'] = (string) $o1_block['status'];
+
+// An index that reads as empty while the site holds agreement options is a list lost, not a program with
+// no schools: the run stops before the revoke phase, which would take every member off their school.
+$kept_index = get_option( WPCPM_Institutions_Index::OPT_NAME );
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = array( 'v' => 99, 'read' => time(), 'rows' => array() );
+member( 53, $confirmed );
+$GLOBALS['calls'] = array();
+WPCPM_Institutions_Sync::start();
+run_to_end();
+ck( 'in site mode an index that reads as empty while agreement options stand stops the run with its sentence, before any rebuild or detach, and is not retried',
+	array(
+		get_option( WPCPM_Institutions_Sync::OPT_ERROR ),
+		isset( $GLOBALS['calls']['rebuild'] ),
+		isset( $GLOBALS['calls']['detach'] ),
+		isset( $GLOBALS['members'][53] ),
+		WPCPM_Students_Sync::retry_delay( new WP_Error( 'wpcpm_institutions_empty_index', 'x' ) ),
+	),
+	array( 'The site\'s list of institutions reads as empty, but agreements or accounts are still held for institutions, so the run stopped and nobody\'s access was changed. The list may have been lost: restore it before the next run.', false, false, true, 0 ) );
+WPCPM_Institutions_Sync::cancel();
+
+// And with no agreement option at all: an account that still holds a membership is the other witness.
+$kept_options = array();
+foreach ( array_keys( $GLOBALS['opts'] ) as $name ) {
+	if ( 0 === strpos( $name, WPCPM_Institution_Agreement::OPT_PREFIX ) ) {
+		$kept_options[ $name ] = $GLOBALS['opts'][ $name ];
+		unset( $GLOBALS['opts'][ $name ] );
+	}
+}
+$GLOBALS['calls'] = array();
+delete_option( WPCPM_Institutions_Sync::OPT_ERROR );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+ck( 'and so does one while no agreement option stands but an account still holds a membership',
+	array( get_option( WPCPM_Institutions_Sync::OPT_ERROR ), isset( $GLOBALS['calls']['detach'] ), isset( $GLOBALS['members'][53] ) ),
+	array( 'The site\'s list of institutions reads as empty, but agreements or accounts are still held for institutions, so the run stopped and nobody\'s access was changed. The list may have been lost: restore it before the next run.', false, true ) );
+WPCPM_Institutions_Sync::cancel();
+
+// With neither, an empty list is a program with no schools yet, and the run goes on.
+$members_were       = $GLOBALS['members'];
+$GLOBALS['members'] = array();
+delete_option( WPCPM_Institutions_Sync::OPT_ERROR );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+ck( 'with neither, an empty list runs to the end with nothing to rebuild', array( get_option( WPCPM_Institutions_Sync::OPT_ERROR ), WPCPM_Institutions_Sync::is_running() ), array( false, false ) );
+$GLOBALS['members'] = $members_were;
+$GLOBALS['opts']    = array_merge( $GLOBALS['opts'], $kept_options );
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = $kept_index;
+
+$GLOBALS['calls'] = array();
+WPCPM_Institutions_Sync::activate();
+ck( 'activate() in site mode schedules and reads no countries', array( isset( $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_DAILY ] ), isset( $GLOBALS['calls']['countries_refresh'] ) ), array( true, false ) );
+
+// Off again: the sync reads Airtable again and rewrites the site's list, the new school with it.
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = false;
+// O1 with the setting off: an option whose status is not the one read is rebuilt as today, nothing counted or said.
+$GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $o1_school ) ]['airtable_status'] = 'Some other status';
+$GLOBALS['calls'] = array();
+WPCPM_Institutions_Sync::start();
+run_to_end();
+$o1_off = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
+ck( 'o1_off_unchanged: with the setting off a school whose option differs from the read is rebuilt as today, none counted behind, no notice',
+	array( array_key_exists( $o1_school, $GLOBALS['calls']['rebuild'] ?? array() ), $o1_off['stats']['behind'] ?? null, $o1_off['stats']['rebuilt'] === count( $GLOBALS['calls']['rebuild'] ?? array() ), array() === preg_grep( '/is behind on the agreement of/', (array) $o1_off['notices'] ) ),
+	array( true, 0, true, true ) );
+ck( 'with the setting off, the run refreshes the countries and pages the Institutions table again, and the index holds what it read',
+	array( count( isset( $GLOBALS['calls']['countries_refresh'] ) ? $GLOBALS['calls']['countries_refresh'] : array() ), count( isset( $GLOBALS['calls']['fetch_page'] ) ? $GLOBALS['calls']['fetch_page'] : array() ) > 0, WPCPM_Institutions_Index::has( 'recNEWSITE0000001' ), WPCPM_Institutions_Index::on_site() ),
+	array( 1, true, true, false ) );
+ck( 'and pays no index change and asks of no school whether one is owed: the base is the record again',
+	array( isset( $GLOBALS['calls']['pay_index_debts'] ), isset( $GLOBALS['calls']['owes_index'] ) ),
+	array( false, false ) );
+$GLOBALS['calls'] = array();
+WPCPM_Institutions_Sync::activate();
+ck( 'and activate() reads the countries again', count( isset( $GLOBALS['calls']['countries_refresh'] ) ? $GLOBALS['calls']['countries_refresh'] : array() ), 1 );
+
+/* ---- the gate closed and opened for one school (R2, Task 15) ---------------- */
+
+echo "\n=== close_gate() and open_gate(), for the Talks card ===\n";
+
+reset_site( $seed );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = true;
+$gate_school = $confirmed;
+$other       = 'recSEED0000000118';
+member( 70, $gate_school );
+member( 71, $gate_school );
+member( 72, $other );
+$GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $gate_school ) ] = array( 'v' => 1, 'settled' => true );
+$GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $other ) ]       = array( 'v' => 1, 'settled' => true );
+$GLOBALS['calls'] = array();
+
+$closed = WPCPM_Institutions_Sync::close_gate( $gate_school, 9 );
+ck( 'close_gate() deletes the school\'s agreement option and says it locked it',
+	array( $closed['locked'], array_key_exists( WPCPM_Institution_Agreement::option_name( $gate_school ), $GLOBALS['opts'] ), WPCPM_Institution_Agreement::is_settled( $gate_school ) ),
+	array( true, false, false ) );
+ck( 'and under revoke detaches each of its members with reason revoked, by the actor given, and no other school\'s',
+	array( $closed['revoked'], $GLOBALS['calls']['detach'] ?? array(), isset( $GLOBALS['members'][72] ), array_key_exists( WPCPM_Institution_Agreement::option_name( $other ), $GLOBALS['opts'] ) ),
+	array( 2, array( array( 70, 'revoked', 9 ), array( 71, 'revoked', 9 ) ), true, true ) );
+ck( 'a second close finds nothing left to lock or detach', array_intersect_key( WPCPM_Institutions_Sync::close_gate( $gate_school, 9 ), array( 'locked' => 1, 'revoked' => 1 ) ), array( 'locked' => false, 'revoked' => 0 ) );
+
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_on_inactive'] = 'keep';
+member( 73, $other );
+$GLOBALS['calls'] = array();
+$kept_closed      = WPCPM_Institutions_Sync::close_gate( $other, 9 );
+ck( 'under keep, close_gate() locks the school and detaches nobody', array( $kept_closed['locked'], $kept_closed['revoked'], isset( $GLOBALS['calls']['detach'] ), isset( $GLOBALS['members'][72], $GLOBALS['members'][73] ) ), array( true, 0, false, true ) );
+
+// Back in the talks: the gate is rebuilt from the school's own index row and record, the Drive link included.
+$gate_row = WPCPM_Institutions_Index::row( $other );
+WPCPM_Institutions_Index::patch( $other, array( 'agreement' => array_merge( $gate_row['agreement'], array( 'status' => 'Accepted', 'kind' => 'Template', 'accepted_on' => '2026-10-01' ) ) ) );
+$GLOBALS['site_answers'][ $other ] = array( WPCPM_Institution_Agreement::RECORD_DOCUMENT => 'https://drive.google.com/file/d/GATEDOC0001/view' );
+$GLOBALS['calls'] = array();
+ck( 'open_gate() rebuilds the option from the index row\'s block and the record\'s Drive link, so the school is open again',
+	array( WPCPM_Institutions_Sync::open_gate( $other ), $GLOBALS['calls']['rebuild'][ $other ]['status'] ?? null, $GLOBALS['calls']['rebuild'][ $other ]['document'] ?? null, WPCPM_Institution_Agreement::is_settled( $other ) ),
+	array( true, 'Accepted', 'https://drive.google.com/file/d/GATEDOC0001/view', true ) );
+
+// A school still owed an index change is not rebuilt from a row that lacks it: the change is paid first, or nothing is rebuilt.
+delete_option( WPCPM_Institution_Agreement::option_name( $other ) );
+$GLOBALS['owed']  = array( $other );
+$GLOBALS['pays']  = array();
+$GLOBALS['calls'] = array();
+ck( 'open_gate() for a school still owed, whose change cannot be paid now, rebuilds nothing and says so',
+	array( WPCPM_Institutions_Sync::open_gate( $other ), $GLOBALS['calls']['keep_index'] ?? array(), isset( $GLOBALS['calls']['rebuild'] ), array_key_exists( WPCPM_Institution_Agreement::option_name( $other ), $GLOBALS['opts'] ) ),
+	array( false, array( $other ), false, false ) );
+$GLOBALS['pays']  = array( $other );
+$GLOBALS['calls'] = array();
+ck( 'and once the change is paid it rebuilds from the row as it is then',
+	array( WPCPM_Institutions_Sync::open_gate( $other ), $GLOBALS['calls']['keep_index'] ?? array(), isset( $GLOBALS['calls']['rebuild'][ $other ] ) ),
+	array( true, array( $other ), true ) );
+$GLOBALS['owed'] = array();
+$GLOBALS['pays'] = array();
+ck( 'open_gate() rebuilds nothing for a school the index does not hold, or a malformed key', array( WPCPM_Institutions_Sync::open_gate( 'recNOTINDEX000001' ), WPCPM_Institutions_Sync::open_gate( 'lead-5' ) ), array( false, false ) );
+
+// Fix round 2, R5: the delete is always asked, so a cache that reads the option as gone cannot keep it standing.
+$GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $other ) ] = array( 'v' => 1, 'settled' => true );
+$GLOBALS['stale'] = array( WPCPM_Institution_Agreement::option_name( $other ) );
+ck( 'close_gate() deletes an option a stale cache reads as gone, and says what delete_option() answered', array( WPCPM_Institutions_Sync::close_gate( $other, 9 )['locked'], array_key_exists( WPCPM_Institution_Agreement::option_name( $other ), $GLOBALS['opts'] ) ), array( true, false ) );
+$GLOBALS['stale'] = array();
+// The sync's revoke phase does what it did at 122136b8 (fix round 1, L5): every closing school's option first, then
+// the members, each half the step close_gate() takes for one school.
+$revoke_source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-sync.php' );
+ck( 'phase_revoke() and close_gate() share the two halves, delete_gate() and revoke_member()', array( 1 === preg_match( '/function phase_revoke\(.*?self::delete_gate\(.*?self::revoke_member\(/s', $revoke_source ), 1 === preg_match( '/function close_school\(.*?self::delete_gate\(.*?self::revoke_member\(/s', $revoke_source ) ), array( true, true ) );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site']    = false;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_on_inactive'] = 'revoke';
+reset_site( $seed );
+member( 80, $not_moving );
+member( 81, $spam );
+member( 82, $not_moving );
+foreach ( array( $not_moving, $spam ) as $record ) {
+	$GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $record ) ] = array( 'v' => 1, 'settled' => true );
+}
+WPCPM_Institutions_Sync::start();
+run_to_end();
+$order = array_values( array_filter( $GLOBALS['calls']['order'] ?? array(), static function ( $step ) use ( $not_moving, $spam ) {
+	return in_array( $step, array( 'delete ' . WPCPM_Institution_Agreement::option_name( $not_moving ), 'delete ' . WPCPM_Institution_Agreement::option_name( $spam ), 'detach 80', 'detach 81', 'detach 82' ), true );
+} ) );
+ck( 'with the setting off the revoke phase deletes both schools\' options first and detaches their members after, as before', array( array_slice( $order, 0, 2 ) == array( 'delete ' . WPCPM_Institution_Agreement::option_name( $not_moving ), 'delete ' . WPCPM_Institution_Agreement::option_name( $spam ) ) || array_slice( $order, 0, 2 ) == array( 'delete ' . WPCPM_Institution_Agreement::option_name( $spam ), 'delete ' . WPCPM_Institution_Agreement::option_name( $not_moving ) ), array_slice( $order, 2 ) ), array( true, array( 'detach 80', 'detach 81', 'detach 82' ) ) );
+$locked_counted = get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['locked'];
+// Fix wave, F1: locked counts every closing school, as at 122136b8, also one whose option another request deleted
+// between the read and the delete (delete_option() then answers false).
+reset_site( $seed );
+foreach ( array( $not_moving, $spam ) as $record ) {
+	$GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $record ) ] = array( 'v' => 1, 'settled' => true );
+}
+$GLOBALS['deleted_elsewhere'] = array( WPCPM_Institution_Agreement::option_name( $spam ) );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+$GLOBALS['deleted_elsewhere'] = array();
+ck( 'phase_revoke_counts_every_closing_school: with the setting off, locked is the old number, a delete another request made first counted too', get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['locked'], $locked_counted );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_on_inactive'] = 'revoke';
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site']   = false;
+
+/* ---- the whole-branch wave, W1: the switch's three questions ------------- */
+
+echo "\n=== The switch to the site's record asks three questions first (W1) ===\n";
+
+if ( ! function_exists( 'wp_sprintf_l' ) ) {
+	function wp_sprintf_l( $pattern, $args ) { $args = array_values( (array) $args ); if ( count( $args ) < 2 ) { return implode( '', $args ); } $last = array_pop( $args ); return implode( ', ', $args ) . ( count( $args ) > 1 ? ', and ' : ' and ' ) . $last; }
+}
+
+/**
+ * What the switch's guard answers: true, or the code and the sentence of its refusal.
+ *
+ * @return true|array
+ */
+function move_answer() {
+	$answer = WPCPM_Institutions_Index::may_turn_on();
+
+	return is_wp_error( $answer ) ? array( $answer->get_error_code(), $answer->get_error_message() ) : $answer;
+}
+
+/**
+ * Set the time the Institutions table was last read into the site's list (the index's own `read`), or take it away.
+ *
+ * @param int|null $time Unix time, or null for none.
+ */
+function listed_at( $time ) {
+	if ( null === $time ) {
+		unset( $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['read'] );
+	} else {
+		$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['read'] = (int) $time;
+	}
+	WPCPM_Institutions_Index::forget_cached();
+}
+
+$move_running = 'The institutions\' record was not moved: the sync is running. Wait until it finishes, then save again.';
+$move_stale   = 'The institutions\' record was not moved: the site has not finished reading the Institutions table in the last 15 minutes. Run the sync on Institutions > Sync and storage, then save again.';
+
+reset_site( $seed );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+$move_rows = WPCPM_Institutions_Index::rows();
+$move_ids  = array_keys( $move_rows );
+
+ck( 'switch_guard_clean: after a whole read, the sync idle and every option matching its row, the switch may be made', move_answer(), true );
+ck( 'switch_guard_minutes: the read may be at most 15 minutes old, a constant', WPCPM_Institutions_Index::MOVE_READ_MINUTES, 15 );
+
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_STATE ] = going_state( 5 );
+ck( 'switch_guard_running: a run in flight refuses it, with its sentence', move_answer(), array( 'wpcpm_move_running', $move_running ) );
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_STATE ] = going_state( 900 );
+ck( 'and a run that stalled is still in flight', move_answer(), array( 'wpcpm_move_running', $move_running ) );
+unset( $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_STATE ] );
+
+listed_at( time() - 15 * 60 );
+$at_limit   = move_answer();
+listed_at( time() - 15 * 60 - 1 );
+$past_limit = move_answer();
+listed_at( null );
+$never = move_answer();
+listed_at( 0 );
+ck( 'switch_guard_stale: a read 15 minutes old passes, one older, none or 0 refuses it, with its sentence',
+	array( $at_limit, $past_limit, $never, move_answer() ),
+	array( true, array( 'wpcpm_move_stale', $move_stale ), array( 'wpcpm_move_stale', $move_stale ), array( 'wpcpm_move_stale', $move_stale ) ) );
+listed_at( time() );
+
+// Question 3: an option whose Airtable status is not its row's, both trimmed.
+$move_first = $move_ids[0];
+$move_name  = trim( (string) $move_rows[ $move_first ]['name'] );
+$move_opt   = WPCPM_Institution_Agreement::option_name( $move_first );
+$move_held  = $GLOBALS['opts'][ $move_opt ];
+
+$GLOBALS['opts'][ $move_opt ]['airtable_status'] = ' ' . $move_rows[ $move_first ]['agreement']['status'] . ' ';
+$trimmed_same                                    = move_answer();
+$GLOBALS['opts'][ $move_opt ]['airtable_status'] = 'Accepted';
+$one_behind                                      = move_answer();
+unset( $GLOBALS['opts'][ $move_opt ] );
+$no_option                                       = move_answer();
+
+ck( 'switch_guard_behind_one: one school whose option is not its row\'s refuses it, naming the school; spaces are no difference, and a school with no option asks nothing',
+	array( $trimmed_same, $one_behind, $no_option ),
+	array( true, array( 'wpcpm_move_behind', 'The institutions\' record was not moved: the site\'s list is behind on the agreement of ' . $move_name . '. Run the sync on Institutions > Sync and storage, then save again.' ), true ) );
+
+// Seven behind, the second with no name: named by its record ID, the first five in the index's order.
+$GLOBALS['opts'][ $move_opt ] = $move_held;
+$behind_names                 = array();
+
+foreach ( array_slice( $move_ids, 0, 7 ) as $i => $record ) {
+	$GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $record ) ]['airtable_status'] = 'Revoked';
+
+	if ( 1 === $i ) {
+		WPCPM_Institutions_Index::patch( $record, array( 'name' => '   ' ) );
+	}
+
+	$behind_names[] = 1 === $i ? $record : trim( (string) $move_rows[ $record ]['name'] );
+}
+
+WPCPM_Institutions_Index::forget_cached();
+
+ck( 'switch_guard_behind_many: more than one names the count and the first five, a nameless school by its record ID',
+	move_answer(),
+	array( 'wpcpm_move_behind', 'The institutions\' record was not moved: the site\'s list is behind on the agreements of 7 institutions (' . wp_sprintf_l( '%l', array_slice( $behind_names, 0, 5 ) ) . '). Run the sync on Institutions > Sync and storage, then save again.' ) );
+
+// The order: running first, then the read, then the agreements.
+listed_at( 0 );
+$stale_and_behind                                        = move_answer();
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_STATE ] = going_state( 5 );
+$all_three                                               = move_answer();
+unset( $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_STATE ] );
+listed_at( time() );
+
+ck( 'switch_guard_order: asked in order, the run before the read before the agreements',
+	array( $all_three[0], $stale_and_behind[0], move_answer()[0] ),
+	array( 'wpcpm_move_running', 'wpcpm_move_stale', 'wpcpm_move_behind' ) );
+
+// Round 2, point 4: the list question 3 builds is a method of its own, the schools the refusal names.
+ck( 'behind_on_agreements_alone: behind_on_agreements() answers the seven schools the refusal names, record ID to name, a nameless one by its record ID, in the index\'s order',
+	WPCPM_Institutions_Index::behind_on_agreements(),
+	array_combine( array_slice( $move_ids, 0, 7 ), $behind_names ) );
+
+// Round 2, point 3: question 2 reads the time the table was last read into the list, which a run in site mode does
+// not move, though it moves the time of the last completed run.
+reset_site( $seed );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+listed_at( time() - 3600 );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = true;
+WPCPM_Institutions_Sync::start();
+run_to_end();
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = false;
+$site_run_last = WPCPM_Institutions_Sync::last_read() >= time() - 5;
+$site_run      = move_answer();
+WPCPM_Institutions_Sync::start();
+run_to_end();
+
+ck( 'switch_guard_reads_list_clock: on, a run, off: the run in site mode moved the last run\'s time but not the list\'s, so the switch is refused as stale; a read of Airtable then makes it fresh',
+	array( $site_run_last, $site_run, move_answer() ),
+	array( true, array( 'wpcpm_move_stale', $move_stale ), true ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

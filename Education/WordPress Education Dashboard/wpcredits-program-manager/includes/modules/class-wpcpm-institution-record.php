@@ -31,8 +31,12 @@ if ( ! defined( 'ABSPATH' ) ) {
  * site's record follows the same rule; and a second press of Approve, or the resume of one that
  * stopped partway, asks again and changes nothing. A correction is another thing, and has its own,
  * deliberate way in (Institutions release 2): `set()` overwrites the answers it is given, and a blank
- * one clears its key. Only `WPCPM_Institution_Details::write()` and `WPCPM_Institution_Tracks::save()` call it, so a
- * correction is always one that was cleaned, compared and audited.
+ * one clears its key. `WPCPM_Institution_Details::write()` and `WPCPM_Institution_Tracks::save()` call it, and so,
+ * for the talks fields (`WPCPM_Institution_Talks::RECORD_KEYS`, the assigned Administrator and the application's
+ * answers, `WPCPM_Institution_Talks::RECORD_APPLICATION`), do the Talks card's save and the import of
+ * Institutions release 2; so a correction is always one that was cleaned, compared and audited. In site mode the
+ * agreement path keeps the Drive link of a school's agreement here too (`WPCPM_Institution_Agreement::RECORD_DOCUMENT`),
+ * the link the agreement's own documents already hold.
  *
  * **Private again whenever it is written.** A record another process trashed, drafted or published,
  * or left as an auto-draft, is still the institution's record, and is found as such. Either method

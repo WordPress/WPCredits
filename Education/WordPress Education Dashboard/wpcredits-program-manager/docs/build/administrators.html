@@ -18,6 +18,10 @@
 <p>Students, mentors and schools are kept in Airtable. The site sets a school's first stage on approval, <em>Confirmed</em> when you accept its agreement, and a new mentor's Status; every other stage or status, and a student's mentor, you change in Airtable. While <strong>Automatic sync</strong> is on, the site reads Airtable every three hours; you can also run a sync.</p>
 <!-- /wp:paragraph -->
 
+<!-- wp:paragraph -->
+<p>Once <strong>The site keeps the record, and Airtable gets a copy</strong> is saved on <code>Settings &gt; Advanced</code>, the site keeps the record of the schools instead, and Airtable gets a copy. You then change a school's stage, next step and follow-up date on its Talks card. Until then nothing changes: the site reads the schools from Airtable as before.</p>
+<!-- /wp:paragraph -->
+
 <!-- wp:heading {"level":3,"anchor":"the-administrator-dashboard-at-a-glance"} -->
 <h3 class="wp-block-heading" id="the-administrator-dashboard-at-a-glance">The Administrator Dashboard at a glance</h3>
 <!-- /wp:heading -->
@@ -33,6 +37,9 @@
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Watch</strong>: what to keep an eye on this week. Its amber number counts which of <strong>Offers running low</strong>, <strong>Duplicated students</strong>, <strong>Syncs and health</strong> and <strong>Students gone quiet</strong> have something to look at.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Talks</strong>: the talks with the schools and the leads, once the site keeps the record of institutions. Its amber number counts your own follow-ups due.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Cohort timeline</strong>: the next twelve months' students, and whether mentors have places.</li>
@@ -63,7 +70,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>You want to</th><th>Go to</th></tr></thead><tbody><tr><td>Decide the oldest thing that waits</td><td><strong>Overview</strong>, <strong>Review the oldest</strong></td></tr><tr><td>Decide a school's application, agreement or request</td><td><strong>Overview</strong>, the row <strong>Institution applications</strong>, <strong>Collaboration Agreements</strong> or <strong>Requests from institutions</strong></td></tr><tr><td>Review or draft a semester report</td><td><strong>Overview</strong>, <strong>Semester reports</strong></td></tr><tr><td>Decide a mentor application</td><td><strong>Overview</strong>, <strong>Mentor applications</strong>, <strong>Review</strong>. It opens <code>Mentors &gt; Waiting for review</code>.</td></tr><tr><td>Decide a sponsor's application, post, offer or agreement</td><td><strong>Overview</strong>, the sponsor's row, such as <strong>Sponsor applications</strong></td></tr><tr><td>Read new student registrations</td><td><code>Students &gt; Registrations</code></td></tr><tr><td>Read a student's interest in a school not in the program</td><td><code>Students &gt; Interests</code></td></tr><tr><td>See which students have gone quiet</td><td><strong>Watch</strong>, <strong>Students gone quiet</strong>, shown while <strong>Daily list</strong> in <code>Settings &gt; Students and mentors</code> is not <em>Off</em></td></tr><tr><td>Check that the syncs ran</td><td><strong>Watch</strong>, <strong>Syncs and health</strong></td></tr><tr><td>Run a sync now</td><td><code>Students &gt; Sync</code>, <code>Mentors &gt; Sync</code> or <code>Institutions &gt; Sync and storage</code></td></tr><tr><td>See whether there are enough mentors</td><td><strong>Cohort timeline</strong></td></tr><tr><td>Find a school</td><td><code>Institutions &gt; Pipeline</code>, <strong>Find an institution</strong></td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>You want to</th><th>Go to</th></tr></thead><tbody><tr><td>Decide the oldest thing that waits</td><td><strong>Overview</strong>, <strong>Review the oldest</strong></td></tr><tr><td>Decide a school's application, agreement or request</td><td><strong>Overview</strong>, the row <strong>Institution applications</strong>, <strong>Collaboration Agreements</strong> or <strong>Requests from institutions</strong></td></tr><tr><td>Review or draft a semester report</td><td><strong>Overview</strong>, <strong>Semester reports</strong></td></tr><tr><td>Decide a mentor application</td><td><strong>Overview</strong>, <strong>Mentor applications</strong>, <strong>Review</strong>. It opens <code>Mentors &gt; Waiting for review</code>.</td></tr><tr><td>Decide a sponsor's application, post, offer or agreement</td><td><strong>Overview</strong>, the sponsor's row, such as <strong>Sponsor applications</strong></td></tr><tr><td>Read new student registrations</td><td><code>Students &gt; Registrations</code></td></tr><tr><td>Read a student's interest in a school not in the program</td><td><code>Students &gt; Interests</code></td></tr><tr><td>See which students have gone quiet</td><td><strong>Watch</strong>, <strong>Students gone quiet</strong>, shown while <strong>Daily list</strong> in <code>Settings &gt; Students and mentors</code> is not <em>Off</em></td></tr><tr><td>Check that the syncs ran</td><td><strong>Watch</strong>, <strong>Syncs and health</strong></td></tr><tr><td>Run a sync now</td><td><code>Students &gt; Sync</code>, <code>Mentors &gt; Sync</code> or <code>Institutions &gt; Sync and storage</code></td></tr><tr><td>See whether there are enough mentors</td><td><strong>Cohort timeline</strong></td></tr><tr><td>Find a school</td><td><code>Institutions &gt; Pipeline</code>, <strong>Find an institution</strong>; once the site keeps the record, also <strong>Talks</strong>, <strong>Find a school</strong></td></tr><tr><td>Follow up the talks with the schools</td><td><strong>Talks</strong>, <strong>Follow-ups due</strong>, once the site keeps the record of institutions</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:heading {"level":3,"anchor":"open-someone-s-page-as-they-see-it"} -->
@@ -211,6 +218,9 @@
 <!-- wp:list-item -->
 <li>A school that came in through the old Airtable form skips steps 1 to 4. Detail: <a href="#a-school-came-in-through-airtable-not-the-site-s-form">A school came in through Airtable, not the site's form</a>.</li>
 <!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Once the site keeps the record of institutions, step 3 is kept on the school's Talks card: its stage, next step and follow-up date, and your notes. Detail: <a href="#change-a-school-s-stage-next-step-and-follow-up-date">Change a school's stage, next step and follow-up date</a>.</li>
+<!-- /wp:list-item -->
 </ul>
 <!-- /wp:list --></div>
 <!-- /wp:group -->
@@ -239,6 +249,12 @@
 <li>To ask the applicant something, press <strong>Ask a question</strong>, type it in <strong>Ask the applicant something</strong> and press <strong>Send this question</strong>. The question must be 10 to 2000 characters.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
+<li>Once the site keeps the record of institutions, press the school's name on the card. The application opens on <code>WPCredits Program &gt; Institutions</code>. Read <strong>What the site already has</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>If it names a lead, reopen the lead if it is closed, then move it into the talks first, so its notes come with it, then approve. See <a href="#close-a-lead-or-reopen-it">Close a lead, or reopen it</a> and <a href="#move-a-lead-into-the-talks-as-an-institution">Move a lead into the talks as an institution</a>. When it says the lead's notes do not move by themselves, because an institution matched already, copy what matters from the lead's notes to the institution's Talks card instead.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
 <li>Once you have talked with the school and the program wants to take it, press <strong>Approve</strong> and confirm.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
@@ -259,6 +275,9 @@
 <ul class="wp-block-list">
 <!-- wp:list-item -->
 <li><strong>Approve</strong> creates the school in Airtable, at the stage set in <strong>Institution starting stage</strong> (<em>First Contact Made</em> unless changed), with Agreement Status <em>Not started</em>. If Airtable already holds the school by name or contact address, that record is used instead. It keeps its own stage and Agreement Status.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Once the site keeps the record, the school of the same name or address is looked for in the site's list instead, and Airtable is not asked.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>It also makes the school's first account from the contact's address, and queues the email "Your institution account is ready". It tells them to set a password and then do the Collaboration Agreement.</li>
@@ -428,7 +447,11 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p><em>When:</em> the school applied through the old Airtable form. It is on <code>WPCredits Program &gt; Institutions</code>, tab <strong>Pipeline</strong>, and while its Current Stage is empty it is under <strong>Not counted above</strong>, in <em>No stage</em>. It is not on <strong>Institution applications</strong>.</p>
+<p><em>When:</em> while Airtable keeps the record of institutions, the school applied through the old Airtable form. It is on <code>WPCredits Program &gt; Institutions</code>, tab <strong>Pipeline</strong>, and while its Current Stage is empty it is under <strong>Not counted above</strong>, in <em>No stage</em>. It is not on <strong>Institution applications</strong>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Once the site keeps the record, the sync no longer reads the Institutions table, so a school entered only in Airtable never reaches the site. Add it as a lead instead. See <a href="#add-a-lead">Add a lead</a>.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:list {"ordered":true} -->
@@ -547,7 +570,7 @@
 <li>For a school at <em>Confirmed</em> with its agreement settled, <code>Institutions &gt; Accounts</code>, view <strong>No account</strong>, shows <strong>Create account</strong> on its row. It uses Airtable's Contact Email. A row that is not <em>Ready</em> says why, for example when the school has had a member before or the address already has an account.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>A school with no stage is left alone, but give it an active stage in Airtable first: at a stage outside the active ones, or once Airtable no longer has it, the next sync takes the account off the school. See <a href="#a-school-came-in-through-airtable-not-the-site-s-form">A school came in through Airtable, not the site's form</a>.</li>
+<li>A school with no stage is left alone, but give it an active stage first, in Airtable, or on its Talks card once the site keeps the record: at a stage outside the active ones, or once Airtable no longer has it, the next sync takes the account off the school. See <a href="#a-school-came-in-through-airtable-not-the-site-s-form">A school came in through Airtable, not the site's form</a>.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list --></div>
@@ -616,6 +639,9 @@
 <li><strong>Accept it</strong> is refused while Airtable's Current Stage is <em>Not Moving Forward</em>, <em>SPAM</em> or <em>Revisit Later</em>. Change the stage in Airtable first.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
+<li>Once the site keeps the record, it is the stage on the school's Talks card that counts, and <strong>Accept it</strong> moves that stage to <em>Confirmed</em> too. The refusal then reads "Nothing was accepted. This institution's stage says the program is not going ahead with it. Change the stage on its Talks card first: ...". See <a href="#change-a-school-s-stage-next-step-and-follow-up-date">Change a school's stage, next step and follow-up date</a>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
 <li>A signed copy that came by email: open the school's Institution Dashboard, open <strong>Your institution</strong>, press <strong>Add or re-add an account on the Institutions screen</strong>, and use <strong>Upload a signed agreement on the institution's behalf</strong>. It lands on the card, tagged <strong>Awaiting review</strong>, like the school's own.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
@@ -661,7 +687,7 @@
 <li>Agreement Status is set to <em>On file</em> in Airtable, and the school's account opens. The screen says "The agreement is recorded as on file. The institution's account is open."</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>Current Stage in Airtable is not changed.</li>
+<li>While Airtable keeps the record, Current Stage is not changed. Once the site keeps the record, the stage moves to <em>Confirmed</em> when it was earlier, on the site and in Airtable.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list --></div>
@@ -682,6 +708,9 @@
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>You can record one for any school this way, from the <strong>Agreement</strong> view of its Institution Dashboard, not only those on the list.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Once the site keeps the record, it is refused while the talks are at <em>Revisit Later</em>, <em>Not Moving Forward</em> or <em>SPAM</em>: "Nothing was recorded: the talks with this institution are at Revisit Later. Move it to a stage where talks go on, then record the agreement."</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list --></div>
@@ -743,7 +772,7 @@
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li>Revoking does not change Current Stage in Airtable. If the partnership has ended, change the stage there.</li>
+<li>Revoking does not change Current Stage in Airtable. If the partnership has ended, change the stage there. Once the site keeps the record, change it on the school's Talks card.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Reinstate</strong> is refused when an accepted agreement already stands for the school. It works only on the school's most recently revoked agreement.</li>
@@ -752,7 +781,7 @@
 <li><strong>Revoked agreements</strong> lists a school at any time while it has a revoked agreement and nothing accepted or waiting for review, also one that has since started a new agreement or had one returned. The Administrator Dashboard's <strong>Collaboration Agreements</strong> card also offers <strong>Reinstate</strong> while a signed agreement waits for review.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>A school at a stage outside the active ones is listed without <strong>Reinstate</strong>: reinstated, the next institutions sync would close it again. In its place the row says "At the stage "{stage}", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." A school with no stage keeps the button.</li>
+<li>A school at a stage outside the active ones is listed without <strong>Reinstate</strong>: reinstated, the next institutions sync would close it again. In its place the row says "At the stage "{stage}", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." A school with no stage keeps the button. Once the site keeps the record, the line reads "Move it to an active stage on its Talks card first".</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list --></div>
@@ -769,16 +798,16 @@
 <!-- wp:list {"ordered":true} -->
 <ol class="wp-block-list">
 <!-- wp:list-item -->
-<li>Open the school's Institution Dashboard, then <strong>Your institution</strong>.</li>
+<li>Open the school's Institution Dashboard.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>On the details card, find <strong>Assigned Administrator</strong>.</li>
+<li>While Airtable keeps the record of institutions: open <strong>Your institution</strong>, find <strong>Assigned Administrator</strong> on the details card and open <strong>Change who follows it up</strong>. Then type part of the name in <strong>Administrator</strong>.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>Open <strong>Change who follows it up</strong>.</li>
+<li>Once the site keeps the record: open <strong>For Administrators</strong>. On the Talks card, type part of the name in <strong>Assigned Administrator</strong>. For a lead, open its page from <code>Administrator Dashboard &gt; Talks</code>.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>In <strong>Administrator</strong>, type part of the name and pick the person, or pick <strong>Nobody</strong>.</li>
+<li>Pick the person, or pick <strong>Nobody</strong>.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>Press <strong>Save</strong>.</li>
@@ -794,7 +823,7 @@
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li>The new Administrator gets "{school} is assigned to you", unless they made the change themselves. The screen says "The assigned Administrator is saved, and they have been emailed."</li>
+<li>The new Administrator gets "{school} is assigned to you", unless they made the change themselves. The details card says "The assigned Administrator is saved, and they have been emailed." The Talks card says "The talks are saved, and the assigned Administrator has been emailed."</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>The school sees that person under <strong>Your contact at the program</strong>, with <strong>Book a call</strong> when they have a booking link.</li>
@@ -811,6 +840,9 @@
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
+<li>Once the site keeps the record, the details card has no <strong>Assigned Administrator</strong>: the Talks card holds it.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
 <li><strong>Nobody</strong> is a choice that stays. Approval and the sync never replace it.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
@@ -818,6 +850,777 @@
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>New schools are assigned by country. The countries are set in <strong>Areas of responsibility</strong> on <code>Settings &gt; Institutions</code>.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:heading {"level":3,"anchor":"read-the-follow-ups-due-and-open-a-school-s-talks"} -->
+<h3 class="wp-block-heading" id="read-the-follow-ups-due-and-open-a-school-s-talks">Read the follow-ups due and open a school's talks</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>When:</em> <strong>Talks</strong> in the Administrator Dashboard's menu has an amber number, or you want to see where the talks with the schools stand. <strong>Talks</strong> is in the menu once the site keeps the record of institutions.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Open <code>Administrator Dashboard &gt; Talks</code>. Its head says how many follow-ups are due, such as "3 follow-ups are due", and which one is the oldest.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Read the table <strong>Follow-ups due</strong>: <strong>School</strong>, <strong>Next step</strong> and <strong>Follow up on</strong>, oldest first.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Under it, read the schools by stage, from Lead to Confirmed, each stage with its count, such as "Agreement Sent: 3 schools". Revisit Later, Not Moving Forward, SPAM and any stage the site does not know are folded at the end.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The view opens on your own schools: "Showing your schools". To see every Administrator's, press <strong>Show all schools</strong>. <strong>Show your schools</strong> goes back.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press a school's name to open its Talks card.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--next","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--next"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>What happens next</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>A school's name opens its Institution Dashboard on <strong>For Administrators</strong>, at the Talks card. A lead's name opens the lead's own page in the Talks view.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--know","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--know"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>Good to know</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>A follow-up is due when its date is today or earlier, and only while the talks go on: at Lead, First Contact Made to Agreement Sent, Revisit Later, or no stage. Confirmed, Student, Not Moving Forward, SPAM and a closed lead are never due.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Your schools are the ones assigned to you, the ones assigned to nobody in your area, and the ones assigned to nobody that no Administrator's area holds. Every Administrator has those last ones.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A school assigned to someone who is no longer an Administrator counts as assigned to nobody, and is tagged <strong>Not assigned</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A stage with more than 20 schools shows 20, and a link to show all of them.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A school at Student is in no list: <strong>Find a school</strong> finds it.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The number beside <strong>Talks</strong> in the menu counts your own follow-ups due. It is gone when none is due.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:heading {"level":3,"anchor":"change-a-school-s-stage-next-step-and-follow-up-date"} -->
+<h3 class="wp-block-heading" id="change-a-school-s-stage-next-step-and-follow-up-date">Change a school's stage, next step and follow-up date</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>When:</em> the talks with a school moved on, or a follow-up is done.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Open the school's Talks card: press its name in <code>Administrator Dashboard &gt; Talks</code>, or open its Institution Dashboard, then <strong>For Administrators</strong>. The Talks card is the first card there.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Change <strong>Stage</strong>, <strong>Next step</strong> or <strong>Follow up on</strong>, and any other field you need: <strong>Assigned Administrator</strong>, <strong>Country</strong>, <strong>Estimated students</strong>, <strong>First students begin</strong> or <strong>Program details</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press <strong>Save</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>If the card says "Nothing was saved: these talks changed after you opened the card.", read the values it shows now. Make your change again and press <strong>Save</strong>.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--next","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--next"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>What happens next</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>The card says "The talks are saved." Under <strong>Stage</strong>, a line says when the stage last changed and who changed it: "Since {day}, by {name}."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The stage, the next step, the follow-up date and the country are copied to Airtable. See <a href="#read-the-notice-about-airtable-s-copy">Read the notice about Airtable's copy</a>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The school's <strong>History</strong> gets a row for the change.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--know","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--know"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>Good to know</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Lead is never offered to a school that already has a record: "Lead is only for a school the program has not talked to yet."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Moving to Revisit Later sets <strong>Follow up on</strong> 90 days ahead, when you left the date as it was. The card says so, and you can change it.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The tag <strong>Past due</strong> beside the name means the follow-up date is before today.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The contact person and their email are changed on <strong>Your institution's details</strong>, on the <strong>Your institution</strong> view. The card shows them under <strong>On record</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>When two people save the same school at once, one is told "Someone else is changing these talks just now, so nothing was saved. Try again in a moment."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Estimated students</strong> takes a whole number from 0 to 100000. <strong>Next step</strong> takes 200 characters at most.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:heading {"level":3,"anchor":"a-school-leaves-the-active-stages-and-comes-back"} -->
+<h3 class="wp-block-heading" id="a-school-leaves-the-active-stages-and-comes-back">A school leaves the active stages, and comes back</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>When:</em> the program stops the talks with a school, at Revisit Later, Not Moving Forward or SPAM, or takes them up again.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>On the school's Talks card, choose the new <strong>Stage</strong> and press <strong>Save</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Read the question, such as "Moving {school} to Not Moving Forward removes the access of its 2 accounts. Save again to confirm."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press <strong>Save</strong> again to confirm. Choosing another stage asks again.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>To take the talks up again, choose a stage that is ticked in <strong>Institution pipeline stages</strong> and press <strong>Save</strong>.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--next","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--next"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>What happens next</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>On leaving, the site takes away the school's agreement record at once, as a sync takes it away. With <strong>Its people</strong> at its default, its accounts lose their access: "The access of its 2 accounts was removed." Otherwise the card says "Its Institution Dashboard is locked now."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>On coming back, a school whose agreement is settled opens again: "Its Institution Dashboard is open again." If the site cannot open it yet, the card says "Its Institution Dashboard is still locked. It opens again with the next sync."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Accounts whose access the move out removed do not come back by themselves, and the card says so: "The account removed when it left does not come back by itself: add it again with Re-add, under Former members on Manage members.", or for more, such as "The 2 accounts removed when it left do not come back by themselves: add them again with Re-add, under Former members on Manage members." Add them again under <strong>Former members</strong> on <strong>Manage members</strong>, with <strong>Re-add</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The card counts only the accounts the move out removed and that belong to no other school now. Someone an Administrator removed on purpose, or who left, is not counted.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--know","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--know"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>Good to know</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>The active stages are the ones ticked in <strong>Institution pipeline stages</strong> on <code>Settings &gt; Advanced</code>. Revisit Later, Not Moving Forward and SPAM are not ticked by default.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A school at Revisit Later still has its follow-up counted as due. Not Moving Forward and SPAM are never due.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>In the Talks view the three are folded at the end.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:heading {"level":3,"anchor":"confirmed-and-student-come-from-the-agreement"} -->
+<h3 class="wp-block-heading" id="confirmed-and-student-come-from-the-agreement">Confirmed and Student come from the agreement</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>When:</em> the <strong>Stage</strong> box does not offer Confirmed, or offers only Confirmed, Student and the closed stages.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Open the school's Institution Dashboard, view <strong>Agreement</strong>, and read where its Collaboration Agreement stands.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Before the agreement is settled, the Talks card offers First Contact Made to Agreement Sent, Revisit Later, Not Moving Forward and SPAM. To reach Confirmed, accept the signed agreement or record one on file. See <a href="#a-signed-collaboration-agreement-arrived">A signed Collaboration Agreement arrived</a> and <a href="#record-an-agreement-the-program-already-holds">Record an agreement the program already holds</a>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Once the agreement is settled, the card offers Confirmed, Student, Revisit Later, Not Moving Forward and SPAM. Choose the stage and press <strong>Save</strong>.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--next","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--next"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>What happens next</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Accepting the agreement, or recording it on file, moves the stage to Confirmed when it was earlier.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--know","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--know"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>Good to know</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>A stage the list does not offer is refused: "Confirmed is set when the Collaboration Agreement is accepted or recorded as on file." or "This institution's Collaboration Agreement is settled, so its talks are at Confirmed or Student."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The school's own stage always stays in the list, so a save that does not touch it keeps it.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A test institution keeps its stage when its agreement is accepted.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:heading {"level":3,"anchor":"record-what-a-school-asks-for"} -->
+<h3 class="wp-block-heading" id="record-what-a-school-asks-for">Record what a school asks for</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>When:</em> a school tells you what it needs from the program, such as hours, dates or reports.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Open the school's Talks card, or a lead's page.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Type what it asks for in <strong>Program details</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press <strong>Save</strong>.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--next","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--next"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>What happens next</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>It is kept with the school's talks, line breaks and all. Only Administrators see it.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--know","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--know"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>Good to know</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>It never goes to the school and never to Airtable. The Talks view, <strong>Follow-ups due</strong> and the Monday email do not show it.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>It takes 5,000 characters at most: "Program details can be at most 5000 characters long."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A lead's <strong>Program details</strong> go with it when it moves into the talks as an institution.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:heading {"level":3,"anchor":"add-a-note-to-a-school-s-talks"} -->
+<h3 class="wp-block-heading" id="add-a-note-to-a-school-s-talks">Add a note to a school's talks</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>When:</em> you want to keep what was said or done with a school.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Open the school's Talks card, or a lead's page.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Under <strong>Notes</strong>, type in <strong>Add a note</strong>. A note takes 5,000 characters at most.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press <strong>Add the note</strong>.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--next","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--next"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>What happens next</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>The card says "The note is added." The note is first under <strong>Notes</strong>, with your name and the moment.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--know","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--know"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>Good to know</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>A note cannot be changed or removed on the card.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A second press of the same words says "That note is already added." and adds nothing.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Notes never go to the school or to Airtable.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:heading {"level":3,"anchor":"add-a-lead"} -->
+<h3 class="wp-block-heading" id="add-a-lead">Add a lead</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>When:</em> a school the program has not talked to yet should be followed up.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Open <code>Administrator Dashboard &gt; Talks</code> and press <strong>Add a lead</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Type the school's <strong>Name</strong>. It is required.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Fill in what you know: <strong>City</strong>, <strong>Country</strong>, <strong>Contact person</strong>, <strong>Contact's email</strong>, <strong>Help desk link</strong>, <strong>Next step</strong>, <strong>Follow up on</strong> and a <strong>Note</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press <strong>Add the lead</strong>.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--next","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--next"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>What happens next</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>The lead's page opens with "The lead is added." It is at the stage Lead, in the Talks view's first list.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>It is assigned by its country's area, and that Administrator is emailed, unless it is you.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--know","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--know"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>Good to know</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>A name already in the talks, a school's or a lead's, is refused: "A school of that name is already in the talks."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A lead is never written to Airtable.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>If its note is refused, the lead is still added: "The lead is added, but its note is not. Correct the note below and add it again."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Help desk link</strong> must start with https://.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:heading {"level":3,"anchor":"close-a-lead-or-reopen-it"} -->
+<h3 class="wp-block-heading" id="close-a-lead-or-reopen-it">Close a lead, or reopen it</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>When:</em> a lead goes nowhere, or comes back.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Open the lead's page: press its name in <code>Administrator Dashboard &gt; Talks</code>, or find it with <strong>Find a school</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press <strong>Close this lead</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>To bring it back, press <strong>Reopen this lead</strong>.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--next","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--next"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>What happens next</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>"The lead is closed." It keeps everything and is tagged <strong>Closed</strong>. It is left out of the stage lists, <strong>Follow-ups due</strong> and the Monday email. <strong>Find a school</strong> still finds it.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>"The lead is reopened." It is back at Lead, in the lists.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--know","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--know"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>Good to know</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>A lead that goes nowhere is closed, never moved to Revisit Later, Not Moving Forward or SPAM. The card refuses those for a lead: "A lead that goes nowhere is closed, not moved to SPAM."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A closed lead's <strong>Stage</strong> offers only Lead. Reopen it before you move it on.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>What you typed and did not save stays in the form: "The lead is closed. What you typed is not saved yet: press Save to keep it."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A lead whose move into the talks did not finish cannot be closed. See <a href="#move-a-lead-into-the-talks-as-an-institution">Move a lead into the talks as an institution</a>.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:heading {"level":3,"anchor":"move-a-lead-into-the-talks-as-an-institution"} -->
+<h3 class="wp-block-heading" id="move-a-lead-into-the-talks-as-an-institution">Move a lead into the talks as an institution</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>When:</em> the program has talked with a lead, and it should become an institution.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Open the lead's page.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>If <strong>Country</strong> is empty, choose the school's country from the list.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>In <strong>Stage</strong>, choose where the talks are: First Contact Made to Agreement Sent.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press <strong>Save</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>If the card then says "This lead's move into the talks as an institution did not finish. Choose the stage again and save to finish it.", choose the stage again and press <strong>Save</strong>.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--next","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--next"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>What happens next</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>The site creates the institution's record in Airtable and adds it to the site's list. The lead's fields, notes and history go with it.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The card says "The lead is an institution now. Its talks go on here." It is the school's own Talks card now.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The next step, the follow-up date and the last contact are copied to Airtable.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The lead's old page says "This lead is an institution now: {school}.", with a link to its Talks card.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--know","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--know"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>Good to know</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Confirmed and Student are refused: "Confirmed is set when the Collaboration Agreement is accepted or recorded as on file."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A closed lead is refused: "This lead is closed. Reopen it before you move it on."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A country kept only as text is refused: "The country of this lead, {country}, is not one of the program's yet. Choose it, then move the lead on."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>If Airtable cannot create the record: "Airtable could not create the institution's record, so it is still a lead. Try again in a while."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A lead whose move did not finish cannot be closed or deleted until the move is finished.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:heading {"level":3,"anchor":"delete-a-lead"} -->
+<h3 class="wp-block-heading" id="delete-a-lead">Delete a lead</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>When:</em> a closed lead should go from the talks.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Close the lead first. See <a href="#close-a-lead-or-reopen-it">Close a lead, or reopen it</a>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>On its page, press <strong>Delete this lead</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Read the question, such as "Deleting removes {name}, its contact and its 2 notes from the talks. Press Delete this lead again to confirm."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press <strong>Delete this lead</strong> again.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--next","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--next"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>What happens next</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>The lead and its notes go to WordPress's Trash. The Talks view opens and says "The lead {name} was deleted."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Its name is free again for a new lead or school.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--know","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--know"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>Good to know</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>An open lead is refused: "Close this lead before you delete it."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>If the lead changes between the two presses, the question is asked again.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A site that keeps no Trash refuses it: "This site keeps no Trash, so a lead cannot be deleted here."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>There is no screen to bring a deleted lead back. Until WordPress empties its Trash, the product owner can have it brought back whole.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:heading {"level":3,"anchor":"find-a-school-in-the-talks"} -->
+<h3 class="wp-block-heading" id="find-a-school-in-the-talks">Find a school in the talks</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>When:</em> you look for one school or lead, at any stage.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>In <code>Administrator Dashboard &gt; Talks</code>, type part of the name in <strong>Find a school</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press <strong>Find</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press a name to open its talks. <strong>Clear</strong> brings the lists back.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--next","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--next"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>What happens next</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>The heading says how many match, such as "2 schools in all the talks match that name". Each row starts with its stage.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--know","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--know"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>Good to know</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Find looks at every school and lead, at every stage, closed leads too, whoever is assigned, whatever <strong>Show all schools</strong> says.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Capitals and accents do not matter.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>With nothing found: "No school matches that name."</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:heading {"level":3,"anchor":"the-monday-email-of-follow-ups-due-arrived"} -->
+<h3 class="wp-block-heading" id="the-monday-email-of-follow-ups-due-arrived">The Monday email of follow-ups due arrived</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>When:</em> you got "&#91;{site}] Follow-ups due this week: {count}".</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Read "These follow-ups are due, oldest first:": your own schools.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Read "Not assigned to anybody:": the schools in your list that nobody is assigned to.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press a school's link to open its Talks card, or the link after "Open the Talks view:".</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Do the follow-up. Then change <strong>Next step</strong> and <strong>Follow up on</strong> on the school's card, and press <strong>Save</strong>.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--next","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--next"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>What happens next</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>A school whose new date is after today is no longer due.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--know","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--know"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>Good to know</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>It goes on Mondays at 07:00 UTC, once a week, only while the site keeps the record of institutions.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>It goes to each Administrator with an area or an assigned school who has a follow-up due among their own schools. An Administrator with none gets no email.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>It lists the same follow-ups as <strong>Follow-ups due</strong> in the Talks view, while the view shows your schools.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A Monday whose run only happens on Tuesday sends nothing that week.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Its words are changed in <code>Tools &gt; Emails</code>: <strong>Institution follow-ups due this week, to the Administrator</strong>. See <a href="#change-the-words-of-an-email-and-test-it">Change the words of an email and test it</a>.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list --></div>
@@ -856,7 +1659,7 @@
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li><strong>Approve and update the records</strong> writes Airtable first, then the site. The person who asked is emailed "Your institution's details are updated".</li>
+<li><strong>Approve and update the records</strong> writes Airtable first, then the site. Once the site keeps the record, it writes the site first, and Airtable gets a copy. The person who asked is emailed "Your institution's details are updated".</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Decline the request</strong>: the person who asked is emailed your note, and every account at the school reads it on the details card.</li>
@@ -876,7 +1679,7 @@
 <li>The request covers the school's name and address part: <strong>Name</strong>, <strong>Website</strong>, <strong>City</strong>, <strong>Country</strong> and <strong>Contact's email</strong>. The school saves its other details itself.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>If Airtable cannot be written, nothing changes and the request stays open.</li>
+<li>If the first write fails, nothing changes and the request stays open.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>A request is marked <em>Overdue</em> after 14 days.</li>
@@ -987,7 +1790,7 @@
 <li>While it is not settled, the <strong>Overview</strong> has the row <em>The agreement is not settled</em>, saying "This institution's agreement is not settled: {state}. Its representatives see only the Overview and the Agreement, and its tutors no page." It is tagged <strong>Waits</strong> when you are the one to act, and <strong>With the school</strong> otherwise. <strong>Agreement</strong> opens with the school's own sentence about its agreement, so the note above it says only what that sentence does not. For a generated template, a copy waiting for review or a returned copy, the note reads "This institution's agreement is not settled. Its representatives see only the Overview and the Agreement, and its tutors no page." With no agreement, or a revoked one, the school's sentence already says both, and the note holds only what Airtable records, if anything. When this site and Airtable disagree, the note reads as on the <strong>Overview</strong>. When Airtable records an Agreement Status, "Airtable records the Agreement Status as {status}." follows the note.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>For Administrators</strong>, the last item in the menu, holds the school's <strong>History</strong>: what was done, when and by whom.</li>
+<li><strong>For Administrators</strong>, the last item in the menu, holds the school's <strong>History</strong>: what was done, when and by whom. Once the site keeps the record of institutions, its first card is the school's Talks card.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Viewing as institution</strong> stays at the end of the page's first line on every view. Picking another school keeps the view you are on.</li>
@@ -1072,7 +1875,10 @@
 <li>The school cannot change its tracks. It is told to write to the program.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>Changes to <strong>Name and address</strong> are written to Airtable. If Airtable cannot take them, nothing is saved and the card says so.</li>
+<li>While Airtable keeps the record, changes to <strong>Name and address</strong> are written to Airtable first. If Airtable cannot take them, nothing is saved and the card says so.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Once the site keeps the record, the site saves them first and Airtable gets a copy. If the site cannot save them: "The change could not be saved on the site, so nothing was changed. Try again in a while." A copy Airtable has not taken yet is on the notice of <a href="#read-the-notice-about-airtable-s-copy">Read the notice about Airtable's copy</a>.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list --></div>
@@ -5519,6 +6325,278 @@
 <!-- /wp:list --></div>
 <!-- /wp:group -->
 
+<!-- wp:heading {"level":3,"anchor":"run-the-import-from-airtable"} -->
+<h3 class="wp-block-heading" id="run-the-import-from-airtable">Run the import from Airtable</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>When:</em> once, before the site keeps the record of institutions, with the product owner. It brings over what Airtable alone holds of the talks. It needs command-line access to the server (WP-CLI), and the product owner runs it.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Press <strong>Sync institutions now</strong> on <code>WPCredits Program &gt; Institutions</code>, tab <strong>Sync and storage</strong>, and wait until it finishes. The import refuses a sync older than 30 minutes: "Run the institutions sync first: its last read is older than 30 minutes."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The product owner runs <code>wp wpcredits institutions_import --dry-run</code>. Nothing is written.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Read its summary together: the schools by stage, the notes and follow-ups that come over, the leads, the tutors, and each owner or country it cannot place. Settle those first.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The product owner runs <code>wp wpcredits institutions_import</code> and answers "Write this to the site?".</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Read the line that starts with "Written:".</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--next","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--next"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>What happens next</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>The talks fields are filled where the site has none. The Notes and Comments columns, the FreeScout column and the record comments come over as notes.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The Outreach Tracker's rows come over as leads. A row whose name matches a school or a lead is joined to it as notes.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Tutors are added to their schools' lists, and missing assignments are made.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>No email is sent, and nothing is written to Airtable. A second run adds nothing twice.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--know","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--know"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>Good to know</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><code>--skip-comments</code> leaves the record comments unread, for a token without the scope data.recordComments:read. A later run without it brings them over.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><code>--save=&lt;file&gt;</code> writes what was read to a file, for a rehearsal on a copy of the site, and <code>--from=&lt;file&gt;</code> reads that file instead of Airtable. The file holds personal data. A place inside the plugin, WordPress or a repository is refused.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A saved read must be from within 30 minutes of this site's last sync, except on a local copy of the site: "That saved read is not from this site's last sync. Read Airtable again."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Once the site keeps the record, the import is refused: "The site already keeps the record. The import runs before the switch."</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:heading {"level":3,"anchor":"let-the-site-keep-the-record-of-institutions"} -->
+<h3 class="wp-block-heading" id="let-the-site-keep-the-record-of-institutions">Let the site keep the record of institutions</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>When:</em> the product owner has decided the switch, and the import is done. One save moves the record of institutions from Airtable to the site.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Open <code>WPCredits Program &gt; Institutions</code>, tab <strong>Sync and storage</strong>. Press <strong>Sync institutions now</strong> and wait until it finishes.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Have the import run, its dry run first. See <a href="#run-the-import-from-airtable">Run the import from Airtable</a>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press <strong>Sync institutions now</strong> again, and wait until it finishes.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Within 15 minutes, open <code>WPCredits Program &gt; Settings</code>, tab <strong>Advanced</strong>. In the row <strong>Institutions' record</strong>, tick <strong>The site keeps the record, and Airtable gets a copy</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press <strong>Save settings</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>If the save says "The institutions' record was not moved", do what the rest of its sentence says, then save again.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--next","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--next"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>What happens next</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>The sync stops reading the Institutions and Countries tables, and every change Airtable has a column for is copied to Airtable. See <a href="#airtable-s-copy-of-the-record">Airtable's copy of the record</a>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><code>Administrator Dashboard &gt; Talks</code> is in the menu. Each school's Institution Dashboard has its Talks card first under <strong>For Administrators</strong>. The details card no longer holds <strong>Assigned Administrator</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The Monday email of follow-ups due starts, and so does the hourly retry of Airtable's copy.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--know","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--know"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>Good to know</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>The switch is refused, and stays off, with one of three sentences. The rest of the tab is still saved.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>"The institutions' record was not moved: the sync is running. Wait until it finishes, then save again."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>"The institutions' record was not moved: the site has not finished reading the Institutions table in the last 15 minutes. Run the sync on Institutions &gt; Sync and storage, then save again."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>"The institutions' record was not moved: the site's list is behind on the agreement of {school}. Run the sync on Institutions &gt; Sync and storage, then save again." With more schools it names five of them.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The product owner can make the same change with <code>wp wpcredits setting set institutions_on_site on</code>, which asks the same three questions, and <code>--dry-run</code> says what would happen.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:heading {"level":3,"anchor":"read-the-notice-about-airtable-s-copy"} -->
+<h3 class="wp-block-heading" id="read-the-notice-about-airtable-s-copy">Read the notice about Airtable's copy</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>When:</em> once the site keeps the record of institutions, <code>WPCredits Program &gt; Institutions</code> shows "These institutions' changes are not in Airtable yet. The site tries again by itself: after an hour or two at first, then less often, and at least once a day."</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Read each line: the school, since when its change waits, and Airtable's error when there was one.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Wait for the next tries. The change is saved on the site, and the site sends it again by itself.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>If a school stays on the notice for a day, tell the product owner, with the error's words.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--next","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--next"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>What happens next</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>A school leaves the notice once Airtable takes its change.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--know","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--know"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>Good to know</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>A school is listed once a try failed, or once its change has waited five minutes with no answer. The notice lists ten, then "and 2 more".</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A new change goes with the next hourly run. After each refused try a school waits twice as long, two hours after the first, up to a day.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>"The site's list of institutions does not hold this school." means the school is gone from the site's list. Such a school is dropped from the notice after 24 tries.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>After an agreement is accepted or recorded on file, the site's own record shows the new stage at once. If Airtable's copy of it is late, the school is listed here until a retry sends it.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Before you give the record back to Airtable, wait until the notice is gone. See <a href="#give-the-record-back-to-airtable">Give the record back to Airtable</a>.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:heading {"level":3,"anchor":"give-the-record-back-to-airtable"} -->
+<h3 class="wp-block-heading" id="give-the-record-back-to-airtable">Give the record back to Airtable</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>When:</em> the program goes back to keeping the record of institutions in Airtable.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Open <code>WPCredits Program &gt; Institutions</code> and read the notice about Airtable's copy. Wait until it is gone. See <a href="#read-the-notice-about-airtable-s-copy">Read the notice about Airtable's copy</a>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Open <code>WPCredits Program &gt; Settings</code>, tab <strong>Advanced</strong>, and untick <strong>The site keeps the record, and Airtable gets a copy</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press <strong>Save settings</strong>.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--next","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--next"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>What happens next</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>The next sync reads Airtable again and rewrites the site's list of institutions: the name, the stage, the country, the city, the website, the contact and the agreement.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>If the notice was not empty, the save warns and names the schools: "The site reads Airtable again. Airtable never received the last changes of {school}, and the site will not send them later: write them in Airtable by hand if they matter." Those changes are not in Airtable, and the site drops them from its list of copies owed. Write them in Airtable yourself if they matter.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The Talks view, the Talks card, the Monday email and the hourly retry stop. <strong>Assigned Administrator</strong> is back on the details card.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>What stays on the site is no longer kept in step with Airtable: the leads, the notes, <strong>Program details</strong>, <strong>Estimated students</strong>, <strong>First students begin</strong>, and each school's next step and follow-up date as they were. The sync does not read them.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--know","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--know"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>Good to know</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Turning the setting on again later shows the talks as the site held them when the record went back, not what was changed in Airtable since. Do it only with the product owner. Each turn on asks the same three questions. See <a href="#let-the-site-keep-the-record-of-institutions">Let the site keep the record of institutions</a>.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
 <!-- wp:heading {"level":3,"anchor":"before-you-uninstall-the-plugin"} -->
 <h3 class="wp-block-heading" id="before-you-uninstall-the-plugin">Before you uninstall the plugin</h3>
 <!-- /wp:heading -->
@@ -6718,11 +7796,11 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>A school's state shows on the Administrator Dashboard's <strong>Overview</strong> cards, on <code>Institutions &gt; Pipeline</code> and, for you alone, on its Institution Dashboard: a row on the <strong>Overview</strong>, and the first line of <strong>Agreement</strong>.</p>
+<p>A school's state shows on the Administrator Dashboard's <strong>Overview</strong> cards, on <code>Institutions &gt; Pipeline</code> and, for you alone, on its Institution Dashboard: a row on the <strong>Overview</strong>, and the first line of <strong>Agreement</strong>. Once the site keeps the record of institutions, the talks show on <strong>Talks</strong> and on each school's Talks card.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>What you see</th><th>What it means</th><th>What to do next</th></tr></thead><tbody><tr><td><em>new</em> on its row in <strong>Institution applications</strong> (<strong>Overview</strong>), with <strong>Send the confirmation link again</strong></td><td>The school applied. The contact has not confirmed the address yet, so <strong>Approve</strong> is refused.</td><td>See <a href="#the-application-s-address-is-not-confirmed">The application's address is not confirmed</a>.</td></tr><tr><td><em>held by the anti-spam checks</em> in <strong>Institution applications</strong></td><td>The form's checks held it.</td><td>Read which checks on <code>Institutions &gt; Waiting for review</code>, then see <a href="#a-school-applied">A school applied</a>.</td></tr><tr><td><em>new</em> in <strong>Institution applications</strong>, with no <strong>Send the confirmation link again</strong></td><td>The address is confirmed. The application waits for your decision.</td><td>See <a href="#a-school-applied">A school applied</a>.</td></tr><tr><td><em>waiting on the applicant</em> in <strong>Institution applications</strong></td><td>You sent a question. The answer comes to your email.</td><td>Read the answer, then see <a href="#a-school-applied">A school applied</a>.</td></tr><tr><td>"Approving this application stopped partway" in <strong>Institution applications</strong></td><td><strong>Approve</strong> made the Airtable record, and maybe the account, then stopped.</td><td>See <a href="#finish-an-approval-that-stopped-halfway">Finish an approval that stopped halfway</a>.</td></tr><tr><td><em>No stage</em>, under <strong>Not counted above</strong> on <code>Institutions &gt; Pipeline</code></td><td>The school was entered in Airtable with no Current Stage. It is not an application.</td><td>See <a href="#a-school-came-in-through-airtable-not-the-site-s-form">A school came in through Airtable, not the site's form</a>.</td></tr><tr><td>A count beside <strong>Institutions with no live member</strong> on <code>Institutions &gt; Pipeline</code></td><td>Nobody at these schools can act for them on the site.</td><td>See <a href="#give-a-school-its-first-account">Give a school its first account</a>.</td></tr><tr><td><em>Not started</em> in the <strong>Agreement</strong> column of <code>Institutions &gt; Pipeline</code>; on its Institution Dashboard, "This institution's agreement is not settled: not started."</td><td>The school has not generated or uploaded its Collaboration Agreement.</td><td>Wait for the school, or see <a href="#record-an-agreement-the-program-already-holds">Record an agreement the program already holds</a>.</td></tr><tr><td><em>Template generated</em> in the <strong>Agreement</strong> column</td><td>The school generated the template and has not uploaded a signed copy.</td><td>Wait for the upload.</td></tr><tr><td><strong>Awaiting review</strong> on the <strong>Collaboration Agreements</strong> card, <em>Overdue</em> once it is late</td><td>A signed copy waits for you.</td><td>See <a href="#a-signed-collaboration-agreement-arrived">A signed Collaboration Agreement arrived</a>.</td></tr><tr><td>"1 returned, waiting for a new upload" on the <strong>Collaboration Agreements</strong> card; <em>Returned</em> in the <strong>Agreement</strong> column</td><td>You returned the copy with a note. The school must upload again.</td><td>Wait for the new upload.</td></tr><tr><td><em>Accepted</em> or <em>On file</em> in the <strong>Agreement</strong> column; "Accepted on the site" or "Recorded on file" under <strong>Agreements in force</strong> on <code>Institutions &gt; Agreements</code></td><td>The site holds an accepted agreement. It is in force once Airtable also records it as Accepted or On file, and then the school can enroll students and invite colleagues. If Airtable does not agree, the Institution Dashboard says so, and the school's representatives reach only <strong>Overview</strong> and <strong>Agreement</strong>. <strong>Agreements in force</strong> lists only agreements in force.</td><td>See <a href="#enroll-students-for-a-school">Enroll students for a school</a> and <a href="#invite-a-representative-or-a-tutor-for-a-school-and-keep-its-tutor-list">Invite a representative or a tutor for a school, and keep its tutor list</a>.</td></tr><tr><td>"3 students now" on its row in <code>Institutions &gt; Pipeline</code></td><td>The school has students on the program.</td><td>Follow its semester reports.</td></tr><tr><td>A row under <strong>Due for drafting</strong> or <strong>To review</strong> on the <strong>Semester reports</strong> card</td><td>A finished semester has no report yet, or a draft waits for you.</td><td>See <a href="#a-semester-report-draft-review-approve-reopen">A semester report: draft, review, approve, reopen</a>.</td></tr><tr><td>"1 revoked agreement" on the <strong>Collaboration Agreements</strong> card, with <strong>Reinstate</strong>; <em>Revoked</em> in the <strong>Agreement</strong> column</td><td>The agreement was taken out of force. The school's representatives reach only <strong>Overview</strong> and <strong>Agreement</strong>, and its tutors no page.</td><td>See <a href="#take-an-agreement-out-of-force-or-put-it-back">Take an agreement out of force, or put it back</a>.</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>What you see</th><th>What it means</th><th>What to do next</th></tr></thead><tbody><tr><td><em>new</em> on its row in <strong>Institution applications</strong> (<strong>Overview</strong>), with <strong>Send the confirmation link again</strong></td><td>The school applied. The contact has not confirmed the address yet, so <strong>Approve</strong> is refused.</td><td>See <a href="#the-application-s-address-is-not-confirmed">The application's address is not confirmed</a>.</td></tr><tr><td><em>held by the anti-spam checks</em> in <strong>Institution applications</strong></td><td>The form's checks held it.</td><td>Read which checks on <code>Institutions &gt; Waiting for review</code>, then see <a href="#a-school-applied">A school applied</a>.</td></tr><tr><td><em>new</em> in <strong>Institution applications</strong>, with no <strong>Send the confirmation link again</strong></td><td>The address is confirmed. The application waits for your decision.</td><td>See <a href="#a-school-applied">A school applied</a>.</td></tr><tr><td><em>waiting on the applicant</em> in <strong>Institution applications</strong></td><td>You sent a question. The answer comes to your email.</td><td>Read the answer, then see <a href="#a-school-applied">A school applied</a>.</td></tr><tr><td>"Approving this application stopped partway" in <strong>Institution applications</strong></td><td><strong>Approve</strong> made the Airtable record, and maybe the account, then stopped.</td><td>See <a href="#finish-an-approval-that-stopped-halfway">Finish an approval that stopped halfway</a>.</td></tr><tr><td><em>No stage</em>, under <strong>Not counted above</strong> on <code>Institutions &gt; Pipeline</code></td><td>The school was entered in Airtable with no Current Stage. It is not an application.</td><td>See <a href="#a-school-came-in-through-airtable-not-the-site-s-form">A school came in through Airtable, not the site's form</a>.</td></tr><tr><td>A count beside <strong>Institutions with no live member</strong> on <code>Institutions &gt; Pipeline</code></td><td>Nobody at these schools can act for them on the site.</td><td>See <a href="#give-a-school-its-first-account">Give a school its first account</a>.</td></tr><tr><td><em>Not started</em> in the <strong>Agreement</strong> column of <code>Institutions &gt; Pipeline</code>; on its Institution Dashboard, "This institution's agreement is not settled: not started."</td><td>The school has not generated or uploaded its Collaboration Agreement.</td><td>Wait for the school, or see <a href="#record-an-agreement-the-program-already-holds">Record an agreement the program already holds</a>.</td></tr><tr><td><em>Template generated</em> in the <strong>Agreement</strong> column</td><td>The school generated the template and has not uploaded a signed copy.</td><td>Wait for the upload.</td></tr><tr><td><strong>Awaiting review</strong> on the <strong>Collaboration Agreements</strong> card, <em>Overdue</em> once it is late</td><td>A signed copy waits for you.</td><td>See <a href="#a-signed-collaboration-agreement-arrived">A signed Collaboration Agreement arrived</a>.</td></tr><tr><td>"1 returned, waiting for a new upload" on the <strong>Collaboration Agreements</strong> card; <em>Returned</em> in the <strong>Agreement</strong> column</td><td>You returned the copy with a note. The school must upload again.</td><td>Wait for the new upload.</td></tr><tr><td><em>Accepted</em> or <em>On file</em> in the <strong>Agreement</strong> column; "Accepted on the site" or "Recorded on file" under <strong>Agreements in force</strong> on <code>Institutions &gt; Agreements</code></td><td>The site holds an accepted agreement. It is in force once Airtable also records it as Accepted or On file, and then the school can enroll students and invite colleagues. If Airtable does not agree, the Institution Dashboard says so, and the school's representatives reach only <strong>Overview</strong> and <strong>Agreement</strong>. <strong>Agreements in force</strong> lists only agreements in force.</td><td>See <a href="#enroll-students-for-a-school">Enroll students for a school</a> and <a href="#invite-a-representative-or-a-tutor-for-a-school-and-keep-its-tutor-list">Invite a representative or a tutor for a school, and keep its tutor list</a>.</td></tr><tr><td>"3 students now" on its row in <code>Institutions &gt; Pipeline</code></td><td>The school has students on the program.</td><td>Follow its semester reports.</td></tr><tr><td>A row under <strong>Due for drafting</strong> or <strong>To review</strong> on the <strong>Semester reports</strong> card</td><td>A finished semester has no report yet, or a draft waits for you.</td><td>See <a href="#a-semester-report-draft-review-approve-reopen">A semester report: draft, review, approve, reopen</a>.</td></tr><tr><td>"1 revoked agreement" on the <strong>Collaboration Agreements</strong> card, with <strong>Reinstate</strong>; <em>Revoked</em> in the <strong>Agreement</strong> column</td><td>The agreement was taken out of force. The school's representatives reach only <strong>Overview</strong> and <strong>Agreement</strong>, and its tutors no page.</td><td>See <a href="#take-an-agreement-out-of-force-or-put-it-back">Take an agreement out of force, or put it back</a>.</td></tr><tr><td>A school in <strong>Follow-ups due</strong> on <strong>Talks</strong></td><td>Its follow-up date is today or earlier, while its talks go on.</td><td>See <a href="#change-a-school-s-stage-next-step-and-follow-up-date">Change a school's stage, next step and follow-up date</a>.</td></tr><tr><td><strong>Past due</strong> on a school's Talks card</td><td>Its follow-up date is before today, at any stage. A closed lead shows <strong>Closed</strong> instead.</td><td>See <a href="#change-a-school-s-stage-next-step-and-follow-up-date">Change a school's stage, next step and follow-up date</a>.</td></tr><tr><td><strong>Not assigned</strong> on a row of <strong>Talks</strong></td><td>Nobody who is an Administrator now follows the school up.</td><td>See <a href="#assign-a-school-to-another-administrator-or-to-nobody">Assign a school to another Administrator, or to nobody</a>.</td></tr><tr><td>A school under the stage Lead on <strong>Talks</strong></td><td>A lead: a school the program has not talked to yet, kept on the site alone.</td><td>See <a href="#move-a-lead-into-the-talks-as-an-institution">Move a lead into the talks as an institution</a>, or <a href="#close-a-lead-or-reopen-it">Close a lead, or reopen it</a>.</td></tr><tr><td><strong>Closed</strong> on a lead</td><td>The lead went nowhere. It is left out of the lists and the follow-ups due.</td><td>See <a href="#close-a-lead-or-reopen-it">Close a lead, or reopen it</a> or <a href="#delete-a-lead">Delete a lead</a>.</td></tr><tr><td>"This lead's move into the talks as an institution did not finish." on a lead's card</td><td>Airtable has its record, and the site's list does not yet.</td><td>See <a href="#move-a-lead-into-the-talks-as-an-institution">Move a lead into the talks as an institution</a>.</td></tr><tr><td>A school on the notice "These institutions' changes are not in Airtable yet." on <code>WPCredits Program &gt; Institutions</code></td><td>The site has its change, and Airtable has not taken it yet.</td><td>See <a href="#read-the-notice-about-airtable-s-copy">Read the notice about Airtable's copy</a>.</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:heading {"level":3,"anchor":"where-a-student-stands"} -->
@@ -7742,6 +8820,9 @@
 <li>While Airtable is not connected, a warning above the tabs says so, with <strong>Open settings</strong>.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
+<li>Once the site keeps the record of institutions, a notice above the tabs lists the schools whose changes are not in Airtable yet. See <a href="#read-the-notice-about-airtable-s-copy">Read the notice about Airtable's copy</a>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
 <li>The menu entry's bubble counts the applications, signed agreements and requests waiting. At 200 or more it reads <em>200+</em>.</li>
 <!-- /wp:list-item -->
 </ul>
@@ -7813,6 +8894,9 @@
 <!-- wp:list-item -->
 <li><strong>What Airtable already has</strong>: records with the same name or address. Approving adopts the first instead of creating one.</li>
 <!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Once the site keeps the record, <strong>What the site already has</strong> in its place: the institutions in the site's list with the same name or address, then the leads in the talks. A lead named here is moved into the talks before you approve, so its notes come with it. When an institution matched as well, the paragraph says to copy what matters from the lead's notes to the institution's Talks card.</li>
+<!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
 
@@ -7862,7 +8946,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>Every institution record by stage, as the last institutions sync read it. Each row: <strong>Institution</strong> (it opens the Institution Dashboard), <strong>Country</strong>, <strong>City</strong>, <strong>Contact</strong> (<em>email on record</em> or <em>no email</em>), <strong>Consent</strong>, <strong>Created</strong> and <strong>Agreement</strong>.</p>
+<p>Every institution record by stage, as the last institutions sync read it. Once the site keeps the record, the site's own list, with each change made on a Talks card. Each row: <strong>Institution</strong> (it opens the Institution Dashboard), <strong>Country</strong>, <strong>City</strong>, <strong>Contact</strong> (<em>email on record</em> or <em>no email</em>), <strong>Consent</strong>, <strong>Created</strong> and <strong>Agreement</strong>.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:list -->
@@ -8080,7 +9164,7 @@
 <li>Airtable is updated first. If that fails, nothing changes.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>The stage stays. If the partnership ended, change it in Airtable.</li>
+<li>The stage stays. If the partnership ended, change it in Airtable, or on the school's Talks card once the site keeps the record.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>A refused note comes back to its box.</li>
@@ -8110,7 +9194,7 @@
 <li>It is refused when an accepted agreement already stands, and for any but the most recently revoked one.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>A school at a stage outside the active ones is listed without the button, with the line "At the stage "{stage}", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." A school with no stage keeps the button.</li>
+<li>A school at a stage outside the active ones is listed without the button, with the line "At the stage "{stage}", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." A school with no stage keeps the button. Once the site keeps the record, the line reads "Move it to an active stage on its Talks card first".</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
@@ -9939,7 +11023,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>Eleven rarely changed settings, at <code>WPCredits Program &gt; Settings</code>, tab <strong>Advanced</strong>. Four sections: <strong>Pipeline stages</strong>, <strong>Applications</strong>, <strong>Agreements</strong> and <strong>Invitations</strong>. Each number box takes only its range.</p>
+<p>Twelve rarely changed settings, at <code>WPCredits Program &gt; Settings</code>, tab <strong>Advanced</strong>. Four sections: <strong>Pipeline stages</strong>, <strong>Applications</strong>, <strong>Agreements</strong> and <strong>Invitations</strong>. Each number box takes only its range.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -9951,11 +11035,14 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>Chosen from the Institutions table's Current Stage options.</p>
+<p>The stages are chosen from the Institutions table's Current Stage options.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:list -->
 <ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Institutions' record</strong>: one box, <strong>The site keeps the record, and Airtable gets a copy</strong>. Ticked, the sync stops reading the Institutions and Countries tables, and every change Airtable has a column for is copied to Airtable. Off, the sync reads Airtable again and rewrites the site's list. Default: off.</li>
+<!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Institution starting stage</strong>: the stage an approved application's institution is created at in Airtable. Default: <em>First Contact Made</em>.</li>
 <!-- /wp:list-item -->
@@ -9966,7 +11053,29 @@
 <!-- /wp:list -->
 
 <!-- wp:paragraph -->
-<p>Neither can be blank: a blank one gets its default back, with a notice. When Airtable cannot list the stages, you type the starting stage, and the pipeline stages one per line.</p>
+<p>Neither stage setting can be blank: a blank one gets its default back, with a notice. When Airtable cannot list the stages, you type the starting stage, and the pipeline stages one per line.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Rules for <strong>Institutions' record</strong>:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>The save that ticks it is refused while the sync runs, when the site has not finished reading the Institutions table in the last 15 minutes, or while the site's list is behind on a school's agreement. It then stays off, and the rest of the tab is saved.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The save that unticks it warns when Airtable has not received a school's last changes, and names the schools: the site will not send those changes later.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>While it is ticked, the Talks view and the Talks card are shown, the Monday email of follow-ups due is sent, and a copy Airtable did not take is tried again by itself, less often after each refused try, and at least once a day.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>Step by step: <a href="#let-the-site-keep-the-record-of-institutions">Let the site keep the record of institutions</a>; <a href="#give-the-record-back-to-airtable">Give the record back to Airtable</a>.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":4,"anchor":"keeping-applications"} -->
@@ -11623,7 +12732,7 @@
 <li>A track taken off the live site drops out, and does not count toward the two below. It comes back, still ticked, when published again.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Assigned Administrator</strong>: change it under <strong>Change who follows it up</strong>.</li>
+<li><strong>Assigned Administrator</strong>: change it under <strong>Change who follows it up</strong>. Once the site keeps the record of institutions, the details card has no such section: the Talks card holds it.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
@@ -11721,11 +12830,14 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p><strong>For Administrators</strong> is the last view in the menu of every school's Institution Dashboard. Nobody who acts for the institution sees it. It holds two cards.</p>
+<p><strong>For Administrators</strong> is the last view in the menu of every school's Institution Dashboard. Nobody who acts for the institution sees it. It holds two cards, and three once the site keeps the record of institutions.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:list -->
 <ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Talks</strong>: the first card, once the site keeps the record. The school's stage, next step, follow-up date, assigned Administrator, notes and <strong>Program details</strong>. See <a href="#the-talks-card">The Talks card</a>.</li>
+<!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>From the application</strong>: the application's answers that Airtable has no column for, such as who signs the agreement. They stay after the application is removed. An institution approved before the site kept these answers has none: <strong>Nothing kept from the application.</strong></li>
 <!-- /wp:list-item -->
@@ -11742,7 +12854,7 @@
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li>Rows cover members, invitations with the address each went to, the application, the Collaboration Agreement, details, tracks, the assigned Administrator, tutors, requests, imports, students and roster refusals.</li>
+<li>Rows cover members, invitations with the address each went to, the application, the Collaboration Agreement, details, tracks, the assigned Administrator, tutors, requests, imports, students and roster refusals, and the talks: a stage moved, the talks updated, the talks brought over from Airtable.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>A member row says how the account joined, in the words of <strong>Representatives and tutors</strong>, such as <strong>Joined by invitation</strong>, or why it left, such as <strong>They removed their own access</strong>.</li>
@@ -11962,6 +13074,9 @@
 <!-- wp:list-item -->
 <li>A school that leaves the stages in <strong>Institution pipeline stages</strong> (tab <strong>Advanced</strong>) loses its open agreement; one with no stage at all has not left and is left alone. By default its people lose their access; <strong>Its people</strong> (tab <strong>Institutions</strong>) decides.</li>
 <!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Once the site keeps the record of institutions (<strong>Institutions' record</strong>, tab <strong>Advanced</strong>), the institutions sync no longer reads the Institutions and Countries tables. It works from the site's own list, and assigns no school.</li>
+<!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
 
@@ -12167,6 +13282,14 @@
 <p>A school's details corrected on the site go to Airtable, then to the site's copy. If an institutions sync is reading then, the correction asks for one more run five minutes later. Only one waits at a time, and it keeps to <strong>Automatic sync</strong>. A correction the site could not copy at once is in Airtable already and arrives with the next run.</p>
 <!-- /wp:paragraph -->
 
+<!-- wp:paragraph -->
+<p>Once the site keeps the record, the order turns round: the site's list first, then Airtable's copy. See <a href="#airtable-s-copy-of-the-record">Airtable's copy of the record</a>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Once the site keeps the record, an institutions sync may also report: "The site's list is behind on the agreement of {institution}, so its page was left as it is. Tell the product owner." It means the site's list holds an older agreement status for that school than its Institution Dashboard does, so the sync left the school's access as it was rather than take it away. <code>WPCredits Program &gt; Institutions</code> shows that line for each such school, above the tabs, until the list is right again.</p>
+<!-- /wp:paragraph -->
+
 <!-- wp:heading {"level":4,"anchor":"the-slack-message-for-a-new-institution"} -->
 <h4 class="wp-block-heading" id="the-slack-message-for-a-new-institution">The Slack message for a new institution</h4>
 <!-- /wp:heading -->
@@ -12215,6 +13338,12 @@
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>Change a live setting one way at a time: an open settings tab saves its own copy.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><code>wp wpcredits setting set institutions_on_site on</code> (or <code>off</code>) asks the same questions as the <strong>Advanced</strong> tab's save. It is for the product owner: the screen is the way. See <a href="#let-the-site-keep-the-record-of-institutions">Let the site keep the record of institutions</a>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><code>wp wpcredits institutions_import</code> brings over what Airtable alone holds of the talks, once, before the switch. See <a href="#run-the-import-from-airtable">Run the import from Airtable</a>.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><code>wp wpcredits start_pages</code> makes the Start here page (<code>/start-here/</code>) and the Team Matcher page (<code>/find-your-team/</code>), keeping pages that exist. The Team Matcher page needs the Find Your Team plugin active.</li>
@@ -12340,7 +13469,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>When</th><th>Who it gets</th><th>Who is emailed</th></tr></thead><tbody><tr><td>A school applies on this site</td><td>Its area's Administrator</td><td>That Administrator alone (<strong>Institution assigned, to the Administrator</strong>)</td></tr><tr><td>No area covers the applicant</td><td>Nobody</td><td><strong>Who is emailed about institutions</strong>, or every Administrator when it is empty</td></tr><tr><td>The application is approved</td><td>The application's Administrator, or else today's area Administrator</td><td>Nobody</td></tr><tr><td>The sync reads a school added in Airtable</td><td>Its area's Administrator</td><td>That Administrator</td></tr><tr><td>You change it on the details card</td><td>Whoever you choose, or <strong>Nobody</strong></td><td>The new Administrator, unless they made the change</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>When</th><th>Who it gets</th><th>Who is emailed</th></tr></thead><tbody><tr><td>A school applies on this site</td><td>Its area's Administrator</td><td>That Administrator alone (<strong>Institution assigned, to the Administrator</strong>)</td></tr><tr><td>No area covers the applicant</td><td>Nobody</td><td><strong>Who is emailed about institutions</strong>, or every Administrator when it is empty</td></tr><tr><td>The application is approved</td><td>The application's Administrator, or else today's area Administrator</td><td>Nobody</td></tr><tr><td>The sync reads a school added in Airtable, while Airtable keeps the record</td><td>Its area's Administrator</td><td>That Administrator</td></tr><tr><td>A lead is added in the Talks view</td><td>Its area's Administrator</td><td>That Administrator, unless they added it</td></tr><tr><td>You change it on the details card, or on the Talks card once the site keeps the record</td><td>Whoever you choose, or <strong>Nobody</strong></td><td>The new Administrator, unless they made the change</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:list -->
@@ -12407,6 +13536,278 @@
 
 <!-- wp:paragraph -->
 <p>Step by step: <a href="#give-a-country-or-a-region-to-an-administrator">Give a country or a region to an Administrator</a>; <a href="#close-a-no-area-gap">Close a "no area" gap</a>; <a href="#assign-a-school-to-another-administrator-or-to-nobody">Assign a school to another Administrator, or to nobody</a>; <a href="#choose-who-is-emailed-about-institutions-mentors-and-students">Choose who is emailed about institutions, mentors and students</a>; <a href="#run-the-seed-command">Run the seed command</a>; <a href="#invite-a-representative-or-a-tutor-for-a-school-and-keep-its-tutor-list">Invite a representative or a tutor for a school, and keep its tutor list</a>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3,"anchor":"the-talks-with-institutions"} -->
+<h3 class="wp-block-heading" id="the-talks-with-institutions">The talks with institutions</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Who keeps the record of institutions is one setting: <strong>Institutions' record</strong>, at <code>WPCredits Program &gt; Settings</code>, tab <strong>Advanced</strong>. While it is off, Airtable keeps the record, as before, and nothing in this part is shown. Once <strong>The site keeps the record, and Airtable gets a copy</strong> is saved, the site keeps each school's talks, and Airtable gets a copy of what it has columns for.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"the-talks-view"} -->
+<h4 class="wp-block-heading" id="the-talks-view">The Talks view</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><code>Administrator Dashboard &gt; Talks</code>, after <strong>Watch</strong> in the menu, with an amber number: your own follow-ups due.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>The head says how many follow-ups are due and which is the oldest, or "No follow-up is due". <strong>Add a lead</strong> stands in the head.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>At its top right, "Showing your schools" with <strong>Show all schools</strong>, or "Showing all schools" with <strong>Show your schools</strong>. Your schools are the default for every Administrator.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Find a school</strong>, with <strong>Find</strong>, and <strong>Clear</strong> while words are asked for.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Follow-ups due</strong>: <strong>School</strong>, <strong>Next step</strong> and <strong>Follow up on</strong>, oldest first.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A list for each stage from Lead to Confirmed, then <strong>No stage</strong>, each heading with its count in words. Then folded: Revisit Later, Not Moving Forward, SPAM and each stage the site's lists do not hold, A to Z.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A stage shows 20 schools, then a link to show all of them.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A school at Student is in no list: <strong>Find a school</strong> finds it.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Each row: the name, a tag <strong>Not assigned</strong> or <strong>Closed</strong>, where it is, its Administrator, the next step and the follow-up day.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Add a lead</strong>, folded, at the end of the view.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A lead's page: the lead's name as the title, then its Talks card. A lead that became an institution says "This lead is an institution now: {school}."</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":4,"anchor":"the-talks-card"} -->
+<h4 class="wp-block-heading" id="the-talks-card">The Talks card</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>The first card of <strong>For Administrators</strong> on a school's Institution Dashboard, and the card on a lead's page. Only Administrators see it, and only once the site keeps the record.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Beside the name, <strong>Past due</strong> when the follow-up date is before today, or <strong>Closed</strong> for a closed lead.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Fields, in order: <strong>Stage</strong>, <strong>Next step</strong>, <strong>Follow up on</strong>, <strong>Assigned Administrator</strong>, <strong>Country</strong>; for a lead, <strong>City</strong>, <strong>Contact person</strong>, <strong>Contact's email</strong> and <strong>Help desk link</strong>; then <strong>Estimated students</strong>, <strong>First students begin</strong> and <strong>Program details</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>One <strong>Save</strong>. A lead's row adds <strong>Close this lead</strong> or <strong>Reopen this lead</strong>, and a closed lead's <strong>Delete this lead</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Under <strong>Stage</strong>: "Since {day}, by {name}.", the stage's last change.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>On record</strong>: what the card shows and does not change. A school's <strong>Contact person</strong>, <strong>Contact's email</strong> and <strong>Help desk link</strong>, <strong>Last contact</strong>, and <strong>Lead owner</strong> when the import gave one. A school's contact is changed on <strong>Your institution's details</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Notes</strong>, newest first, then <strong>Add a note</strong> with <strong>Add the note</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A save made after someone else changed the same talks is refused, and the card shows the values as they are now.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>While another request changes the same school, a save changes nothing and says "Someone else is changing these talks just now, so nothing was saved. Try again in a moment."</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":4,"anchor":"the-stages-the-talks-card-offers"} -->
+<h4 class="wp-block-heading" id="the-stages-the-talks-card-offers">The stages the Talks card offers</h4>
+<!-- /wp:heading -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>The school</th><th><strong>Stage</strong> offers</th></tr></thead><tbody><tr><td>A lead</td><td>Lead, and First Contact Made to Agreement Sent</td></tr><tr><td>A closed lead</td><td>Lead alone</td></tr><tr><td>A school whose Collaboration Agreement is not settled</td><td>First Contact Made to Agreement Sent, Revisit Later, Not Moving Forward, SPAM</td></tr><tr><td>A school whose agreement is accepted or on file</td><td>Confirmed, Student, Revisit Later, Not Moving Forward, SPAM</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>The stage the school is at is always offered too, so a save that does not touch it keeps it.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A move to a stage outside <strong>Institution pipeline stages</strong> asks first, then takes away the school's agreement record, as a sync does. See <a href="#a-school-leaves-the-active-stages-and-comes-back">A school leaves the active stages, and comes back</a>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Moving to Revisit Later sets the follow-up 90 days ahead, unless you changed the date.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":4,"anchor":"leads"} -->
+<h4 class="wp-block-heading" id="leads">Leads</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>A lead is a school the program has not talked to yet, kept on the site alone.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>It is added on the Talks view, or brought over from the Outreach Tracker by the import.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>It is never written to Airtable. It gets an Airtable record only when it moves into the talks as an institution, at First Contact Made to Agreement Sent.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>It is assigned by its country's area when it is added.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A lead that goes nowhere is closed, and can be reopened. A closed lead keeps everything, and in the Talks view only <strong>Find a school</strong> shows it.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A closed lead can be deleted. It goes to WordPress's Trash with its notes. No screen brings it back.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A name is used once in the talks, by a school or a lead.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>Step by step: <a href="#add-a-lead">Add a lead</a>; <a href="#close-a-lead-or-reopen-it">Close a lead, or reopen it</a>; <a href="#move-a-lead-into-the-talks-as-an-institution">Move a lead into the talks as an institution</a>; <a href="#delete-a-lead">Delete a lead</a>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"program-details"} -->
+<h4 class="wp-block-heading" id="program-details">Program details</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>One long text on the Talks card, for what a school or a lead asks for: hours, dates, reports.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>At most 5,000 characters. Lines are kept.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Only Administrators see it. It never goes to a school and never to Airtable, and the Talks view and the Monday email do not show it.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A lead's text goes with it when it becomes an institution.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>Step by step: <a href="#record-what-a-school-asks-for">Record what a school asks for</a>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"the-monday-email-of-follow-ups-due"} -->
+<h4 class="wp-block-heading" id="the-monday-email-of-follow-ups-due">The Monday email of follow-ups due</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><strong>Institution follow-ups due this week, to the Administrator</strong>, in <code>Tools &gt; Emails</code>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Subject: "&#91;{site}] Follow-ups due this week: {count}". The count is the lines the email holds.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Two lists: "These follow-ups are due, oldest first:" for your own schools, and "Not assigned to anybody:" for the ones nobody is assigned to. A list with no line is left out.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Each line: the school, its next step and the day it was due, with a link to its talks.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Mondays at 07:00 UTC, once a week, only while the site keeps the record.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>To each Administrator who has an area or an assigned school, and only when they have follow-ups due among their own schools. Nobody else is mailed.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>Step by step: <a href="#the-monday-email-of-follow-ups-due-arrived">The Monday email of follow-ups due arrived</a>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"airtable-s-copy-of-the-record"} -->
+<h4 class="wp-block-heading" id="airtable-s-copy-of-the-record">Airtable's copy of the record</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Once the site keeps the record, the site is written first, and Airtable gets a copy.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Copied: the name, the stage, the country, the city, the website, the contact person and email, the day it was confirmed, the next step, the follow-up date, the last contact date, <strong>Estimated students</strong> and the help desk link.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Not copied: the notes, <strong>Program details</strong>, <strong>First students begin</strong>, the assigned Administrator, and leads, which are never written to Airtable.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The site tries again by itself: a new change goes with the next hourly run, and after each refused try a school waits twice as long, up to a day.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><code>WPCredits Program &gt; Institutions</code> lists the schools whose changes are not in Airtable yet, above the tabs.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The Collaboration Agreement still writes Airtable first, as before.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>Step by step: <a href="#read-the-notice-about-airtable-s-copy">Read the notice about Airtable's copy</a>; <a href="#give-the-record-back-to-airtable">Give the record back to Airtable</a>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"a-lead-s-contact-and-wordpress-s-personal-data-tools"} -->
+<h4 class="wp-block-heading" id="a-lead-s-contact-and-wordpress-s-personal-data-tools">A lead's contact and WordPress's personal data tools</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><code>Tools &gt; Export Personal Data</code> and <code>Tools &gt; Erase Personal Data</code> find each lead whose <strong>Contact's email</strong> is the address asked for, a closed one or one in the Trash too, under <strong>Institution leads</strong>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>The export holds the lead's institution, contact person and email. Nothing of the notes, <strong>Program details</strong> or the talks.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The eraser blanks the contact person and the email. It keeps the lead, its talks and its notes.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>For a lead with notes it says "The lead {name} keeps its notes, which may name this person. A note cannot be changed: to remove them, close and delete the lead." See <a href="#delete-a-lead">Delete a lead</a>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A lead being saved at that moment is left as it is: "The lead {name} was being saved and was left as it is. Run the erasure again."</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":4,"anchor":"the-import-from-airtable"} -->
+<h4 class="wp-block-heading" id="the-import-from-airtable">The import from Airtable</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><code>wp wpcredits institutions_import</code>, run once on the server by the product owner, before the switch. It brings over the talks fields, the notes, the record comments, the Outreach Tracker's rows as leads, and the tutors. It sends no email and writes nothing to Airtable. Each school's <strong>History</strong> says what was brought over.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Step by step: <a href="#run-the-import-from-airtable">Run the import from Airtable</a>; <a href="#let-the-site-keep-the-record-of-institutions">Let the site keep the record of institutions</a>.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":3,"anchor":"pages-the-plugin-owns"} -->
@@ -12606,7 +14007,7 @@
 <!-- /wp:list -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>View</th><th>What it holds</th><th>Its count in the menu</th></tr></thead><tbody><tr><td><strong>Overview</strong></td><td>The figures, then what waits for a decision</td><td>Red: the decisions that wait, as "2 wait"</td></tr><tr><td><strong>Watch</strong></td><td>Cards to keep an eye on this week</td><td>Amber: how many of <strong>Offers running low</strong>, <strong>Duplicated students</strong>, <strong>Syncs and health</strong> and <strong>Students gone quiet</strong> hold something</td></tr><tr><td><strong>Cohort timeline</strong></td><td>The next twelve months of students against the mentor places</td><td>None</td></tr><tr><td><strong>The program</strong></td><td>Three cards of numbers, then <strong>Tools from our sponsors</strong> with every live offer</td><td>None</td></tr><tr><td><strong>Program updates</strong></td><td>The newest update for Administrators, while there is one</td><td>None</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>View</th><th>What it holds</th><th>Its count in the menu</th></tr></thead><tbody><tr><td><strong>Overview</strong></td><td>The figures, then what waits for a decision</td><td>Red: the decisions that wait, as "2 wait"</td></tr><tr><td><strong>Watch</strong></td><td>Cards to keep an eye on this week</td><td>Amber: how many of <strong>Offers running low</strong>, <strong>Duplicated students</strong>, <strong>Syncs and health</strong> and <strong>Students gone quiet</strong> hold something</td></tr><tr><td><strong>Talks</strong></td><td>The talks with the schools and the leads, once the site keeps the record of institutions</td><td>Amber: your own follow-ups due</td></tr><tr><td><strong>Cohort timeline</strong></td><td>The next twelve months of students against the mentor places</td><td>None</td></tr><tr><td><strong>The program</strong></td><td>Three cards of numbers, then <strong>Tools from our sponsors</strong> with every live offer</td><td>None</td></tr><tr><td><strong>Program updates</strong></td><td>The newest update for Administrators, while there is one</td><td>None</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:paragraph -->

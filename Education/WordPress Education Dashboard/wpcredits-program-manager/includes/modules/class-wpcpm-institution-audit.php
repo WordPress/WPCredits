@@ -16,8 +16,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * The Sponsors module writes its rows about a sponsor here too, under a key of its own
  * (`META_SPONSOR`), the rows about the program's own work, an event the program plans
  * itself, under a third (`META_PROGRAM`), and the Claude access rows, one per call to an ability
- * of the program's own, under a fourth (`META_MCP`): each module's readers ask for their own key,
- * so one log holds the four and none of them lists another's rows.
+ * of the program's own, under a fourth (`META_MCP`), and the rows about a lead, a school the program
+ * has not talked to yet, under a fifth (`META_LEAD`) until it is promoted: each module's readers ask
+ * for their own key, so one log holds the five and none of them lists another's rows.
  *
  * A private post type in the shape of `WPCPM_Mentor_Notes`: applied changes only, one row
  * per save, no count cap, no IP addresses. Membership events (`member_added`,
@@ -68,6 +69,15 @@ class WPCPM_Institution_Audit {
 	 * site what, and when.
 	 */
 	const META_MCP = '_wpcpm_log_mcp';
+
+	/**
+	 * The lead a row is about (Institutions release 2): a school the program has not talked to yet, keyed
+	 * `lead-` and its post's ID (`WPCPM_Institution_Leads`), which has no record ID until it is promoted.
+	 * None of the other keys is on such a row, so no institution, sponsor, program or call reader lists it,
+	 * and only `entries_for_lead()` does. When the lead is promoted, `move_lead_rows()` gives its rows to the
+	 * record it became, under `META_INSTITUTION`, and they are that school's history from then on.
+	 */
+	const META_LEAD = '_wpcpm_log_lead';
 
 	/** Post meta: whom or what the row is about - a user ID or a record ID, as a string. */
 	const META_SUBJECT = '_wpcpm_log_subject';
@@ -254,7 +264,124 @@ class WPCPM_Institution_Audit {
 	}
 
 	/**
-	 * The one writer behind `record()`, `record_sponsor()`, `record_program()` and `record_mcp()`.
+	 * Write one row about a lead.
+	 *
+	 * The same row as `record()` writes, keyed by `META_LEAD` instead of `META_INSTITUTION`, so no
+	 * institution reader lists it until `move_lead_rows()` gives it to the record the lead became. An
+	 * `institution` or a `sponsor` in the entry is not written. The kind, the ground and the evidence are
+	 * checked as for every row.
+	 *
+	 * @param array $entry As for `record()`, with `lead` (a lead key) in place of `institution`.
+	 * @return int|WP_Error The post ID, or why not.
+	 */
+	public static function record_lead( array $entry ) {
+		$lead = trim( isset( $entry['lead'] ) && is_scalar( $entry['lead'] ) ? (string) $entry['lead'] : '' );
+
+		if ( ! self::is_lead_key( $lead ) ) {
+			return new WP_Error( 'wpcpm_audit_lead', __( 'An audit row needs the lead it is about.', 'wpcredits-program-manager' ) );
+		}
+
+		return self::write( $entry, self::META_LEAD, $lead );
+	}
+
+	/**
+	 * Every row about a lead, newest first.
+	 *
+	 * @param string $lead  A lead key.
+	 * @param int    $limit How many at most; 0 or less for all of them.
+	 * @return array[] As `entries_for()` returns them.
+	 */
+	public static function entries_for_lead( $lead, $limit = 50 ) {
+		return self::entries_on( self::META_LEAD, $lead, $limit );
+	}
+
+	/**
+	 * Give a lead's rows to the record it became: each row is keyed by the record (`META_INSTITUTION`) and
+	 * no longer by the lead, and a row whose subject was the lead is about the record. The query asks for
+	 * `any` status, which core reads as every status but the trash and an auto-draft: a row is written
+	 * private, so every row a reader lists moves, and a row somebody trashed stays under the lead's key,
+	 * where no reader lists it.
+	 *
+	 * Safe to repeat: a row moved is no longer under the lead's key, so a promotion that stops after it and goes on
+	 * moves only the rows left, once each (the outside review of release 2, O4). A write counts when the row reads the
+	 * wanted value after it, since `update_post_meta()` answers false for a value it already holds; a row whose record
+	 * key could not be written keeps its lead key, to be moved by the next call.
+	 *
+	 * @param string $lead_key  The lead key the rows are about now.
+	 * @param string $record_id The Airtable record ID the lead was promoted into.
+	 * @return int How many rows could NOT be moved (0 when every one moved); 0 too when either key is of the wrong
+	 *             shape, where there is nothing to move.
+	 */
+	public static function move_lead_rows( $lead_key, $record_id ) {
+		$lead_key  = trim( is_scalar( $lead_key ) ? (string) $lead_key : '' );
+		$record_id = trim( is_scalar( $record_id ) ? (string) $record_id : '' );
+
+		if ( ! self::is_lead_key( $lead_key ) || ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+			return 0;
+		}
+
+		$ids = get_posts(
+			array(
+				'post_type'        => self::POST_TYPE,
+				'post_status'      => 'any',
+				'numberposts'      => -1,
+				'fields'           => 'ids',
+				'suppress_filters' => false,
+				'meta_query'       => array(
+					array(
+						'key'   => self::META_LEAD,
+						'value' => $lead_key,
+					),
+				),
+			)
+		);
+
+		$left = 0;
+
+		foreach ( (array) $ids as $id ) {
+			$id = (int) $id;
+
+			// The collation's match, checked again: a lead key is lowercase, and only this one's rows move.
+			if ( 0 !== strcmp( (string) get_post_meta( $id, self::META_LEAD, true ), $lead_key ) ) {
+				continue;
+			}
+
+			// The record's key first, so a request that dies here leaves the row listed by the school.
+			if ( false === update_post_meta( $id, self::META_INSTITUTION, $record_id ) && (string) get_post_meta( $id, self::META_INSTITUTION, true ) !== $record_id ) {
+				++$left;
+
+				continue;
+			}
+
+			if ( (string) get_post_meta( $id, self::META_SUBJECT, true ) === $lead_key && false === update_post_meta( $id, self::META_SUBJECT, $record_id ) ) {
+				++$left;
+
+				continue;
+			}
+
+			if ( false === delete_post_meta( $id, self::META_LEAD ) && '' !== (string) get_post_meta( $id, self::META_LEAD, true ) ) {
+				++$left;
+			}
+		}
+
+		return $left;
+	}
+
+	/**
+	 * Whether a value is a lead key, as `WPCPM_Institution_Talks::is_lead_key()` says.
+	 *
+	 * The talks are asked first only when they are loaded: bin/test-audit.php and the suites that require this
+	 * file on their own never load them, so the fallback is a literal copy of that pattern.
+	 *
+	 * @param string $key Candidate.
+	 * @return bool
+	 */
+	private static function is_lead_key( $key ) {
+		return class_exists( 'WPCPM_Institution_Talks' ) ? WPCPM_Institution_Talks::is_lead_key( $key ) : 1 === preg_match( '/^lead-[1-9][0-9]*$/D', (string) $key );
+	}
+
+	/**
+	 * The one writer behind `record()`, `record_sponsor()`, `record_program()`, `record_mcp()` and `record_lead()`.
 	 *
 	 * Refuses rather than guesses: a row with an unknown ground would be the one row the policy
 	 * did not stand behind. The actor goes on the post as its author for the admin's sake, but
@@ -265,9 +392,9 @@ class WPCPM_Institution_Audit {
 	 * is handed, and a message or data built around a typed note or a name is unslashed.
 	 *
 	 * @param array  $entry    The entry, its record already validated by the caller.
-	 * @param string $meta_key `META_INSTITUTION`, `META_SPONSOR`, `META_PROGRAM` or `META_MCP`.
-	 * @param string $record   The record ID the row is about, `program` for the program's own, or
-	 *                         `mcp` for a call to an ability.
+	 * @param string $meta_key `META_INSTITUTION`, `META_SPONSOR`, `META_PROGRAM`, `META_MCP` or `META_LEAD`.
+	 * @param string $record   The record ID the row is about, `program` for the program's own,
+	 *                         `mcp` for a call to an ability, or a lead key.
 	 * @return int|WP_Error
 	 */
 	private static function write( array $entry, $meta_key, $record ) {
@@ -319,12 +446,15 @@ class WPCPM_Institution_Audit {
 		}
 
 		update_post_meta( $post_id, self::META_KIND, $kind );
-		update_post_meta( $post_id, $meta_key, $record );
 		update_post_meta( $post_id, self::META_SUBJECT, $subject );
 		update_post_meta( $post_id, self::META_ACTOR, $actor );
 		update_post_meta( $post_id, self::META_GROUND, $ground );
 		update_post_meta( $post_id, self::META_EVIDENCE, $evidence );
 		update_post_meta( $post_id, self::META_DATA, wp_slash( $data ) );
+
+		// The key that lists the row last (Task 18 fix round 2): every reader finds a row by this key alone, so a
+		// request killed before it leaves a row nobody lists, never one listed without its data.
+		update_post_meta( $post_id, $meta_key, $record );
 
 		return (int) $post_id;
 	}
@@ -483,27 +613,30 @@ class WPCPM_Institution_Audit {
 	}
 
 	/**
-	 * The rows keyed by one of the two record keys, with the case re-check `entries_for()` always made.
+	 * The rows keyed by one of the record keys, with the case re-check `entries_for()` always made.
 	 *
-	 * @param string $meta_key `META_INSTITUTION` or `META_SPONSOR`.
-	 * @param string $record   An institution's Airtable record ID, or a sponsor's key.
+	 * @param string $meta_key `META_INSTITUTION`, `META_SPONSOR` or `META_LEAD`.
+	 * @param string $record   An institution's Airtable record ID, a sponsor's key, or a lead key.
 	 * @param int    $limit    How many at most; 0 or less for all of them.
 	 * @return array[]
 	 */
 	private static function entries_on( $meta_key, $record, $limit ) {
 		$record = trim( (string) $record );
 
-		// class_exists() first: bin/test-audit.php and the institution suites that require this
-		// file on their own - test-institution-graduate.php, -invite.php, -members.php,
-		// -notes.php, -people.php, -request.php, -student-form.php and test-unlinked-link.php -
-		// never load the sponsors store, so the fallback is a literal copy of
-		// WPCPM_Sponsors_Index::KEY_PATTERN, `\z` anchor included.
-		if ( ! ( class_exists( 'WPCPM_Sponsors_Index' ) ? WPCPM_Sponsors_Index::is_key( $record ) : 1 === preg_match( '/^(rec|spo)[A-Za-z0-9]{14}\z/', (string) $record ) ) ) {
+		if ( self::META_LEAD === $meta_key ) {
+			if ( ! self::is_lead_key( $record ) ) {
+				return array();
+			}
+		} elseif ( ! ( class_exists( 'WPCPM_Sponsors_Index' ) ? WPCPM_Sponsors_Index::is_key( $record ) : 1 === preg_match( '/^(rec|spo)[A-Za-z0-9]{14}\z/', (string) $record ) ) ) {
+			// class_exists() first: bin/test-audit.php and the institution suites that require this
+			// file on their own - test-institution-graduate.php, -invite.php, -members.php,
+			// -notes.php, -people.php, -request.php, -student-form.php and test-unlinked-link.php -
+			// never load the sponsors store, so the fallback is a literal copy of
+			// WPCPM_Sponsors_Index::KEY_PATTERN, `\z` anchor included.
 			return array();
 		}
 
 		$limit = (int) $limit;
-		$field = self::META_SPONSOR === $meta_key ? 'sponsor' : 'institution';
 
 		$posts = get_posts(
 			array(
@@ -533,15 +666,13 @@ class WPCPM_Institution_Audit {
 				continue;
 			}
 
-			$entry = self::entry_from( $post );
-
 			// The query matched under the database collation, which does not tell `recABC`
 			// from `recabc`; record IDs do. Keep only the rows that name this record.
-			if ( 0 !== strcmp( $entry[ $field ], $record ) ) {
+			if ( 0 !== strcmp( (string) get_post_meta( $post->ID, $meta_key, true ), $record ) ) {
 				continue;
 			}
 
-			$entries[] = $entry;
+			$entries[] = self::entry_from( $post );
 		}
 
 		return $entries;

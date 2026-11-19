@@ -151,6 +151,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster
 /** The pipeline index: which schools it holds. */
 class WPCPM_Institutions_Index {
 	public static function has( $record ) { return isset( $GLOBALS['index'][ (string) $record ] ); }
+	/** Contract: whether the site keeps the record (release 2); off here, the ways back of today. */
+	public static function on_site() { return false; }
 }
 
 // The Institutions screen's channel, the value read from its own source so it cannot drift.

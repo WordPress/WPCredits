@@ -26,6 +26,7 @@ Three syncs bring the site in line with Airtable: students, mentors and institut
 - Since 1.123.95, at the end of each run, the students sync tries again every *Pending graduation* the site still owes for a Feedback form 3 finished on the site. A refusal is named in the run's report.
 - An institution's first account is made from its Contact Email, only for a *Confirmed* school whose agreement is recorded and that never had a member. An address already on an account is left alone.
 - A school that leaves the stages in **Institution pipeline stages** (tab **Advanced**) loses its open agreement; one with no stage at all has not left and is left alone. By default its people lose their access; **Its people** (tab **Institutions**) decides.
+- Once the site keeps the record of institutions (**Institutions' record**, tab **Advanced**), the institutions sync no longer reads the Institutions and Countries tables. It works from the site's own list, and assigns no school.
 
 #### How an account is matched
 
@@ -112,6 +113,10 @@ The mentors sync keeps a list of active mentors for a mentor directory: name, Wo
 
 A school's details corrected on the site go to Airtable, then to the site's copy. If an institutions sync is reading then, the correction asks for one more run five minutes later. Only one waits at a time, and it keeps to **Automatic sync**. A correction the site could not copy at once is in Airtable already and arrives with the next run.
 
+Once the site keeps the record, the order turns round: the site's list first, then Airtable's copy. See [[Airtable's copy of the record]].
+
+Once the site keeps the record, an institutions sync may also report: "The site's list is behind on the agreement of {institution}, so its page was left as it is. Tell the product owner." It means the site's list holds an older agreement status for that school than its Institution Dashboard does, so the sync left the school's access as it was rather than take it away. `WPCredits Program > Institutions` shows that line for each such school, above the tabs, until the list is right again.
+
 #### The Slack message for a new institution
 
 After an institutions sync, the site posts on Slack for each institution newly at *Confirmed*. It uses the **Slack webhook** on the **Mentor Status Checker** screen, listed beneath **Tools** in the `WPCredits Program` menu. With none saved, nothing is sent or recorded.
@@ -129,6 +134,8 @@ After an institutions sync, the site posts on Slack for each institution newly a
 - `wp wpcredits mentor_airtable_row --check --email=<address>` writes a test row to the Mentors table, reads it back and deletes it. Run it before switching on **Make mentors from applications**. After an error, delete any row left in Airtable.
 - `wp wpcredits setting get <key>` prints a setting, a secret masked. `wp wpcredits setting set <key> <value>` changes it by the screen's rules; add `--dry-run` to only show the change. For a **Who is mailed** list, `everyone` means every Administrator.
 - Change a live setting one way at a time: an open settings tab saves its own copy.
+- `wp wpcredits setting set institutions_on_site on` (or `off`) asks the same questions as the **Advanced** tab's save. It is for the product owner: the screen is the way. See [[Let the site keep the record of institutions]].
+- `wp wpcredits institutions_import` brings over what Airtable alone holds of the talks, once, before the switch. See [[Run the import from Airtable]].
 - `wp wpcredits start_pages` makes the Start here page (`/start-here/`) and the Team Matcher page (`/find-your-team/`), keeping pages that exist. The Team Matcher page needs the Find Your Team plugin active.
 
 ### Invitations
@@ -181,8 +188,9 @@ Once any area is set, the Countries table in Airtable no longer decides who foll
 | A school applies on this site | Its area's Administrator | That Administrator alone (**Institution assigned, to the Administrator**) |
 | No area covers the applicant | Nobody | **Who is emailed about institutions**, or every Administrator when it is empty |
 | The application is approved | The application's Administrator, or else today's area Administrator | Nobody |
-| The sync reads a school added in Airtable | Its area's Administrator | That Administrator |
-| You change it on the details card | Whoever you choose, or **Nobody** | The new Administrator, unless they made the change |
+| The sync reads a school added in Airtable, while Airtable keeps the record | Its area's Administrator | That Administrator |
+| A lead is added in the Talks view | Its area's Administrator | That Administrator, unless they added it |
+| You change it on the details card, or on the Talks card once the site keeps the record | Whoever you choose, or **Nobody** | The new Administrator, unless they made the change |
 
 - An application held for review or filed as spam emails no Administrator. When the assigned Administrator's email fails, nobody else is emailed, and the application is marked.
 - Approval and the sync never replace an Administrator the school has, or **Nobody**. The sync assigns only schools it had not read before, and none on its first read or after the stored list of schools was rebuilt.
@@ -209,6 +217,113 @@ An invitation to a school has a **Level**: a **Representative** works the page, 
 The school's tutor list is the names a student can pick in the **Tutor** box, kept in the **Tutors** section of the **Representatives and tutors** card. **Add a tutor** sends no email and makes no account, and **Remove** keeps any account. A tutor who accepts a **Tutor** invitation is added to it.
 
 Step by step: [[Give a country or a region to an Administrator]]; [[Close a "no area" gap]]; [[Assign a school to another Administrator, or to nobody]]; [[Choose who is emailed about institutions, mentors and students]]; [[Run the seed command]]; [[Invite a representative or a tutor for a school, and keep its tutor list]].
+
+### The talks with institutions
+
+Who keeps the record of institutions is one setting: **Institutions' record**, at `WPCredits Program > Settings`, tab **Advanced**. While it is off, Airtable keeps the record, as before, and nothing in this part is shown. Once **The site keeps the record, and Airtable gets a copy** is saved, the site keeps each school's talks, and Airtable gets a copy of what it has columns for.
+
+#### The Talks view
+
+`Administrator Dashboard > Talks`, after **Watch** in the menu, with an amber number: your own follow-ups due.
+
+- The head says how many follow-ups are due and which is the oldest, or "No follow-up is due". **Add a lead** stands in the head.
+- At its top right, "Showing your schools" with **Show all schools**, or "Showing all schools" with **Show your schools**. Your schools are the default for every Administrator.
+- **Find a school**, with **Find**, and **Clear** while words are asked for.
+- **Follow-ups due**: **School**, **Next step** and **Follow up on**, oldest first.
+- A list for each stage from Lead to Confirmed, then **No stage**, each heading with its count in words. Then folded: Revisit Later, Not Moving Forward, SPAM and each stage the site's lists do not hold, A to Z.
+- A stage shows 20 schools, then a link to show all of them.
+- A school at Student is in no list: **Find a school** finds it.
+- Each row: the name, a tag **Not assigned** or **Closed**, where it is, its Administrator, the next step and the follow-up day.
+- **Add a lead**, folded, at the end of the view.
+- A lead's page: the lead's name as the title, then its Talks card. A lead that became an institution says "This lead is an institution now: {school}."
+
+#### The Talks card
+
+The first card of **For Administrators** on a school's Institution Dashboard, and the card on a lead's page. Only Administrators see it, and only once the site keeps the record.
+
+- Beside the name, **Past due** when the follow-up date is before today, or **Closed** for a closed lead.
+- Fields, in order: **Stage**, **Next step**, **Follow up on**, **Assigned Administrator**, **Country**; for a lead, **City**, **Contact person**, **Contact's email** and **Help desk link**; then **Estimated students**, **First students begin** and **Program details**.
+- One **Save**. A lead's row adds **Close this lead** or **Reopen this lead**, and a closed lead's **Delete this lead**.
+- Under **Stage**: "Since {day}, by {name}.", the stage's last change.
+- **On record**: what the card shows and does not change. A school's **Contact person**, **Contact's email** and **Help desk link**, **Last contact**, and **Lead owner** when the import gave one. A school's contact is changed on **Your institution's details**.
+- **Notes**, newest first, then **Add a note** with **Add the note**.
+- A save made after someone else changed the same talks is refused, and the card shows the values as they are now.
+- While another request changes the same school, a save changes nothing and says "Someone else is changing these talks just now, so nothing was saved. Try again in a moment."
+
+#### The stages the Talks card offers
+
+| The school | **Stage** offers |
+|---|---|
+| A lead | Lead, and First Contact Made to Agreement Sent |
+| A closed lead | Lead alone |
+| A school whose Collaboration Agreement is not settled | First Contact Made to Agreement Sent, Revisit Later, Not Moving Forward, SPAM |
+| A school whose agreement is accepted or on file | Confirmed, Student, Revisit Later, Not Moving Forward, SPAM |
+
+- The stage the school is at is always offered too, so a save that does not touch it keeps it.
+- A move to a stage outside **Institution pipeline stages** asks first, then takes away the school's agreement record, as a sync does. See [[A school leaves the active stages, and comes back]].
+- Moving to Revisit Later sets the follow-up 90 days ahead, unless you changed the date.
+
+#### Leads
+
+A lead is a school the program has not talked to yet, kept on the site alone.
+
+- It is added on the Talks view, or brought over from the Outreach Tracker by the import.
+- It is never written to Airtable. It gets an Airtable record only when it moves into the talks as an institution, at First Contact Made to Agreement Sent.
+- It is assigned by its country's area when it is added.
+- A lead that goes nowhere is closed, and can be reopened. A closed lead keeps everything, and in the Talks view only **Find a school** shows it.
+- A closed lead can be deleted. It goes to WordPress's Trash with its notes. No screen brings it back.
+- A name is used once in the talks, by a school or a lead.
+
+Step by step: [[Add a lead]]; [[Close a lead, or reopen it]]; [[Move a lead into the talks as an institution]]; [[Delete a lead]].
+
+#### Program details
+
+One long text on the Talks card, for what a school or a lead asks for: hours, dates, reports.
+
+- At most 5,000 characters. Lines are kept.
+- Only Administrators see it. It never goes to a school and never to Airtable, and the Talks view and the Monday email do not show it.
+- A lead's text goes with it when it becomes an institution.
+
+Step by step: [[Record what a school asks for]].
+
+#### The Monday email of follow-ups due
+
+**Institution follow-ups due this week, to the Administrator**, in `Tools > Emails`.
+
+- Subject: "[{site}] Follow-ups due this week: {count}". The count is the lines the email holds.
+- Two lists: "These follow-ups are due, oldest first:" for your own schools, and "Not assigned to anybody:" for the ones nobody is assigned to. A list with no line is left out.
+- Each line: the school, its next step and the day it was due, with a link to its talks.
+- Mondays at 07:00 UTC, once a week, only while the site keeps the record.
+- To each Administrator who has an area or an assigned school, and only when they have follow-ups due among their own schools. Nobody else is mailed.
+
+Step by step: [[The Monday email of follow-ups due arrived]].
+
+#### Airtable's copy of the record
+
+Once the site keeps the record, the site is written first, and Airtable gets a copy.
+
+- Copied: the name, the stage, the country, the city, the website, the contact person and email, the day it was confirmed, the next step, the follow-up date, the last contact date, **Estimated students** and the help desk link.
+- Not copied: the notes, **Program details**, **First students begin**, the assigned Administrator, and leads, which are never written to Airtable.
+- The site tries again by itself: a new change goes with the next hourly run, and after each refused try a school waits twice as long, up to a day.
+- `WPCredits Program > Institutions` lists the schools whose changes are not in Airtable yet, above the tabs.
+- The Collaboration Agreement still writes Airtable first, as before.
+
+Step by step: [[Read the notice about Airtable's copy]]; [[Give the record back to Airtable]].
+
+#### A lead's contact and WordPress's personal data tools
+
+`Tools > Export Personal Data` and `Tools > Erase Personal Data` find each lead whose **Contact's email** is the address asked for, a closed one or one in the Trash too, under **Institution leads**.
+
+- The export holds the lead's institution, contact person and email. Nothing of the notes, **Program details** or the talks.
+- The eraser blanks the contact person and the email. It keeps the lead, its talks and its notes.
+- For a lead with notes it says "The lead {name} keeps its notes, which may name this person. A note cannot be changed: to remove them, close and delete the lead." See [[Delete a lead]].
+- A lead being saved at that moment is left as it is: "The lead {name} was being saved and was left as it is. Run the erasure again."
+
+#### The import from Airtable
+
+`wp wpcredits institutions_import`, run once on the server by the product owner, before the switch. It brings over the talks fields, the notes, the record comments, the Outreach Tracker's rows as leads, and the tutors. It sends no email and writes nothing to Airtable. Each school's **History** says what was brought over.
+
+Step by step: [[Run the import from Airtable]]; [[Let the site keep the record of institutions]].
 
 ### Pages the plugin owns
 
@@ -311,6 +426,7 @@ The page sits in the dashboards' frame: a top bar, a menu down the side and a ma
 |---|---|---|
 | **Overview** | The figures, then what waits for a decision | Red: the decisions that wait, as "2 wait" |
 | **Watch** | Cards to keep an eye on this week | Amber: how many of **Offers running low**, **Duplicated students**, **Syncs and health** and **Students gone quiet** hold something |
+| **Talks** | The talks with the schools and the leads, once the site keeps the record of institutions | Amber: your own follow-ups due |
 | **Cohort timeline** | The next twelve months of students against the mentor places | None |
 | **The program** | Three cards of numbers, then **Tools from our sponsors** with every live offer | None |
 | **Program updates** | The newest update for Administrators, while there is one | None |

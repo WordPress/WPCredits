@@ -40,6 +40,43 @@
 	padding: 12px 16px;
 }
 
+/* The Talks view's outcomes (Institutions off Airtable, release 2, Task 16): the Talks card and Add a lead print theirs
+   through `WPCPM_Dashboard_Card::message()`, marked `data-wpcpm-card-message`, as on the Institution Dashboard
+   (institution.css): one look, the bar on the logical start, and the three tones, warning on the amber the status tags
+   use. Keyed on the view's root, three classes and the mark (0,4,0), so no other view's message moves. */
+.wpcpm-dashboard.wpcpm-administrator--talks.wpcpm-ui-on [data-wpcpm-card-message] {
+	background: none;
+	border: 0;
+	border-inline-start: 4px solid currentColor;
+	border-radius: 0;
+	margin: 0 0 16px;
+	padding: 12px 16px;
+}
+
+/* A message that stands in the view's own column (a lead deleted, said under the head; the owner's wave, round 2, I1)
+   keeps no bottom margin of its own: the view's 28px row gap is the space on both sides of it. */
+.wpcpm-dashboard.wpcpm-administrator--talks.wpcpm-ui-on > [data-wpcpm-card-message] {
+	margin-block-end: 0;
+}
+
+.wpcpm-dashboard.wpcpm-administrator--talks.wpcpm-ui-on [data-wpcpm-card-message].is-success {
+	border-inline-start-color: var( --wpc-green, #1a7f37 );
+}
+
+.wpcpm-dashboard.wpcpm-administrator--talks.wpcpm-ui-on [data-wpcpm-card-message].is-error {
+	border-inline-start-color: var( --wpc-red, #b32d2e );
+}
+
+.wpcpm-dashboard.wpcpm-administrator--talks.wpcpm-ui-on [data-wpcpm-card-message].is-warning {
+	border-inline-start-color: var( --wpcpm-f-amber );
+}
+
+/* The Talks view's one head action, Add a lead (Task 16 fix round 1, V6): 16px under the words over it, the head's 10px
+   and 6px of its own, as the narrow head already stands its control and its button (dashboard-frame.css). */
+.wpcpm-dashboard.wpcpm-administrator--talks .wpcpm-head__copy > .wpcpm-head__actions {
+	margin-block-start: 6px;
+}
+
 .wpcpm-administrator__quiet {
 	opacity: 0.72;
 }

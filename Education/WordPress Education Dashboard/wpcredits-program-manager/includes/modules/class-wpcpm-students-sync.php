@@ -869,7 +869,7 @@ class WPCPM_Students_Sync {
 			return $status >= 500 ? self::RETRY_DELAY : 0;
 		}
 
-		if ( in_array( $code, array( 'wpcpm_no_token', 'wpcpm_no_base', 'wpcpm_no_table', 'wpcpm_not_connected', 'wpcpm_airtable_capped', 'wpcpm_institutions_no_fields', 'wpcpm_countries_no_table' ), true ) ) {
+		if ( in_array( $code, array( 'wpcpm_no_token', 'wpcpm_no_base', 'wpcpm_no_table', 'wpcpm_not_connected', 'wpcpm_airtable_capped', 'wpcpm_institutions_no_fields', 'wpcpm_countries_no_table', 'wpcpm_institutions_empty_index' ), true ) ) {
 			return 0;
 		}
 

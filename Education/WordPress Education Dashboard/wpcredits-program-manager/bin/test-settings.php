@@ -243,6 +243,51 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php'
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-rows.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
+
+/**
+ * The one piece of the Institutions module the save of the switch asks (the whole-branch wave of release 2,
+ * W1): whether the setting may be turned on, answered from `$GLOBALS['move_answer']` (true by default), each
+ * ask counted. Its three questions are bin/test-institutions-sync.php's and bin/test-institution-agreement.php's.
+ */
+class WPCPM_Institutions_Index {
+	public static function on_site() {
+		return ! empty( WPCPM_Settings::get_value( 'institutions_on_site', false ) );
+	}
+	public static function may_turn_on() {
+		$GLOBALS['move_asked'] = ( $GLOBALS['move_asked'] ?? 0 ) + 1;
+		return $GLOBALS['move_answer'] ?? true;
+	}
+}
+
+/**
+ * And the list of index changes owed (W2): emptied by the save that changes the switch, each call noting what the
+ * switch was stored as at that moment.
+ */
+class WPCPM_Institution_Agreement {
+	public static function forget_index_debts() {
+		$GLOBALS['debts_forgotten'][] = ! empty( WPCPM_Settings::get()['institutions_on_site'] );
+		return true;
+	}
+}
+
+/** And the copies Airtable has not taken yet (W4): the schools' names, from `$GLOBALS['copy_names']`. */
+class WPCPM_Institution_Copy {
+	public static function forget_pending_marks() {
+		$GLOBALS['marks_forgotten'][] = ! empty( WPCPM_Settings::get()['institutions_on_site'] );
+		return true;
+	}
+	public static function pending_names() {
+		return $GLOBALS['copy_names'] ?? array();
+	}
+}
+
+if ( ! function_exists( 'wp_sprintf_l' ) ) {
+	function wp_sprintf_l( $pattern, $args ) { $args = array_values( (array) $args ); if ( count( $args ) < 2 ) { return implode( '', $args ); } $last = array_pop( $args ); return implode( ', ', $args ) . ( count( $args ) > 1 ? ', and ' : ' and ' ) . $last; }
+}
+
+// The module's one way of changing the switch, the real one, over the three stand-ins above (round 2, point 5).
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-switch.php';
+
 // The track rules, whose comparison of a status with the past statuses the "Past students" section
 // below holds the save to: the real one, since a stand-in would only agree with itself.
 require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-definition.php';
@@ -1916,7 +1961,7 @@ $by_design = array(
 	'institutions'               => array( 'applications_enabled', 'import_enabled', 'institution_provision', 'institution_home', 'institution_on_inactive', 'agreement_review_days', 'agreement_notify', 'agreement_doc_url', 'report_autodraft', 'report_autodraft_grace_days', 'report_notify', 'institution_areas', 'institution_regions' ),
 	'sponsors'                   => array( 'sponsor_applications_enabled', 'sponsor_home', 'sponsor_on_inactive', 'sponsor_notify', 'logo_max_kb', 'tools_students', 'tools_mentors', 'offer_low_stock', 'sponsor_tiers_live', 'sponsor_tier_grace_until' ),
 	'security'                   => array( 'two_factor_roles', 'mcp_enabled', 'mcp_users', 'mcp_calls_per_hour', 'mcp_calls_per_day', 'mcp_people_per_hour', 'mcp_log_days' ),
-	'advanced'                   => array( 'institution_new_stage', 'institution_active_stages', 'application_spam_days', 'application_rejected_days', 'application_approved_days', 'application_trusted_proxy', 'agreement_max_mb', 'agreement_uploads_per_day', 'agreement_generations_per_day', 'agreement_discard_days', 'invite_retention_days' ),
+	'advanced'                   => array( 'institutions_on_site', 'institution_new_stage', 'institution_active_stages', 'application_spam_days', 'application_rejected_days', 'application_approved_days', 'application_trusted_proxy', 'agreement_max_mb', 'agreement_uploads_per_day', 'agreement_generations_per_day', 'agreement_discard_days', 'invite_retention_days' ),
 	'tool:mentor-status-checker' => array_values( array_filter( array_keys( $defaults ), static function ( $key ) { return 0 === strpos( $key, 'checker_' ); } ) ),
 	'tool:duplicate-finder'      => array( 'duplicate_delete_enabled' ),
 	'tool:handbook'              => array_values( array_filter( array_keys( $defaults ), static function ( $key ) { return 0 === strpos( $key, 'handbook_' ); } ) ),
@@ -3476,13 +3521,14 @@ foreach ( array_keys( $want_tabs ) as $slug ) {
 
 ck( 'and no tab of the screen gives two of its elements one id', $twice, array() );
 
-// The Advanced tab: the eleven settings that had no control on any screen, each drawn with the value
-// stored, and each held by its Save to the rule `WPCPM_Settings::save()` always held it to.
+// The Advanced tab: the eleven settings that had no control on any screen and the switch of the
+// institutions' record (R2), each drawn with the value stored, and each held by its Save to the rule
+// `WPCPM_Settings::save()` always held it to. The switch is ticked in the probe, off its default.
 $advanced = WPCPM_Settings::scope_keys( 'advanced' );
 
 store_settings( $defaults );
 
-$stored        = WPCPM_Settings::save( array_intersect_key( $probe, array_flip( $advanced ) ), 'advanced' );
+$stored        = WPCPM_Settings::save( array_intersect_key( array_merge( $probe, array( 'institutions_on_site' => '1' ) ), array_flip( $advanced ) ), 'advanced' );
 $advanced_html = draw_settings( 'advanced' );
 $drawn         = array();
 $want          = array();
@@ -3500,9 +3546,9 @@ foreach ( $advanced as $key ) {
 	}
 }
 
-ck( 'the Advanced tab draws each of its eleven settings with the value stored, none of them the default',
+ck( 'the Advanced tab draws each of its twelve settings with the value stored, none of them the default',
     array( count( $drawn ), $drawn, $still_default ),
-    array( 11, $want, array() ) );
+    array( 12, $want, array() ) );
 
 store_settings( $defaults );
 
@@ -3531,6 +3577,7 @@ ck( 'Save on the Advanced tab holds each setting to its rule: a blank starting s
         array(
             'institution_new_stage'         => 'First Contact Made',
             'institution_active_stages'     => array( 'Confirmed', 'Student' ),
+            'institutions_on_site'          => false,
             'application_spam_days'         => 1,
             'application_rejected_days'     => 3650,
             'application_approved_days'     => 0,
@@ -3595,6 +3642,181 @@ foreach ( $advanced as $key ) {
 }
 
 ck( 'each of the eight numbers on the Advanced tab says the limits its save holds it to', array( count( $drawn ), $drawn ), array( 8, $want ) );
+
+// The institutions' record (R2, Task 10): one switch, off by default, in the Advanced scope alone, drawn
+// as one checkbox row with the design's words. A Save of the tab with the box ticked turns it on, one
+// with the box unticked turns it off, and a save of another tab or a patch that does not name it leaves
+// it as it was.
+store_settings( $defaults );
+
+$record_scopes = array();
+
+foreach ( $scopes as $scope => $keys ) {
+	if ( in_array( 'institutions_on_site', $keys, true ) ) {
+		$record_scopes[] = $scope;
+	}
+}
+
+ck( 'institutions_on_site is false by default and in the advanced scope alone',
+    array( array_key_exists( 'institutions_on_site', $defaults ) ? $defaults['institutions_on_site'] : null, $record_scopes ),
+    array( false, array( 'advanced' ) ) );
+
+$record_html = html_entity_decode( draw_settings( 'advanced' ), ENT_QUOTES );
+
+// The description is the design's two sentences: the first is the row's one sentence of help, and the
+// second is in the row's Details fold, as every row's help past its first sentence is.
+ck( 'the Advanced tab draws it as one checkbox row, with its label, its box\'s words, its sentence of help and the rest in its fold',
+    array(
+        substr_count( $record_html, 'name="institutions_on_site"' ),
+        1 === preg_match( '#<tr><th scope="row">Institutions\' record</th><td><label><input type="checkbox" name="institutions_on_site" value="1"> The site keeps the record, and Airtable gets a copy</label><p class="description">On from the switch: the sync stops reading the Institutions and Countries tables, and every change Airtable has a column for is copied to Airtable.</p>#', $record_html ),
+        1 === preg_match( '#name="institutions_on_site".*?<details[^>]*>.*?Off, the sync reads Airtable again and rewrites the site\'s list\..*?</details>\s*</td></tr>#s', $record_html ),
+    ),
+    array( 1, true, true ) );
+
+press_tab( 'advanced', array( 'institutions_on_site' => '1' ) );
+$record_on = WPCPM_Settings::get()['institutions_on_site'];
+WPCPM_Settings::save( array( 'base_id' => 'appPROBE0000000003' ) );
+$record_kept = WPCPM_Settings::get()['institutions_on_site'];
+press_tab( 'institutions', array() );
+$record_other_tab = WPCPM_Settings::get()['institutions_on_site'];
+$record_drawn_on  = 1 === preg_match( '#name="institutions_on_site" value="1" checked#', draw_settings( 'advanced' ) );
+press_tab( 'advanced', array() );
+
+ck( 'a Save of the Advanced tab with the box ticked turns it on, a patch and another tab leave it on and draw it ticked, and a Save with the box unticked turns it off',
+    array( $record_on, $record_kept, $record_other_tab, $record_drawn_on, WPCPM_Settings::get()['institutions_on_site'] ),
+    array( true, true, true, true, false ) );
+
+// The whole-branch wave, W1: the save that turns the switch on asks the module first. Refused, the switch stays
+// off with the module's sentence, the tab's other settings are saved, and the outcome is the tab's saved-except.
+$move_sentence = 'The institutions\' record was not moved: the sync is running. Wait until it finishes, then save again.';
+
+store_settings( $defaults );
+$GLOBALS['signed_in']   = 64;
+$GLOBALS['move_asked']  = 0;
+$GLOBALS['move_answer'] = new WP_Error( 'wpcpm_move_running', $move_sentence );
+press_tab( 'advanced', array( 'institutions_on_site' => '1', 'agreement_max_mb' => '20' ) );
+$move_refused = array(
+	WPCPM_Settings::get()['institutions_on_site'],
+	WPCPM_Settings::get()['agreement_max_mb'],
+	$GLOBALS['move_asked'],
+	next_request( static function () { return WPCPM_Flash::kept( WPCPM_Settings_Screen::kept_form( 'advanced' ) )['problems']; } ),
+	$GLOBALS['umeta'][64][ WPCPM_Flash::META ]['settings'] ?? null,
+);
+
+ck( 'switch_save_refused: a refused switch stays off with the module\'s sentence, another setting of the tab is saved in the same post, and the outcome says the rest was saved',
+    $move_refused,
+    array( false, 20, 1, array( 'institutions_on_site' => $move_sentence ), 'saved-except' ) );
+
+store_settings( $defaults );
+$GLOBALS['move_answer'] = new WP_Error( 'wpcpm_move_running', $move_sentence );
+press_tab( 'advanced', array( 'institutions_on_site' => '1' ) );
+$move_drawn = html_entity_decode( next_request( static function () { return draw_settings( 'advanced' ); } ), ENT_QUOTES );
+
+ck( 'and the tab it goes back to says the sentence, with the box drawn unticked',
+    array( false !== strpos( $move_drawn, $move_sentence ), 1 === preg_match( '#name="institutions_on_site" value="1"> #', $move_drawn ) ),
+    array( true, true ) );
+
+store_settings( $defaults );
+$GLOBALS['move_asked']  = 0;
+$GLOBALS['move_answer'] = true;
+press_tab( 'advanced', array( 'institutions_on_site' => '1' ) );
+$move_on = array( WPCPM_Settings::get()['institutions_on_site'], $GLOBALS['move_asked'], $GLOBALS['umeta'][64][ WPCPM_Flash::META ]['settings'] ?? null );
+
+// Already on, a save asks nothing; turning it off is never refused and asks nothing.
+$GLOBALS['move_asked']  = 0;
+$GLOBALS['move_answer'] = new WP_Error( 'wpcpm_move_running', $move_sentence );
+press_tab( 'advanced', array( 'institutions_on_site' => '1', 'agreement_max_mb' => '30' ) );
+$move_again = array( WPCPM_Settings::get()['institutions_on_site'], WPCPM_Settings::get()['agreement_max_mb'], $GLOBALS['move_asked'] );
+press_tab( 'advanced', array() );
+$move_off = array( WPCPM_Settings::get()['institutions_on_site'], $GLOBALS['move_asked'], $GLOBALS['umeta'][64][ WPCPM_Flash::META ]['settings'] ?? null );
+press_tab( 'institutions', array() );
+$move_elsewhere = $GLOBALS['move_asked'];
+
+ck( 'switch_save_passes: the module answering yes turns it on; a save with it on and one turning it off ask nothing and are never refused; another tab asks nothing',
+    array( $move_on, $move_again, $move_off, $move_elsewhere ),
+    array( array( true, 1, 'saved' ), array( true, 30, 0 ), array( false, 0, 'saved' ), 0 ) );
+
+// W2: a save that changes the switch, in either direction, empties the list of index changes owed before the new
+// value is stored; a save that leaves it as it was, or whose switch is refused, empties nothing.
+store_settings( $defaults );
+$GLOBALS['debts_forgotten'] = array();
+$GLOBALS['move_answer']     = true;
+press_tab( 'advanced', array( 'institutions_on_site' => '1' ) );
+$debts_on = $GLOBALS['debts_forgotten'];
+press_tab( 'advanced', array( 'institutions_on_site' => '1' ) );
+press_tab( 'institutions', array() );
+$debts_same = $GLOBALS['debts_forgotten'];
+press_tab( 'advanced', array() );
+$debts_off = $GLOBALS['debts_forgotten'];
+$GLOBALS['move_answer'] = new WP_Error( 'wpcpm_move_running', $move_sentence );
+press_tab( 'advanced', array( 'institutions_on_site' => '1' ) );
+
+// A box posted as the page drew it, the switch turned on elsewhere since: no change, so nothing is emptied or asked.
+$GLOBALS['move_answer']     = true;
+$GLOBALS['move_asked']      = 0;
+store_settings( array_merge( $defaults, array( 'institutions_on_site' => true ) ) );
+$debts_before = $GLOBALS['debts_forgotten'];
+press_tab( 'advanced', array( WPCPM_Settings::FIELD_DRAWN => array( 'institutions_on_site' => WPCPM_Settings::fingerprint( false ) ) ) );
+$debts_drawn = array( WPCPM_Settings::get()['institutions_on_site'], $GLOBALS['debts_forgotten'] === $debts_before );
+store_settings( $defaults );
+press_tab( 'advanced', array( 'institutions_on_site' => '1', WPCPM_Settings::FIELD_DRAWN => array( 'institutions_on_site' => WPCPM_Settings::fingerprint( true ) ) ) );
+$debts_drawn[] = WPCPM_Settings::get()['institutions_on_site'];
+$debts_drawn[] = $GLOBALS['move_asked'];
+$debts_drawn[] = $GLOBALS['debts_forgotten'] === $debts_before;
+
+ck( 'and a box posted as the page drew it changes nothing elsewhere made, so it empties nothing and asks nothing',
+    $debts_drawn,
+    array( true, true, false, 0, true ) );
+
+ck( 'owed_list_emptied_by_save: turning it on and turning it off each empty the list once, before the value is stored; a save leaving it, and a refused one, empty nothing',
+    array( $debts_on, $debts_same, $debts_off, $GLOBALS['debts_forgotten'] ),
+    array( array( false ), array( false ), array( false, true ), array( false, true ) ) );
+
+// W4: turned off while Airtable has not received everything, the save goes through and also warns, in the screen's
+// notice style, naming the schools; the marks are the copy's, left as they are.
+/**
+ * Turn the switch off from on with these schools' copies pending, and draw the tab the save goes back to.
+ *
+ * @param string[] $names The schools' names.
+ * @param bool     $from  The switch as stored before the save.
+ * @param array    $post  The fields posted.
+ * @return array The switch after, the outcome, and the drawn tab.
+ */
+function back_to_airtable( array $names, $from = true, array $post = array() ) {
+	store_settings( array_merge( $GLOBALS['defaults'], array( 'institutions_on_site' => $from ) ) );
+	$GLOBALS['copy_names'] = $names;
+	press_tab( 'advanced', $post );
+	$GLOBALS['copy_names'] = array();
+
+	return array(
+		WPCPM_Settings::get()['institutions_on_site'],
+		$GLOBALS['umeta'][64][ WPCPM_Flash::META ]['settings'] ?? null,
+		html_entity_decode( next_request( static function () { return draw_settings( 'advanced' ); } ), ENT_QUOTES ),
+	);
+}
+
+$GLOBALS['signed_in'] = 64;
+$back_one             = back_to_airtable( array( 'Universidad Example' ) );
+$back_many            = back_to_airtable( array( 'School 1', 'School 2', 'School 3', 'School 4', 'School 5', 'School 6', 'School 7' ) );
+$back_none            = back_to_airtable( array() );
+$back_kept_on         = back_to_airtable( array( 'Universidad Example' ), true, array( 'institutions_on_site' => '1' ) );
+$back_first           = 'The site reads Airtable again. Airtable never received the last changes of';
+
+ck( 'record_back_warns_one: turned off with one school\'s copy pending, the save goes through and warns naming it',
+    array( $back_one[0], $back_one[1], false !== strpos( $back_one[2], '<div class="notice notice-warning is-dismissible"><p>The site reads Airtable again. Airtable never received the last changes of Universidad Example, and the site will not send them later: write them in Airtable by hand if they matter.</p></div>' ) ),
+    array( false, 'saved', true ) );
+ck( 'record_back_warns_many: more than one names the count and the first five',
+    array( $back_many[0], false !== strpos( $back_many[2], '<p>The site reads Airtable again. Airtable never received the last changes of 7 institutions (School 1, School 2, School 3, School 4, and School 5), and the site will not send them later: write them in Airtable by hand if they matter.</p>' ) ),
+    array( false, true ) );
+ck( 'record_back_quiet: nothing pending, or the switch left on, warns nothing',
+    array( $back_none[0], false !== strpos( $back_none[2], $back_first ), $back_kept_on[0], false !== strpos( $back_kept_on[2], $back_first ) ),
+    array( false, false, true, false ) );
+
+$GLOBALS['move_answer']     = true;
+$GLOBALS['move_asked']      = 0;
+$GLOBALS['debts_forgotten'] = array();
+unset( $GLOBALS['signed_in'] );
+store_settings( $defaults );
 
 // Where each Save goes: back to the tab it was pressed on, and from a tool's Settings section to the
 // tool's own screen, where the section is.
@@ -4630,6 +4852,16 @@ ck( 'the Its people row\'s help says either choice stops the agreement counting,
 ck( 'and its Details fold says an institution with no stage has not left',
     false !== strpos( $inst_html, 'An institution leaves the pipeline when Airtable moves it to a stage outside the ones the program treats as active, which the Advanced tab lists. An institution with no stage at all has not left: the sync leaves it and its people alone. The accounts themselves are never deleted, and the agreement and the roster are kept.' ),
     true );
+// G8: once the site keeps the record, a school leaves the pipeline when its stage is moved on its Talks card.
+$g8_saved = WPCPM_Settings::get();
+WPCPM_Settings::patch( array( 'institutions_on_site' => true ) );
+$g8_site = html_entity_decode( draw_settings( 'institutions' ), ENT_QUOTES );
+WPCPM_Settings::patch( array( 'institutions_on_site' => ! empty( $g8_saved['institutions_on_site'] ) ) );
+ck( 'G8: in site mode the Its people fold\'s first sentence names the Talks card, the rest word for word; off it reads as before', array(
+	false !== strpos( $g8_site, 'An institution leaves the pipeline when its stage is moved, on its Talks card, to one outside the ones the program treats as active, which the Advanced tab lists. An institution with no stage at all has not left: the sync leaves it and its people alone. The accounts themselves are never deleted, and the agreement and the roster are kept.' ),
+	false !== strpos( $g8_site, 'when Airtable moves it' ),
+	false !== strpos( html_entity_decode( draw_settings( 'institutions' ), ENT_QUOTES ), 'An institution leaves the pipeline when Airtable moves it to a stage outside' ),
+), array( true, false, true ) );
 ck( 'and the Advanced tab\'s stages row keeps its help to one short sentence and says in its Details fold that one with no stage at all is left alone',
     array(
         false !== strpos( $adv_html, '<p class="description">An institution at any of these stages is in the pipeline, and one moved to a stage outside the list has left it, so the list cannot be left empty.</p>' ),

@@ -88,6 +88,13 @@ final class WPCPM_Institution_Policy {
 	 */
 	const ACT_EDIT_DETAILS = 'edit_details';
 
+	/**
+	 * The talks with a school (Institutions off Airtable, release 2): the Talks card's save, its note and a lead's
+	 * close and reopen. The program's own business, so the manager ground alone: a member never reads the card and
+	 * a member's post is refused.
+	 */
+	const ACT_TALKS = 'talks';
+
 	/** The one refusal code every refused request carries. */
 	const REFUSAL_CODE = 'wpcpm_inst_unknown';
 
@@ -121,6 +128,7 @@ final class WPCPM_Institution_Policy {
 			self::ACT_MANAGE_MEMBERS       => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
 			self::ACT_AGREEMENT            => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
 			self::ACT_EDIT_DETAILS         => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
+			self::ACT_TALKS                => array( self::GROUND_MANAGER ),
 		);
 	}
 

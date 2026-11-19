@@ -974,6 +974,59 @@ ck( 'a create Airtable refuses keeps the held reading',
 	array( is_wp_error( $refused_create ) ? $refused_create->get_error_code() : $refused_create, $GLOBALS['transients'][ WPCPM_Airtable::SCHEMA_TRANSIENT ]['schema'] ?? null ),
 	array( 'wpcpm_airtable_error', array( 'tblX' => array() ) ) );
 
+echo "\n=== fetch_comments(): every comment of a record, paged by offset (Institutions off Airtable, R2, Task 18) ===\n";
+
+fresh( 'cron' );
+queue(
+	response(
+		200,
+		array(
+			'comments' => array(
+				array( 'id' => 'comEXA00000000001', 'text' => 'First word.', 'createdTime' => '2026-10-01T09:30:00.000Z', 'author' => array( 'id' => 'usrEXA00000000001', 'name' => 'Ana Admin', 'email' => 'ana@example.test' ) ),
+				array( 'id' => 'comEXA00000000002', 'text' => 'Second word.', 'createdTime' => '2026-10-02T10:00:00.000Z', 'author' => array( 'id' => 'usrEXA00000000002', 'name' => '', 'email' => 'bo@example.test' ) ),
+			),
+			'offset'   => 'comEXA00000000002',
+		)
+	)
+);
+queue(
+	response(
+		200,
+		array(
+			'comments' => array(
+				array( 'id' => 'comEXA00000000003', 'text' => 'Third word.', 'createdTime' => '2026-10-03T11:00:00.000Z' ),
+			),
+		)
+	)
+);
+
+$comments = method_exists( $airtable, 'fetch_comments' ) ? $airtable->fetch_comments( 'tblInstitutions', 'recEXA00000000001' ) : null;
+
+ck( 'every comment over two pages, each with its id, text, time and author',
+	$comments,
+	array(
+		array( 'id' => 'comEXA00000000001', 'text' => 'First word.', 'created' => '2026-10-01T09:30:00.000Z', 'author_name' => 'Ana Admin', 'author_email' => 'ana@example.test' ),
+		array( 'id' => 'comEXA00000000002', 'text' => 'Second word.', 'created' => '2026-10-02T10:00:00.000Z', 'author_name' => '', 'author_email' => 'bo@example.test' ),
+		array( 'id' => 'comEXA00000000003', 'text' => 'Third word.', 'created' => '2026-10-03T11:00:00.000Z', 'author_name' => '', 'author_email' => '' ),
+	) );
+ck( 'two requests to the record\'s comments, the second with the offset the first gave',
+	array_map( static function ( $s ) { return array( $s['url'], $s['args']['method'] ); }, $GLOBALS['sent'] ),
+	array(
+		array( 'https://api.airtable.com/v0/appTEST/tblInstitutions/recEXA00000000001/comments?pageSize=100', 'GET' ),
+		array( 'https://api.airtable.com/v0/appTEST/tblInstitutions/recEXA00000000001/comments?pageSize=100&offset=comEXA00000000002', 'GET' ),
+	) );
+
+fresh( 'cron' );
+queue( response( 403, array( 'error' => array( 'type' => 'INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND', 'message' => 'Invalid permissions' ) ) ) );
+$refused = $airtable->fetch_comments( 'tblInstitutions', 'recEXA00000000001' );
+ck( 'a token without the comments scope is the error, with its status, after one request',
+	array( error_shape( $refused ), sent() ),
+	array( array( 'wpcpm_airtable_error', 403, null ), 1 ) );
+
+fresh( 'cron' );
+$bad = $airtable->fetch_comments( 'tblInstitutions', 'not a record' );
+ck( 'a record ID that is not one is refused before any request', array( is_wp_error( $bad ) ? $bad->get_error_code() : $bad, sent() ), array( 'wpcpm_airtable_record', 0 ) );
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 
 exit( $fail ? 1 : 0 );

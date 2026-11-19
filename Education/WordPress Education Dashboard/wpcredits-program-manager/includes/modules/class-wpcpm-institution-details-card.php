@@ -501,7 +501,8 @@ class WPCPM_Institution_Details_Card {
 	 * program has on record." in its head (the view is "Your institution" and holds other cards, so the card keeps a
 	 * head of its own: design 6, 6.4); the outcome first; then each group's in-card heading, its key and value table and
 	 * its inner fold; the outcome line under the second table, or an Administrator's note of where a waiting request is
-	 * decided; then Tracks offered and, for an Administrator, who follows the school up.
+	 * decided; then Tracks offered and, for an Administrator while the site does not keep the record, who follows the
+	 * school up (in site mode that is the Talks card's).
 	 *
 	 * @param string $record  Institutions record ID.
 	 * @param array  $current What the program has on record.
@@ -561,7 +562,12 @@ class WPCPM_Institution_Details_Card {
 		}
 
 		WPCPM_Institution_Tracks::render( $record, $checker, self::section_message( $flash, 'tracks' ) );
-		WPCPM_Institution_Assignment::render( $record, $checker, self::section_message( $flash, 'assignment' ) );
+
+		// Once the site keeps the record (Institutions off Airtable, release 2), who follows the school up is changed on its
+		// Talks card, with the rest of the talks.
+		if ( ! WPCPM_Institutions_Index::on_site() ) {
+			WPCPM_Institution_Assignment::render( $record, $checker, self::section_message( $flash, 'assignment' ) );
+		}
 
 		WPCPM_Dashboard_Card::close();
 	}

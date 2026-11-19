@@ -439,7 +439,8 @@ if ( ! class_exists( 'WPCPM_Settings' ) ) {
 	 */
 	class WPCPM_Settings {
 		public static function get() {
-			return array(
+			// A suite sets $GLOBALS['stub_settings'] for a setting it needs, `institutions_on_site` among them.
+			return ( isset( $GLOBALS['stub_settings'] ) ? (array) $GLOBALS['stub_settings'] : array() ) + array(
 				'institutions_table' => 'tbl4V0FEbzRP7I2w2',
 				'agreement_max_mb'   => 10,
 			);
@@ -1432,10 +1433,11 @@ asort( $sorted );
 
 ck( 'the route reads in the order the design fixes', array_keys( $sorted ), array_keys( $offsets ) );
 
-// Three refusals after the lock, plus the release before the rebuild. Counted rather than
-// read, because the one that goes missing is the one nobody notices until an institution
-// cannot be recorded for five minutes.
-ck( 'every exit after the lock gives it back', substr_count( $write, 'self::unlock(' ), 4 );
+// Four refusals after the lock (the fourth, in site mode, a school the index does not hold or holds at a
+// closed stage: Institutions off Airtable R2, Task 13), plus the release before the rebuild. Counted rather
+// than read, because the one that goes missing is the one nobody notices until an institution cannot be
+// recorded for five minutes.
+ck( 'every exit after the lock gives it back', substr_count( $write, 'self::unlock(' ), 5 );
 ck( 'and the log row is written while the lock is still held', strpos( $write, 'WPCPM_Institution_Audit::record(' ) < strrpos( $write, 'self::unlock(' ), true );
 ck( 'the write never redirects: the handler that called it decides where the reader lands', strpos( $write, 'bounce_on_file(' ), false );
 
@@ -2724,10 +2726,30 @@ ck( 'messages() names every slug the contract lists',
 		'agreement-withdrawn',
 		'agreement-note',
 		'agreement-stage',
+		'agreement-unlisted',
 		'agreement-generated-later',
 		'agreement-name',
 	), $named ) ),
 	array() );
+
+// Site mode (release 2): an acceptance for a school the site's list no longer holds has words of its own,
+// not the ones of a document somebody else decided.
+ck( 'a school not on the site\'s list any more is refused in its own sentence', WPCPM_Institution_Panel::messages()['agreement-unlisted'] ?? null, array( 'error', 'This institution is not on the site\'s list any more, so the agreement was not accepted. Nothing was changed.' ) );
+
+// Site mode (R2, Task 13 fix round 1): on file at a closed stage is refused in a sentence naming the stage, tied
+// to the on-file form, and saying nothing of accepting.
+$on_file_closed = array();
+foreach ( array( 'agreement-on-file-revisit', 'agreement-on-file-not-moving', 'agreement-on-file-spam' ) as $slug ) {
+	$on_file_closed[ $slug ] = WPCPM_Institution_Panel::messages()[ $slug ] ?? null;
+}
+ck( 'on file at a closed stage is refused in a sentence of its own for each closed stage', $on_file_closed, array(
+	'agreement-on-file-revisit'    => array( 'error', 'Nothing was recorded: the talks with this institution are at Revisit Later. Move it to a stage where talks go on, then record the agreement.' ),
+	'agreement-on-file-not-moving' => array( 'error', 'Nothing was recorded: the talks with this institution are at Not Moving Forward. Move it to a stage where talks go on, then record the agreement.' ),
+	'agreement-on-file-spam'       => array( 'error', 'Nothing was recorded: the talks with this institution are at SPAM. Move it to a stage where talks go on, then record the agreement.' ),
+) );
+ck( 'on file for a school not on the site\'s list any more is refused in a sentence of its own, tied to the on-file form, and acceptance keeps its own',
+	array( WPCPM_Institution_Panel::messages()['agreement-on-file-unlisted'] ?? null, WPCPM_Institution_Panel::messages()['agreement-unlisted'] ?? null ),
+	array( array( 'error', 'This institution is not on the site\'s list any more, so the agreement was not recorded. Nothing was changed.' ), array( 'error', 'This institution is not on the site\'s list any more, so the agreement was not accepted. Nothing was changed.' ) ) );
 
 // And every slug the two handler files actually flash, read off their source. This is the
 // assertion that pays for itself: `render_flash()` prints nothing at all for a slug it does
@@ -3640,7 +3662,11 @@ foreach ( array( 'drive hostile', 'drive tag', 'drive javascript', 'drive data',
 }
 $t21_cases['accepted, administrator, with drive'] = array( 'accepted', 'administrator', '', 'with drive' );
 $t21_cases['accepted, representative, undated']   = array( 'accepted', 'representative', '', 'undated' );
-foreach ( array_keys( WPCPM_Institution_Panel::messages() ) as $t21_slug ) {
+// The outcomes the old branch drew. `agreement-unlisted` and the four on-file refusals of site mode (a school not
+// listed, a closed stage) came after it
+// (release 2, site mode), so the old branch has no drawing of them to hold the parts to; their words are pinned in the
+// outcomes block above.
+foreach ( array_diff( array_keys( WPCPM_Institution_Panel::messages() ), array( 'agreement-unlisted', 'agreement-on-file-unlisted', 'agreement-on-file-revisit', 'agreement-on-file-not-moving', 'agreement-on-file-spam' ) ) as $t21_slug ) {
 	$t21_cases[ 'message ' . $t21_slug . ', none, administrator' ] = array( 'none', 'administrator', $t21_slug, '' );
 }
 foreach ( array( 'agreement-not-pdf', 'agreement-declare', 'agreement-kind', 'agreement-name', 'agreement-name-brackets', 'agreement-too-big', 'agreement-uploaded' ) as $t21_slug ) {
@@ -4526,6 +4552,30 @@ ck( 'Task 21: every outcome is the shell\'s message, in its tone, in today\'s wo
 	return array( 1, 'wpcpm-agreement-panel__message wpcpm-agreement-panel__message--' . $tone . ' is-' . $tone, in_array( $slug, $t21_at_form, true ) && $drawn ? 'form' : 'wpcpm-agreement', true, true );
 }, array_combine( array_keys( $t21_messages ), array_keys( $t21_messages ) ) ) );
 
+// Fix wave, D3: the four on-file refusals of site mode are drawn over the on-file form, directly above its first
+// field, in the error tone and in their own words.
+$t21_on_file_site = array();
+$t21_on_file_kept = array();
+foreach ( array( 'agreement-on-file-unlisted', 'agreement-on-file-revisit', 'agreement-on-file-not-moving', 'agreement-on-file-spam' ) as $t21_slug ) {
+	$t21_html = t21_parts( 'none', 'administrator', $t21_slug );
+	$t21_x    = review_doc( $t21_html );
+	$t21_said = $t21_x->query( '//p[@data-wpcpm-card-message]' );
+	$t21_one  = $t21_said->item( 0 );
+	$t21_next = $t21_one ? $t21_one->nextSibling : null;
+	while ( $t21_next && XML_ELEMENT_NODE !== $t21_next->nodeType ) {
+		$t21_next = $t21_next->nextSibling;
+	}
+	$t21_on_file_kept[ $t21_slug ] = $t21_html;
+	$t21_on_file_site[ $t21_slug ] = $t21_one ? array(
+		$t21_said->length,
+		$t21_one->getAttribute( 'class' ),
+		'form' === $t21_one->parentNode->nodeName && 1 === $t21_x->query( './/*[@name="wpcpm_agreement_drive"]', $t21_one->parentNode )->length,
+		$t21_next && 1 === preg_match( '/\bwpcpm-ui-(field|choices)\b/', $t21_next->getAttribute( 'class' ) ),
+		trim( $t21_one->textContent ) === $t21_msgs_on[ $t21_slug ][1],
+	) : 'no message';
+}
+ck( 'D3: each on-file refusal of site mode is the one message, in the error tone, in the on-file form directly over its first field, in its own words', $t21_on_file_site, array_fill_keys( array_keys( $t21_on_file_site ), array( 1, 'wpcpm-agreement-panel__message wpcpm-agreement-panel__message--error is-error', true, true, true ) ) );
+
 // Ruling 5: the file box is WPCPM_UI::file(), its control named once, by its label alone.
 $t21_x    = review_doc( $t21_new['none, representative'] );
 $t21_file = $t21_x->query( '//input[@type="file"]' )->item( 0 );
@@ -5031,7 +5081,19 @@ if ( function_exists( 'wpcpm_layout_keep' ) ) {
 		}
 		wpcpm_layout_keep( 'Collaboration Agreement: ' . $t21_name, $t21_html );
 	}
+	// Fix wave, D3: one of the four on-file refusals of site mode, over the on-file form.
+	wpcpm_layout_keep( 'Collaboration Agreement: message agreement-on-file-revisit, none, administrator', $t21_on_file_kept['agreement-on-file-revisit'] );
 }
+
+// F3 (a): once the site keeps the record, the stage that refuses an acceptance is the site's own, moved on the Talks card.
+$f3_off                   = WPCPM_Institution_Panel::messages()['agreement-stage'][1];
+$GLOBALS['stub_settings'] = array( 'institutions_on_site' => true );
+$f3_on                    = WPCPM_Institution_Panel::messages()['agreement-stage'][1];
+$GLOBALS['stub_settings'] = array();
+ck( 'F3: the stage refusal names the site\'s stage and the Talks card in site mode, and Airtable with the setting off', array( $f3_on, $f3_off ), array(
+	'Nothing was accepted. This institution\'s stage says the program is not going ahead with it. Change the stage on its Talks card first: accepting is the program saying yes, and it must not say yes to a record it has said no to.',
+	'Nothing was accepted. Airtable\'s Current Stage for this institution says the program is not going ahead with it. Change the stage in Airtable first: accepting is the program saying yes, and it must not say yes to a record it has said no to.',
+) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

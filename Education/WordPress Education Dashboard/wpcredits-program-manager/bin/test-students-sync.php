@@ -2571,9 +2571,9 @@ $delay = new ReflectionMethod( 'WPCPM_Students_Sync', 'retry_delay' );
 ck( 'retry_delay() answers 0 for the guard\'s two codes, and is public for the other syncs to ask',
 	array( $delay->isPublic(), WPCPM_Students_Sync::retry_delay( WPCPM_Sync_Guard::check( 'students', 0, 9 ) ), WPCPM_Students_Sync::retry_delay( WPCPM_Sync_Guard::check( 'students', 1, 9 ) ), WPCPM_Students_Sync::retry_delay( new WP_Error( 'wpcpm_airtable_error', 'x', array( 'status' => 503 ) ) ) ),
 	array( true, 0, 0, WPCPM_Students_Sync::RETRY_DELAY ) );
-ck( 'and 0 for the setting errors no wait puts right: a read past the page cap, a read with no names, no Countries table set',
-	array_map( static function ( $code ) { return WPCPM_Students_Sync::retry_delay( new WP_Error( $code, 'x' ) ); }, array( 'wpcpm_airtable_capped', 'wpcpm_institutions_no_fields', 'wpcpm_countries_no_table' ) ),
-	array( 0, 0, 0 ) );
+ck( 'and 0 for the setting errors no wait puts right: a read past the page cap, a read with no names, no Countries table set, and a site\'s list of institutions that reads as empty',
+	array_map( static function ( $code ) { return WPCPM_Students_Sync::retry_delay( new WP_Error( $code, 'x' ) ); }, array( 'wpcpm_airtable_capped', 'wpcpm_institutions_no_fields', 'wpcpm_countries_no_table', 'wpcpm_institutions_empty_index' ) ),
+	array( 0, 0, 0, 0 ) );
 
 guard_students( 140 );
 update_option( WPCPM_Students_Sync::OPT_STATE, provision_end( 0 ) );

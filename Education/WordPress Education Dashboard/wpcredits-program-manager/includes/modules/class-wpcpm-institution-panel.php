@@ -105,6 +105,19 @@ class WPCPM_Institution_Panel {
 	public static function messages() {
 		$max_mb = max( 1, (int) WPCPM_Settings::get_value( 'agreement_max_mb', 10 ) );
 
+		// On file at a closed stage, in site mode (Institutions off Airtable, release 2): one outcome per stage, so
+		// the sentence can name it.
+		$closed = static function ( $stage ) {
+			return array(
+				'error',
+				sprintf(
+					/* translators: %s: the stage the talks with the institution are at, such as Revisit Later. */
+					__( 'Nothing was recorded: the talks with this institution are at %s. Move it to a stage where talks go on, then record the agreement.', 'wpcredits-program-manager' ),
+					$stage
+				),
+			);
+		};
+
 		return array(
 			'agreement-on-file'            => array( 'success', __( 'The agreement is recorded as on file. The institution\'s account is open.', 'wpcredits-program-manager' ) ),
 			'agreement-link'               => array( 'error', __( 'Nothing was recorded. Paste the Drive link to the folder or the file: it has to be an https address on drive.google.com or docs.google.com.', 'wpcredits-program-manager' ) ),
@@ -147,7 +160,19 @@ class WPCPM_Institution_Panel {
 			'agreement-withdrawn'          => array( 'success', __( 'The signed agreement is withdrawn and its file is deleted. Upload another whenever you are ready.', 'wpcredits-program-manager' ) ),
 			'agreement-note'               => array( 'error', __( 'Nothing was returned. The note has to be between 20 and 2000 characters: it is the whole of what the institution is told, so it has to say what to change.', 'wpcredits-program-manager' ) ),
 			'agreement-return-loss'        => array( 'error', WPCPM_Typed_Text::loss_message( self::return_label(), 'return' ) ),
-			'agreement-stage'              => array( 'error', __( 'Nothing was accepted. Airtable\'s Current Stage for this institution says the program is not going ahead with it. Change the stage in Airtable first: accepting is the program saying yes, and it must not say yes to a record it has said no to.', 'wpcredits-program-manager' ) ),
+			// Site mode only (release 2), and only on wp-admin and the Administrator's review: a school never reads it.
+			'agreement-unlisted'           => array( 'error', __( 'This institution is not on the site\'s list any more, so the agreement was not accepted. Nothing was changed.', 'wpcredits-program-manager' ) ),
+			'agreement-on-file-unlisted'   => array( 'error', __( 'This institution is not on the site\'s list any more, so the agreement was not recorded. Nothing was changed.', 'wpcredits-program-manager' ) ),
+			'agreement-on-file-revisit'    => $closed( 'Revisit Later' ),
+			'agreement-on-file-not-moving' => $closed( 'Not Moving Forward' ),
+			'agreement-on-file-spam'       => $closed( 'SPAM' ),
+			// Once the site keeps the record (release 2), the stage is the site's own, moved on the school's Talks card.
+			'agreement-stage'              => array(
+				'error',
+				class_exists( 'WPCPM_Institutions_Index' ) && WPCPM_Institutions_Index::on_site()
+					? __( 'Nothing was accepted. This institution\'s stage says the program is not going ahead with it. Change the stage on its Talks card first: accepting is the program saying yes, and it must not say yes to a record it has said no to.', 'wpcredits-program-manager' )
+					: __( 'Nothing was accepted. Airtable\'s Current Stage for this institution says the program is not going ahead with it. Change the stage in Airtable first: accepting is the program saying yes, and it must not say yes to a record it has said no to.', 'wpcredits-program-manager' ),
+			),
 			'agreement-generated-later'    => array( 'info', __( 'The document was generated and downloaded, but the program\'s own record could not be updated at that moment. The next sync writes it. Nothing is lost and there is nothing to do.', 'wpcredits-program-manager' ) ),
 			'agreement-name'               => array( 'error', __( 'Nothing was generated. The agreement needs the institution\'s name exactly as it should print on a document somebody signs. If you are not sure what to put, ask the Administrator who has been in touch with your institution.', 'wpcredits-program-manager' ) ),
 			'agreement-name-brackets'      => array( 'error', __( 'Nothing was generated. The name cannot contain square brackets. The agreement is filled in by replacing the bracketed words in the template, so a name with brackets of its own would print as an unfilled blank on a document somebody signs. Write it without them.', 'wpcredits-program-manager' ) ),
@@ -1823,7 +1848,7 @@ class WPCPM_Institution_Panel {
 		$forms = array(
 			'upload'   => array( 'agreement-too-big', 'agreement-not-pdf', 'agreement-no-file', 'agreement-file', 'agreement-encrypted', 'agreement-launch', 'agreement-in-review', 'agreement-declare', 'agreement-kind' ),
 			'generate' => array( 'agreement-name', 'agreement-name-brackets', 'agreement-generate-in-review', 'agreement-generate-standing', 'agreement-generate-not-saved' ),
-			'on-file'  => array( 'agreement-link', 'agreement-standing', 'agreement-unknown' ),
+			'on-file'  => array( 'agreement-link', 'agreement-standing', 'agreement-unknown', 'agreement-on-file-unlisted', 'agreement-on-file-revisit', 'agreement-on-file-not-moving', 'agreement-on-file-spam' ),
 		);
 
 		foreach ( $forms as $form => $statuses ) {

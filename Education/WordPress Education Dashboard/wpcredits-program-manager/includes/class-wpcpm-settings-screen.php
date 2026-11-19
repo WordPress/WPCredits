@@ -431,13 +431,55 @@ class WPCPM_Settings_Screen {
 			WPCPM_Flash::set( 'settings-past-refused', $ended );
 		}
 
-		$saved = WPCPM_Settings::save( $input, $scope );
+		// The switch of the institutions' record, changed through the module's one way of changing it, which the command
+		// line takes too (`WPCPM_Institutions_Switch::change()`): turned from off to on it asks the guard first, and
+		// refused it stays off with the guard's sentence while the rest of the tab is saved, as a setting its rule
+		// refuses; a change either way empties the index changes owed first; turned off with copies owed to Airtable it
+		// stands, and a warning names the schools. Left as it is, nothing is asked.
+		$not_moved = '';
+		$switch_to = self::record_switch( $input, $current );
+		$saved     = null;
+
+		if ( null === $switch_to ) {
+			$saved = WPCPM_Settings::save( $input, $scope );
+		} else {
+			$switched = WPCPM_Institutions_Switch::change(
+				$switch_to,
+				static function ( $allowed ) use ( &$input, &$saved, $scope ) {
+					if ( ! $allowed ) {
+						$input['institutions_on_site'] = false;
+					}
+
+					$saved = WPCPM_Settings::save( $input, $scope );
+
+					return ! empty( $saved['institutions_on_site'] );
+				}
+			);
+
+			if ( $switched['refusal'] instanceof WP_Error ) {
+				$not_moved = $switched['refusal']->get_error_message();
+			}
+
+			if ( $switched['count'] > 0 ) {
+				WPCPM_Flash::set(
+					'settings-record-back',
+					array(
+						'count' => $switched['count'],
+						'names' => $switched['names'],
+					)
+				);
+			}
+		}
 
 		// What the save did not write, for the page it goes back to (1.123.58): each refused setting's
 		// typing and its sentence, drawn again in its row and summarized at the top of the tab
 		// (`WPCPM_Form_Errors`), and the settings kept as stored because they changed elsewhere since
 		// the page was drawn, named in a warning.
 		$refused = WPCPM_Settings::last_refused();
+
+		if ( '' !== $not_moved ) {
+			$refused['institutions_on_site'] = $not_moved;
+		}
 
 		if ( array() !== $refused ) {
 			// A secret refused is never kept to be drawn again: the row shows its mask, as always.
@@ -478,6 +520,31 @@ class WPCPM_Settings_Screen {
 
 		wp_safe_redirect( self::return_url( $scope ) );
 		exit;
+	}
+
+	/**
+	 * What a save will make of the switch of the institutions' record: the new value when it changes it, or null when
+	 * it leaves it as stored. A box posted as the page drew it is no change, since the save then keeps the stored
+	 * value (`WPCPM_Settings::save()`, 1.123.58), whatever another tab or the command line made it since.
+	 *
+	 * @param array $input   The save's input, the fingerprints of the drawn page included.
+	 * @param array $current The settings as stored.
+	 * @return bool|null
+	 */
+	private static function record_switch( array $input, array $current ) {
+		if ( ! array_key_exists( 'institutions_on_site', $input ) ) {
+			return null;
+		}
+
+		$mine = ! empty( $input['institutions_on_site'] );
+
+		if ( ! empty( $current['institutions_on_site'] ) === $mine ) {
+			return null;
+		}
+
+		$drawn = isset( $input[ WPCPM_Settings::FIELD_DRAWN ]['institutions_on_site'] ) ? (string) $input[ WPCPM_Settings::FIELD_DRAWN ]['institutions_on_site'] : '';
+
+		return '' !== $drawn && WPCPM_Settings::fingerprint( $mine ) === $drawn ? null : $mine;
 	}
 
 	/**
@@ -601,6 +668,23 @@ class WPCPM_Settings_Screen {
 				)
 			)
 		);
+	}
+
+	/**
+	 * What the save that turned the institutions' record back to Airtable left behind (the whole-branch wave of release
+	 * 2, W4): the schools whose last changes Airtable never received, which the next sync replaces on the site.
+	 */
+	private function render_record_back_notice() {
+		$back     = WPCPM_Flash::take( 'settings-record-back' );
+		$sentence = is_array( $back ) && isset( $back['count'], $back['names'] ) && is_array( $back['names'] )
+			? WPCPM_Institutions_Switch::back_sentence( (int) $back['count'], $back['names'] )
+			: '';
+
+		if ( '' === $sentence ) {
+			return;
+		}
+
+		printf( '<div class="notice notice-warning is-dismissible"><p>%s</p></div>', esc_html( $sentence ) );
 	}
 
 	/**
@@ -745,6 +829,7 @@ class WPCPM_Settings_Screen {
 		echo '<h1>' . esc_html__( 'Settings', 'wpcredits-program-manager' ) . '</h1>';
 
 		self::render_outcome_notice();
+		$this->render_record_back_notice();
 		$this->render_refused_notice();
 		$this->render_past_refused_notice();
 
@@ -1825,7 +1910,13 @@ class WPCPM_Settings_Screen {
 			esc_html__( 'Leave its people in place, its representatives seeing only the Overview and the Agreement', 'wpcredits-program-manager' ),
 			esc_html__( 'Either way its agreement stops counting as recorded, and until it is back at an active stage its representatives see only the Overview and the Agreement.', 'wpcredits-program-manager' )
 		);
-		WPCPM_Settings_Rows::close_row( $its_people, __( 'An institution leaves the pipeline when Airtable moves it to a stage outside the ones the program treats as active, which the Advanced tab lists. An institution with no stage at all has not left: the sync leaves it and its people alone. The accounts themselves are never deleted, and the agreement and the roster are kept.', 'wpcredits-program-manager' ) );
+		// Once the site keeps the record (release 2), a school's stage is moved on its Talks card.
+		WPCPM_Settings_Rows::close_row(
+			$its_people,
+			class_exists( 'WPCPM_Institutions_Index' ) && WPCPM_Institutions_Index::on_site()
+				? __( 'An institution leaves the pipeline when its stage is moved, on its Talks card, to one outside the ones the program treats as active, which the Advanced tab lists. An institution with no stage at all has not left: the sync leaves it and its people alone. The accounts themselves are never deleted, and the agreement and the roster are kept.', 'wpcredits-program-manager' )
+				: __( 'An institution leaves the pipeline when Airtable moves it to a stage outside the ones the program treats as active, which the Advanced tab lists. An institution with no stage at all has not left: the sync leaves it and its people alone. The accounts themselves are never deleted, and the agreement and the roster are kept.', 'wpcredits-program-manager' )
+		);
 
 		$this->close_section();
 
@@ -2660,6 +2751,19 @@ class WPCPM_Settings_Screen {
 			__( 'The Airtable stages of an institution\'s pipeline: the one an approved application starts at, and the ones that count as being in it.', 'wpcredits-program-manager' ),
 			'pipeline-stages'
 		);
+
+		// Which side keeps the record of institutions (Institutions off Airtable, release 2): one switch,
+		// drawn by hand as the other checkboxes are, since the rows have no checkbox row.
+		$record = __( 'Institutions\' record', 'wpcredits-program-manager' );
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="institutions_on_site" value="1"%2$s> %3$s</label><p class="description">%4$s</p>',
+			esc_html( $record ),
+			checked( ! empty( $settings['institutions_on_site'] ), true, false ),
+			esc_html__( 'The site keeps the record, and Airtable gets a copy', 'wpcredits-program-manager' ),
+			esc_html__( 'On from the switch: the sync stops reading the Institutions and Countries tables, and every change Airtable has a column for is copied to Airtable.', 'wpcredits-program-manager' )
+		);
+		WPCPM_Settings_Rows::close_row( $record, __( 'Off, the sync reads Airtable again and rewrites the site\'s list.', 'wpcredits-program-manager' ) );
 
 		$stages = WPCPM_Settings_Choices::institution_stages( $settings );
 		$why    = WPCPM_Settings_Choices::why_empty( 'institution_stages', $settings );

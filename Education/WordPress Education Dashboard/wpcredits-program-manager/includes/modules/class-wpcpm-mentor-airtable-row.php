@@ -553,6 +553,10 @@ final class WPCPM_Mentor_Airtable_Row {
 	 * time, and a table read within the day is not read again; without, they are read from the base
 	 * and not kept, which is what a check wants. A read that fails is answered and nothing is kept.
 	 *
+	 * Once the site keeps the record of institutions (`WPCPM_Institutions_Index::on_site()`, release 2),
+	 * the Countries table is not read: its names are the stored countries map's, by the same rule, and
+	 * nothing is kept for it.
+	 *
 	 * @param WPCPM_Airtable $airtable The client.
 	 * @param string         $table_id The linked table.
 	 * @param string         $primary  The name of its first column.
@@ -561,6 +565,11 @@ final class WPCPM_Mentor_Airtable_Row {
 	 */
 	public static function link_names( WPCPM_Airtable $airtable, $table_id, $primary, $keep = false ) {
 		$table_id = (string) $table_id;
+		$site     = self::site_country_names( $table_id );
+
+		if ( null !== $site ) {
+			return $site;
+		}
 
 		if ( $keep ) {
 			$held = self::kept_names( $table_id );
@@ -594,6 +603,40 @@ final class WPCPM_Mentor_Airtable_Row {
 
 		if ( $keep ) {
 			self::keep_names( $table_id, $names );
+		}
+
+		return $names;
+	}
+
+	/**
+	 * The Countries table's names from the stored countries map, in site mode; null for any other table,
+	 * or with the setting off, or when either class is not loaded.
+	 *
+	 * @param string $table_id The linked table.
+	 * @return array|null Lowercased name => record ID, the first row of a name held twice.
+	 */
+	private static function site_country_names( $table_id ) {
+		if ( ! class_exists( 'WPCPM_Institutions_Index' ) || ! class_exists( 'WPCPM_Countries' ) || ! WPCPM_Institutions_Index::on_site() ) {
+			return null;
+		}
+
+		$settings  = WPCPM_Settings::get();
+		$countries = isset( $settings['countries_table'] ) ? trim( (string) $settings['countries_table'] ) : '';
+
+		if ( '' === $countries || trim( (string) $table_id ) !== $countries ) {
+			return null;
+		}
+
+		$names = array();
+
+		foreach ( WPCPM_Countries::all() as $record_id => $row ) {
+			$name = self::key_of( is_array( $row ) && isset( $row['name'] ) && is_scalar( $row['name'] ) ? $row['name'] : '' );
+
+			if ( '' === $name || isset( $names[ $name ] ) || ! WPCPM_Airtable::is_record_id( $record_id ) ) {
+				continue;
+			}
+
+			$names[ $name ] = trim( (string) $record_id );
 		}
 
 		return $names;

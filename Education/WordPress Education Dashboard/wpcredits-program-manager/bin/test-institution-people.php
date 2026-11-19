@@ -1391,12 +1391,14 @@ function t20_fresh() {
 	$GLOBALS['kept'][ T20_A ] = array( 'tutors' => array( array( 'name' => 'Tom Example', 'email' => 'tom@example.org' ) ) );
 	t20_new_request();
 }
+/** When the fixtures' invitations were sent: an hour ago, one moment for the invitations and the dates expected of them. */
+$GLOBALS['t20_sent'] = time() - 3600;
 /** The long fixture: five people (one a 40-character word at a 48-character address, one with no date), three invitations, two tutors. */
 function t20_long() {
 	$GLOBALS['users'][205] = new WP_User( 205, T20_LONG, T20_MAIL, array( 'subscriber' ) );
 	WPCPM_Institution_Members::attach( 205, T20_A, 'legacy', 0 );
 	unset( $GLOBALS['umeta'][205][ WPCPM_Institution_Members::META_MEMBERSHIP ]['since'] );
-	$sent = time() - 3600;
+	$sent = $GLOBALS['t20_sent'];
 	t20_invite( 901, 'colleague@example.org', 201, $sent );
 	t20_invite( 902, 'averyveryveryverylongmailboxname5678@example.org', 205, $sent );
 	t20_invite( 903, 'third@example.org', 0, $sent );
@@ -1419,7 +1421,7 @@ function t20_hostile() {
 	$GLOBALS['users'][201]->display_name         = 'Anna ' . T20_BAD;
 	$GLOBALS['users'][203]->display_name         = 'Cleo ' . T20_BAD;
 	$GLOBALS['users'][203]->user_email           = 'c"&<z>@example.org';
-	t20_invite( 904, 'i"&<w>@example.org', 201, time() - 3600 );
+	t20_invite( 904, 'i"&<w>@example.org', 201, $GLOBALS['t20_sent'] );
 	$GLOBALS['kept'][ T20_A ]['tutors'][] = array( 'name' => 'Tutor ' . T20_BAD, 'email' => 't"&<v>@example.org' );
 }
 
@@ -1609,8 +1611,10 @@ if ( getenv( 'T20_DUMP' ) ) {
 // the tutors, as the reader reads it, name, tag, facts and actions together. The word sets above cannot tell which
 // line holds a level, a day or a button; these can. Read off the fixture by hand: Anna Example is the reader, so Leave
 // is on her line and Remove on the others'; Tess Example is the one Tutor; Bob Example is the school's contact; the
-// waiting invitations were sent today and are good for fourteen days; a tutor is offered no action on any line.
-$t20_rows_day   = array( '{sent}' => gmdate( 'F j, Y' ), '{until}' => gmdate( 'F j, Y', time() + 14 * DAY_IN_SECONDS ) );
+// waiting invitations were sent an hour ago and are good for fourteen days; a tutor is offered no action on any line.
+// The days come from the timestamp the invitations were given, so the suite passes at any hour (between 00:00 and
+// 01:00 UTC an hour ago is yesterday).
+$t20_rows_day   = array( '{sent}' => gmdate( 'F j, Y', $GLOBALS['t20_sent'] ), '{until}' => gmdate( 'F j, Y', $GLOBALS['t20_sent'] + 14 * DAY_IN_SECONDS ) );
 $t20_rows_want  = array(
 	'representative, five people, three invitations, two tutors, long words' => array(
 	'Anna Example | anna@example.org; Representative; Added by an Administrator, July 31, 2025. | Leave',

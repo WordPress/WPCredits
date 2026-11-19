@@ -39,7 +39,7 @@ function ck( $label, $got, $want ) {
 
 $emails = WPCPM_Mail_Catalog::emails();
 
-ck( 'the catalog names the plugin\'s 75 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file, the test of the signature and footer, the 19 Mentor calls emails of their own since 1.122.21, the 4 Institutions and 2 Sponsors emails of their own since 1.122.22, the institution\'s invitation with no sender named, its own since 1.122.23, and the 5 Mentor applications emails since 1.122.31; with the 2 Sponsors emails of a term\'s end, the 27 Sponsor events emails and, since 1.123.18, the Sponsors email of an offer returned with a note, and the 5 Institutions emails about the details of a school of Institutions release 2, and the 1 that tells an Administrator an institution is assigned to them, and, since Institutions release 1, the 2 invitations of a tutor, and, since 1.123.54, the 3 Student registrations emails, and, since 1.123.60, the 3 Quiet students emails, and, since 1.123.64, the 2 Student interests emails, and the mentor\'s email about a new student, 122', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 122 );
+ck( 'the catalog names the plugin\'s 75 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file, the test of the signature and footer, the 19 Mentor calls emails of their own since 1.122.21, the 4 Institutions and 2 Sponsors emails of their own since 1.122.22, the institution\'s invitation with no sender named, its own since 1.122.23, and the 5 Mentor applications emails since 1.122.31; with the 2 Sponsors emails of a term\'s end, the 27 Sponsor events emails and, since 1.123.18, the Sponsors email of an offer returned with a note, and the 5 Institutions emails about the details of a school of Institutions release 2, and the 1 that tells an Administrator an institution is assigned to them, and, since Institutions release 1, the 2 invitations of a tutor, and, since 1.123.54, the 3 Student registrations emails, and, since 1.123.60, the 3 Quiet students emails, and, since 1.123.64, the 2 Student interests emails, and the mentor\'s email about a new student, and, since Institutions release 2, the Monday email of follow-ups due, 123', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 123 );
 ck( 'and reads the same list twice in a request', WPCPM_Mail_Catalog::emails() === $emails, true );
 
 $bad = array();
@@ -134,7 +134,7 @@ foreach ( $emails as $id => $e ) {
 	}
 }
 ck(
-	'the Institutions area names its thirteen ids of before 1.122.22, the four emails of their own since, the invitation with no sender named, its own since 1.122.23, the five about a school\'s details of Institutions release 2, and the one that tells an Administrator an institution is assigned to them, and the two invitations of a tutor of Institutions release 1, each with who receives it',
+	'the Institutions area names its thirteen ids of before 1.122.22, the four emails of their own since, the invitation with no sender named, its own since 1.122.23, the five about a school\'s details of Institutions release 2, and the one that tells an Administrator an institution is assigned to them, and the two invitations of a tutor of Institutions release 1, and the Monday email of follow-ups due of release 2, each with who receives it',
 	isset( $named['institutions'] ) ? $named['institutions'] : null,
 	array(
 		'institution-applied'          => 'Institution application received, to the applicant / applicant',
@@ -163,6 +163,7 @@ ck(
 		'institution-details-declined'  => 'Correction of institution details declined, to the institution / institution',
 		'institution-details-withdrawn' => 'Institution withdrew its request to correct its details, to Administrators / administrator',
 		'institution-assigned'          => 'Institution assigned, to the Administrator / administrator',
+		'institution-follow-ups-weekly' => 'Institution follow-ups due this week, to the Administrator / administrator',
 	)
 );
 ck(
@@ -362,7 +363,7 @@ foreach ( array_merge( glob( __DIR__ . '/../includes/*.php' ), glob( __DIR__ . '
 $missing = array_values( array_diff( array_keys( $contexts ), array_keys( $emails ) ) );
 sort( $missing );
 ck( 'every context the source passes to the mail layer is in the catalog', $missing, array() );
-ck( 'and the scan found all 44 of them (it is not reading nothing), the mentor\'s "Student assigned" email among them since its sender landed, the mentor application form\'s two among them since 1.122.31, the offer returned with a note since 1.123.18, the three Quiet students emails since 1.123.60 and the student interest form\'s two since 1.123.64, the assignment\'s since Institutions off Airtable release 1; the institution\'s invitation is set from a choice between two ids since 1.122.23, and read from the registry\'s files below', count( $contexts ), 44 );
+ck( 'and the scan found all 45 of them (it is not reading nothing), the mentor\'s "Student assigned" email among them since its sender landed, the mentor application form\'s two among them since 1.122.31, the offer returned with a note since 1.123.18, the three Quiet students emails since 1.123.60 and the student interest form\'s two since 1.123.64, the assignment\'s since Institutions off Airtable release 1, the Monday email of follow-ups due since release 2; the institution\'s invitation is set from a choice between two ids since 1.122.23, and read from the registry\'s files below', count( $contexts ), 45 );
 
 // The template registry's ids, read from its definition files as each file writes them: one at the
 // start of each line of the array the file returns. An invitation is named by its template's id,

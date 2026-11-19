@@ -216,6 +216,25 @@ final class WPCPM_Mail_Templates {
 	}
 
 	/**
+	 * The placeholders of which an email's body needs at least one (`one_of`): the Monday email of follow-ups due needs
+	 * one of its two lists, though either may be empty in a given email.
+	 *
+	 * @param array $placeholders A template's placeholders, name to what `all()` holds for each.
+	 * @return string[] Their names.
+	 */
+	public static function one_of( array $placeholders ) {
+		$out = array();
+
+		foreach ( $placeholders as $name => $about ) {
+			if ( ! empty( $about['one_of'] ) ) {
+				$out[] = (string) $name;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
 	 * The placeholders that go in an email's body and never in its subject: a subject is a header,
 	 * never a link a person can follow, and the one part of an email the mail log keeps.
 	 *
@@ -587,7 +606,8 @@ final class WPCPM_Mail_Templates {
 	 * @param array  $placeholders The email's placeholders.
 	 * @param string $subject      The subject, '' for a text that has none.
 	 * @param string $body         The body.
-	 * @return array{unknown?:string[],missing?:string[],in_subject?:string[]} Empty when the text fits.
+	 * @return array{unknown?:string[],missing?:string[],missing_one_of?:string[],in_subject?:string[]} Empty when the
+	 *         text fits. A body that holds none of the `one_of()` placeholders has them under `missing_one_of`.
 	 */
 	private static function misfit( array $placeholders, $subject, $body ) {
 		$in_subject = self::placeholders_in( (string) $subject );
@@ -595,6 +615,7 @@ final class WPCPM_Mail_Templates {
 		$unknown    = array_values( array_diff( array_unique( array_merge( $in_subject, $in_body ) ), array_keys( $placeholders ) ) );
 		$missing    = array_values( array_diff( self::required( $placeholders ), $in_body ) );
 		$misplaced  = array_values( array_intersect( self::body_only( $placeholders ), $in_subject ) );
+		$one_of     = self::one_of( $placeholders );
 		$braced     = static function ( $name ) {
 			return '{' . $name . '}';
 		};
@@ -606,6 +627,10 @@ final class WPCPM_Mail_Templates {
 
 		if ( array() !== $missing ) {
 			$out['missing'] = array_map( $braced, $missing );
+		} elseif ( array() !== $one_of && array() === array_intersect( $one_of, $in_body ) ) {
+			// Needs one of them: two or more said in a sentence of its own, "{a} or {b}" (`one_of_pair()`); a single one
+			// is a required placeholder like any other.
+			$out[ count( $one_of ) > 1 ? 'missing_one_of' : 'missing' ] = array_map( $braced, $one_of );
 		}
 
 		if ( array() !== $misplaced ) {
@@ -613,6 +638,20 @@ final class WPCPM_Mail_Templates {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Two or more `one_of()` placeholders as the two names of "%1$s or %2$s": the two of them, or, should an email ever
+	 * have more, all but the last joined by commas and the last. A single one never comes here (`misfit()`).
+	 *
+	 * @param string[] $names The placeholders, in their braces.
+	 * @return string[] Two names.
+	 */
+	private static function one_of_pair( array $names ) {
+		$names = array_values( $names );
+		$last  = (string) array_pop( $names );
+
+		return array( implode( ', ', $names ), $last );
 	}
 
 	/**
@@ -724,6 +763,17 @@ final class WPCPM_Mail_Templates {
 				/* translators: %s: the placeholders the email needs, such as {set_password_link}. */
 				__( 'Nothing was saved: this email needs %s.', 'wpcredits-program-manager' ),
 				implode( ', ', $misfit['missing'] )
+			);
+		}
+
+		if ( isset( $misfit['missing_one_of'] ) ) {
+			$pair = self::one_of_pair( $misfit['missing_one_of'] );
+
+			return sprintf(
+				/* translators: 1 and 2: the placeholders of which the email needs one, such as {follow_ups} and {unassigned_follow_ups}. */
+				__( 'Nothing was saved: this email needs %1$s or %2$s.', 'wpcredits-program-manager' ),
+				$pair[0],
+				$pair[1]
 			);
 		}
 
@@ -947,6 +997,14 @@ final class WPCPM_Mail_Templates {
 				/* translators: %s: the placeholders the email needs, such as {set_password_link}. */
 				__( 'Edit set aside: it lacks %s, which this email needs.', 'wpcredits-program-manager' ),
 				implode( ', ', $misfit['missing'] )
+			);
+		} elseif ( isset( $misfit['missing_one_of'] ) ) {
+			$pair   = self::one_of_pair( $misfit['missing_one_of'] );
+			$reason = sprintf(
+				/* translators: 1 and 2: the placeholders of which the email needs one, such as {follow_ups} and {unassigned_follow_ups}. */
+				__( 'Edit set aside: it lacks %1$s or %2$s, which this email needs.', 'wpcredits-program-manager' ),
+				$pair[0],
+				$pair[1]
 			);
 		} elseif ( isset( $misfit['in_subject'] ) ) {
 			$reason = sprintf(

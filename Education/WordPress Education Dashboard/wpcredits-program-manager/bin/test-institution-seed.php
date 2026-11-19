@@ -171,6 +171,8 @@ class WPCPM_Lock {
 class WPCPM_Institutions_Index {
 	public static function row( $id ) { return null; }
 	public static function has( $id ) { return ! in_array( (string) $id, $GLOBALS['unindexed'], true ); }
+	/** The switch, as the real one reads it (release 2). */
+	public static function on_site() { return ! empty( WPCPM_Settings::get_value( 'institutions_on_site', false ) ); }
 }
 class WPCPM_Mail {
 	public static function site_name() { return 'Site'; }
@@ -591,6 +593,17 @@ check( 'it asks for no email: notify is false', false !== strpos( $src, 'WPCPM_I
 check( 'it writes as the site: actor 0 and the system ground', false !== strpos( $src, 'WPCPM_Institution_Audit::GROUND_SYSTEM' ) );
 check( 'no dash of the long kinds anywhere in the file', 0 === preg_match( '/[\x{2013}\x{2014}]/u', $src ) );
 check( 'the role is not called by the old name: only the column\'s own name, Original program manager, holds the words', 0 === preg_match( '/program manager/i', str_ireplace( 'Original program manager', '', $src ) ) );
+
+// Site mode (release 2): the seed belongs to the time before the switch. Refused in one sentence, with
+// no request made.
+reset_tables();
+$GLOBALS['requests']                         = array();
+$GLOBALS['settings']['institutions_on_site'] = true;
+$site_plan                                   = WPCPM_Institution_Seed::plan( new Fake_Airtable() );
+same( 'in site mode the seed is refused with one plain sentence and reads nothing',
+	array( is_wp_error( $site_plan ) ? $site_plan->get_error_code() : $site_plan, is_wp_error( $site_plan ) ? $site_plan->get_error_message() : '', $GLOBALS['requests'] ),
+	array( 'wpcpm_seed_on_site', 'The site keeps the record of institutions now, and the seed belongs to the time before the switch, so nothing was read or written.', array() ) );
+$GLOBALS['settings']['institutions_on_site'] = false;
 
 echo "\n" . ( $failures ? "{$failures} FAILURE(S) of {$checks}\n" : "ALL PASS ({$checks} checks)\n" );
 exit( $failures ? 1 : 0 );

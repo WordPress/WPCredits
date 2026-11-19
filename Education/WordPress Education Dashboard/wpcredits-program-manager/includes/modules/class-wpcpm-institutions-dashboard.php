@@ -106,7 +106,7 @@ class WPCPM_Institutions_Dashboard {
 		'institution'    => array( 'details', 'people', 'tutors' ),
 		'agreement'      => array( 'agreement' ),
 		'events'         => array( 'sevents' ),
-		'administrators' => array( 'for-administrators', 'admin-answers', 'admin-history' ),
+		'administrators' => array( 'talks', 'for-administrators', 'admin-answers', 'admin-history' ),
 	);
 
 	/**
@@ -2262,6 +2262,12 @@ class WPCPM_Institutions_Dashboard {
 				break;
 
 			case self::VIEW_ADMINISTRATORS:
+				// The talks with the school first, once the site keeps the record of institutions (Institutions off Airtable,
+				// release 2; PROVISIONAL, owner question 1): the card asks the policy and the setting itself.
+				if ( ! empty( $context['can_manage'] ) ) {
+					self::card( 'WPCPM_Institution_Talks', $record, $context );
+				}
+
 				// What the program keeps about the school that its own people are not shown, for an Administrator
 				// alone, so a member's page never builds it and never reads the history it holds.
 				if ( ! empty( $context['can_manage'] ) && class_exists( 'WPCPM_Institution_History' ) ) {

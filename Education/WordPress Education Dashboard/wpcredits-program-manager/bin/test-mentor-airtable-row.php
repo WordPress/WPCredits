@@ -56,6 +56,11 @@ class WPCPM_Settings {
 			$GLOBALS['settings']
 		);
 	}
+	public static function get_value( $key, $fallback = null ) {
+		$all = self::get();
+
+		return array_key_exists( $key, $all ) ? $all[ $key ] : $fallback;
+	}
 }
 
 /** The form's lists, which the column's choices do not hold. */
@@ -287,6 +292,10 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-application.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-airtable-row.php';
+// The index's switch and the countries map, which answer for the Countries table once the site keeps
+// the record of institutions (release 2).
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-countries.php';
 
 $fails = 0;
 $total = 0;
@@ -690,6 +699,30 @@ $GLOBALS['linked']['tblCOUNTRIES00001'] = array(
 	array( 'id' => 'recCOUNTRYDE00001', 'fields' => array( 'Name' => 'Zoë' ) ),
 );
 ck( 'a name held twice is the first row\'s, a row with no name or no id is passed over, and letters past ASCII are lowercased', WPCPM_Mentor_Airtable_Row::link_names( $client, 'tblCOUNTRIES00001', 'Name' ), array( 'poland' => 'recCOUNTRYPL00001', 'zoë' => 'recCOUNTRYDE00001' ) );
+
+// Site mode (release 2): the Countries table is answered from the stored map, kept or not, and never
+// read; another linked table is read as before.
+fresh_client();
+$GLOBALS['settings'] = array( 'institutions_on_site' => true, 'countries_table' => 'tblCOUNTRIES00001' );
+update_option(
+	WPCPM_Countries::OPT_NAME,
+	array(
+		'v'    => WPCPM_Countries::VERSION,
+		'read' => time(),
+		'rows' => array(
+			'recEXA00000000011' => array( 'name' => ' Example Country ', 'manager' => '', 'email' => '', 'calendly' => '' ),
+			'recEXA00000000012' => array( 'name' => 'EXAMPLE COUNTRY', 'manager' => '', 'email' => '', 'calendly' => '' ),
+			'recEXA00000000013' => array( 'name' => 'Zoë Land', 'manager' => '', 'email' => '', 'calendly' => '' ),
+		),
+	)
+);
+$site_names = array( WPCPM_Mentor_Airtable_Row::link_names( $client, 'tblCOUNTRIES00001', 'Name' ), WPCPM_Mentor_Airtable_Row::link_names( $client, 'tblCOUNTRIES00001', 'Name', true ) );
+WPCPM_Mentor_Airtable_Row::link_names( $client, 'tblLANGUAGES00001', 'Name' );
+ck( 'Review Focus 2: in site mode the Countries table\'s names are the stored map\'s, lowercased and trimmed, the first of a name held twice, and the table is never read; another table still is',
+	array( $site_names, $GLOBALS['reads'] ),
+	array( array_fill( 0, 2, array( 'example country' => 'recEXA00000000011', 'zoë land' => 'recEXA00000000013' ) ), array( 'tblLANGUAGES00001' => 1 ) ) );
+$GLOBALS['settings'] = array();
+delete_option( WPCPM_Countries::OPT_NAME );
 
 echo "\n=== The search by address ===\n";
 

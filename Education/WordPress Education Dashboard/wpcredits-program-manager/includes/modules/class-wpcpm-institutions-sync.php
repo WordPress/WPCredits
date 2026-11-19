@@ -305,12 +305,14 @@ class WPCPM_Institutions_Sync {
 	 * application form and the queue can route before the first sync has run.
 	 *
 	 * A failed read is not an activation error. The map stays empty, the manager screen
-	 * says so, and the first sync fills it.
+	 * says so, and the first sync fills it. Once the site keeps the record of institutions
+	 * (`WPCPM_Institutions_Index::on_site()`), the Countries table is not read at all, here as in
+	 * the sync: the map stays as last read.
 	 */
 	public static function activate() {
 		self::schedule();
 
-		if ( WPCPM_Settings::is_connected() ) {
+		if ( WPCPM_Settings::is_connected() && ! WPCPM_Institutions_Index::on_site() ) {
 			WPCPM_Countries::refresh();
 		}
 	}
@@ -764,7 +766,9 @@ class WPCPM_Institutions_Sync {
 	 * @return true|WP_Error
 	 */
 	private static function phase_countries( array &$state, WPCPM_Airtable $airtable ) {
-		$result = WPCPM_Countries::refresh( $airtable );
+		// Site mode (release 2): the Countries table is not read. The map stays as last read, and the
+		// phase counts it and moves on.
+		$result = WPCPM_Institutions_Index::on_site() ? true : WPCPM_Countries::refresh( $airtable );
 
 		if ( is_wp_error( $result ) ) {
 			return $result;
@@ -796,6 +800,10 @@ class WPCPM_Institutions_Sync {
 	private static function phase_records( array &$state, WPCPM_Airtable $airtable, array $settings ) {
 		if ( ! empty( $state['indexed'] ) ) {
 			return self::rebuild_slice( $state );
+		}
+
+		if ( WPCPM_Institutions_Index::on_site() ) {
+			return self::records_from_site( $state );
 		}
 
 		$fields = self::fields();
@@ -925,6 +933,100 @@ class WPCPM_Institutions_Sync {
 		$state['offset']  = null;
 
 		return true;
+	}
+
+	/**
+	 * The records phase's first half once the site keeps the record (release 2): the rows are the index's
+	 * and the Drive links the institutions' records', and nothing of the Institutions table is read.
+	 *
+	 * The index is not written, so it stays byte for byte as it was, and with no write there is nothing to
+	 * compare and nobody to assign (`assign_new()`) and no test institution to remember
+	 * (`WPCPM_Test_Institutions::remember()`): the site's own paths do each of those as they change a row.
+	 * The rebuild half then runs as it does after a read, so every agreement option is rebuilt from the
+	 * row's agreement block and the link, and the provision and revoke phases follow as today.
+	 *
+	 * The link is the one kept in the institution's record (`WPCPM_Institution_Agreement::RECORD_DOCUMENT`),
+	 * read for every row at once. A school whose record holds none keeps the link its agreement option
+	 * already holds, so a link the site was never given in the record does not lock a school out at the
+	 * switch.
+	 *
+	 * **An empty list with agreements standing is a list lost.** The revoke phase takes every member off a
+	 * school the index does not hold, and an index that reads as empty (lost, or stored at another version)
+	 * would take everybody off. In Airtable mode the base's answer guards that; here the other witnesses are
+	 * the agreement options, one per school the site has known, and the accounts that hold a membership, so
+	 * an empty index while either stands stops the run with its sentence, and nobody's access changes.
+	 *
+	 * @param array $state Sync state, by reference.
+	 * @return true|WP_Error
+	 */
+	private static function records_from_site( array &$state ) {
+		// What the agreement path could not write to a row, because the index's lock stayed held, is written
+		// first, so no option below is rebuilt from a row that lacks it (`WPCPM_Institution_Agreement::keep_index()`).
+		WPCPM_Institution_Agreement::pay_index_debts();
+
+		// The table's copy, not this request's: an approval may have inserted a row since it was read.
+		WPCPM_Institutions_Index::forget_cached();
+
+		$rows = WPCPM_Institutions_Index::rows();
+
+		if ( empty( $rows ) && ( array() !== WPCPM_Institution_Agreement::stored_records() || self::any_membership() ) ) {
+			return new WP_Error(
+				'wpcpm_institutions_empty_index',
+				__( 'The site\'s list of institutions reads as empty, but agreements or accounts are still held for institutions, so the run stopped and nobody\'s access was changed. The list may have been lost: restore it before the next run.', 'wpcredits-program-manager' )
+			);
+		}
+
+		$answers = WPCPM_Institution_Record::answers_for( array_keys( $rows ) );
+
+		$state['rows']      = $rows;
+		$state['documents'] = array();
+
+		foreach ( array_keys( $rows ) as $record_id ) {
+			$record_id = (string) $record_id;
+			$kept      = isset( $answers[ $record_id ][ WPCPM_Institution_Agreement::RECORD_DOCUMENT ] ) && is_scalar( $answers[ $record_id ][ WPCPM_Institution_Agreement::RECORD_DOCUMENT ] )
+				? trim( (string) $answers[ $record_id ][ WPCPM_Institution_Agreement::RECORD_DOCUMENT ] )
+				: '';
+
+			if ( '' === $kept ) {
+				$option = WPCPM_Institution_Agreement::option( $record_id );
+				$kept   = is_array( $option ) && isset( $option['drive_url'] ) && is_scalar( $option['drive_url'] ) ? trim( (string) $option['drive_url'] ) : '';
+			}
+
+			if ( '' !== $kept ) {
+				$state['documents'][ $record_id ] = $kept;
+			}
+
+			++$state['stats']['records_seen'];
+		}
+
+		$state['indexed'] = true;
+		$state['rebuild'] = array_map( 'strval', array_keys( $rows ) );
+		$state['offset']  = null;
+
+		return true;
+	}
+
+	/**
+	 * Whether any account holds an institution membership, read as the revoke phase reads the members.
+	 *
+	 * @return bool
+	 */
+	private static function any_membership() {
+		$accounts = get_users(
+			array(
+				'number' => -1,
+				'fields' => 'ID',
+				'role'   => WPCPM_Roles::ROLE_INSTITUTION,
+			)
+		);
+
+		foreach ( $accounts as $entry ) {
+			if ( WPCPM_Mentors_Sync::is_record_id( (string) WPCPM_Institution_Members::institution_of( new WP_User( WPCPM_Roles::id_of( $entry ) ) ) ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -1082,25 +1184,51 @@ class WPCPM_Institutions_Sync {
 	private static function rebuild_slice( array &$state ) {
 		$pending = isset( $state['rebuild'] ) ? array_values( (array) $state['rebuild'] ) : array();
 		$batch   = array_splice( $pending, 0, self::REBUILD_BATCH );
+		$on_site = WPCPM_Institutions_Index::on_site();
+
+		if ( $on_site ) {
+			WPCPM_Institutions_Index::forget_cached();
+		}
 
 		foreach ( $batch as $record_id ) {
 			if ( ! isset( $state['rows'][ $record_id ] ) ) {
 				continue;
 			}
 
-			$block = $state['rows'][ $record_id ]['agreement'];
+			$row = $state['rows'][ $record_id ];
+
+			// In site mode the row is the record, and an agreement write may have changed it since the records phase
+			// read it (release 2): the option is rebuilt from the row as it is now, and a school whose row still lacks
+			// a change the agreement path owes keeps the option that write left.
+			if ( $on_site ) {
+				if ( WPCPM_Institution_Agreement::owes_index( $record_id ) ) {
+					continue;
+				}
+
+				$now = WPCPM_Institutions_Index::row( $record_id );
+				$row = is_array( $now ) ? $now : $row;
+
+				// A row behind its school's option, with no change owed to explain it (an agreement decided in the instant
+				// the setting was turned on, a change to the row that was lost): a settled option over a row whose status
+				// does not settle is left as it is, so nobody's access is taken away, and the run names the school (the
+				// outside review of release 2, O1, narrowed in its round 2, R1). Nothing is written. Any other difference,
+				// a row ahead of its option (a template generated, an upload whose own Airtable write was refused), is
+				// rebuilt from the row as before.
+				if ( self::is_behind( $record_id, $row, false ) ) {
+					++$state['stats']['behind'];
+					++$state['stats']['settled'];
+
+					$state['notices'][] = self::behind_sentence( $record_id, $row );
+
+					continue;
+				}
+			}
 
 			$option = WPCPM_Institution_Agreement::rebuild(
 				$record_id,
-				array(
-					'status'           => $block['status'],
-					'kind'             => $block['kind'],
-					'accepted_on'      => $block['accepted_on'],
-					'signed_on'        => $block['signed_on'],
-					'accepted_by'      => $block['accepted_by'],
-					'document'         => isset( $state['documents'][ $record_id ] ) ? (string) $state['documents'][ $record_id ] : '',
-					'submitted_on'     => $block['submitted_on'],
-					'template_version' => $block['template_version'],
+				WPCPM_Institutions_Index::rebuild_block(
+					$row,
+					isset( $state['documents'][ $record_id ] ) ? (string) $state['documents'][ $record_id ] : ''
 				)
 			);
 
@@ -1119,6 +1247,95 @@ class WPCPM_Institutions_Sync {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Whether the site's list is behind on a school's agreement, the one case a site-mode run leaves the school's option
+	 * as it is (the outside review of release 2, O1, narrowed in round 2, R1): its option is settled, its row's agreement
+	 * status does not settle (`WPCPM_Institution_Agreement::status_settles()`), and no change is owed to its row. The
+	 * run's `rebuild_slice()` and the Institutions screen's notice (`render_behind_notice()`) ask this alone, so the two
+	 * cannot disagree (round 3, P3).
+	 *
+	 * @param string    $record_id The school's record ID.
+	 * @param array     $row       Its index row.
+	 * @param bool|null $owed      Whether a change is owed to its row, when the caller has just asked
+	 *                             (`WPCPM_Institution_Agreement::owes_index()`); null to have it asked here.
+	 * @return bool
+	 */
+	public static function is_behind( $record_id, array $row, $owed = null ) {
+		if ( null === $owed ? WPCPM_Institution_Agreement::owes_index( $record_id ) : (bool) $owed ) {
+			return false;
+		}
+
+		$held = WPCPM_Institution_Agreement::option( $record_id );
+
+		return is_array( $held ) && ! empty( $held['settled'] ) && ! WPCPM_Institution_Agreement::status_settles( self::row_status( $row ) );
+	}
+
+	/**
+	 * The Institutions screen's notice of the schools the site's list is behind on (round 3, P3): in site mode, and only
+	 * when the last finished run counted at least one (`behind` in its report), one warning notice in WordPress's own
+	 * markup, as `WPCPM_Institution_Copy::render_pending_notice()` draws its own, a line for each school `is_behind()`
+	 * answers for now, in the run's own sentence. Otherwise nothing is read and nothing is drawn. The run's report keeps
+	 * its lines as they are.
+	 */
+	public static function render_behind_notice() {
+		if ( ! WPCPM_Institutions_Index::on_site() ) {
+			return;
+		}
+
+		$report = get_option( self::OPT_REPORT );
+
+		if ( ! is_array( $report ) || empty( $report['stats']['behind'] ) || (int) $report['stats']['behind'] < 1 ) {
+			return;
+		}
+
+		$lines = array();
+
+		foreach ( WPCPM_Institutions_Index::rows() as $record_id => $row ) {
+			if ( is_array( $row ) && self::is_behind( (string) $record_id, $row ) ) {
+				$lines[] = self::behind_sentence( (string) $record_id, $row );
+			}
+		}
+
+		if ( array() === $lines ) {
+			return;
+		}
+
+		echo '<div class="notice notice-warning wpcpm-list-behind"><ul class="ul-disc">';
+
+		foreach ( $lines as $line ) {
+			echo '<li>' . esc_html( $line ) . '</li>';
+		}
+
+		echo '</ul></div>';
+	}
+
+	/**
+	 * The run's and the screen's sentence for a school the site's list is behind on, named, or by its record ID.
+	 *
+	 * @param string $record_id The school's record ID.
+	 * @param array  $row       Its index row.
+	 * @return string
+	 */
+	private static function behind_sentence( $record_id, array $row ) {
+		$name = isset( $row['name'] ) && is_scalar( $row['name'] ) ? trim( (string) $row['name'] ) : '';
+
+		return sprintf(
+			/* translators: %s: the institution's name, or its record ID when it has none. */
+			__( 'The site\'s list is behind on the agreement of %s, so its page was left as it is. Tell the product owner.', 'wpcredits-program-manager' ),
+			'' !== $name ? $name : (string) $record_id
+		);
+	}
+
+	/**
+	 * The agreement status an index row holds, trimmed, or ''.
+	 *
+	 * @param array $row An index row.
+	 * @return string
+	 */
+	private static function row_status( array $row ) {
+		return isset( $row['agreement']['status'] ) && is_scalar( $row['agreement']['status'] ) ? trim( (string) $row['agreement']['status'] ) : '';
 	}
 
 	/**
@@ -1327,7 +1544,10 @@ class WPCPM_Institutions_Sync {
 				return __( 'The pipeline index does not hold that institution. Run the institutions sync, then try again.', 'wpcredits-program-manager' );
 
 			case self::BLOCK_NOT_CONFIRMED:
-				return __( 'Only a Confirmed institution is given an account. Move it to Confirmed in Airtable first.', 'wpcredits-program-manager' );
+				// Once the site keeps the record (release 2), the agreement makes a school Confirmed.
+				return WPCPM_Institutions_Index::on_site()
+					? __( 'Only a Confirmed institution is given an account. It is Confirmed once its Collaboration Agreement is accepted or recorded as on file.', 'wpcredits-program-manager' )
+					: __( 'Only a Confirmed institution is given an account. Move it to Confirmed in Airtable first.', 'wpcredits-program-manager' );
 
 			case self::BLOCK_NO_EMAIL:
 				return __( 'Airtable holds no Contact Email for it, and WordPress cannot create an account without an address.', 'wpcredits-program-manager' );
@@ -1537,7 +1757,9 @@ class WPCPM_Institutions_Sync {
 		// not anybody holds an account for it: the option is what `is_settled()` reads, and an
 		// institution the program has stopped working with must not keep an open one waiting
 		// for the day somebody is attached to it. Deleting rather than rewriting leaves it
-		// locked, which is the direction a lost write should fail in.
+		// locked, which is the direction a lost write should fail in. Every option first, then
+		// the members, in that order (`delete_gate()`, `revoke_member()`, the two halves
+		// `close_gate()` takes for one school).
 		foreach ( WPCPM_Institution_Agreement::stored_records() as $record_id ) {
 			$in_index = isset( $rows[ $record_id ] );
 
@@ -1545,7 +1767,9 @@ class WPCPM_Institutions_Sync {
 				continue;
 			}
 
-			delete_option( WPCPM_Institution_Agreement::option_name( $record_id ) );
+			// Counted for every closing school, as at 122136b8, whatever delete_option() answered: an option another
+			// request deleted between the read and here is locked all the same.
+			self::delete_gate( (string) $record_id );
 			++$state['stats']['locked'];
 		}
 
@@ -1574,11 +1798,11 @@ class WPCPM_Institutions_Sync {
 				continue;
 			}
 
-			if ( 'revoke' !== $settings['institution_on_inactive'] ) {
+			$result = self::revoke_member( (int) $user->ID, 0, $settings );
+
+			if ( null === $result ) {
 				continue;
 			}
-
-			$result = WPCPM_Institution_Members::detach( $user->ID, 'revoked', 0 );
 
 			if ( is_wp_error( $result ) ) {
 				$state['notices'][] = sprintf(
@@ -1596,6 +1820,140 @@ class WPCPM_Institutions_Sync {
 		$state['phase'] = 'done';
 
 		return true;
+	}
+
+	/**
+	 * Close one school's gate at once (Institutions off Airtable, release 2): the Talks card's save, when it moves the
+	 * school out of the active stages, does here what the revoke phase does for every school that left them, so the
+	 * school's accounts lose their access with the save and not at the next run (Review Focus 1).
+	 *
+	 * The agreement option is deleted, so `is_settled()` answers false; under `institution_on_inactive` = `revoke` each
+	 * live member is detached through `WPCPM_Institution_Members::detach()` with the reason `revoked`, so whoever the
+	 * sync's revoke tells today is told, and nobody else.
+	 *
+	 * @param string $record_id The school's record ID.
+	 * @param int    $actor     Who closes it, 0 for the site.
+	 * @return array `locked` (whether an option stood and was deleted), `revoked` (members detached) and `failed`
+	 *               (user ID => the sentence a refused detach gave).
+	 */
+	public static function close_gate( $record_id, $actor = 0 ) {
+		$record_id = trim( (string) $record_id );
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+			return array(
+				'locked'  => false,
+				'revoked' => 0,
+				'failed'  => array(),
+			);
+		}
+
+		$user_ids = array();
+
+		foreach ( WPCPM_Institution_Members::members_of( $record_id ) as $user ) {
+			$user_ids[] = (int) $user->ID;
+		}
+
+		return self::close_school( $record_id, $user_ids, (int) $actor, WPCPM_Settings::get() );
+	}
+
+	/**
+	 * Open one school's gate again (Institutions off Airtable, release 2): the Talks card's save, when it moves the school
+	 * back into the active stages, rebuilds the agreement option the save's move out deleted, from the site's own record:
+	 * the index row's agreement block and the Drive link the school's record keeps (`WPCPM_Institutions_Index::rebuild_block()`,
+	 * as the site-mode records phase rebuilds every option), so the school is never left locked (Review Focus 1).
+	 *
+	 * A school that still owes its row an index change of the agreement path (`WPCPM_Institution_Agreement::owes_index()`)
+	 * has it paid first; one that still owes after that is not rebuilt from a row that lacks it, and the sync rebuilds it
+	 * once the change is paid.
+	 *
+	 * @param string $record_id The school's record ID.
+	 * @return bool Whether the option was written: false for a malformed key, a school the index does not hold, a change
+	 *              still owed, and an option another request held the rebuild's lock for.
+	 */
+	public static function open_gate( $record_id ) {
+		$record_id = trim( (string) $record_id );
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+			return false;
+		}
+
+		if ( WPCPM_Institution_Agreement::owes_index( $record_id ) ) {
+			WPCPM_Institution_Agreement::keep_index( $record_id, array() );
+
+			if ( WPCPM_Institution_Agreement::owes_index( $record_id ) ) {
+				return false;
+			}
+		}
+
+		WPCPM_Institutions_Index::forget_cached();
+
+		$row = WPCPM_Institutions_Index::row( $record_id );
+
+		if ( ! is_array( $row ) ) {
+			return false;
+		}
+
+		$option = WPCPM_Institution_Agreement::rebuild( $record_id, WPCPM_Institutions_Index::rebuild_block( $row, WPCPM_Institution_Agreement::record_document( $record_id ) ) );
+
+		return array() !== $option;
+	}
+
+	/**
+	 * Close one school: its agreement option deleted, then each of the accounts given revoked (`delete_gate()`, then
+	 * `revoke_member()` for each, the order the revoke phase keeps across schools).
+	 *
+	 * @param string $record_id The school's record ID.
+	 * @param int[]  $user_ids  Its live members.
+	 * @param int    $actor     Who closes it, 0 for the sync.
+	 * @param array  $settings  Plugin settings.
+	 * @return array `locked`, `revoked` and `failed`, as `close_gate()` answers.
+	 */
+	private static function close_school( $record_id, array $user_ids, $actor, array $settings ) {
+		$out = array(
+			'locked'  => self::delete_gate( $record_id ),
+			'revoked' => 0,
+			'failed'  => array(),
+		);
+
+		foreach ( $user_ids as $user_id ) {
+			$result = self::revoke_member( (int) $user_id, (int) $actor, $settings );
+
+			if ( is_wp_error( $result ) ) {
+				$out['failed'][ (int) $user_id ] = $result->get_error_message();
+			} elseif ( true === $result ) {
+				++$out['revoked'];
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Delete one school's agreement option, so `is_settled()` answers false.
+	 *
+	 * @param string $record_id The school's record ID.
+	 * @return bool What `delete_option()` answered: whether an option stood and was deleted.
+	 */
+	private static function delete_gate( $record_id ) {
+		// Always asked, as the revoke phase always asked: a stale cache that reads the option as gone must not keep it
+		// standing (fix round 2, R5).
+		return (bool) delete_option( WPCPM_Institution_Agreement::option_name( $record_id ) );
+	}
+
+	/**
+	 * Detach one member with the reason `revoked`, under `institution_on_inactive` = `revoke` alone.
+	 *
+	 * @param int   $user_id  The account.
+	 * @param int   $actor    Who does it, 0 for the sync.
+	 * @param array $settings Plugin settings.
+	 * @return true|WP_Error|null Null when the setting keeps members.
+	 */
+	private static function revoke_member( $user_id, $actor, array $settings ) {
+		if ( ! isset( $settings['institution_on_inactive'] ) || 'revoke' !== $settings['institution_on_inactive'] ) {
+			return null;
+		}
+
+		return WPCPM_Institution_Members::detach( (int) $user_id, 'revoked', (int) $actor );
 	}
 
 	/**
@@ -1687,6 +2045,9 @@ class WPCPM_Institutions_Sync {
 			'skipped'           => 0,
 			'rebuilt'           => 0,
 			'settled'           => 0,
+			// Site mode: schools whose index row is behind their agreement option, left as they are (the outside
+			// review of release 2, O1).
+			'behind'            => 0,
 			// The provision phase's four numbers: accounts made, Confirmed institutions that
 			// were not ready for one, addresses that already belong to an account, and
 			// attempts that failed outright. Kept apart from `skipped`, which is the records

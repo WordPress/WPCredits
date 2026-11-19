@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.99
+Stable tag: 1.123.100
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,18 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.100 =
+
+* Institutions: the site can now keep the record of institutions itself, and Airtable gets a copy. Nothing changes until an Administrator ticks "The site keeps the record, and Airtable gets a copy" on Settings, tab Advanced. With it off, the site reads the institutions from Airtable exactly as before. The import from Airtable and the switch are run with the product owner.
+* Administrator Dashboard: a new Talks view, once the site keeps the record. It lists the follow-ups due, oldest first, and the schools by stage, your own or everyone's. Find a school searches all the talks, and Add a lead adds a school. The menu counts your own follow-ups due.
+* Institution Dashboard, For Administrators: a Talks card comes first, for Administrators only. It holds the school's stage, next step, follow-up date, assigned Administrator, country, estimated students and the day its first students begin, and your notes. Program details keeps what each school asks for, such as hours, dates and reports. A school never sees the card.
+* The stages the Talks card offers follow the Collaboration Agreement: Confirmed and Student only once it is settled. A move out of the active stages asks first. A save made after someone else changed the same talks is refused, and the card shows the values as they are now.
+* Leads: a school the program has not talked to yet can be kept as a lead, which is never written to Airtable. A lead can be closed and reopened, and moved into the talks as an institution. A closed lead can be deleted: it goes to WordPress's Trash with its notes.
+* Each Monday, every Administrator who has an area or an assigned school, and follow-ups due, gets one email that lists them.
+* Institutions screen: a notice lists the schools whose changes are not in Airtable yet. An application names a lead of the same name or address, so the lead can be moved into the talks first and its notes come with it.
+* WordPress's Export Personal Data and Erase Personal Data tools now cover a lead's contact. The eraser blanks the contact person and email, and keeps the lead and its notes.
+* Administrator guide: jobs and reference entries for the talks, leads, the Monday email, Airtable's copy, the import and the switch.
 
 = 1.123.99 =
 
