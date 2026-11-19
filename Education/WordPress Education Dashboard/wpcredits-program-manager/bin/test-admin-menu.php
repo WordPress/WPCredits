@@ -42,8 +42,12 @@ $GLOBALS['submenu'] = array();
 $GLOBALS['caps']    = true; // The menu and both screens are a manager's.
 
 class WP_Error {
-	public function __construct( $c = '', $m = '' ) {}
+	private $code, $data;
+	// The code and the data too: Need help?'s status line asks why its provider is not ready.
+	public function __construct( $c = '', $m = '', $d = null ) { $this->code = $c; $this->data = $d; }
 	public function get_error_message() { return ''; }
+	public function get_error_code() { return $this->code; }
+	public function get_error_data() { return $this->data; }
 }
 
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
@@ -69,6 +73,9 @@ function delete_transient( $k ) { return true; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function number_format_i18n( $n, $d = 0 ) { return (string) $n; }
 function human_time_diff( $from, $to = 0 ) { return '2 hours'; }
+function absint( $v ) { return abs( (int) $v ); }
+function esc_url_raw( $u ) { return (string) $u; }
+function current_time( $type, $gmt = 0 ) { return 'mysql' === $type ? gmdate( 'Y-m-d H:i:s' ) : time(); }
 function wp_date( $format, $timestamp = null ) { return gmdate( $format, (int) $timestamp ); }
 // The Overview's syncs on a new site: at Greenwich, with nothing scheduled.
 function wp_timezone() { return new DateTimeZone( 'UTC' ); }
@@ -76,6 +83,9 @@ function wp_next_scheduled( $hook ) { return false; }
 function wp_die( $m = '' ) { throw new Exception( 'wp_die: ' . $m ); }
 function get_current_user_id() { return 1; }
 require_once __DIR__ . '/stubs/caps.php';
+// The AI Client's stand-in: Need help?'s status line names the provider Connectors has set up, which
+// is none until a check sets one.
+require __DIR__ . '/stubs/ai-client.php';
 
 /**
  * WordPress's two menu functions, keeping what each entry is called and where it points, in the order
@@ -151,6 +161,15 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-modules.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-header-notices.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-emails.php';
+// The guide index, as the plugin loads it, over the SQLite stand-in of the database: the tool's screen
+// reads what it holds.
+require_once __DIR__ . '/stubs/sqlite-wpdb.php';
+$GLOBALS['wpdb'] = new WPCPM_Test_Wpdb();
+$GLOBALS['wpdb']->create_guide_tables();
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-text.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-search.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-sources.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-mentor-checker.php';
@@ -415,7 +434,7 @@ $airtable_missing = 'Airtable is not connected yet, so this tool cannot run.';
 $new_site_lines   = array(
 	'Header notices'           => array( array( 'wpcpm-tool-status', false, 'No notices are showing.' ) ),
 	'Emails'                   => array( array( 'wpcpm-tool-status', false, '0 emails in the last 30 days.' ) ),
-	'Need help?'               => array( array( 'wpcpm-tool-status', true, 'No AI provider is configured, so questions cannot be answered.' ) ),
+	'Need help?'               => array( array( 'wpcpm-tool-status', true, 'No index yet: the guides have not been read.' ) ),
 	'Mentor Status Checker'    => array( array( 'wpcpm-tool-status', false, 'Airtable is not connected: the applications selected on this site are checked, and Airtable\'s mentors are not.' ) ),
 	'Student Duplicate Finder' => array( array( 'wpcpm-tool-status', true, $airtable_missing ) ),
 	'Track Builder'            => array( array( 'wpcpm-tool-status', false, '0 tracks, 0 published.' ) ),
@@ -434,14 +453,26 @@ $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array( 'handbook_enabled' => fals
 $switched_off                                = card_lines( draw( 'render_tools' ) );
 
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array(
-	'api_token'         => 'patPROBE0000000001',
-	'base_id'           => 'appPROBE0000000001',
-	'handbook_provider' => 'gemini',
-	'handbook_key'      => 'AQ.probe-key-value',
+	'api_token' => 'patPROBE0000000001',
+	'base_id'   => 'appPROBE0000000001',
 );
-$all_ready = card_lines( draw( 'render_tools' ) );
+// A provider set up in Settings > Connectors, its key pasted there, that offers the model the setting names.
+$GLOBALS['opts']['connectors_ai_google_api_key'] = 'test-key-value';
+$GLOBALS['ai_providers'] = array( 'google' => array( 'models' => array( WPCPM_Settings::defaults()['handbook_model'] ) ) );
+$GLOBALS['connectors']   = array(
+	'google' => array(
+		'name'           => 'Google',
+		'type'           => 'ai_provider',
+		'authentication' => array( 'method' => 'api_key', 'setting_name' => 'connectors_ai_google_api_key' ),
+	),
+);
+// And an index that holds a passage, which is what Need help? answers from.
+WPCPM_Guide_Index::write( 'page:1', array( 'kind' => 'guide', 'audience' => 'mentor', 'post_id' => 1, 'title' => 'Mentor guide', 'url' => 'https://example.test/mentor-guide/', 'modified' => '2026-11-19 00:00:00' ), array( array( 'heading' => 'Calls', 'anchor' => 'calls', 'body' => 'Book a call with your mentor once a week.' ) ) );
+$all_ready               = card_lines( draw( 'render_tools' ) );
 
-$GLOBALS['opts'] = array();
+$GLOBALS['opts']         = array();
+$GLOBALS['ai_providers'] = array();
+$GLOBALS['connectors']   = array();
 
 ck( 'Need help? switched off says so as its warning, and with Airtable connected and a provider set every card says its status line and none a warning',
     array( $switched_off['Need help?'], $all_ready ),
@@ -450,7 +481,7 @@ ck( 'Need help? switched off says so as its warning, and with Airtable connected
         array(
             'Header notices'           => array( array( 'wpcpm-tool-status', false, 'No notices are showing.' ) ),
             'Emails'                   => array( array( 'wpcpm-tool-status', false, '0 emails in the last 30 days.' ) ),
-            'Need help?'               => array( array( 'wpcpm-tool-status', false, 'Answering through Google AI Studio (Gemini).' ) ),
+            'Need help?'               => array( array( 'wpcpm-tool-status', false, 'Answering through Google with ' . WPCPM_Settings::defaults()['handbook_model'] . '.' ) ),
             'Mentor Status Checker'    => array( array( 'wpcpm-tool-status', false, 'Never run.' ) ),
             'Student Duplicate Finder' => array( array( 'wpcpm-tool-status', false, 'No scan has run yet.' ) ),
             'Track Builder'            => array( array( 'wpcpm-tool-status', false, '0 tracks, 0 published.' ) ),

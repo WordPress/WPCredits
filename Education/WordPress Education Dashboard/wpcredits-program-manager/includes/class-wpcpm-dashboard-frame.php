@@ -95,16 +95,20 @@ final class WPCPM_Dashboard_Frame {
 	 *                           (1.123.70), since it named the page a second time under the page's H1.
 	 *     @type array  $groups  Each `heading` ('' for none) and `items`.
 	 *     @type array  $help    The help items, under the heading Help.
+	 *     @type string $audience `student`, `mentor`, `institution`, `sponsor` or `administrator`: whose
+	 *                           dashboard this is, which the Ask box sends along so the question is answered
+	 *                           first from that dashboard's guide. Empty for none.
 	 * }
 	 */
 	public static function open( array $args ) {
 		$args = array_merge(
 			array(
-				'page'    => '',
-				'label'   => '',
-				'context' => array(),
-				'groups'  => array(),
-				'help'    => array(),
+				'page'     => '',
+				'label'    => '',
+				'context'  => array(),
+				'groups'   => array(),
+				'help'     => array(),
+				'audience' => '',
 			),
 			$args
 		);
@@ -215,8 +219,10 @@ final class WPCPM_Dashboard_Frame {
 	/**
 	 * The Ask box: the Handbook Assistant's question, asked from any dashboard, answered on its page.
 	 * Nothing when the assistant is off or the viewer may not ask it.
+	 *
+	 * @param string $audience Whose dashboard this is; sent along as `wpcpm_ask_for` when it is one of the five.
 	 */
-	private static function ask() {
+	private static function ask( $audience = '' ) {
 		foreach ( array( 'is_available', 'user_can_ask', 'page_url' ) as $method ) {
 			if ( ! class_exists( 'WPCPM_Handbook_Assistant' ) || ! method_exists( 'WPCPM_Handbook_Assistant', $method ) ) {
 				return;
@@ -248,6 +254,12 @@ final class WPCPM_Dashboard_Frame {
 					$carried .= sprintf( '<input type="hidden" name="%1$s" value="%2$s">', esc_attr( (string) $name ), esc_attr( (string) $value ) );
 				}
 			}
+		}
+
+		// Which dashboard's guide the question belongs to, so the page answers from it first. Only one of the
+		// five names a guide; anything else is left off rather than passed on.
+		if ( in_array( $audience, array( 'student', 'mentor', 'institution', 'sponsor', 'administrator' ), true ) ) {
+			$carried .= sprintf( '<input type="hidden" name="wpcpm_ask_for" value="%s">', esc_attr( $audience ) );
 		}
 
 		printf(
@@ -332,7 +344,7 @@ final class WPCPM_Dashboard_Frame {
 		// sidebar", then "the search should go down the sidebar"): in the drawer on a phone, one icon in the
 		// strip on a tablet. It is what replaces Need help?, so it stands with the help.
 		ob_start();
-		self::ask();
+		self::ask( (string) $args['audience'] );
 		$ask = (string) ob_get_clean();
 
 		if ( ! empty( $args['help'] ) || '' !== $ask ) {

@@ -3,7 +3,7 @@
  * Plugin Name:       WPCredits Program Manager
  * Plugin URI:        https://github.com/gomp/wpcredits-program-manager
  * Description:       Runs the WPCredits program on WordPress for five audiences - Students, Mentors, Institutions, Sponsors and Administrators - plus a Tools section. Provisions role-based accounts from Airtable, gives each mentor a Mentor Report Card listing the students assigned to them, and includes the Mentor Status Checker.
- * Version:           1.123.100
+ * Version:           1.123.101
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // No direct access.
 }
 
-define( 'WPCPM_VERSION', '1.123.100' );
+define( 'WPCPM_VERSION', '1.123.101' );
 define( 'WPCPM_PLUGIN_FILE', __FILE__ );
 define( 'WPCPM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCPM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -223,6 +223,10 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-modules.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-header-notices.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-emails.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-text.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-search.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-sources.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-assistant.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook.php';
@@ -301,6 +305,9 @@ function wpcpm_bootstrap() {
 	// The email log, booted here rather than by the Emails tool, so a site that filters the tool out
 	// of `wpcpm_tools` still keeps it (1.122.18).
 	WPCPM_Mail_Log::init();
+	// Need help?'s index of the guides, the FAQ and the handbook, booted here rather than by the tool, so the
+	// ability and the CLI find it whether or not the tool is switched on (AI Mentor R1).
+	WPCPM_Guide_Sources::init();
 	// The outcome figures' weekly read (1.122.24), booted here rather than by a module: the figures
 	// belong to the program, and the homepage reads them whichever modules a site runs.
 	WPCPM_Outcome_Figures::init();
@@ -351,6 +358,7 @@ function wpcpm_activate() {
 	WPCPM_Tools::activate();
 	WPCPM_Outcome_Figures::schedule();
 	WPCPM_Mail::schedule_drain();
+	WPCPM_Guide_Sources::activate();
 	flush_rewrite_rules();
 }
 register_activation_hook( __FILE__, 'wpcpm_activate' );
@@ -363,6 +371,7 @@ function wpcpm_deactivate() {
 	WPCPM_Modules::deactivate();
 	WPCPM_Tools::deactivate();
 	WPCPM_Mail_Log::deactivate();
+	WPCPM_Guide_Sources::deactivate();
 	WPCPM_Mail::deactivate();
 	WPCPM_Outcome_Figures::deactivate();
 	WPCPM_MCP::deactivate();

@@ -319,6 +319,13 @@ class WPCPM_Two_Factor { public static function prompt( $user ) { echo '<div cla
  * before it draws the Ask box (`is_available()` and the rest), so no view here carries one.
  */
 class WPCPM_Handbook_Assistant {
+	const ARG        = 'wpcpm_ask';
+	const MAX_LENGTH = 400;
+	// The Ask box's three questions, answered from `$GLOBALS['ask_url']`: none, and the frame draws no box,
+	// unless a check names the Need help? page's address.
+	public static function is_available() { return '' !== (string) ( $GLOBALS['ask_url'] ?? '' ); }
+	public static function user_can_ask() { return self::is_available(); }
+	public static function page_url() { return (string) ( $GLOBALS['ask_url'] ?? '' ); }
 	public static function render_resources( $audience = '', $extra = '', $columns = 2 ) {
 		$GLOBALS['resources'][] = $audience . ':' . (int) $columns;
 		return '<section class="wpcpm-student__section wpcpm-handbook__resources" data-audience="' . $audience . '">' . $extra . '</section>';
@@ -2600,6 +2607,38 @@ ck( 'under the real switch (the Administrator Dashboard on) every view of the Sp
 	count( $real_views ) > 0,
 	preg_match( '/wpcpm-ui-/', implode( '', $real_views ) ),
 ), array( array( 'administrator', 'institution' ), true, true, 0 ) );
+
+
+// AI Mentor R1, Task 5: the frame's Ask box sends along which dashboard's guide the question belongs to, as the
+// hidden field `wpcpm_ask_for`, when the dashboard that opened the frame named one of the five audiences; the
+// Sponsor Dashboard names `sponsor`, in its page's menu and in the guide's and the updates'.
+$GLOBALS['ask_url'] = 'https://example.test/handbook-assistant/';
+$ask_frame = static function ( array $args ) {
+	ob_start();
+	WPCPM_Dashboard_Frame::open( $args );
+	WPCPM_Dashboard_Frame::close();
+	return (string) ob_get_clean();
+};
+$ask_field = static function ( $html ) {
+	return 1 === preg_match( '/<form class="wpcpm-frame__ask".*?<\/form>/s', $html, $form ) ? ( 1 === preg_match( '/<input type="hidden" name="wpcpm_ask_for" value="([^"]*)">/', $form[0], $value ) ? $value[1] : 'no field' ) : 'no form';
+};
+ck( 'the frame\'s Ask box carries the audience it was opened for as a hidden field, for each of the five',
+	array_map( static function ( $audience ) use ( $ask_frame, $ask_field ) { return $ask_field( $ask_frame( array( 'page' => 'x', 'audience' => $audience ) ) ); }, array( 'student', 'mentor', 'institution', 'sponsor', 'administrator' ) ),
+	array( 'student', 'mentor', 'institution', 'sponsor', 'administrator' ) );
+ck( 'and none when it was opened for none, or for a word that is not one of the five',
+	array( $ask_field( $ask_frame( array( 'page' => 'x' ) ) ), $ask_field( $ask_frame( array( 'page' => 'x', 'audience' => '' ) ) ), $ask_field( $ask_frame( array( 'page' => 'x', 'audience' => 'public' ) ) ), $ask_field( $ask_frame( array( 'page' => 'x', 'audience' => '"><script>' ) ) ) ),
+	array( 'no field', 'no field', 'no field', 'no field' ) );
+ck( 'and no form at all while the assistant has no page',
+	( static function () use ( $ask_frame, $ask_field ) { $GLOBALS['ask_url'] = ''; $got = $ask_field( $ask_frame( array( 'page' => 'x', 'audience' => 'sponsor' ) ) ); $GLOBALS['ask_url'] = 'https://example.test/handbook-assistant/'; return $got; } )(),
+	'no form' );
+ck( 'the Sponsor Dashboard opens its frame for sponsors: its page\'s menu, the guide\'s and the updates\'',
+	array(
+		WPCPM_Sponsors_Dashboard::menu_args( WPCPM_Sponsors_Dashboard::VIEW_GUIDE )['audience'] ?? null,
+		WPCPM_Sponsors_Dashboard::menu_args( WPCPM_Sponsors_Dashboard::VIEW_UPDATES )['audience'] ?? null,
+		$ask_field( $ask_frame( WPCPM_Sponsors_Dashboard::menu_args( WPCPM_Sponsors_Dashboard::VIEW_GUIDE ) ) ),
+	),
+	array( 'sponsor', 'sponsor', 'sponsor' ) );
+$GLOBALS['ask_url'] = '';
 
 // Counted by ck() itself: a literal here read 45 while the file carried 49 (1.93.2), and a count
 // nobody maintains is a count nobody should trust.

@@ -5337,6 +5337,10 @@ $guide_items = array();
 foreach ( array_merge( array_merge( ...array_column( $guide_args['groups'], 'items' ) ), $guide_args['help'] ) as $item ) {
 	$guide_items[ $item['label'] ] = $item;
 }
+ck( 'the Administrator Dashboard opens its frame for Administrators, on the page\'s own menu and on the guide\'s and the updates\'', array(
+	$guide_args['audience'] ?? null,
+	WPCPM_Administrators_Dashboard::menu_args( WPCPM_Administrators_Dashboard::VIEW_UPDATES )['audience'] ?? null,
+), array( 'administrator', 'administrator' ) );
 ck( 'the guide\'s menu is the page\'s: the same items in the same order to the same addresses with the same counts, the guide marked current and nothing else, no name above it, under the guide\'s own key', array(
 	array_keys( $guide_items ),
 	array_column( $guide_items, 'url', 'label' ),

@@ -1687,15 +1687,17 @@ class WPCPM_Institutions_Dashboard {
 		);
 
 		return array(
-			'page'   => isset( $pages[ $view ] ) ? $pages[ $view ] : self::FRAME_PAGE,
-			'label'  => self::title(),
-			'groups' => array(
+			'page'     => isset( $pages[ $view ] ) ? $pages[ $view ] : self::FRAME_PAGE,
+			'label'    => self::title(),
+			'groups'   => array(
 				array(
 					'heading' => '',
 					'items'   => $items,
 				),
 			),
-			'help'   => $help,
+			'help'     => $help,
+			// Whose guide the frame's Ask box has a question answered from first.
+			'audience' => 'institution',
 		);
 	}
 

@@ -954,25 +954,27 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 
 ### Set up Need help?
 
-*When:* mentors and Administrators should be able to ask questions answered from the WordPress documentation, or answers stopped coming.
+*When:* people on the program should be able to ask questions answered from this site's guides and the WordPress Credits handbook, or answers stopped coming.
 
 1. Open `WPCredits Program > Tools > Need help?`.
 2. In the **Settings** card, check that **Switch it on** beside **Need help?** is ticked. It starts ticked.
-3. Choose **Google AI Studio (Gemini)** in **Answer provider**.
-4. Paste the provider's key in **Provider API key**.
-5. Leave **Model** as it is.
-6. Choose who may ask under **Who can ask**, and set **Questions per person per hour**.
-7. Press **Save settings**.
+3. Leave **Model** as it is.
+4. Choose who may ask under **Who can ask**, and set **Questions per person per hour**.
+5. Press **Save settings**.
+6. Under **How answers are produced**, check that **Provider** names the AI provider and **Model** says *Offered*. If **Provider** says *None set up: answers are passages only.*, press **Set one up in Settings > Connectors**: the provider's key goes there.
+7. Check that **Sources** lists the guides, the FAQ and the handbook. If it says *None yet: the guides have not been read.*, press **Rebuild the index**.
 8. Type a question under **Try a question** and press **Ask**.
 
 **What happens next**
 
-- The answer under **Try a question** is exactly what somebody on the program would see.
+- The answer under **Try a question**, with its **Sources**, is asked as you: as an Administrator, it can come from every guide, and the Administrator guide is favored. Someone on the program is answered only from the guides their own level lets them read.
 - People ask from [[Need help?]] in the site header and from **Resources** on the Mentor Report Card and the Student Report Card, when **Who can ask** includes them. Since 1.123.96 a school's people ask from the Ask box under **Help** in the Institution Dashboard's menu.
-- Each question, and the pages found for it, go to the provider's company. Nothing is stored on this site.
+- Since 1.123.101 each question, and the parts of the guides that match it, go to the provider set up in `Settings > Connectors`. Nothing about the person asking goes with them, and this site keeps no copy of the question or the answer.
 
 **Good to know**
 
-- With **Answer provider** left at **None - questions cannot be answered**, nobody gets an answer.
+- Since 1.123.101 Need help? answers without a provider too. With none set up, or one that cannot answer, people get the three passages that match best, with their links.
+- The plugin stores no key: it is core's, in `Settings > Connectors`. Use a key from a Google Cloud project with billing turned on: under the Gemini API terms, prompts sent with a free-tier key may be used to improve Google's products.
 - **Who can ask** starts at **Mentors and administrators**. Nobody signed out can ask, whatever it says.
-- **Questions per person per hour** starts at 20, and 0 removes that limit. The whole site still gets at most 300 questions answered a day.
+- **Questions per person per hour** starts at 20, and 0 removes that limit. The whole site still sends at most 300 questions a day to the provider. Past either limit, people get the matching passages without a written answer.
+- The index follows the guides by itself: a guide is read again when it is saved, and the handbook every day.

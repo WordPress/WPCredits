@@ -811,9 +811,9 @@ final class WPCPM_Administrators_Dashboard {
 		);
 
 		return array(
-			'page'   => isset( $pages[ $view ] ) ? $pages[ $view ] : 'administrator',
-			'label'  => self::title(),
-			'groups' => array(
+			'page'     => isset( $pages[ $view ] ) ? $pages[ $view ] : 'administrator',
+			'label'    => self::title(),
+			'groups'   => array(
 				array(
 					'heading' => '',
 					'items'   => $items,
@@ -823,7 +823,9 @@ final class WPCPM_Administrators_Dashboard {
 					'items'   => $admin,
 				),
 			),
-			'help'   => $help,
+			'help'     => $help,
+			// Whose guide the frame's Ask box has a question answered from first.
+			'audience' => 'administrator',
 		);
 	}
 

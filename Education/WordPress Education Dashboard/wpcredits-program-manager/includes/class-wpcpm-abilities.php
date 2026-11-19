@@ -67,12 +67,13 @@ class WPCPM_Abilities {
 		'wpcpm/find-student',
 		'wpcpm/mentor-students',
 		'wpcpm/mentor-applications',
+		'wpcpm/search-guides',
 	);
 
 	/**
-	 * The abilities that look people up: the last three of `NAMES`. They answer by record id and never by
-	 * name, and they share a third ceiling, `mcp_people_per_hour`, claimed in `answer()` after the answers'
-	 * hour and day.
+	 * The abilities that look people up: three of the eight in `NAMES`, after Phase A's four and before
+	 * `wpcpm/search-guides`. They answer by record id and never by name, and they share a third ceiling,
+	 * `mcp_people_per_hour`, claimed in `answer()` after the answers' hour and day.
 	 */
 	const PEOPLE = array(
 		'wpcpm/find-student',
@@ -169,7 +170,7 @@ class WPCPM_Abilities {
 	 *
 	 * The abilities come in the order of `NAMES`. A name that has no words here, or whose builder
 	 * `WPCPM_Ability_Answers` does not have, is left out, so that an ability is registered only once all of
-	 * it exists; all seven have both, and the suite checks that `definitions()` holds every name of `NAMES`
+	 * it exists; all eight have both, and the suite checks that `definitions()` holds every name of `NAMES`
 	 * in its order, so a name can never be left out unseen.
 	 *
 	 * @return array[] Name => the arguments.
@@ -212,6 +213,11 @@ class WPCPM_Abilities {
 				__( 'Mentor applications', 'wpcredits-program-manager' ),
 				__( 'Mentor applications in one state, newest first, by reference: the day received, days in the state, country, languages, hours a week, contribution areas, the teacher answer and whether the address is confirmed, with the totals per state. Applicants are given by reference, never by name: look the name up on the site.', 'wpcredits-program-manager' ),
 				'applications',
+			),
+			'wpcpm/search-guides'             => array(
+				__( 'Search the guides', 'wpcredits-program-manager' ),
+				__( 'The passages of this site\'s guides, its FAQ and the WordPress Credits handbook that best match English search words, best first, each with its page, section and address, and when the index was last built.', 'wpcredits-program-manager' ),
+				'guides',
 			),
 		);
 
@@ -531,9 +537,10 @@ class WPCPM_Abilities {
 	 * instead: never the bytes and never a fatal. The fence reaches this whatever the switch says.
 	 *
 	 * @param mixed $value What was typed.
+	 * @param int   $max   The most characters kept; `TEXT_MAX` for a short text, more for a passage of a guide.
 	 * @return string
 	 */
-	public static function text( $value ) {
+	public static function text( $value, $max = self::TEXT_MAX ) {
 		if ( ! is_string( $value ) ) {
 			return '';
 		}
@@ -548,7 +555,7 @@ class WPCPM_Abilities {
 		$value = (string) preg_replace( '/[\p{Cc}\p{Cf}]/u', '', $value );
 		$value = (string) preg_replace( '/ {2,}/', ' ', $value );
 
-		return rtrim( mb_substr( trim( $value ), 0, self::TEXT_MAX, 'UTF-8' ), ' ' );
+		return rtrim( mb_substr( trim( $value ), 0, max( 1, (int) $max ), 'UTF-8' ), ' ' );
 	}
 
 	/**

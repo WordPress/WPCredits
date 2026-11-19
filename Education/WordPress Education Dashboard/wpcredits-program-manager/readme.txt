@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.100
+Stable tag: 1.123.101
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,17 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.101 =
+
+* Need help? answers from this site's own guides. The site keeps an index of the Student, Mentor, Institution, Sponsor and Administrator guides, the FAQ and the WordPress Credits handbook's pages. It finds the five passages a question needs, and the AI service set up in Settings > Connectors writes a short answer from them in the language of the question. Every answer lists its sources, each linked to the section it came from. Until now each question went to Google with web search on, and the site's guides were never read.
+* Each person gets answers only from passages their own access level lets them read, and the guide written for their role comes first. The FAQ is read only while it is public, and a change to its access applies from the next question.
+* When the AI service cannot answer (none is set up, it is busy, or it refuses), Need help? shows the three parts of the guides that best match the question, with links, under one sentence that says why. Past the hourly or daily limit, people get the same passages instead of no answer.
+* The plugin keeps no AI key. The provider and its key are core's, in Settings > Connectors. The provider and key rows are gone from the Need help? screen, and the first load of this version deletes the stored Gemini key from the settings. Model stays a setting, gemini-flash-latest by default.
+* Tools > Need help?: How answers are produced shows the provider, whether it offers the model, each source with its passages and when it was indexed, the handbook's last sync, and Rebuild the index.
+* A page is indexed again each time it is saved, and each release's republish of the guides is such a save. The whole index is rebuilt after each release, and every day the handbook is read again from make.wordpress.org. A failed read, or a handbook page sent incomplete, keeps what the index holds, and a page the database cannot store fails the sync, which the screen reports. wp wpcredits guides shows the index, rebuilds it, loads the handbook from a saved file and shows what a question would be given.
+* Claude access: an eighth ability, Search the guides (wpcpm/search-guides), returns the passages that best match English search words.
+* The panel, the Need help? page and the Ask box in the dashboards' side menu say where answers come from and where the question goes. Only Administrators see the AI service's own error text.
 
 = 1.123.100 =
 

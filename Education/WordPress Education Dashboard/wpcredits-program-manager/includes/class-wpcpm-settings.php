@@ -74,8 +74,10 @@ class WPCPM_Settings {
 	 *
 	 * 2: `Paused` and `Pending graduation` joined `student_statuses`.
 	 * 3: `Designer Track` joined `student_statuses`.
+	 * 4: `handbook_provider` and `handbook_key` left: Need help? answers through the AI provider set up
+	 *    in Settings > Connectors, so the plugin stores no key.
 	 */
-	const SETTINGS_VERSION = 3;
+	const SETTINGS_VERSION = 4;
 
 	/**
 	 * Default settings, pre-filled with the live WPCredits base coordinates.
@@ -127,12 +129,6 @@ class WPCPM_Settings {
 			// daily fetch of somebody else's site, and no question box - the stored copy is
 			// kept, so switching it back on does not mean waiting for a sync.
 			'handbook_enabled'              => true,
-			// The handbook assistant. The source defaults to the WordPress Education
-			// Handbook, which is an ordinary REST-enabled post type on make.wordpress.org.
-			// Empty means answers are quoted from the handbook and nothing leaves the site.
-			// Turning this on sends questions to a third party, so it is a deliberate act.
-			'handbook_provider'             => '',
-			'handbook_key'                  => '',
 			// An alias, deliberately. Google retired `gemini-2.0-flash` and then
 			// `gemini-2.5-flash` while this was being written, and each time the symptom was
 			// a refused request and no answer. `gemini-flash-latest` cannot be retired out
@@ -479,8 +475,6 @@ class WPCPM_Settings {
 			),
 			'tool:handbook'              => array(
 				'handbook_enabled',
-				'handbook_provider',
-				'handbook_key',
 				'handbook_model',
 				'handbook_access',
 				'handbook_limit',
@@ -603,7 +597,16 @@ class WPCPM_Settings {
 			}
 		}
 
-		return self::write( $input, $keys, $drawn );
+		$saved = self::write( $input, $keys, $drawn );
+
+		// Every save of the Need help? settings forgets which provider offers the model, the model moved or
+		// not: pressing Save settings there is how an Administrator who put the key right at the provider
+		// has it looked up again, with nothing else to clear.
+		if ( 'tool:handbook' === $scope && class_exists( 'WPCPM_Handbook_Answer' ) ) {
+			WPCPM_Handbook_Answer::forget_check();
+		}
+
+		return $saved;
 	}
 
 	/**
@@ -892,23 +895,6 @@ class WPCPM_Settings {
 
 		if ( array_key_exists( 'sponsor_tier_grace_until', $input ) ) {
 			$clean['sponsor_tier_grace_until'] = self::date_or_stored( $input['sponsor_tier_grace_until'], $clean['sponsor_tier_grace_until'] );
-		}
-
-		// The key is write-only from the form's point of view, exactly like the Airtable
-		// token: the screen shows a masked value, and submitting that mask must not
-		// overwrite the real key with a row of dots.
-		if ( isset( $input['handbook_key'] ) ) {
-			$key = trim( wp_unslash( $input['handbook_key'] ) );
-
-			if ( '' !== $key && false === strpos( $key, '•' ) ) {
-				$clean['handbook_key'] = sanitize_text_field( $key );
-			}
-		}
-
-		if ( isset( $input['handbook_provider'] ) ) {
-			$provider = sanitize_key( $input['handbook_provider'] );
-
-			$clean['handbook_provider'] = array_key_exists( $provider, WPCPM_Handbook_Answer::providers() ) ? $provider : '';
 		}
 
 		if ( isset( $input['handbook_model'] ) ) {
@@ -1241,7 +1227,17 @@ class WPCPM_Settings {
 			return $clean;
 		}
 
+		// The plugin stores no key and chooses no provider since version 4 (Settings > Connectors does):
+		// whatever an older option still holds of the two is never written back, so a save at the old
+		// version cannot carry them forward, past the migration that deletes them.
+		unset( $clean['handbook_provider'], $clean['handbook_key'] );
+
 		update_option( self::OPT_NAME, $clean );
+
+		// A model's name that moved forgets which provider was found to offer the old one.
+		if ( self::changed( $current, $clean, array( 'handbook_model' ) ) && class_exists( 'WPCPM_Handbook_Answer' ) ) {
+			WPCPM_Handbook_Answer::forget_check();
+		}
 
 		if ( ! empty( $restored ) ) {
 			WPCPM_Flash::set( 'settings-defaults', $restored );
@@ -1312,6 +1308,18 @@ class WPCPM_Settings {
 		}
 
 		$stored = get_option( self::OPT_NAME, array() );
+
+		// Version 4: the plugin stores no AI key and no provider (Settings > Connectors holds them), so
+		// the two are deleted from the stored option, and with them the marker of the old retired-model
+		// move. Once: a site stamped 4 is not touched, and every other setting stays as stored.
+		if ( $from < 4 ) {
+			if ( is_array( $stored ) && ( array_key_exists( 'handbook_provider', $stored ) || array_key_exists( 'handbook_key', $stored ) ) ) {
+				unset( $stored['handbook_provider'], $stored['handbook_key'] );
+				update_option( self::OPT_NAME, $stored );
+			}
+
+			delete_option( 'wpcpm_handbook_model_fixed' );
+		}
 
 		if ( is_array( $stored ) && isset( $stored['student_statuses'] ) && is_array( $stored['student_statuses'] ) ) {
 			$statuses = $stored['student_statuses'];
@@ -1781,26 +1789,6 @@ class WPCPM_Settings {
 		$settings = self::get();
 
 		return ! empty( $settings['api_token'] ) && ! empty( $settings['base_id'] );
-	}
-
-	/**
-	 * A masked rendering of the stored token, safe to print in the admin.
-	 *
-	 * @return string
-	 */
-	/**
-	 * The handbook provider's key, masked for display.
-	 *
-	 * @return string
-	 */
-	public static function masked_handbook_key() {
-		$key = (string) self::get_value( 'handbook_key', '' );
-
-		if ( '' === $key ) {
-			return '';
-		}
-
-		return str_repeat( '•', 8 ) . substr( $key, -4 );
 	}
 
 	/**

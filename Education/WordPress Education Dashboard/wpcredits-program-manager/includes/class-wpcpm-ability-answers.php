@@ -83,6 +83,21 @@ class WPCPM_Ability_Answers {
 	/** The most choices of one pick (the languages, the contribution areas) an application's row lists. */
 	const PICKED_MAX = 50;
 
+	/** The most characters of a guide passage's text an answer carries. */
+	const PASSAGE_MAX = 600;
+
+	/** The most characters of the search words, the input schema's own bound. */
+	const SEARCH_MAX = 200;
+
+	/** The audiences a guide search may take as its home guide: the five, never `public`. */
+	const HOME_AUDIENCES = array( 'student', 'mentor', 'institution', 'sponsor', 'administrator' );
+
+	/** The six audiences the ranking reads: only an Administrator's account reaches the ability. */
+	const SEARCH_AUDIENCES = array( 'student', 'mentor', 'institution', 'sponsor', 'administrator', 'public' );
+
+	/** The most passages a guide search returns. */
+	const PASSAGES_MAX = 5;
+
 	/** The groups a roster puts an institution's students in. */
 	const GROUPS = array( 'current', 'waiting', 'finished', 'not_started' );
 
@@ -98,6 +113,75 @@ class WPCPM_Ability_Answers {
 	 * The builders
 	 * --------------------------------------------------------------------
 	 */
+
+	/**
+	 * `wpcpm/search-guides`: the passages of the site's guides, its FAQ and the handbook that best match
+	 * English search words, ranked by the guide index. No model is called.
+	 *
+	 * The ranking reads all six audiences, since only an Administrator's account reaches the ability, less
+	 * the public pages that account may not be given now (`WPCPM_Guide_Sources::excluded_for()`); the
+	 * input's audience is the home guide, whose passages the ranking lifts. `indexed_at` is the latest time
+	 * any source was indexed, '' when the index holds none. It names no record, so its log row counts none.
+	 *
+	 * @param mixed $input `words` and, optionally, `audience`.
+	 * @return array `answer` (`passages`, `indexed_at`) and `records` (empty).
+	 */
+	public static function guides( $input = null ) {
+		$input = is_array( $input ) ? $input : array();
+		$words = self::passage_text( isset( $input['words'] ) ? $input['words'] : '', self::SEARCH_MAX );
+		$home  = isset( $input['audience'] ) && is_string( $input['audience'] ) && in_array( $input['audience'], self::HOME_AUDIENCES, true ) ? $input['audience'] : '';
+
+		$passages   = array();
+		$indexed_at = '';
+
+		if ( class_exists( 'WPCPM_Guide_Search' ) && class_exists( 'WPCPM_Guide_Index' ) ) {
+			// A public page the account may not be given now (a draft, a password, a level) is left out, as
+			// it is for every asker of Need help?.
+			$excluded = class_exists( 'WPCPM_Guide_Sources' ) && '' !== $words ? WPCPM_Guide_Sources::excluded_for() : array();
+			$rows     = '' === $words ? array() : WPCPM_Guide_Search::rank( array( $words ), self::SEARCH_AUDIENCES, $home, self::PASSAGES_MAX, $excluded );
+
+			foreach ( $rows as $row ) {
+				$passages[] = array(
+					'title'   => self::passage_text( isset( $row['title'] ) ? $row['title'] : '', WPCPM_Abilities::TEXT_MAX ),
+					'section' => self::passage_text( isset( $row['heading'] ) ? $row['heading'] : '', self::SEARCH_MAX ),
+					'url'     => self::passage_text( isset( $row['url'] ) ? $row['url'] : '', WPCPM_Guide_Index::URL_CHARS ),
+					'text'    => self::passage_text( isset( $row['body'] ) ? $row['body'] : '' ),
+					'source'  => self::passage_text( isset( $row['kind'] ) ? $row['kind'] : '', 20 ),
+				);
+			}
+
+			$latest = 0;
+
+			foreach ( WPCPM_Guide_Index::sources() as $source ) {
+				if ( is_array( $source ) && isset( $source['indexed_at'] ) && is_numeric( $source['indexed_at'] ) ) {
+					$latest = max( $latest, (int) $source['indexed_at'] );
+				}
+			}
+
+			$time       = WPCPM_Abilities::time( $latest );
+			$indexed_at = null === $time ? '' : $time;
+		}
+
+		return array(
+			'answer'  => array(
+				'passages'   => $passages,
+				'indexed_at' => $indexed_at,
+			),
+			'records' => array(),
+		);
+	}
+
+	/**
+	 * A passage of a guide, a title or search words as one clean paragraph: `WPCPM_Abilities::text()`'s
+	 * cleaning, with a longer cap than a name's 120 characters.
+	 *
+	 * @param mixed $value The text.
+	 * @param int   $max   The most characters; `PASSAGE_MAX` for a passage's body.
+	 * @return string
+	 */
+	private static function passage_text( $value, $max = self::PASSAGE_MAX ) {
+		return WPCPM_Abilities::text( $value, $max );
+	}
 
 	/**
 	 * `wpcpm/program-counts`: the program's figures for the current semester, as the Administrator Dashboard
@@ -1389,7 +1473,7 @@ class WPCPM_Ability_Answers {
 	 * an empty list, as the engagement summary's is.
 	 *
 	 * @param string $method The builder's name: `program_counts`, `waiting`, `engagement`, `institutions`,
-	 *                       `students`, `mentor` or `applications`.
+	 *                       `students`, `mentor`, `applications` or `guides`.
 	 * @return array|null The schema, or null for an ability that takes no input.
 	 */
 	public static function input_schema( $method ) {
@@ -1491,6 +1575,27 @@ class WPCPM_Ability_Answers {
 			);
 		}
 
+		if ( 'guides' === $method ) {
+			return array(
+				'type'                 => 'object',
+				'properties'           => array(
+					'words'    => array(
+						'type'        => 'string',
+						'minLength'   => 2,
+						'maxLength'   => self::SEARCH_MAX,
+						'description' => __( 'English search words for what to look up, such as book a call or collaboration agreement. The passages that match them best come back, best first.', 'wpcredits-program-manager' ),
+					),
+					'audience' => array(
+						'type'        => 'string',
+						'enum'        => self::HOME_AUDIENCES,
+						'description' => __( 'The guide to favor when passages match about equally: student, mentor, institution, sponsor or administrator. Every guide, the FAQ and the handbook are searched whichever is given. Leave it out to favor none.', 'wpcredits-program-manager' ),
+					),
+				),
+				'required'             => array( 'words' ),
+				'additionalProperties' => false,
+			);
+		}
+
 		return null;
 	}
 
@@ -1528,6 +1633,9 @@ class WPCPM_Ability_Answers {
 
 			case 'applications':
 				return self::applications_schema();
+
+			case 'guides':
+				return self::guides_schema();
 		}
 
 		return array();
@@ -1916,6 +2024,41 @@ class WPCPM_Ability_Answers {
 					__( 'How many applications are in each state asked about, whichever one is listed.', 'wpcredits-program-manager' )
 				),
 				'more'         => self::described( array( 'type' => 'boolean' ), __( 'True when more applications are in the state than are listed.', 'wpcredits-program-manager' ) ),
+			)
+		);
+	}
+
+	/**
+	 * The schema of `guides()`.
+	 *
+	 * @return array
+	 */
+	private static function guides_schema() {
+		$item = self::object(
+			array(
+				'title'   => self::text_of( __( 'The title of the page the passage is on.', 'wpcredits-program-manager' ) ),
+				'section' => self::text_of( __( 'The path of headings above the passage, the page\'s own title not among them; empty for a passage before the first heading.', 'wpcredits-program-manager' ) ),
+				'url'     => self::text_of( __( 'The address of the passage, with the section\'s anchor when it has one.', 'wpcredits-program-manager' ) ),
+				'text'    => self::text_of( __( 'The passage as one paragraph, cut at 600 characters.', 'wpcredits-program-manager' ) ),
+				'source'  => self::described(
+					array(
+						'type' => 'string',
+						'enum' => array( 'guide', 'faq', 'handbook' ),
+					),
+					__( 'Where the passage comes from: `guide` for one of the site\'s guides, `faq` for its FAQ, `handbook` for the WordPress Credits handbook.', 'wpcredits-program-manager' )
+				),
+			)
+		);
+
+		return self::object(
+			array(
+				'passages'   => array(
+					'type'        => 'array',
+					'maxItems'    => self::PASSAGES_MAX,
+					'description' => __( 'The passages that best match the words, best first, at most five. Empty when none match or the index is empty.', 'wpcredits-program-manager' ),
+					'items'       => $item,
+				),
+				'indexed_at' => self::text_of( __( 'When the index was last built, as ISO 8601 in UTC; empty when it holds nothing yet.', 'wpcredits-program-manager' ) ),
 			)
 		);
 	}

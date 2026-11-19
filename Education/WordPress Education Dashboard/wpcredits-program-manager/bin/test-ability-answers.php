@@ -2155,7 +2155,7 @@ foreach ( $builds as $label => $built ) {
 ck( 'the search for "ample" found three names, by name', array_column( $builds['institution-summary, three matches']['answer']['matches'], 'name' ), array( 'Example Institute of Technology', 'Northern UNIVERSITY of Samples', 'University of Example' ) );
 
 echo "\n=== A builder never returns an error ===\n";
-foreach ( array( 'program_counts', 'waiting', 'engagement', 'institutions', 'students', 'mentor', 'applications' ) as $method ) {
+foreach ( array( 'program_counts', 'waiting', 'engagement', 'institutions', 'students', 'mentor', 'applications', 'guides' ) as $method ) {
 	foreach ( array( 'no input' => null, 'an empty list' => array(), 'text' => 'x', 'a number' => 7 ) as $label => $input ) {
 		$built = build( $method, $input );
 		ck( "$method, $label: an array holding an array answer and an array of records", array( is_array( $built ), is_array( $built['answer'] ), is_array( $built['records'] ) ), array( true, true, true ) );

@@ -98,5 +98,7 @@ When the program switches the section on for mentors, offers a sponsor opened to
 ### Resources
 
 At the foot of the page: the mentors Slack channel, the Mentor guide, and **Need
-help?** - a question box answered from the WordPress documentation. Beside them, **Program updates
+help?** - a question box answered from this site's guides and the WordPress Credits handbook, with
+links to where each answer came from. Your question and the parts of the guides that match it go
+to the AI service the program has set up, so do not type anything confidential. Beside them, **Program updates
 and announcements** carries anything recently posted for mentors.

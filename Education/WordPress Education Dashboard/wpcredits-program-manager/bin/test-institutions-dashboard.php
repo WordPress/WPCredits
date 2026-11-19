@@ -2659,6 +2659,9 @@ function guide_menu_as( $uid, array $get = array(), $view = 'guide' ) {
 	WPCPM_Dashboard_Frame::close();
 	return (string) ob_get_clean();
 }
+ck( 'the Institution Dashboard opens its frame for institutions, on the guide\'s menu and the updates\'',
+	array( WPCPM_Institutions_Dashboard::menu_args( 'guide' )['audience'] ?? null, WPCPM_Institutions_Dashboard::menu_args( 'updates' )['audience'] ?? null ),
+	array( 'institution', 'institution' ) );
 /** A menu's items, the views' and Help's, all but which one is current. */
 function menu_but_current( $html ) {
 	$drop = function ( array $items ) { return array_map( function ( $i ) { unset( $i['current'] ); return $i; }, $items ); };

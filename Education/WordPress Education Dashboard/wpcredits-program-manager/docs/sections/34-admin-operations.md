@@ -375,6 +375,7 @@ Deleted:
 - The program details on accounts: record IDs, program, mentor links, availability, sign-in times, reminders.
 - The records of institutions, students, mentors and sponsors: applications, agreement records, invitations, history, semester reports, registrations, interests, calls, notes, offers, codes, claims, reports and events.
 - Track Builder tracks, header notices and the scheduled jobs.
+- Since 1.123.101 Need help?'s index of the guides and the handbook, with its two tables.
 
 Step by step: [[Before you uninstall the plugin]].
 
@@ -1344,6 +1345,8 @@ This table is for the person who maintains the site's code or database. Nobody n
 
 It lists many of the names the plugin stores things under, each with the name it has in the code. It is not complete: some stored names have no row here.
 
+Since 1.123.101 two tables of the plugin's own hold Need help?'s index. `{prefix}wpcpm_guide_chunks` has one row a passage: its source, page, section, address and text. `{prefix}wpcpm_guide_terms` has one row a term of a passage, with how often the passage uses it, which is what the ranking reads. They are made on activation and when their version moves, and uninstall drops both.
+
 | Option | Constant |
 | --- | --- |
 | `_jetpack_dont_email_post_to_subs` | `WPCPM_Sponsor_Posts::META_NO_SUBSCRIBER_MAIL` (post meta: Jetpack Subscriptions' own mark, `1` on every sponsor post, so it is never emailed to the site's subscribers) |
@@ -1386,10 +1389,17 @@ It lists many of the names the plugin stores things under, each with the name it
 | `wpcpm_claims` | `WPCPM_Sponsor_Claims::META_CLAIMS` |
 | `wpcpm_codes_` | `WPCPM_Sponsor_Codes::OPT_PREFIX` |
 | `wpcpm_countries` | `WPCPM_Countries::OPT_NAME` |
+| `wpcpm_guide_daily` | `WPCPM_Guide_Sources::CRON_DAILY` (cron hook, since 1.123.101: the daily run of Need help?'s index, which reads the handbook again and any of the six guide pages changed since it was indexed, and takes out a page that is gone; scheduled on `init` when it is not on the clock, taken off it on deactivation and again on uninstall) |
+| `wpcpm_guide_handbook_state` | `WPCPM_Guide_Sources::OPT_HANDBOOK` (since 1.123.101: when the handbook was last read, whether that worked, what went wrong, how many of its pages the index holds, and whether the handbook holds more pages than one read takes; not autoloaded) |
+| `wpcpm_guide_index_lock` | `WPCPM_Guide_Sources::LOCK` (since 1.123.101: held while a save, a page deleted for good, the daily run, a rebuild, a read of the handbook or `wp wpcredits guides reindex` writes the index, five minutes at a time, so two never write at once; uninstall removes any left behind) |
+| `wpcpm_guide_index_state` | `WPCPM_Guide_Index::OPT_STATE` (since 1.123.101: what the index holds, per source: its title, its passages, the page's modified time and when it was indexed, or why it could not be written; and the plugin version the last whole rebuild ran under; not autoloaded) |
+| `wpcpm_guide_index_version` | `WPCPM_Guide_Index::OPT_VERSION` (since 1.123.101: the version of the index's two tables, `wpcpm_guide_chunks` and `wpcpm_guide_terms`) |
 | `wpcpm_guide_page_moved` | `WPCPM_Settings_Screen::OPT_GUIDE_MOVED` (the one-time move of the Administrator guide's page to its new address, 1.123.41) |
-| `wpcpm_handbook_model_fixed` | `WPCPM_Handbook::OPT_MODEL_FIXED` |
+| `wpcpm_guide_rebuild` | `WPCPM_Guide_Sources::CRON_REBUILD` (cron hook, since 1.123.101: one rebuild of the whole index, scheduled a minute ahead on activation, when the plugin's version is not the one the index was built under, and when a save found the index busy; taken off the clock on deactivation and again on uninstall. The **Rebuild the index** button's form uses the same name, as `WPCPM_Handbook::ACTION_REBUILD`) |
+| `wpcpm_handbook_model_check` | `WPCPM_Handbook_Answer::MODEL_CHECK` (a transient, since 1.123.101: which AI provider set up in `Settings > Connectors` offers the **Model**, or that none does, or that the provider refused or did not answer; twelve hours, fifteen minutes when it refused or did not answer; forgotten when a key changes in Connectors, **Model** changes or the Need help? settings are saved) |
 | `wpcpm_handbook_page_id` | `WPCPM_Handbook_Assistant::OPT_PAGE` |
 | `wpcpm_handbook_page_visible` | `WPCPM_Handbook_Assistant::OPT_APPLIED` |
+| `wpcpm_hb_rate_` | `WPCPM_Handbook_Answer::RATE_PREFIX` (transients: Need help?'s question counters, one for each window since 1.123.101. `wpcpm_hb_rate_day_` and the UTC date for the site's day, kept a day; the user ID and the UTC hour for a person's hour, kept an hour; uninstall deletes every name under the prefix) |
 | `wpcpm_institution_announce_lock` | `WPCPM_Institution_Announce::LOCK` (the lock one announcement holds while it reads the record IDs already announced, posts and writes them back, so two syncs finishing together cannot announce the same institution twice; it holds for two minutes at most and a run that cannot take it announces nothing) |
 | `wpcpm_institution_announced` | `WPCPM_Institution_Announce::OPT_ANNOUNCED` (the record IDs of the institutions whose arrival at Confirmed has been announced on Slack, so none is announced a second time) |
 | `wpcpm_institution_modules_` | None since 1.123.96 (each institution's module order, saved with the arrows before 1.123.96; since then nothing writes or reads it, the constant that named it is gone, and uninstall deletes it by this name; the Student Report Card keeps its own order in user meta, `wpcpm_student_modules`) |

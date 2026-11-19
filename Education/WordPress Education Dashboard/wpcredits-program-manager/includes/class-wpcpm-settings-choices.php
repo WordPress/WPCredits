@@ -200,9 +200,8 @@ final class WPCPM_Settings_Choices {
 	/**
 	 * The models the answer provider may use.
 	 *
-	 * `WPCPM_Handbook_Answer::providers()` names each provider and no model, and Google AI Studio is
-	 * reached by a model's name alone, so the one model this plugin knows to exist is the default it
-	 * ships: an alias that always points at the current Gemini Flash and so cannot be retired out
+	 * The provider is whichever one is set up in Settings > Connectors, and it is asked for a model by
+	 * its name alone, so the one model this plugin knows to exist is the default it ships: an alias that always points at the current Gemini Flash and so cannot be retired out
 	 * from under a site. A list of that one model is no choice, since a select holding it and the
 	 * model saved would offer nothing to choose, so Need help?'s Model field is the text input it
 	 * always was until a provider lists more than the default (`WPCPM_Handbook::render_settings_rows()`).

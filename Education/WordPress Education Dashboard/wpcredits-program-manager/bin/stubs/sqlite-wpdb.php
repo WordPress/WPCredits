@@ -2,11 +2,11 @@
 /**
  * A wpdb for the suites, backed by an in-memory SQLite database (PDO).
  *
- * Models the part of core's wpdb the mail log uses: `prefix`, `prepare()` with %s, %d, %f and %%,
- * `esc_like()`, `insert()`, `query()`, `get_results()`, `get_var()`, `get_row()`, `get_col()`,
- * `get_charset_collate()`, `suppress_errors()`, `insert_id` and `last_error`. A suite creates the
- * table in SQLite's dialect (`WPCPM_Test_Wpdb::create_mail_log()`); the plugin's MySQL schema is
- * pinned as text by the suite instead.
+ * Models the part of core's wpdb the mail log and the guide index use: `prefix`, `prepare()` with
+ * %s, %d, %f and %%, `esc_like()`, `insert()`, `query()`, `get_results()`, `get_var()`, `get_row()`,
+ * `get_col()`, `get_charset_collate()`, `suppress_errors()`, `insert_id` and `last_error`. A suite
+ * creates the tables in SQLite's dialect (`WPCPM_Test_Wpdb::create_mail_log()`,
+ * `create_guide_tables()`); the plugin's MySQL schema is pinned as text by the suite instead.
  *
  * Two statements are rewritten on the way in, as WordPress's SQLite integration (3.x, the one the
  * local copies run) rewrites them: `SHOW TABLES LIKE 'name'` is answered from sqlite_master,
@@ -37,6 +37,25 @@ class WPCPM_Test_Wpdb {
 		$this->pdo->exec(
 			"CREATE TABLE {$this->prefix}wpcpm_mail_log ( id INTEGER PRIMARY KEY AUTOINCREMENT, sent_at TEXT NOT NULL, to_email TEXT NOT NULL DEFAULT '', user_id INTEGER DEFAULT NULL, to_name TEXT NOT NULL DEFAULT '', recipient_type TEXT NOT NULL DEFAULT '', module TEXT NOT NULL DEFAULT '', template TEXT NOT NULL DEFAULT '', subject TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT '', error TEXT NOT NULL DEFAULT '', is_test INTEGER NOT NULL DEFAULT 0, delivery TEXT DEFAULT NULL, delivery_at TEXT DEFAULT NULL )"
 		);
+	}
+
+	/**
+	 * The guide index's two tables, in SQLite's dialect (`WPCPM_Guide_Index::schema()` is MySQL's).
+	 * SQLite compares text byte for byte, as the terms' utf8mb4_bin column does on MySQL. Safe to call
+	 * twice, as dbDelta() is.
+	 */
+	public function create_guide_tables() {
+		$p = $this->prefix;
+
+		$this->pdo->exec(
+			"CREATE TABLE IF NOT EXISTS {$p}wpcpm_guide_chunks ( id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT '', audience TEXT NOT NULL DEFAULT '', post_id INTEGER NOT NULL DEFAULT 0, title TEXT NOT NULL DEFAULT '', heading TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '', words INTEGER NOT NULL DEFAULT 0, hash TEXT NOT NULL DEFAULT '', indexed_at TEXT NOT NULL DEFAULT '' )"
+		);
+		$this->pdo->exec( "CREATE INDEX IF NOT EXISTS {$p}wpcpm_guide_chunks_source ON {$p}wpcpm_guide_chunks ( source )" );
+		$this->pdo->exec( "CREATE INDEX IF NOT EXISTS {$p}wpcpm_guide_chunks_hash ON {$p}wpcpm_guide_chunks ( hash )" );
+		$this->pdo->exec(
+			"CREATE TABLE IF NOT EXISTS {$p}wpcpm_guide_terms ( term TEXT NOT NULL DEFAULT '', chunk_id INTEGER NOT NULL DEFAULT 0, tf INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ( term, chunk_id ) )"
+		);
+		$this->pdo->exec( "CREATE INDEX IF NOT EXISTS {$p}wpcpm_guide_terms_chunk_id ON {$p}wpcpm_guide_terms ( chunk_id )" );
 	}
 
 	/** Take the mail log's table away, as a site whose upgrade has not run has none. */

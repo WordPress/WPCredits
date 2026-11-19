@@ -495,7 +495,7 @@ Rules for the log:
 - One run deletes at most 10,000 calls, and the next day's run deletes the rest.
 - `wp wpcredits mcp_log` lists up to 1,000 calls, newest first: `--limit` (1 to 1,000, default 100) and `--format` (`table`, `json` or `csv`). JSON and CSV also give what was asked and the IDs of the records that went out.
 
-Claude can ask seven questions. The answers come from the site's own records, never from Airtable or WordPress.org.
+Claude can ask eight questions. The answers come from the site's own records, never from Airtable or WordPress.org. Since 1.123.101 **Search the guides** reads the index Need help? answers from: this site's guides, the FAQ and the copy of the WordPress Credits handbook the site reads each day. It calls no AI model.
 
 | Question | What it gives |
 | --- | --- |
@@ -506,8 +506,9 @@ Claude can ask seven questions. The answers come from the site's own records, ne
 | **A student's tracks** | Up to ten people, by email address, WordPress.org username or profile address, Students record ID, or three or more characters of a name. Whether each has an account here, and for each track: its status, institution, cohort, dates, team, hours, reports and mentor's record ID. |
 | **A mentor's students** | One mentor, by Mentors record ID, username, email address or WordPress.org profile address. Whether they are active, their last sign-in and visit, their Engagement view, and up to 25 students as the Mentor Report Card lists them. |
 | **Mentor applications** | Up to 25 applications in one state, newest first: open, selected or lapsed. For each: the day received, days in the state, country, languages, hours, areas, the teacher answer, whether the address is confirmed, and a *duplicate* and a *held* flag. Also how many are open, selected and lapsed. |
+| **Search the guides** | Up to five passages that best match English search words, best first, from every guide, the FAQ and the handbook. For each: its page, section, address, up to 600 characters of its text, and whether it is from a guide, the FAQ or the handbook. Also the last time a page was indexed. Claude may name a guide's audience, such as *mentor*, to favor that guide. |
 
-The last three are the lookups of people.
+**A student's tracks**, **A mentor's students** and **Mentor applications** are the lookups of people.
 
 Rules for what an answer holds:
 - A person comes back as an ID, never by name. A student is the Students record ID of each track, a mentor their Mentors record ID, an applicant their application's reference.

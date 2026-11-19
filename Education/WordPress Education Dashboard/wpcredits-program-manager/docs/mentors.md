@@ -187,7 +187,9 @@ When the program switches the section on for mentors, offers a sponsor opened to
 ### Resources
 
 At the foot of the page: the mentors Slack channel, the Mentor guide, and **Need
-help?** - a question box answered from the WordPress documentation. Beside them, **Program updates
+help?** - a question box answered from this site's guides and the WordPress Credits handbook, with
+links to where each answer came from. Your question and the parts of the guides that match it go
+to the AI service the program has set up, so do not type anything confidential. Beside them, **Program updates
 and announcements** carries anything recently posted for mentors.
 
 ## Setting your availability so students can book
@@ -875,8 +877,10 @@ Only you see your codes. Nobody is sent a code by mail, and sponsors see how man
 #### Resources
 
 At the foot of the page: the WordPress Credits Slack channel, the Student guide, and **Need
-help?** - a question box answered from the WordPress documentation, if the program has switched it
-on. Beside them, **Program updates and announcements** lists anything recently posted for you.
+help?** - a question box answered from this site's guides and the WordPress Credits handbook, with
+links to where each answer came from, if the program has switched it on. Your question and the
+parts of the guides that match it go to the AI service the program has set up, so do not type
+anything confidential. Beside them, **Program updates and announcements** lists anything recently posted for you.
 
 ### Booking a call with your mentor
 

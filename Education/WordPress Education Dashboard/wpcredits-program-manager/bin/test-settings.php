@@ -41,6 +41,9 @@ class WP_Post { public $ID = 0, $post_content = '', $post_status = 'publish', $p
 
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function __( $s, $d = null ) { return $s; }
+function get_transient( $k ) { return $GLOBALS['opts'][ 'T_' . $k ] ?? false; }
+function set_transient( $k, $v, $e = 0 ) { $GLOBALS['opts'][ 'T_' . $k ] = $v; return true; }
+function delete_transient( $k ) { unset( $GLOBALS['opts'][ 'T_' . $k ] ); return true; }
 function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_html__( $s, $d = null ) { return esc_html( $s ); }
@@ -237,6 +240,15 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-choices.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
+// The guide index, as the plugin loads it, over the SQLite stand-in of the database: the tool's screen
+// reads what it holds.
+require_once __DIR__ . '/stubs/sqlite-wpdb.php';
+$GLOBALS['wpdb'] = new WPCPM_Test_Wpdb();
+$GLOBALS['wpdb']->create_guide_tables();
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-text.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-search.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-sources.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php';
 // The rows every settings form is drawn with, and the settings screen with its own save handler,
 // pressed for real in the BUILDER-3 section below.
@@ -553,8 +565,6 @@ $probe = array(
 	'student_statuses'              => array( 'Probe current', 'Probe paused' ),
 	'past_statuses'                 => array( 'Probe past' ),
 	'on_inactive'                   => 'keep',
-	'handbook_provider'             => 'gemini',
-	'handbook_key'                  => 'AQ.probe-key-value',
 	'handbook_model'                => 'gemini-2.5-flash',
 	'handbook_access'               => 'program',
 	'handbook_limit'                => '35',
@@ -702,15 +712,12 @@ ck( 'a boolean can be switched off', array( $saved['handbook_enabled'] ), array(
 $saved = WPCPM_Settings::save( array( 'handbook_enabled' => '1' ) );
 ck( 'and on again', array( $saved['handbook_enabled'] ), array( true ) );
 
-// The key is write-only from the form's point of view: the screen shows a mask, and posting
-// the mask back must not overwrite the real key with a row of dots.
-WPCPM_Settings::save( array( 'handbook_key' => 'AQ.the-real-key' ) );
-$saved = WPCPM_Settings::save( array( 'handbook_key' => WPCPM_Settings::masked_handbook_key() ) );
-ck( 'posting the masked key back leaves the real one alone',
-    array( $saved['handbook_key'] ), array( 'AQ.the-real-key' ) );
-
-$saved = WPCPM_Settings::save( array( 'handbook_key' => '' ) );
-ck( 'and so does posting nothing', array( $saved['handbook_key'] ), array( 'AQ.the-real-key' ) );
+// The plugin stores no AI key and chooses no provider (version 4: Settings > Connectors does), so a
+// key or a provider posted is not a setting, is not saved, and no mask of one exists to post back.
+$saved = WPCPM_Settings::save( array( 'handbook_key' => 'AQ.the-real-key', 'handbook_provider' => 'gemini', 'handbook_limit' => '33' ) );
+ck( 'a posted AI key and provider are ignored: neither is a setting, nor in the stored option, while the setting posted beside them is saved',
+    array( array_key_exists( 'handbook_key', $saved ), array_key_exists( 'handbook_provider', $saved ), array_key_exists( 'handbook_key', $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] ), array_key_exists( 'handbook_provider', $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] ), $saved['handbook_limit'], method_exists( 'WPCPM_Settings', 'masked_handbook_key' ) ),
+    array( false, false, false, false, 33, false ) );
 
 // The checker's Slack webhook is a secret of the same kind (7 October 2026): the screen shows a
 // mask, blank and the mask keep it, the word "remove" takes it away, and only an incoming webhook
@@ -750,10 +757,6 @@ ck( 'the contact address in emails is saved trimmed, and one that is not an addr
     array( $contact['mail_contact'], $typo['mail_contact'], WPCPM_Settings::last_refused(), WPCPM_Flash::take( 'emails-contact-refused' ) ),
     array( 'programs@example.test', 'programs@example.test', array( 'mail_contact' => 'Enter one email address, such as program@example.org, or leave the box empty to name none. The address saved before was kept.' ), '' ) );
 ck( 'and a blank one clears it', WPCPM_Settings::save( array( 'mail_contact' => '' ), 'tool:emails' )['mail_contact'], '' );
-
-// Only providers the plugin can actually talk to.
-$saved = WPCPM_Settings::save( array( 'handbook_provider' => 'nonsense' ) );
-ck( 'an unknown provider falls back to none', array( $saved['handbook_provider'] ), array( '' ) );
 
 $saved = WPCPM_Settings::save( array( 'handbook_access' => 'nonsense' ) );
 ck( 'an unknown audience falls back to mentors', array( $saved['handbook_access'] ), array( 'mentor' ) );
@@ -1044,8 +1047,65 @@ WPCPM_Settings::maybe_upgrade();
 ck( 'a version-2 list gains the Designer Track and nothing else',
     $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'],
     array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation', 'Designer Track' ) );
-ck( 'and the version moves to 3', get_option( WPCPM_Settings::OPT_VERSION ), 3 );
-ck( 'which is what the class calls current', WPCPM_Settings::SETTINGS_VERSION, 3 );
+ck( 'and the version moves to 4, the one version that also takes the AI key out', get_option( WPCPM_Settings::OPT_VERSION ), 4 );
+ck( 'which is what the class calls current', WPCPM_Settings::SETTINGS_VERSION, 4 );
+
+/* ---- version 4: the plugin stores no AI key and no provider --------------- */
+
+// Need help? answers through the provider set up in Settings > Connectors (AI Mentor R1), so the stored
+// provider and key are deleted from the option once, with the marker of the retired-model move they
+// belonged to, and every other setting stays exactly as stored. A site already at 4 is not touched, and a
+// save made at the old version cannot carry the two forward past the migration.
+$stored_before = array(
+	'student_statuses'  => array( 'In Sensei', 'Paused' ),
+	'base_id'           => 'appSAVED0000000003',
+	'handbook_model'    => 'my-own-model',
+	'handbook_limit'    => 35,
+	'handbook_provider' => 'gemini',
+	'handbook_key'      => 'AQ.the-old-key',
+	'on_inactive'       => 'keep',
+);
+$GLOBALS['opts'] = array(
+	WPCPM_Settings::OPT_NAME        => $stored_before,
+	WPCPM_Settings::OPT_VERSION     => 3,
+	'wpcpm_handbook_model_fixed'    => 2,
+);
+
+WPCPM_Settings::maybe_upgrade();
+
+$stored_after = $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ];
+$expected     = $stored_before;
+unset( $expected['handbook_provider'], $expected['handbook_key'] );
+
+ck( 'version 3 to 4 deletes the stored provider and key, the retired-model marker, and nothing else',
+    array( $stored_after, array_key_exists( 'wpcpm_handbook_model_fixed', $GLOBALS['opts'] ), get_option( WPCPM_Settings::OPT_VERSION ) ),
+    array( $expected, false, 4 ) );
+
+// Once: a site stamped 4 is not touched, whatever it holds.
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['handbook_key'] = 'AQ.put-back-by-hand';
+$GLOBALS['opts']['wpcpm_handbook_model_fixed']               = 2;
+$held                                                        = $GLOBALS['opts'];
+WPCPM_Settings::maybe_upgrade();
+
+ck( 'a site at version 4 is not touched', $GLOBALS['opts'], $held );
+
+// A site that never saved has nothing to delete, and the marker goes all the same.
+$GLOBALS['opts'] = array( WPCPM_Settings::OPT_VERSION => 3, 'wpcpm_handbook_model_fixed' => 2 );
+WPCPM_Settings::maybe_upgrade();
+
+ck( 'a site that never saved has no option invented, and loses the marker', array( array_key_exists( WPCPM_Settings::OPT_NAME, $GLOBALS['opts'] ), array_key_exists( 'wpcpm_handbook_model_fixed', $GLOBALS['opts'] ) ), array( false, false ) );
+
+// A Save of the Mentor settings tab (it reads "Currently mentoring", so it stamps the version) at the old
+// version writes the option back from what is stored: the two keys must not go with it.
+$GLOBALS['opts'] = array(
+	WPCPM_Settings::OPT_NAME    => array( 'handbook_provider' => 'gemini', 'handbook_key' => 'AQ.the-old-key', 'base_id' => 'appSAVED0000000004' ),
+	WPCPM_Settings::OPT_VERSION => 3,
+);
+WPCPM_Settings::save( array( 'student_statuses' => array( 'In Sensei' ) ), 'people' );
+
+ck( 'a save at the old version that stamps the new one writes neither key back, so the migration is not skipped past them',
+    array( array_key_exists( 'handbook_provider', $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] ), array_key_exists( 'handbook_key', $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] ), $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['base_id'] ),
+    array( false, false, 'appSAVED0000000004' ) );
 
 // A manager who deliberately removed the Developer Track: version 2 is stamped, so the
 // version-2 appends are done, and the version-3 append must not smuggle the old one back.
@@ -1977,9 +2037,9 @@ $sorted = static function ( array $map ) {
 	return $map;
 };
 
-ck( 'each scope holds the settings the design gives its tab or tool, fifteen for the Mentor Status Checker (its Slack webhook and channel since 1.122.4, Stop checking mentors in Airtable since 1.122.33) and six for Need help?',
+ck( 'each scope holds the settings the design gives its tab or tool, fifteen for the Mentor Status Checker (its Slack webhook and channel since 1.122.4, Stop checking mentors in Airtable since 1.122.33) and four for Need help? (its provider and key are in Settings > Connectors since version 4)',
     array( $sorted( $scopes ), count( $by_design['tool:mentor-status-checker'] ), count( $by_design['tool:handbook'] ) ),
-    array( $sorted( $by_design ), 15, 6 ) );
+    array( $sorted( $by_design ), 15, 4 ) );
 
 // Every setting stored at its default with every switch on, and a save handed the round-trip probe
 // with every switch off: every setting the save may write shows as a change.
@@ -2721,7 +2781,7 @@ store_settings( array_merge( $defaults, array( 'api_token' => 'patKEEPME00000000
 $patched = WPCPM_Settings::patch(
 	array(
 		'logo_max_kb'       => '999999',
-		'handbook_provider' => 'nonsense',
+		'handbook_limit'    => '9999',
 		'agreement_notify'  => 'A@Example.org, not-an-address a@example.org',
 		'api_token'         => '',
 		'on_inactive'       => 'delete',
@@ -2729,8 +2789,8 @@ $patched = WPCPM_Settings::patch(
 );
 
 ck( 'each setting patched is held to save()\'s rule for it: clamped, refused, cleaned, a blank token left alone, an unknown answer read as the fallback',
-    array( $patched['logo_max_kb'], $patched['handbook_provider'], $patched['agreement_notify'], $patched['api_token'], $patched['on_inactive'], array_keys( WPCPM_Settings::last_refused() ) ),
-    array( 8192, '', '', 'patKEEPME0000000000', 'revoke', array( 'agreement_notify' ) ) );
+    array( $patched['logo_max_kb'], $patched['handbook_limit'], $patched['agreement_notify'], $patched['api_token'], $patched['on_inactive'], array_keys( WPCPM_Settings::last_refused() ) ),
+    array( 8192, 200, '', 'patKEEPME0000000000', 'revoke', array( 'agreement_notify' ) ) );
 
 store_settings( $defaults );
 WPCPM_Settings::patch( array( 'mentor_status' => '' ) );
@@ -2797,14 +2857,6 @@ ck( 'a patch that would take a live track\'s status out of Currently mentoring, 
     array( $held_current, 35, $defaults['past_statuses'], 2048, 0, array_merge( $held_current, array( 'Writing Track' ) ), array_merge( $defaults['past_statuses'], array( 'Withdrawn' ) ), 1 ) );
 
 WPCPM_Tracks::$live = array();
-
-$handbook_source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook.php' );
-
-$migration_source = method_source( $handbook_source, 'maybe_update_model' );
-
-ck( 'the handbook\'s migration writes through patch(), both times, and never through save()',
-    array( substr_count( $migration_source, 'WPCPM_Settings::patch( array(' ), substr_count( $migration_source, 'WPCPM_Settings::save(' ) ),
-    array( 2, 0 ) );
 
 $GLOBALS['umeta'] = array();
 
@@ -4245,8 +4297,8 @@ preg_match( '#<h2 id="settings">Settings</h2><p class="description">([^<]*)</p>(
 ck( 'the Need help? section\'s intro, once 275 characters, is one sentence, and the rest is in the fold under it',
     isset( $handbook_intro[1] ) ? array( html_entity_decode( $handbook_intro[1], ENT_QUOTES ), array_column( notes_of( $handbook_intro[2] ), 1 ) ) : null,
     array(
-        'A question box for people on the program, answered from the WordPress documentation.',
-        array( 'The AI provider below does the searching, so nothing is stored on this site, and without a provider there is no answer at all. Each question, and the pages found for it, go to that company.' ),
+        'A question box for people on the program, answered from this site\'s guides and the WordPress Credits handbook.',
+        array( 'The site keeps an index of its guides, the FAQ and the handbook, finds the passages a question needs, and the AI provider set up in Settings > Connectors writes the answer from them. Each question, and the passages found for it, go to that company.' ),
     ) );
 
 // The texts that ran past 300 characters: each is one sentence now, and the rest is in its fold,
@@ -5006,10 +5058,11 @@ ck( 'Need help?\'s screen opens on its Settings section: after its title, its le
     in_order( offsets_of( $handbook_screen, array( '<h1>Need help?</h1>', '<p class="wpcpm-lede">', 'Need help? is switched off, so it is not answering anybody.', '<h2 id="settings">Settings</h2>', '<h2>How answers are produced</h2>', '<h2>Try a question</h2>' ) ) ),
     true );
 
-ck( 'and the two links that sent a manager to the Settings screen open the section on this screen',
+// The provider is Settings > Connectors' since AI Mentor R1, so its row links there, not up to this section.
+ck( 'and the link that sent a manager to the Settings section opens it on this screen, the provider row\'s going to Connectors and no link to the Settings screen at all',
     array(
         substr_count( $handbook_screen, '<a href="#settings">Turn it on in Settings</a>' ),
-        substr_count( $handbook_screen, '<a href="#settings">Add one in Settings</a>' ),
+        substr_count( $handbook_screen, '<a href="https://example.test/wp-admin/options-connectors.php">Set one up in Settings &gt; Connectors</a>' ),
         preg_match_all( '#href="[^"]*page=wpcpm-settings\b#', $handbook_screen ),
         substr_count( $handbook_screen, 'id="settings"' ),
     ),

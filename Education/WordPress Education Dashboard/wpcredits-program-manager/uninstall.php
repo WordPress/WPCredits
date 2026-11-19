@@ -240,6 +240,10 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-modules.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-tool.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-header-notices.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-emails.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-guide-text.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-guide-index.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-guide-search.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-guide-sources.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-handbook-answer.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-handbook-assistant.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-handbook.php';
@@ -451,6 +455,8 @@ wp_clear_scheduled_hook( 'wpcpm_handbook_sync_tick' );
 // counts and times of the last bulk invite (the final fix wave of the deep check of 1.109.1); and the
 // lock the queue is written under (1.123.58), which a request that dies holding it leaves behind.
 WPCPM_Mail_Log::uninstall();
+// Need help?'s index: both tables, the schema version, the state, the handbook's state, the lock and both events.
+WPCPM_Guide_Sources::uninstall();
 // The Administrators' edits of the emails and of the signature and footer (1.122.19).
 delete_option( WPCPM_Mail_Templates::OPTION );
 // Forced: an uninstall deletes the queue whether or not a request holds its lock, since nothing

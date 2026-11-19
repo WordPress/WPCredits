@@ -27,6 +27,9 @@
 	var strings = config.strings || {};
 	var opener = null;
 	var pending = null;
+	// Whose dashboard the button that opened the panel is on, sent with each question so it is answered first
+	// from that dashboard's guide. Empty from a launcher that names none, such as the theme's header.
+	var audience = '';
 
 	/**
 	 * Show the panel.
@@ -35,6 +38,7 @@
 	 */
 	function open( trigger ) {
 		opener = trigger || null;
+		audience = opener && opener.getAttribute ? opener.getAttribute( 'data-wpcpm-handbook-for' ) || '' : '';
 		panel.hidden = false;
 		document.documentElement.classList.add( 'wpcpm-hb-open' );
 
@@ -88,12 +92,9 @@
 	/**
 	 * Show that something is happening, for as long as it takes.
 	 *
-	 * A grounded answer takes between ten and twenty-five seconds - the model searches, reads
-	 * what it finds, then writes. A line of text for that long reads as a page that has
-	 * stopped, so this is a bar that visibly moves and a count of seconds that proves it.
-	 *
-	 * Indeterminate on purpose: nothing reports how far through a search is, and a bar that
-	 * pretends to know would be a lie that stalls at 90%.
+	 * A line and a bar that visibly moves: an answer is a lookup in the guides and a model's reply, a few
+	 * seconds, so no count of them is kept. Indeterminate on purpose: nothing reports how far through it
+	 * is, and a bar that pretended to know would be a lie that stalls at 90%.
 	 */
 	function working() {
 		body.innerHTML = '';
@@ -114,28 +115,9 @@
 		bar.setAttribute( 'aria-label', strings.thinking || 'Looking…' );
 		bar.appendChild( document.createElement( 'span' ) );
 
-		var clock = document.createElement( 'p' );
-
-		clock.className = 'wpcpm-hb-panel__clock';
-
 		wrap.appendChild( label );
 		wrap.appendChild( bar );
-		wrap.appendChild( clock );
 		body.appendChild( wrap );
-
-		var seconds = 0;
-
-		clock.textContent = ( strings.elapsed || '%ss' ).replace( '%s', seconds );
-
-		return window.setInterval( function () {
-			seconds += 1;
-			clock.textContent = ( strings.elapsed || '%ss' ).replace( '%s', seconds );
-
-			// Somewhere to look while a slow one finishes, rather than wondering.
-			if ( 12 === seconds && strings.patience ) {
-				label.textContent = strings.patience;
-			}
-		}, 1000 );
 	}
 
 	/**
@@ -178,7 +160,7 @@
 		var heading = document.createElement( 'h3' );
 
 		heading.className = 'wpcpm-hb-panel__sources-title';
-		heading.textContent = strings.sources || 'Pages it read';
+		heading.textContent = strings.sources || 'Sources';
 		body.appendChild( heading );
 
 		var list = document.createElement( 'ol' );
@@ -196,8 +178,8 @@
 
 			item.appendChild( link );
 
-			// The address itself, under the name. A handbook page four levels deep is only
-			// identifiable from its path.
+			// The part of the passage that matched, under the name, when the answer is the guides' own
+			// words and not a model's.
 			if ( source.extract ) {
 				var url = document.createElement( 'p' );
 
@@ -227,7 +209,7 @@
 
 		pending = typeof AbortController === 'function' ? new AbortController() : null;
 
-		var ticking = working();
+		working();
 
 		// A ceiling of our own, above the server's. Without it a request the server never
 		// answers leaves the bar moving for ever, which is the one thing worse than an error.
@@ -236,7 +218,6 @@
 				pending.abort();
 			}
 
-			window.clearInterval( ticking );
 			message( strings.slow || strings.failed || '', 'degraded' );
 			pending = null;
 		}, 75000 );
@@ -250,7 +231,7 @@
 					'Content-Type': 'application/json',
 					'X-WP-Nonce': config.nonce
 				},
-				body: JSON.stringify( { question: question } )
+				body: JSON.stringify( { question: question, audience: audience } )
 			} )
 			.then( function ( response ) {
 				if ( ! response.ok ) {
@@ -261,12 +242,10 @@
 			} )
 			.then( function ( data ) {
 				pending = null;
-				window.clearInterval( ticking );
 				window.clearTimeout( giveUp );
 				render( data );
 			} )
 			.catch( function ( error ) {
-				window.clearInterval( ticking );
 				window.clearTimeout( giveUp );
 
 				// Aborted either by a newer question or by the ceiling above, both of which

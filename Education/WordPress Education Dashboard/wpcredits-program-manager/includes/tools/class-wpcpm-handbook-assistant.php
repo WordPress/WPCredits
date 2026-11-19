@@ -10,7 +10,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * A private question box over the synced handbook.
+ * A private question box over the index of this site's guides, its FAQ and the WordPress Credits
+ * handbook (`WPCPM_Guide_Index`), which `WPCPM_Handbook_Answer` answers from.
  *
  * **The question travels as a query argument, not a form post.** Asking a question changes
  * nothing, so it is a GET: the answer survives a reload, can be sent to somebody, and needs
@@ -32,6 +33,15 @@ class WPCPM_Handbook_Assistant {
 
 	/** Query argument carrying the question. */
 	const ARG = 'wpcpm_ask';
+
+	/**
+	 * Query argument carrying whose dashboard the question was asked from, so the answer is looked for first
+	 * in that dashboard's guide.
+	 */
+	const ARG_FOR = 'wpcpm_ask_for';
+
+	/** The audiences a question can be asked from, one per dashboard. */
+	const AUDIENCES = array( 'student', 'mentor', 'institution', 'sponsor', 'administrator' );
 
 	/** Longest question accepted. */
 	const MAX_LENGTH = 400;
@@ -114,14 +124,11 @@ class WPCPM_Handbook_Assistant {
 				'endpoint' => esc_url_raw( rest_url( 'wpcpm/v1/handbook/ask' ) ),
 				'nonce'    => wp_create_nonce( 'wp_rest' ),
 				'strings'  => array(
-					'thinking'  => __( 'Searching the WordPress documentation…', 'wpcredits-program-manager' ),
-					'patience'  => __( 'Still reading. A thorough answer can take half a minute.', 'wpcredits-program-manager' ),
-					/* translators: %s: number of seconds elapsed. */
-					'elapsed'   => __( '%ss', 'wpcredits-program-manager' ),
+					'thinking'  => __( 'Searching the guides…', 'wpcredits-program-manager' ),
 					'slow'      => __( 'That took too long and was given up on. Trying again, or asking something narrower, usually works.', 'wpcredits-program-manager' ),
 					'failed'    => __( 'That did not work. Try again in a moment.', 'wpcredits-program-manager' ),
-					'sources'   => __( 'Pages it read', 'wpcredits-program-manager' ),
-					'unsourced' => __( 'This answer does not cite any WordPress documentation, so it could not be checked against it. Treat it as unconfirmed.', 'wpcredits-program-manager' ),
+					'sources'   => __( 'Sources', 'wpcredits-program-manager' ),
+					'unsourced' => __( 'This answer does not point to a passage of the guides, so it could not be checked against them. Treat it as unconfirmed.', 'wpcredits-program-manager' ),
 					'empty'     => __( 'Type a question first.', 'wpcredits-program-manager' ),
 				),
 			)
@@ -147,7 +154,10 @@ class WPCPM_Handbook_Assistant {
 			);
 		}
 
-		$answer = WPCPM_Handbook_Answer::ask( $question );
+		// Whose dashboard the question was asked from: one of the five or nothing. The engine reads only
+		// the guide of an audience the asker may read.
+		$audience = self::audience_of( $request->get_param( 'audience' ) );
+		$answer   = WPCPM_Handbook_Answer::ask( $question, 0, $audience );
 
 		return new WP_REST_Response(
 			array(
@@ -155,11 +165,13 @@ class WPCPM_Handbook_Assistant {
 				// then `wp_kses_post` the page uses, so the panel cannot be the one place
 				// where a provider's output reaches the DOM unfiltered.
 				'html'      => wp_kses_post( wpautop( WPCPM_Handbook_Answer::to_html( $answer['text'] ) ) ),
-				'notice'    => $answer['notice'],
+				// The provider's own words are for whoever can fix the provider; everybody else is told the
+				// sentence in `html` and nothing more.
+				'notice'    => self::may_see_notice() ? $answer['notice'] : '',
 				'generated' => (bool) $answer['generated'],
-				// The reader is told when an answer cites nothing from the sites it was
-				// supposed to use. Without a local copy this warning is the only thing
-				// standing between them and a confident answer from somebody's blog.
+				// The reader is told when an answer cites no passage it was given: a model told
+				// to cite that cited nothing is the one most likely to have written something
+				// the guides do not say, so the answer is shown marked as unconfirmed.
 				'unsourced' => ! empty( $answer['unsourced'] ),
 				'sources'   => $answer['sources'],
 			),
@@ -196,6 +208,11 @@ class WPCPM_Handbook_Assistant {
 						'required'          => true,
 						'sanitize_callback' => 'sanitize_text_field',
 					),
+					'audience' => array(
+						'type'              => 'string',
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_key',
+					),
 				),
 			)
 		);
@@ -228,16 +245,11 @@ class WPCPM_Handbook_Assistant {
 		</form>
 		<div class="wpcpm-hb-panel__body" data-wpcpm-handbook-body aria-live="polite">
 			<p class="wpcpm-hb-panel__hint">
-				<?php esc_html_e( 'Ask about the program, or about WordPress itself.', 'wpcredits-program-manager' ); ?>
+				<?php echo esc_html( self::hint() ); ?>
 			</p>
 		</div>
 		<p class="wpcpm-hb-panel__foot">
-			<?php
-			// No branch on whether a provider is configured. There is no longer a version of
-			// this that keeps the question on the site - without a provider there is no answer
-			// at all, so the only true thing to say is that questions leave.
-			esc_html_e( 'NOTE: Your question is sent to an external AI service, which searches the WordPress documentation to answer it. Do not type anything confidential.', 'wpcredits-program-manager' );
-			?>
+			<?php echo esc_html( self::footnote() ); ?>
 		</p>
 	</div>
 </div>
@@ -309,9 +321,10 @@ class WPCPM_Handbook_Assistant {
 				|| user_can( $user->ID, WPCPM_Roles::CAP_MANAGE );
 		}
 
-		// The default. The handbook is written for the people running the program - most of it
-		// describes work a student never does - so mentors and program managers, and nobody
-		// else, until somebody widens it deliberately.
+		// The default: mentors and the people who manage the program, until somebody widens it
+		// deliberately. Whoever may ask is answered only from the guides their own access level
+		// reads (`WPCPM_Guide_Sources::audiences_for()`), so widening it widens who asks, never
+		// what any one person is shown.
 		return WPCPM_Mentors_Dashboard::is_mentor( $user )
 			|| user_can( $user->ID, WPCPM_Roles::CAP_MANAGE );
 	}
@@ -331,6 +344,53 @@ class WPCPM_Handbook_Assistant {
 			(string) WPCPM_Settings::get_value( 'handbook_access', 'mentor' ),
 			array( 'program', 'any' ),
 			true
+		);
+	}
+
+	/**
+	 * One of the five audiences, or '' for anything else: the dashboard a question was asked from.
+	 *
+	 * @param mixed $given What came with the request.
+	 * @return string
+	 */
+	public static function audience_of( $given ) {
+		$given = sanitize_key( (string) $given );
+
+		return in_array( $given, self::AUDIENCES, true ) ? $given : '';
+	}
+
+	/**
+	 * Whether the viewer may read the provider's own words: an account that manages the program, which is
+	 * the one that can set the provider up.
+	 *
+	 * @return bool
+	 */
+	private static function may_see_notice() {
+		return current_user_can( WPCPM_Roles::CAP_MANAGE );
+	}
+
+	/**
+	 * What the box says about where answers come from, in the panel, on the page and under the button.
+	 *
+	 * @return string
+	 */
+	private static function hint() {
+		return __( 'Ask about the program. Answers come from this site\'s guides and the WordPress Credits handbook.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * What the reader is told about where their question goes: to the provider Connectors names, or to an
+	 * outside AI service while none is set up.
+	 *
+	 * @return string
+	 */
+	private static function footnote() {
+		$name = WPCPM_Handbook_Answer::provider_label();
+
+		return sprintf(
+			/* translators: %s: the AI provider's name, or "an outside AI service". */
+			__( 'Your question, and the parts of the guides that match it, are sent to %s to write the answer. Do not type anything confidential.', 'wpcredits-program-manager' ),
+			'' !== $name ? $name : __( 'an outside AI service', 'wpcredits-program-manager' )
 		);
 	}
 
@@ -376,7 +436,7 @@ class WPCPM_Handbook_Assistant {
 		if ( '' === $question ) {
 			$out .= self::render_empty();
 		} else {
-			$out .= self::render_answer( WPCPM_Handbook_Answer::ask( $question ) );
+			$out .= self::render_answer( WPCPM_Handbook_Answer::ask( $question, 0, self::audience_of( WPCPM_Request::text( self::ARG_FOR ) ) ) );
 		}
 
 		$out .= self::render_footnote();
@@ -489,9 +549,9 @@ class WPCPM_Handbook_Assistant {
 	 * that resembles it and drifts the first time either is restyled.
 	 *
 	 * **The guide link does not depend on the assistant.** It is a link to a handbook page, so
-	 * it shows whether or not an AI provider is configured and whether or not this audience may
-	 * ask questions - those govern the "Need help?" button beside it and nothing else. Hiding a
-	 * handbook link because an API key is missing would make no sense to anybody.
+	 * it shows whether or not this audience may ask questions - that, and the index holding a
+	 * passage, govern the "Need help?" button beside it and nothing else. Without a provider the
+	 * panel answers with the parts of the guides that match, so no provider hides nothing.
 	 *
 	 * @param string $audience `student`, `mentor`, `institution`, `administrator` or `sponsor`,
 	 *                         deciding which guide is linked. `administrator` also ends the
@@ -516,10 +576,9 @@ class WPCPM_Handbook_Assistant {
 		// On a student's own card the question is whether *students* may ask, not whether the
 		// person looking at it may - otherwise a program manager inspecting a student would see
 		// the button on a page the student never would.
-		// A provider as well as permission. Without one the panel can only apologize, so the
-		// button would be an invitation to a dead end - and this guard was in the version
-		// before the section grew a guide beside it.
-		$may_ask = WPCPM_Handbook_Answer::provider_ready()
+		// The index holding a passage and permission, and no provider: without one the panel answers with the
+		// parts of the guides that match, so the button is never a dead end.
+		$may_ask = WPCPM_Handbook_Answer::ready()
 			&& ( 'student' === $audience
 				? self::audience_includes_students() && self::is_available()
 				: self::is_available() );
@@ -594,9 +653,14 @@ class WPCPM_Handbook_Assistant {
 		}
 
 		if ( $may_ask ) {
+			// Which dashboard's guide the question belongs to, for the script to send; none from a page that
+			// is not one of the five.
+			$for = self::audience_of( $audience );
+
 			$out .= sprintf(
-				'<button type="button" class="wpcpm-button wpcpm-button--secondary" data-wpcpm-handbook-open>%s</button>',
-				esc_html__( 'Need help?', 'wpcredits-program-manager' )
+				'<button type="button" class="wpcpm-button wpcpm-button--secondary" data-wpcpm-handbook-open%2$s>%1$s</button>',
+				esc_html__( 'Need help?', 'wpcredits-program-manager' ),
+				'' !== $for ? ' data-wpcpm-handbook-for="' . esc_attr( $for ) . '"' : ''
 			);
 		}
 
@@ -605,7 +669,7 @@ class WPCPM_Handbook_Assistant {
 		if ( $may_ask ) {
 			$out .= sprintf(
 				'<p class="wpcpm-student__note">%s</p>',
-				esc_html__( 'Ask anything about the program or WordPress itself, and get an answer.', 'wpcredits-program-manager' )
+				esc_html( self::hint() )
 			);
 		}
 
@@ -742,14 +806,19 @@ class WPCPM_Handbook_Assistant {
 	 * @return string
 	 */
 	private static function render_empty() {
-		if ( ! WPCPM_Handbook_Answer::provider_ready() ) {
-			return self::notice( __( 'No AI provider is configured, so questions cannot be answered yet. An Administrator can add one in the Settings section of the Need help? screen, under WPCredits Program > Tools.', 'wpcredits-program-manager' ) );
-		}
+		$out = sprintf( '<p class="wpcpm-handbook__hint">%s</p>', esc_html( self::hint() ) );
 
-		$out = sprintf(
-			'<p class="wpcpm-handbook__hint">%s</p>',
-			esc_html__( 'Answers are looked up in the WordPress documentation - the Education Handbook, Learn WordPress, the developer handbooks and wordpress.org - and link back to the pages they came from.', 'wpcredits-program-manager' )
-		);
+		// Said to an Administrator alone: they can set the provider up, and for everybody else the
+		// answers are the same sentence either way.
+		if ( self::may_see_notice() ) {
+			$state = WPCPM_Handbook_Answer::provider_state();
+
+			if ( 'not_set_up' === $state ) {
+				$out .= sprintf( '<p class="wpcpm-handbook__notice">%s</p>', esc_html__( 'No AI provider is set up in Settings > Connectors, so answers are the matching parts of the guides.', 'wpcredits-program-manager' ) );
+			} elseif ( 'ready' !== $state ) {
+				$out .= sprintf( '<p class="wpcpm-handbook__notice">%s</p>', esc_html__( 'The AI provider is not answering right now, so answers are the matching parts of the guides.', 'wpcredits-program-manager' ) );
+			}
+		}
 
 		$examples = array(
 			__( 'What does a mentor do in the first week?', 'wpcredits-program-manager' ),
@@ -779,7 +848,8 @@ class WPCPM_Handbook_Assistant {
 	private static function render_answer( array $answer ) {
 		$out = '<div class="wpcpm-handbook__answer">';
 
-		if ( '' !== $answer['notice'] ) {
+		// The provider's own words are an Administrator's to read; the sentence below is everybody's.
+		if ( '' !== $answer['notice'] && self::may_see_notice() ) {
 			$out .= sprintf(
 				'<p class="wpcpm-handbook__degraded">%s</p>',
 				esc_html( $answer['notice'] )
@@ -796,7 +866,7 @@ class WPCPM_Handbook_Assistant {
 		if ( ! empty( $answer['unsourced'] ) ) {
 			$out .= sprintf(
 				'<p class="wpcpm-handbook__unsourced">%s</p>',
-				esc_html__( 'This answer does not cite any WordPress documentation, so it could not be checked against it. Treat it as unconfirmed.', 'wpcredits-program-manager' )
+				esc_html__( 'This answer does not point to a passage of the guides, so it could not be checked against them. Treat it as unconfirmed.', 'wpcredits-program-manager' )
 			);
 		}
 
@@ -808,7 +878,7 @@ class WPCPM_Handbook_Assistant {
 
 		$out .= sprintf(
 			'<h3 class="wpcpm-handbook__heading">%s</h3>',
-			esc_html__( 'Pages it read', 'wpcredits-program-manager' )
+			esc_html__( 'Sources', 'wpcredits-program-manager' )
 		);
 		$out .= '<ol class="wpcpm-handbook__sources">';
 
@@ -836,12 +906,11 @@ class WPCPM_Handbook_Assistant {
 	 * @return string
 	 */
 	private static function render_footnote() {
-		// Said plainly and on the page, not in a policy somewhere. There is no local copy any
-		// more, so every question goes out - and somebody typing one about a named student
-		// deserves to know that before they press the button, not after.
+		// Said plainly and on the page, not in a policy somewhere: every question goes to a provider, and
+		// somebody typing one about a named student deserves to know that before they press the button.
 		return sprintf(
 			'<p class="wpcpm-handbook__footnote">%s</p>',
-			esc_html__( 'NOTE: Your question is sent to an external AI service, which searches the WordPress documentation to answer it. Do not type anything confidential.', 'wpcredits-program-manager' )
+			esc_html( self::footnote() )
 		);
 	}
 

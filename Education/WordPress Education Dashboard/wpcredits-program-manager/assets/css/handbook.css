@@ -360,15 +360,8 @@
 	}
 }
 
-.wpcpm-hb-panel__clock {
-	font-size: 0.85em;
-	font-variant-numeric: tabular-nums;
-	margin: 0;
-	opacity: 0.6;
-}
-
-/* A moving bar is the point, so with motion reduced the seconds carry the message
-   instead and the bar simply fills. */
+/* A moving bar is the point, so with motion reduced the working line carries the
+   message instead and the bar simply fills. */
 @media ( prefers-reduced-motion: reduce ) {
 
 	.wpcpm-hb-panel__bar span {
@@ -377,9 +370,8 @@
 	}
 }
 
-/* The address under each citation. Google supplies no page title, so the path is what
-   identifies a handbook page four levels deep - and it has to be able to break, because
-   those paths are long. */
+/* The excerpt under each source when the answer is the passages themselves: quieter than
+   the link above it, and able to break anywhere, since a passage can hold a long address. */
 .wpcpm-handbook__source-url,
 .wpcpm-hb-panel__source-url {
 	font-size: 0.85em;

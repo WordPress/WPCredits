@@ -1106,7 +1106,6 @@ class WPCPM_CLI {
 		$maskers = array(
 			'api_token'             => 'masked_token',
 			'schema_token'          => 'masked_schema_token',
-			'handbook_key'          => 'masked_handbook_key',
 			'checker_slack_webhook' => 'masked_slack_webhook',
 		);
 
@@ -1378,5 +1377,292 @@ class WPCPM_CLI {
 		WP_CLI::log( sprintf( 'Student reports in scope:  %d', count( $reports ) ) );
 		WP_CLI::log( sprintf( '  with no mentor linked:  %d', $unassigned ) );
 		WP_CLI::success( 'Dry run complete - nothing was written.' );
+	}
+
+	/**
+	 * Read and rebuild the index Need help? answers from: the site's guides, the FAQ and the WordPress
+	 * Credits handbook.
+	 *
+	 * `status` lists what the index holds. `reindex` writes the six pages and the handbook again, or one
+	 * source. `sync_handbook` reads the handbook alone; with --from-file it reads a saved answer of the
+	 * handbook's route, for a copy that cannot reach make.wordpress.org. `search` ranks the passages a
+	 * question's words match, over what an audience reads, and shows what Need help? would be given.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <action>
+	 * : status, reindex, sync_handbook or search.
+	 *
+	 * [<words>...]
+	 * : With search: the words to look for.
+	 *
+	 * [--source=<source>]
+	 * : With reindex: page:<ID> of one of the six pages, or handbook. Without it, everything.
+	 *
+	 * [--from-file=<path>]
+	 * : With sync_handbook: a saved answer of the handbook's route.
+	 *
+	 * [--as=<audience>]
+	 * : With search: student, mentor, institution, sponsor, administrator or public. Default administrator.
+	 *
+	 * [--limit=<n>]
+	 * : With search: how many passages, 1 to 20. Default 5.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wpcredits guides status
+	 *     wp wpcredits guides reindex --source=handbook
+	 *     wp wpcredits guides sync_handbook --from-file=/tmp/handbook.json
+	 *     wp wpcredits guides search "certificate" --as=student --limit=3
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Associative arguments.
+	 */
+	public function guides( $args, $assoc_args ) {
+		$action  = isset( $args[0] ) ? (string) $args[0] : '';
+		$allowed = array(
+			'status'        => array(),
+			'reindex'       => array( 'source' ),
+			'sync_handbook' => array( 'from-file' ),
+			'search'        => array( 'as', 'limit' ),
+		);
+		$usage   = 'Use guides status, guides reindex [--source=<page:ID|handbook>], guides sync_handbook [--from-file=<path>], or guides search <words> [--as=<audience>] [--limit=<n>].';
+
+		if ( ! isset( $allowed[ $action ] ) || array() !== array_diff( array_keys( (array) $assoc_args ), $allowed[ $action ] ) ) {
+			WP_CLI::error( $usage );
+		}
+
+		foreach ( $allowed[ $action ] as $option ) {
+			if ( isset( $assoc_args[ $option ] ) && ( ( ! is_string( $assoc_args[ $option ] ) && ! is_int( $assoc_args[ $option ] ) ) || '' === trim( (string) $assoc_args[ $option ] ) ) ) {
+				WP_CLI::error( $usage );
+			}
+		}
+
+		if ( 'status' === $action ) {
+			if ( count( $args ) > 1 ) {
+				WP_CLI::error( $usage );
+			}
+
+			$this->guides_status();
+
+			return;
+		}
+
+		if ( 'search' === $action ) {
+			$this->guides_search( array_slice( $args, 1 ), $assoc_args, $usage );
+
+			return;
+		}
+
+		if ( count( $args ) > 1 ) {
+			WP_CLI::error( $usage );
+		}
+
+		if ( 'sync_handbook' === $action ) {
+			$this->guides_sync( isset( $assoc_args['from-file'] ) ? (string) $assoc_args['from-file'] : '' );
+
+			return;
+		}
+
+		$this->guides_reindex( isset( $assoc_args['source'] ) ? (string) $assoc_args['source'] : '' );
+	}
+
+	/**
+	 * `guides status`: each source, then the handbook's last sync and the version the index was built for.
+	 */
+	private function guides_status() {
+		$rows = array();
+
+		foreach ( WPCPM_Guide_Index::sources() as $source => $entry ) {
+			$rows[] = array(
+				'source'   => (string) $source,
+				'kind'     => isset( $entry['kind'] ) ? (string) $entry['kind'] : '',
+				'audience' => isset( $entry['audience'] ) ? (string) $entry['audience'] : '',
+				'passages' => isset( $entry['passages'] ) ? (int) $entry['passages'] : 0,
+				'indexed'  => ! empty( $entry['indexed_at'] ) ? wp_date( 'Y-m-d H:i', (int) $entry['indexed_at'] ) : '',
+			);
+		}
+
+		if ( array() === $rows ) {
+			WP_CLI::log( 'The index holds nothing yet. Run guides reindex.' );
+		} else {
+			WP_CLI\Utils\format_items( 'table', $rows, array( 'source', 'kind', 'audience', 'passages', 'indexed' ) );
+		}
+
+		WP_CLI::log( sprintf( 'Passages in the index: %d', WPCPM_Guide_Index::count() ) );
+
+		$handbook = get_option( WPCPM_Guide_Sources::OPT_HANDBOOK, array() );
+
+		if ( ! is_array( $handbook ) || empty( $handbook['synced_at'] ) ) {
+			WP_CLI::log( 'Handbook last synced: never' );
+		} else {
+			WP_CLI::log(
+				sprintf(
+					'Handbook last synced: %1$s (%2$s, %3$d pages%4$s)',
+					wp_date( 'Y-m-d H:i', (int) $handbook['synced_at'] ),
+					! empty( $handbook['ok'] ) ? 'ok' : ( isset( $handbook['error'] ) && '' !== (string) $handbook['error'] ? 'failed: ' . $handbook['error'] : 'failed' ),
+					isset( $handbook['pages'] ) ? (int) $handbook['pages'] : 0,
+					! empty( $handbook['malformed'] ) ? sprintf( ', %d incomplete', (int) $handbook['malformed'] ) : ''
+				)
+			);
+		}
+
+		$state = WPCPM_Guide_Index::state();
+
+		WP_CLI::log( 'Index built for plugin version: ' . ( ! empty( $state['built_for'] ) ? (string) $state['built_for'] : 'not yet' ) );
+	}
+
+	/**
+	 * `guides reindex`: one page, the handbook, or everything.
+	 *
+	 * @param string $source page:<ID>, handbook, or '' for every source.
+	 */
+	private function guides_reindex( $source ) {
+		if ( 'handbook' === $source ) {
+			$this->guides_sync( '' );
+
+			return;
+		}
+
+		if ( '' !== $source ) {
+			$page = 1 === preg_match( '/^page:([1-9][0-9]*)$/', $source, $found ) ? $this->guides_page( (int) $found[1] ) : null;
+
+			if ( null === $page ) {
+				WP_CLI::error( sprintf( '%s is not one of the pages the index reads. Use page:<ID> of one of them, or handbook.', $source ) );
+			}
+
+			// Under the index's lock, as every other writer is, so this page and a rebuild or the daily run
+			// never write at once.
+			$token = WPCPM_Lock::take( WPCPM_Guide_Sources::LOCK, WPCPM_Guide_Sources::LOCK_TTL );
+
+			if ( '' === $token ) {
+				WP_CLI::error( 'A rebuild is already running.' );
+			}
+
+			try {
+				$passages = (int) WPCPM_Guide_Sources::index_page( $page );
+			} finally {
+				WPCPM_Lock::release( WPCPM_Guide_Sources::LOCK, $token );
+			}
+
+			WP_CLI::success( sprintf( 'Reindexed page:%1$d: %2$d passages.', (int) $page->ID, $passages ) );
+
+			return;
+		}
+
+		$result = WPCPM_Guide_Sources::rebuild();
+
+		if ( ! empty( $result['busy'] ) ) {
+			WP_CLI::error( 'A rebuild is already running.' );
+		}
+
+		foreach ( $result as $key => $passages ) {
+			if ( 'lost' !== $key ) {
+				WP_CLI::log( sprintf( '%1$s: %2$d passages', $key, (int) $passages ) );
+			}
+		}
+
+		if ( ! empty( $result['lost'] ) ) {
+			WP_CLI::error( 'The rebuild lost its lock before it finished. Run it again.' );
+		}
+
+		WP_CLI::success( 'Rebuilt the index.' );
+	}
+
+	/**
+	 * The page with this ID when it is one of the pages the index reads, or null.
+	 *
+	 * @param int $id The post ID.
+	 * @return WP_Post|null
+	 */
+	private function guides_page( $id ) {
+		foreach ( array_keys( WPCPM_Guide_Sources::pages() ) as $path ) {
+			$page = get_page_by_path( $path, OBJECT, 'page' );
+
+			if ( $page instanceof WP_Post && (int) $page->ID === $id ) {
+				return $page;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * `guides sync_handbook`: the handbook, from its route or from a saved answer.
+	 *
+	 * A sync in which the database refused a page's write or removal is an error that says how many pages
+	 * failed and what did change; one in which entries came incomplete succeeds and says how many were
+	 * kept as the index held them.
+	 *
+	 * @param string $from_file A saved answer of the route, or ''.
+	 */
+	private function guides_sync( $from_file ) {
+		$result = WPCPM_Guide_Sources::sync_handbook( $from_file );
+
+		if ( ! empty( $result['failed'] ) ) {
+			WP_CLI::error( sprintf( 'The handbook was read, but %1$d of its pages could not be updated in the index (%2$d changed, %3$d removed). Run it again.', (int) $result['failed'], (int) $result['changed'], (int) $result['removed'] ) );
+		}
+
+		if ( empty( $result['ok'] ) ) {
+			WP_CLI::error( '' !== (string) $result['error'] ? (string) $result['error'] : 'The handbook could not be read.' );
+		}
+
+		$line      = sprintf( 'Handbook synced: %1$d pages, %2$d changed, %3$d removed.', (int) $result['pages'], (int) $result['changed'], (int) $result['removed'] );
+		$malformed = isset( $result['malformed'] ) ? (int) $result['malformed'] : 0;
+
+		if ( $malformed > 0 ) {
+			$line .= sprintf( 1 === $malformed ? ' %d of its pages came incomplete and was kept as the index held it.' : ' %d of its pages came incomplete and were kept as the index held them.', $malformed );
+		}
+
+		WP_CLI::success( $line );
+	}
+
+	/**
+	 * `guides search`: the passages a question's words would be given.
+	 *
+	 * @param string[] $words      The words.
+	 * @param array    $assoc_args --as and --limit.
+	 * @param string   $usage      The usage line.
+	 */
+	private function guides_search( $words, $assoc_args, $usage ) {
+		$words = trim( implode( ' ', array_map( 'strval', $words ) ) );
+		$as    = isset( $assoc_args['as'] ) ? (string) $assoc_args['as'] : 'administrator';
+		$limit = isset( $assoc_args['limit'] ) ? (string) $assoc_args['limit'] : '5';
+
+		if ( '' === $words ) {
+			WP_CLI::error( $usage );
+		}
+
+		if ( ! in_array( $as, WPCPM_Guide_Sources::AUDIENCES, true ) ) {
+			WP_CLI::error( sprintf( '--as takes one of %s.', implode( ', ', WPCPM_Guide_Sources::AUDIENCES ) ) );
+		}
+
+		if ( 1 !== preg_match( '/^[0-9]+$/', $limit ) || (int) $limit < 1 || (int) $limit > 20 ) {
+			WP_CLI::error( '--limit takes a number from 1 to 20.' );
+		}
+
+		// An asker reads public and their own audience; an Administrator reads all six.
+		$reads = 'administrator' === $as ? WPCPM_Guide_Sources::AUDIENCES : array_values( array_unique( array( 'public', $as ) ) );
+		$home  = 'public' === $as ? '' : $as;
+		$found = WPCPM_Guide_Search::rank( array( $words ), $reads, $home, (int) $limit );
+
+		if ( array() === $found ) {
+			WP_CLI::log( 'Nothing in the index matches.' );
+
+			return;
+		}
+
+		$rows = array();
+
+		foreach ( $found as $row ) {
+			$rows[] = array(
+				'score'   => sprintf( '%.2f', $row['score'] ),
+				'page'    => (string) $row['title'],
+				'section' => (string) $row['heading'],
+				'address' => (string) $row['url'],
+			);
+		}
+
+		WP_CLI\Utils\format_items( 'table', $rows, array( 'score', 'page', 'section', 'address' ) );
 	}
 }

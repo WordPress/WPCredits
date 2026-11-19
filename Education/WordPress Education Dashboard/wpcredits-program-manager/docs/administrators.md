@@ -2542,28 +2542,30 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 
 ### Set up Need help?
 
-*When:* mentors and Administrators should be able to ask questions answered from the WordPress documentation, or answers stopped coming.
+*When:* people on the program should be able to ask questions answered from this site's guides and the WordPress Credits handbook, or answers stopped coming.
 
 1. Open `WPCredits Program > Tools > Need help?`.
 2. In the **Settings** card, check that **Switch it on** beside **Need help?** is ticked. It starts ticked.
-3. Choose **Google AI Studio (Gemini)** in **Answer provider**.
-4. Paste the provider's key in **Provider API key**.
-5. Leave **Model** as it is.
-6. Choose who may ask under **Who can ask**, and set **Questions per person per hour**.
-7. Press **Save settings**.
+3. Leave **Model** as it is.
+4. Choose who may ask under **Who can ask**, and set **Questions per person per hour**.
+5. Press **Save settings**.
+6. Under **How answers are produced**, check that **Provider** names the AI provider and **Model** says *Offered*. If **Provider** says *None set up: answers are passages only.*, press **Set one up in Settings > Connectors**: the provider's key goes there.
+7. Check that **Sources** lists the guides, the FAQ and the handbook. If it says *None yet: the guides have not been read.*, press **Rebuild the index**.
 8. Type a question under **Try a question** and press **Ask**.
 
 **What happens next**
 
-- The answer under **Try a question** is exactly what somebody on the program would see.
+- The answer under **Try a question**, with its **Sources**, is asked as you: as an Administrator, it can come from every guide, and the Administrator guide is favored. Someone on the program is answered only from the guides their own level lets them read.
 - People ask from [Need help?](#need-help) in the site header and from **Resources** on the Mentor Report Card and the Student Report Card, when **Who can ask** includes them. Since 1.123.96 a school's people ask from the Ask box under **Help** in the Institution Dashboard's menu.
-- Each question, and the pages found for it, go to the provider's company. Nothing is stored on this site.
+- Since 1.123.101 each question, and the parts of the guides that match it, go to the provider set up in `Settings > Connectors`. Nothing about the person asking goes with them, and this site keeps no copy of the question or the answer.
 
 **Good to know**
 
-- With **Answer provider** left at **None - questions cannot be answered**, nobody gets an answer.
+- Since 1.123.101 Need help? answers without a provider too. With none set up, or one that cannot answer, people get the three passages that match best, with their links.
+- The plugin stores no key: it is core's, in `Settings > Connectors`. Use a key from a Google Cloud project with billing turned on: under the Gemini API terms, prompts sent with a free-tier key may be used to improve Google's products.
 - **Who can ask** starts at **Mentors and administrators**. Nobody signed out can ask, whatever it says.
-- **Questions per person per hour** starts at 20, and 0 removes that limit. The whole site still gets at most 300 questions answered a day.
+- **Questions per person per hour** starts at 20, and 0 removes that limit. The whole site still sends at most 300 questions a day to the provider. Past either limit, people get the matching passages without a written answer.
+- The index follows the guides by itself: a guide is read again when it is saved, and the handbook every day.
 
 ## Where does it stand?
 
@@ -3990,7 +3992,7 @@ Rules for the log:
 - One run deletes at most 10,000 calls, and the next day's run deletes the rest.
 - `wp wpcredits mcp_log` lists up to 1,000 calls, newest first: `--limit` (1 to 1,000, default 100) and `--format` (`table`, `json` or `csv`). JSON and CSV also give what was asked and the IDs of the records that went out.
 
-Claude can ask seven questions. The answers come from the site's own records, never from Airtable or WordPress.org.
+Claude can ask eight questions. The answers come from the site's own records, never from Airtable or WordPress.org. Since 1.123.101 **Search the guides** reads the index Need help? answers from: this site's guides, the FAQ and the copy of the WordPress Credits handbook the site reads each day. It calls no AI model.
 
 | Question | What it gives |
 | --- | --- |
@@ -4001,8 +4003,9 @@ Claude can ask seven questions. The answers come from the site's own records, ne
 | **A student's tracks** | Up to ten people, by email address, WordPress.org username or profile address, Students record ID, or three or more characters of a name. Whether each has an account here, and for each track: its status, institution, cohort, dates, team, hours, reports and mentor's record ID. |
 | **A mentor's students** | One mentor, by Mentors record ID, username, email address or WordPress.org profile address. Whether they are active, their last sign-in and visit, their Engagement view, and up to 25 students as the Mentor Report Card lists them. |
 | **Mentor applications** | Up to 25 applications in one state, newest first: open, selected or lapsed. For each: the day received, days in the state, country, languages, hours, areas, the teacher answer, whether the address is confirmed, and a *duplicate* and a *held* flag. Also how many are open, selected and lapsed. |
+| **Search the guides** | Up to five passages that best match English search words, best first, from every guide, the FAQ and the handbook. For each: its page, section, address, up to 600 characters of its text, and whether it is from a guide, the FAQ or the handbook. Also the last time a page was indexed. Claude may name a guide's audience, such as *mentor*, to favor that guide. |
 
-The last three are the lookups of people.
+**A student's tracks**, **A mentor's students** and **Mentor applications** are the lookups of people.
 
 Rules for what an answer holds:
 - A person comes back as an ID, never by name. A student is the Students record ID of each track, a mentor their Mentors record ID, an applicant their application's reference.
@@ -4112,7 +4115,7 @@ Each tool has a card on `WPCredits Program > Tools` and a screen of its own unde
 Each card on the Tools screen can carry a status line. A tool that cannot run says why, as a warning:
 
 - **Student Duplicate Finder**: *Airtable is not connected yet, so this tool cannot run.*
-- **Need help?**: *Switched off.*, or *No AI provider is configured, so questions cannot be answered.*
+- **Need help?**: *Switched off.*, or *No index yet: the guides have not been read.* Since 1.123.101 its line is not a warning once the index holds a passage: it names the AI provider and the model that write the answers, such as *Answering through Google with gemini-flash-latest.*, or starts *Answering with passages only* and says why.
 - The **Mentor Status Checker** runs without Airtable. Its line then says it checks the applications selected on this site, and not Airtable's mentors.
 
 Step by step: [Set up Need help?](#set-up-need-help); [The Mentor Status Checker: check, then promote](#the-mentor-status-checker-check-then-promote); [A student has duplicate rows](#a-student-has-duplicate-rows).
@@ -4794,29 +4797,77 @@ Step by step: [Publish a new track](#publish-a-new-track); [Change a track that 
 
 ### Need help?
 
-A question box answered from the WordPress documentation, at `WPCredits Program > Tools > Need help?`. Below **Settings** come **How answers are produced** and **Try a question**, which shows exactly what a person would get.
+A question box answered from this site's guides, the FAQ and the WordPress Credits handbook, at `WPCredits Program > Tools > Need help?`. Below **Settings** come **How answers are produced** and **Try a question**. **Try a question** asks as you: as an Administrator, your answer can come from every guide, and the Administrator guide is favored. Someone on the program is answered only from the guides their own level lets them read.
 
-People ask from **Need help?** in the site header, and from **Resources** on the Mentor and Student Report Cards, where **Who can ask** allows it and a provider is set. Since 1.123.96 a school's people ask from the Ask box under **Help** in the Institution Dashboard's menu, on the same terms.
+People ask from **Need help?** in the site header, and from **Resources** on the Mentor and Student Report Cards, where **Who can ask** allows it. Since 1.123.96 a school's people ask from the Ask box under **Help** in the Institution Dashboard's menu, on the same terms.
+
+Since 1.123.101 Need help? no longer searches the web. The site keeps an index of its guides, the FAQ and the handbook. For each question it finds the five passages that match best, and the AI provider set up in `Settings > Connectors` writes a short answer from those passages alone, in the language of the question. Under the answer, **Sources** links each passage it used. The **Need help?** button in **Resources** no longer waits for a provider: it shows once the index holds a passage.
+
+Since 1.123.101 a question takes up to two calls to the provider. The first turns the question into English search words, so a question in Spanish or Italian finds the English guides. It is sent the section titles of the asker's own guide with the question, so the words can be the guide's own. The second sends the question with the five passages and gets the answer back.
+
+Who reads which passages:
+
+- A passage goes only to someone its page lets in, by the page's **Program access** level, read when the question is asked. The Administrator guide's passages go to Administrators by its page's own **Program access** level.
+- The FAQ and the handbook are read by everybody who may ask. The FAQ is indexed only while its own level is **Public**, and each question checks it again: a FAQ given another level, unpublished or given a password is left out at once for anyone its page would refuse.
+- The guide of the dashboard the question was asked from is favored. Asked anywhere else, the asker's own guide is. The site's guides are favored over the handbook.
+
+When there is no written answer:
+
+- With no provider set up, a model the provider does not offer, a provider that is busy or refuses the request, or a reply that is not what was asked for, people get the three passages that match best, each with an excerpt and its link, under one sentence that says why.
+- A question past a limit gets the matching passages too, under a sentence that says which limit, and goes to no provider.
+- When nothing in the guides answers the question, the answer says so. It sends a student to their mentor or the program's Slack channel, and everybody else to the Slack channel.
+- Until the index holds a passage, a question gets *The guides are not ready to search yet. Try again in a little while.*
+- An answer that points to no passage is shown with *This answer does not point to a passage of the guides, so it could not be checked against them. Treat it as unconfirmed.*, and the passages it was given as its sources.
+- An Administrator also sees the provider's own words when a call to it failed.
+
+Since 1.123.101 the provider is sent the question as typed with the section titles of the asker's own guide and, in the second call, the five passages and the question's language. Nothing about the person asking is sent: no name, address, role or record. The plugin stores no key and keeps no copy of any question or answer. The note under the box says: *Your question, and the parts of the guides that match it, are sent to Google to write the answer. Do not type anything confidential.* It names the provider as `Settings > Connectors` does, or says *an outside AI service* while none is set up.
 
 Step by step: [Set up Need help?](#set-up-need-help).
 
 #### Settings
 
-At the top of the screen, with its own **Save settings**. Each question goes to the provider's company. Nothing is stored on this site.
+At the top of the screen, with its own **Save settings**. Since 1.123.101 the provider and its key are not set here: they are core's, in `Settings > Connectors`, and the plugin stores no key.
 
 - **Need help?**: the box **Switch it on**. Off, nobody gets an answer, the header button goes and its page is unpublished. Default: on.
-- **Answer provider**: Choices: the first one, which starts with *None*, and **Google AI Studio (Gemini)**. Default: the first, which answers nobody.
-- **Provider API key**: only its last four characters are shown afterward. Leave it blank to keep the current key. A Gemini key is free at aistudio.google.com.
-- **Model**: typed. Default: `gemini-flash-latest`. Leave it as is.
+- **Model**: typed. Default: `gemini-flash-latest`. Leave it as is. The provider is asked for this model by name, and a model it does not offer is never swapped for another.
 - **Who can ask**: Choices: **Mentors and administrators**, **Students, institutions and sponsors as well**, **Anybody logged in to this site**, **Administrators only**. Default: **Mentors and administrators**.
 - **Questions per person per hour**: 0 to 200, where 0 removes this limit. Default: 20.
 
 Limits and rules:
 
 - Nobody logged out can ask.
-- The whole site gets at most 300 answers a day.
-- Past a limit, people are asked to come back shortly.
-- **Where answers come from** lists the four wordpress.org sites the provider searches. It has nothing to set.
+- The whole site sends at most 300 questions a day to the provider.
+- Since 1.123.101 a question counts against both limits once it is sent to the provider. Past a limit, people get the passages that match their question, without a written answer.
+- The hourly limit counts each clock hour and the daily limit each day, both in UTC.
+
+#### How answers are produced
+
+Since 1.123.101 this card says who writes the answers and what the index holds.
+
+- **Provider**: the name `Settings > Connectors` gives the provider. With none set up: *None set up: answers are passages only.*, and **Set one up in Settings > Connectors**.
+- **Model**: the model's name, then *Offered*, *Not offered by the provider*, *Refused by the provider*, *The provider is not answering right now* or *No provider is set up*.
+- **Sources**: each page of the index with its passages and when it was indexed, or why it was not. Under them, when the handbook last synced and how many pages it holds, or when it last tried and what went wrong. A sync in which the database refused a page has failed, and says how many pages; the next run writes them again. When the handbook sent pages incomplete, the line says how many were kept as the index held them.
+- **Rebuild the index**: the button reads every guide, the FAQ and the handbook again. A notice then gives the passages the index holds, or says *A rebuild is already running.*
+
+The site asks once which provider offers the model, and keeps the answer for twelve hours, or for fifteen minutes when the provider refused the request, was busy or could not be reached. A key changed in `Settings > Connectors`, a change of **Model**, or **Save settings** in the **Settings** card makes it ask again.
+
+#### The index
+
+Since 1.123.101 the index reads six pages of this site, found by their addresses: `student-guide`, `mentor-guide`, `institution-guide`, `sponsor-guide`, `administrator-guide` and `faq`. Only a published page with no password is read. It also reads the WordPress Credits handbook on make.wordpress.org: the pages under `/community/handbook/education/credits/`, except those under `program-manager-guide/`. Each page is split at its headings into passages, and each FAQ question is one.
+
+It is kept up to date whether Need help? is on or off, since Claude's **Search the guides** reads it too:
+
+- Saving one of the six pages reads that page again, at the end of the save. Each release republishes the guides, which is such a save. A page unpublished, moved off its address or deleted for good leaves the index at once.
+- A release that changes the plugin's version schedules one rebuild of everything.
+- Every day the handbook is read again, with any of the six pages changed since it was indexed. A failed read of the handbook keeps what the index holds, and so does a page it sends without its ID, its address, its date or its text. One read takes up to 100 pages: if the handbook ever holds more, the pages read are written and none is removed.
+- Only one of these writes the index at a time.
+
+From the command line:
+
+- `wp wpcredits guides status` lists what the index holds.
+- `wp wpcredits guides reindex` reads everything again. `--source=page:<ID>`, for one of the six pages, or `--source=handbook` reads one source.
+- `wp wpcredits guides sync_handbook` reads the handbook alone. With `--from-file=<path>` it reads a saved answer of the handbook's REST route, for a copy of the site that cannot reach make.wordpress.org. It, and `reindex --source=handbook`, end in an error when the database refused a page, saying how many.
+- `wp wpcredits guides search <words>` lists the passages those words find, best first. `--as=<audience>` reads as one audience: student, mentor, institution, sponsor, administrator or public, by default administrator. `--limit=<n>` takes 1 to 20, by default 5.
 
 ## Who can read what
 
@@ -5434,6 +5485,7 @@ Deleted:
 - The program details on accounts: record IDs, program, mentor links, availability, sign-in times, reminders.
 - The records of institutions, students, mentors and sponsors: applications, agreement records, invitations, history, semester reports, registrations, interests, calls, notes, offers, codes, claims, reports and events.
 - Track Builder tracks, header notices and the scheduled jobs.
+- Since 1.123.101 Need help?'s index of the guides and the handbook, with its two tables.
 
 Step by step: [Before you uninstall the plugin](#before-you-uninstall-the-plugin).
 
@@ -6403,6 +6455,8 @@ This table is for the person who maintains the site's code or database. Nobody n
 
 It lists many of the names the plugin stores things under, each with the name it has in the code. It is not complete: some stored names have no row here.
 
+Since 1.123.101 two tables of the plugin's own hold Need help?'s index. `{prefix}wpcpm_guide_chunks` has one row a passage: its source, page, section, address and text. `{prefix}wpcpm_guide_terms` has one row a term of a passage, with how often the passage uses it, which is what the ranking reads. They are made on activation and when their version moves, and uninstall drops both.
+
 | Option | Constant |
 | --- | --- |
 | `_jetpack_dont_email_post_to_subs` | `WPCPM_Sponsor_Posts::META_NO_SUBSCRIBER_MAIL` (post meta: Jetpack Subscriptions' own mark, `1` on every sponsor post, so it is never emailed to the site's subscribers) |
@@ -6445,10 +6499,17 @@ It lists many of the names the plugin stores things under, each with the name it
 | `wpcpm_claims` | `WPCPM_Sponsor_Claims::META_CLAIMS` |
 | `wpcpm_codes_` | `WPCPM_Sponsor_Codes::OPT_PREFIX` |
 | `wpcpm_countries` | `WPCPM_Countries::OPT_NAME` |
+| `wpcpm_guide_daily` | `WPCPM_Guide_Sources::CRON_DAILY` (cron hook, since 1.123.101: the daily run of Need help?'s index, which reads the handbook again and any of the six guide pages changed since it was indexed, and takes out a page that is gone; scheduled on `init` when it is not on the clock, taken off it on deactivation and again on uninstall) |
+| `wpcpm_guide_handbook_state` | `WPCPM_Guide_Sources::OPT_HANDBOOK` (since 1.123.101: when the handbook was last read, whether that worked, what went wrong, how many of its pages the index holds, and whether the handbook holds more pages than one read takes; not autoloaded) |
+| `wpcpm_guide_index_lock` | `WPCPM_Guide_Sources::LOCK` (since 1.123.101: held while a save, a page deleted for good, the daily run, a rebuild, a read of the handbook or `wp wpcredits guides reindex` writes the index, five minutes at a time, so two never write at once; uninstall removes any left behind) |
+| `wpcpm_guide_index_state` | `WPCPM_Guide_Index::OPT_STATE` (since 1.123.101: what the index holds, per source: its title, its passages, the page's modified time and when it was indexed, or why it could not be written; and the plugin version the last whole rebuild ran under; not autoloaded) |
+| `wpcpm_guide_index_version` | `WPCPM_Guide_Index::OPT_VERSION` (since 1.123.101: the version of the index's two tables, `wpcpm_guide_chunks` and `wpcpm_guide_terms`) |
 | `wpcpm_guide_page_moved` | `WPCPM_Settings_Screen::OPT_GUIDE_MOVED` (the one-time move of the Administrator guide's page to its new address, 1.123.41) |
-| `wpcpm_handbook_model_fixed` | `WPCPM_Handbook::OPT_MODEL_FIXED` |
+| `wpcpm_guide_rebuild` | `WPCPM_Guide_Sources::CRON_REBUILD` (cron hook, since 1.123.101: one rebuild of the whole index, scheduled a minute ahead on activation, when the plugin's version is not the one the index was built under, and when a save found the index busy; taken off the clock on deactivation and again on uninstall. The **Rebuild the index** button's form uses the same name, as `WPCPM_Handbook::ACTION_REBUILD`) |
+| `wpcpm_handbook_model_check` | `WPCPM_Handbook_Answer::MODEL_CHECK` (a transient, since 1.123.101: which AI provider set up in `Settings > Connectors` offers the **Model**, or that none does, or that the provider refused or did not answer; twelve hours, fifteen minutes when it refused or did not answer; forgotten when a key changes in Connectors, **Model** changes or the Need help? settings are saved) |
 | `wpcpm_handbook_page_id` | `WPCPM_Handbook_Assistant::OPT_PAGE` |
 | `wpcpm_handbook_page_visible` | `WPCPM_Handbook_Assistant::OPT_APPLIED` |
+| `wpcpm_hb_rate_` | `WPCPM_Handbook_Answer::RATE_PREFIX` (transients: Need help?'s question counters, one for each window since 1.123.101. `wpcpm_hb_rate_day_` and the UTC date for the site's day, kept a day; the user ID and the UTC hour for a person's hour, kept an hour; uninstall deletes every name under the prefix) |
 | `wpcpm_institution_announce_lock` | `WPCPM_Institution_Announce::LOCK` (the lock one announcement holds while it reads the record IDs already announced, posts and writes them back, so two syncs finishing together cannot announce the same institution twice; it holds for two minutes at most and a run that cannot take it announces nothing) |
 | `wpcpm_institution_announced` | `WPCPM_Institution_Announce::OPT_ANNOUNCED` (the record IDs of the institutions whose arrival at Confirmed has been announced on Slack, so none is announced a second time) |
 | `wpcpm_institution_modules_` | None since 1.123.96 (each institution's module order, saved with the arrows before 1.123.96; since then nothing writes or reads it, the constant that named it is gone, and uninstall deletes it by this name; the Student Report Card keeps its own order in user meta, `wpcpm_student_modules`) |

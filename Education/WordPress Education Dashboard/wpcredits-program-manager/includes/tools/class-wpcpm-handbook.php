@@ -25,24 +25,11 @@ class WPCPM_Handbook extends WPCPM_Tool {
 	/** Admin-post action for the sample question. Kept as a GET-shaped screen, see below. */
 	const ARG_ASK = 'wpcpm_ask';
 
-	/** Records which model revision this site has been brought up to. */
-	const OPT_MODEL_FIXED = 'wpcpm_handbook_model_fixed';
+	/** Admin-post action of the Rebuild the index button. */
+	const ACTION_REBUILD = 'wpcpm_guide_rebuild';
 
-	/** The current model revision. Bump this whenever the default model changes. */
-	const MODEL_VERSION = 2;
-
-	/**
-	 * Model names this plugin has shipped as its default.
-	 *
-	 * Only a value the plugin itself put there is ever replaced. A model somebody typed
-	 * deliberately is theirs, even if it is retired - they may be waiting on a replacement, or
-	 * pointing at something this list has never heard of.
-	 *
-	 * Providers retire models on their own schedule and the failure is not subtle: the request
-	 * comes back refused and the reader gets nothing. Changing the default in `defaults()` is
-	 * not enough, because defaults only reach a site that has never saved its settings.
-	 */
-	const SHIPPED_MODELS = array( 'gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-pro', 'llama-3.3-70b-versatile' );
+	/** The channel the rebuild's outcome is flashed on, for the screen it goes back to. */
+	const FLASH = 'wpcpm-handbook-rebuild';
 
 	/**
 	 * Tool ID.
@@ -68,15 +55,19 @@ class WPCPM_Handbook extends WPCPM_Tool {
 	 * @return string
 	 */
 	public function description() {
-		return __( 'Answers questions from the WordPress documentation, for the logged-in people its Who can ask setting names. The AI provider does the searching; nothing is stored on this site.', 'wpcredits-program-manager' );
+		return __( 'Answers questions from this site\'s guides and the WordPress Credits handbook, for the logged-in people its Who can ask setting names.', 'wpcredits-program-manager' );
 	}
 
 	/**
 	 * Hooks.
 	 */
 	public function boot() {
-		// Before anything can ask the provider anything, and once per revision.
-		add_action( 'init', array( __CLASS__, 'maybe_update_model' ), 5 );
+		// The button that reads every guide again: on the screen whether Need help? is on or off.
+		add_action( 'admin_post_' . self::ACTION_REBUILD, array( $this, 'handle_rebuild' ) );
+
+		// A key pasted, changed or removed in Settings > Connectors forgets which provider offers the
+		// model, on or off: after Connectors registers its connectors at `init` 15.
+		add_action( 'init', array( 'WPCPM_Handbook_Answer', 'watch_keys' ), 20 );
 
 		if ( ! self::is_enabled() ) {
 			// Whatever switched it off, the next request also clears the schedules the
@@ -94,41 +85,6 @@ class WPCPM_Handbook extends WPCPM_Tool {
 	}
 
 	/**
-	 * Move a site off a default model the provider has retired.
-	 *
-	 * Runs at most once per revision: the marker is written whatever the outcome, so a site
-	 * that has chosen its own model is not reconsidered on every request. Each move writes its
-	 * one setting through `WPCPM_Settings::patch()`, which leaves every other setting as stored.
-	 */
-	public static function maybe_update_model() {
-		if ( (int) get_option( self::OPT_MODEL_FIXED ) >= self::MODEL_VERSION ) {
-			return;
-		}
-
-		update_option( self::OPT_MODEL_FIXED, self::MODEL_VERSION, false );
-
-		// A provider that no longer exists. Google AI Studio is the only one now, and leaving
-		// the old value in place would read as "configured" while answering nothing.
-		if ( 'openai' === (string) WPCPM_Settings::get_value( 'handbook_provider', '' ) ) {
-			WPCPM_Settings::patch( array( 'handbook_provider' => 'gemini' ) );
-		}
-
-		$current = (string) WPCPM_Settings::get_value( 'handbook_model', '' );
-
-		if ( ! in_array( $current, self::SHIPPED_MODELS, true ) ) {
-			return;
-		}
-
-		$defaults = WPCPM_Settings::defaults();
-
-		if ( $current === $defaults['handbook_model'] ) {
-			return;
-		}
-
-		WPCPM_Settings::patch( array( 'handbook_model' => $defaults['handbook_model'] ) );
-	}
-
-	/**
 	 * Whether the assistant is switched on.
 	 *
 	 * @return bool
@@ -138,20 +94,19 @@ class WPCPM_Handbook extends WPCPM_Tool {
 	}
 
 	/**
-	 * Ready once a provider can actually answer something.
-	 *
-	 * There is no local copy any more, so "ready" is no longer "has it been synced" - it is
-	 * whether anything at all can produce an answer.
+	 * Ready once there is anything to answer from: it is switched on and the index holds a passage. A
+	 * site with no AI provider is ready all the same, since its answers are the passages themselves.
 	 *
 	 * @return bool
 	 */
 	public function is_ready() {
-		return self::is_enabled() && WPCPM_Handbook_Answer::provider_ready();
+		return self::is_enabled() && WPCPM_Handbook_Answer::ready();
 	}
 
 	/**
 	 * A short status line for the Tools screen: why nobody gets an answer, while nobody does, which is
-	 * the switch or the provider and never the Airtable connection, and otherwise who answers.
+	 * the switch or an index with nothing in it, and otherwise who writes the answers: the provider set
+	 * up in Settings > Connectors, or the passages alone.
 	 *
 	 * @return string
 	 */
@@ -160,15 +115,34 @@ class WPCPM_Handbook extends WPCPM_Tool {
 			return __( 'Switched off.', 'wpcredits-program-manager' );
 		}
 
-		if ( ! WPCPM_Handbook_Answer::provider_ready() ) {
-			return __( 'No AI provider is configured, so questions cannot be answered.', 'wpcredits-program-manager' );
+		if ( ! WPCPM_Handbook_Answer::ready() ) {
+			return __( 'No index yet: the guides have not been read.', 'wpcredits-program-manager' );
 		}
 
-		return sprintf(
-			/* translators: %s: provider name. */
-			__( 'Answering through %s.', 'wpcredits-program-manager' ),
-			WPCPM_Handbook_Answer::provider_label()
-		);
+		switch ( WPCPM_Handbook_Answer::provider_state() ) {
+			case 'ready':
+				return sprintf(
+					/* translators: 1: the AI provider's name, 2: the model's name. */
+					__( 'Answering through %1$s with %2$s.', 'wpcredits-program-manager' ),
+					WPCPM_Handbook_Answer::provider_label(),
+					WPCPM_Handbook_Answer::model()
+				);
+
+			case 'not_offered':
+				return sprintf(
+					/* translators: %s: the model's name. */
+					__( 'Answering with passages only: the AI provider does not offer the model %s.', 'wpcredits-program-manager' ),
+					WPCPM_Handbook_Answer::model()
+				);
+
+			case 'refused':
+				return __( 'Answering with passages only: the AI provider refused the request. Check the key in Settings > Connectors.', 'wpcredits-program-manager' );
+
+			case 'unreachable':
+				return __( 'Answering with passages only: the AI provider is not answering right now.', 'wpcredits-program-manager' );
+		}
+
+		return __( 'Answering with passages only: no AI provider is set up in Settings > Connectors.', 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -177,7 +151,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 	 * @return string[]
 	 */
 	public function settings_keys() {
-		return array( 'handbook_enabled', 'handbook_provider', 'handbook_key', 'handbook_model', 'handbook_access', 'handbook_limit' );
+		return array( 'handbook_enabled', 'handbook_model', 'handbook_access', 'handbook_limit' );
 	}
 
 	/**
@@ -188,14 +162,14 @@ class WPCPM_Handbook extends WPCPM_Tool {
 	 */
 	protected function settings_intro() {
 		return array(
-			'sentence' => __( 'A question box for people on the program, answered from the WordPress documentation.', 'wpcredits-program-manager' ),
-			'details'  => __( 'The AI provider below does the searching, so nothing is stored on this site, and without a provider there is no answer at all. Each question, and the pages found for it, go to that company.', 'wpcredits-program-manager' ),
+			'sentence' => __( 'A question box for people on the program, answered from this site\'s guides and the WordPress Credits handbook.', 'wpcredits-program-manager' ),
+			'details'  => __( 'The site keeps an index of its guides, the FAQ and the handbook, finds the passages a question needs, and the AI provider set up in Settings > Connectors writes the answer from them. Each question, and the passages found for it, go to that company.', 'wpcredits-program-manager' ),
 		);
 	}
 
 	/**
-	 * The rows of the Settings section: the switch, where answers come from, the provider with its key
-	 * and model, who may ask, and how often.
+	 * The rows of the Settings section: the switch, the model, who may ask, and how often. The provider
+	 * and its key are set up in Settings > Connectors, not here.
 	 */
 	protected function render_settings_rows() {
 		$settings = WPCPM_Settings::get();
@@ -210,46 +184,6 @@ class WPCPM_Handbook extends WPCPM_Tool {
 			esc_html__( 'Off means the question box answers nobody, the header button disappears and the page it lives on is unpublished.', 'wpcredits-program-manager' )
 		);
 		WPCPM_Settings_Rows::close_row( $enabled, __( 'Nothing is deleted, so switching it back on restores all of it.', 'wpcredits-program-manager' ) );
-
-		$sources = __( 'Where answers come from', 'wpcredits-program-manager' );
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><p class="description">%2$s</p>',
-			esc_html( $sources ),
-			esc_html__( 'The provider searches wordpress.org, make.wordpress.org, learn.wordpress.org and developer.wordpress.org itself.', 'wpcredits-program-manager' )
-		);
-		WPCPM_Settings_Rows::close_row( $sources, __( 'Nothing is copied to this site, so there is nothing to configure and nothing to refresh - and equally, no answer at all without a provider below.', 'wpcredits-program-manager' ) );
-
-		// Provider, key and model together: they are useless apart, and a key entered
-		// without a provider selected is the kind of thing that looks configured and is not.
-		$options = '';
-
-		foreach ( WPCPM_Handbook_Answer::providers() as $slug => $label ) {
-			$options .= sprintf(
-				'<option value="%1$s"%2$s>%3$s</option>',
-				esc_attr( $slug ),
-				selected( $settings['handbook_provider'], $slug, false ),
-				esc_html( $label )
-			);
-		}
-
-		printf(
-			'<tr><th scope="row"><label for="wpcpm-handbook-provider">%1$s</label></th><td><select id="wpcpm-handbook-provider" name="handbook_provider">%2$s</select><p class="description">%3$s</p></td></tr>',
-			esc_html__( 'Answer provider', 'wpcredits-program-manager' ),
-			$options, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built immediately above from escaped parts.
-			esc_html__( 'Leave as "None" to keep everything on this site; choosing a provider sends each question, and the extracts that match it, to that company.', 'wpcredits-program-manager' )
-		);
-
-		WPCPM_Settings_Rows::text_row(
-			'handbook_key',
-			__( 'Provider API key', 'wpcredits-program-manager' ),
-			WPCPM_Settings::masked_handbook_key(),
-			__( 'Stored in the database and never sent to the browser - leave blank to keep the current key.', 'wpcredits-program-manager' ),
-			'password',
-			'',
-			'',
-			__( 'Get one free at aistudio.google.com for the Gemini provider.', 'wpcredits-program-manager' )
-		);
 
 		// A choice of models only when the provider lists more than the default: the default alone,
 		// beside the model saved, would offer nothing to choose, so the field is then the text input it
@@ -271,9 +205,9 @@ class WPCPM_Handbook extends WPCPM_Tool {
 			__( 'Model', 'wpcredits-program-manager' ),
 			$settings['handbook_model'],
 			$models,
-			__( 'Leave as gemini-flash-latest unless you have a reason not to.', 'wpcredits-program-manager' ),
+			__( 'The model\'s name as the provider lists it.', 'wpcredits-program-manager' ),
 			'',
-			__( 'It is an alias that always points at the current Gemini Flash, so it cannot be retired out from under this site - which has already happened twice to specific version numbers.', 'wpcredits-program-manager' )
+			__( 'Leave it as gemini-flash-latest unless you have a reason not to. It is an alias that always points at the current Gemini Flash, so it cannot be retired out from under this site - which has already happened twice to specific version numbers.', 'wpcredits-program-manager' )
 		);
 
 		// The people who manage the program are called Administrators, the name every screen gives
@@ -304,7 +238,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 			$radios, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built immediately above from escaped parts.
 			esc_html__( 'Never anybody logged out, whatever this says.', 'wpcredits-program-manager' )
 		);
-		WPCPM_Settings_Rows::close_row( $who, __( 'The documentation describes running the program rather than being on it, which is why students are not included by default.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::close_row( $who, __( 'Each person is answered only from the guides their own access level lets them read, and from the FAQ and the WordPress Credits handbook.', 'wpcredits-program-manager' ) );
 
 		$limit = __( 'Questions per person per hour', 'wpcredits-program-manager' );
 
@@ -312,9 +246,9 @@ class WPCPM_Handbook extends WPCPM_Tool {
 			'<tr><th scope="row"><label for="wpcpm-handbook-limit">%1$s</label></th><td><input type="number" id="wpcpm-handbook-limit" name="handbook_limit" value="%2$d" min="0" max="200" step="1" class="small-text"><p class="description">%3$s</p>',
 			esc_html( $limit ),
 			(int) $settings['handbook_limit'],
-			esc_html__( 'How many questions one person may have answered in an hour, so a free tier cannot be spent in an afternoon; 0 removes this limit.', 'wpcredits-program-manager' )
+			esc_html__( 'How many questions one person may have answered in an hour; 0 removes this limit.', 'wpcredits-program-manager' )
 		);
-		WPCPM_Settings_Rows::close_row( $limit, __( 'Past the limit they are asked to come back shortly. Whatever this says, the site answers at most 300 questions a day.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::close_row( $limit, __( 'Past the limit they get the parts of the guides that match their question, without a written answer. Whatever this says, the site writes at most 300 answers a day.', 'wpcredits-program-manager' ) );
 	}
 
 	/**
@@ -392,6 +326,8 @@ class WPCPM_Handbook extends WPCPM_Tool {
 			'wpcpm_handbook_last',
 			'wpcpm_handbook_error',
 			'wpcpm_handbook_sources',
+			// The marker of the retired-model move this tool made until the settings' version 4.
+			'wpcpm_handbook_model_fixed',
 		) as $option ) {
 			delete_option( $option );
 		}
@@ -431,8 +367,10 @@ class WPCPM_Handbook extends WPCPM_Tool {
 			);
 		}
 
+		$this->render_rebuilt();
+
 		// Its settings at the top, under the notice that sends a manager to the switch, and above how
-		// answers are produced, whose provider row sends them back up to choose one.
+		// answers are produced.
 		$this->render_settings();
 
 		$this->render_how();
@@ -442,9 +380,72 @@ class WPCPM_Handbook extends WPCPM_Tool {
 	}
 
 	/**
-	 * How it works, and what that costs in guarantees.
+	 * What the last press of Rebuild the index did, once, for the person who pressed it.
+	 */
+	private function render_rebuilt() {
+		$flash = WPCPM_Flash::take( self::FLASH );
+
+		if ( ! is_array( $flash ) || empty( $flash['message'] ) ) {
+			return;
+		}
+
+		printf(
+			'<div class="notice %1$s"><p>%2$s</p></div>',
+			esc_attr( ! empty( $flash['busy'] ) ? 'notice-warning' : 'notice-success' ),
+			esc_html( (string) $flash['message'] )
+		);
+	}
+
+	/**
+	 * The Rebuild the index button: read every guide, the FAQ and the handbook again, and say how many
+	 * passages the index holds, or that another rebuild is running.
+	 *
+	 * The capability first, then the method, then the nonce, then the rebuild. The button posts: a link
+	 * to admin-post.php with the action, followed or prefetched, is refused with a 405 before its nonce
+	 * is looked at, so no request but the button's ever starts a rebuild.
+	 */
+	public function handle_rebuild() {
+		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
+		}
+
+		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : '';
+
+		if ( 'POST' !== $method ) {
+			wp_die( esc_html__( 'Rebuild the index from its button on the Need help? screen.', 'wpcredits-program-manager' ), 405 );
+		}
+
+		check_admin_referer( self::ACTION_REBUILD );
+
+		$result = WPCPM_Guide_Sources::rebuild();
+		$busy   = ! empty( $result['busy'] ) || ! empty( $result['lost'] );
+
+		WPCPM_Flash::set(
+			self::FLASH,
+			array(
+				'busy'    => $busy,
+				'message' => $busy
+					? __( 'A rebuild is already running.', 'wpcredits-program-manager' )
+					: sprintf(
+						/* translators: %d: the number of passages the index holds. */
+						__( 'The index was rebuilt: %d passages.', 'wpcredits-program-manager' ),
+						WPCPM_Guide_Index::count()
+					),
+			)
+		);
+
+		wp_safe_redirect( $this->admin_url() );
+		exit;
+	}
+
+	/**
+	 * How answers are produced: which provider writes them and with what model, what the index holds,
+	 * and the button that reads every guide again.
 	 */
 	private function render_how() {
+		$state = WPCPM_Handbook_Answer::provider_state();
+		$label = WPCPM_Handbook_Answer::provider_label();
+
 		echo '<div class="wpcpm-card">';
 		echo '<h2>' . esc_html__( 'How answers are produced', 'wpcredits-program-manager' ) . '</h2>';
 
@@ -453,41 +454,50 @@ class WPCPM_Handbook extends WPCPM_Tool {
 		printf(
 			'<tr><th scope="row">%1$s</th><td>%2$s</td></tr>',
 			esc_html__( 'Provider', 'wpcredits-program-manager' ),
-			WPCPM_Handbook_Answer::provider_ready()
-				? esc_html( WPCPM_Handbook_Answer::provider_label() )
+			'' !== $label
+				? esc_html( $label )
 				: sprintf(
 					'<span class="wpcpm-warning">%1$s</span> <a href="%2$s">%3$s</a>',
-					esc_html__( 'None configured - nothing can be answered.', 'wpcredits-program-manager' ),
-					esc_url( '#settings' ),
-					esc_html__( 'Add one in Settings', 'wpcredits-program-manager' )
+					esc_html__( 'None set up: answers are passages only.', 'wpcredits-program-manager' ),
+					esc_url( admin_url( 'options-connectors.php' ) ),
+					esc_html__( 'Set one up in Settings > Connectors', 'wpcredits-program-manager' )
 				)
 		);
 
-		$hosts = '<ul class="wpcpm-notices">';
+		$model_states = array(
+			'ready'       => __( 'Offered', 'wpcredits-program-manager' ),
+			'not_offered' => __( 'Not offered by the provider', 'wpcredits-program-manager' ),
+			'refused'     => __( 'Refused by the provider', 'wpcredits-program-manager' ),
+			'unreachable' => __( 'The provider is not answering right now', 'wpcredits-program-manager' ),
+			'not_set_up'  => __( 'No provider is set up', 'wpcredits-program-manager' ),
+		);
 
-		foreach ( WPCPM_Handbook_Answer::allowed_hosts() as $host ) {
-			$hosts .= sprintf( '<li><code>%s</code></li>', esc_html( $host ) );
-		}
+		printf(
+			'<tr><th scope="row">%1$s</th><td><code>%2$s</code> - %3$s</td></tr>',
+			esc_html__( 'Model', 'wpcredits-program-manager' ),
+			esc_html( WPCPM_Handbook_Answer::model() ),
+			esc_html( isset( $model_states[ $state ] ) ? $model_states[ $state ] : $model_states['not_set_up'] )
+		);
 
-		$hosts .= '</ul>';
+		printf(
+			'<tr><th scope="row">%1$s</th><td>%2$s</td></tr>',
+			esc_html__( 'Sources', 'wpcredits-program-manager' ),
+			$this->sources_html() // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from escaped parts.
+		);
+
+		ob_start();
+		printf( '<form method="post" action="%s">', esc_url( admin_url( 'admin-post.php' ) ) );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_REBUILD ) );
+		wp_nonce_field( self::ACTION_REBUILD );
+		submit_button( __( 'Rebuild the index', 'wpcredits-program-manager' ), 'secondary', 'submit', false );
+		echo '</form>';
+		$form = ob_get_clean();
 
 		printf(
 			'<tr><th scope="row">%1$s</th><td>%2$s<p class="description">%3$s</p></td></tr>',
-			esc_html__( 'Sites it is told to use', 'wpcredits-program-manager' ),
-			$hosts, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built immediately above from escaped parts.
-			esc_html__( 'The provider searches the web itself. Google\'s search tool has no site filter, so this list is asked for in the instructions and then checked against the citations that come back: anything from elsewhere is not shown, and an answer citing nothing from these sites is marked as unverified.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td>%2$s</td></tr>',
-			esc_html__( 'Stored on this site', 'wpcredits-program-manager' ),
-			esc_html__( 'Nothing. There is no copy of the documentation, no index, and no scheduled reading - so nothing to refresh and nothing to go stale. The trade is that without a provider there is no answer at all.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td>%2$s</td></tr>',
-			esc_html__( 'Where people ask', 'wpcredits-program-manager' ),
-			esc_html__( 'From "Need help?" in the site header, and from the Resources section at the foot of the Mentor Report Card.', 'wpcredits-program-manager' )
+			esc_html__( 'Rebuild the index', 'wpcredits-program-manager' ),
+			$form, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built immediately above from escaped parts and core's own nonce field and button.
+			esc_html__( 'Reads every guide, the FAQ and the handbook again.', 'wpcredits-program-manager' )
 		);
 
 		echo '</tbody></table>';
@@ -495,7 +505,97 @@ class WPCPM_Handbook extends WPCPM_Tool {
 	}
 
 	/**
-	 * Ask a question here, so a manager can see what people will get.
+	 * What the index holds, source by source (its title, its passages, when it was indexed, or what went
+	 * wrong), and the handbook's own line: when it last synced and how it went.
+	 *
+	 * @return string HTML; every printed value escaped.
+	 */
+	private function sources_html() {
+		$format  = trim( (string) get_option( 'date_format', 'j F Y' ) . ' ' . (string) get_option( 'time_format', 'H:i' ) );
+		$sources = WPCPM_Guide_Index::sources();
+		$html    = '';
+
+		if ( array() === $sources ) {
+			$html .= '<p>' . esc_html__( 'None yet: the guides have not been read.', 'wpcredits-program-manager' ) . '</p>';
+		} else {
+			$html .= '<ul class="wpcpm-notices">';
+
+			foreach ( $sources as $source ) {
+				$title = isset( $source['title'] ) ? (string) $source['title'] : '';
+
+				if ( ! empty( $source['error'] ) ) {
+					$html .= sprintf(
+						'<li>%s</li>',
+						esc_html(
+							sprintf(
+								/* translators: 1: a guide's title, 2: what went wrong when it was indexed. */
+								__( '%1$s: not indexed (%2$s)', 'wpcredits-program-manager' ),
+								$title,
+								(string) $source['error']
+							)
+						)
+					);
+
+					continue;
+				}
+
+				$passages = isset( $source['passages'] ) ? (int) $source['passages'] : 0;
+				$when     = ! empty( $source['indexed_at'] ) ? wp_date( $format, (int) $source['indexed_at'] ) : '';
+
+				$html .= sprintf(
+					'<li>%s</li>',
+					esc_html(
+						sprintf(
+							/* translators: 1: a guide's title, 2: its number of passages, 3: when it was indexed. */
+							_n( '%1$s: %2$d passage, indexed %3$s', '%1$s: %2$d passages, indexed %3$s', $passages, 'wpcredits-program-manager' ),
+							$title,
+							$passages,
+							$when
+						)
+					)
+				);
+			}
+
+			$html .= '</ul>';
+		}
+
+		$handbook = get_option( WPCPM_Guide_Sources::OPT_HANDBOOK, array() );
+
+		if ( ! is_array( $handbook ) || empty( $handbook['synced_at'] ) ) {
+			$line = __( 'The handbook has not been read yet.', 'wpcredits-program-manager' );
+		} elseif ( ! empty( $handbook['ok'] ) ) {
+			$line = sprintf(
+				/* translators: 1: when the handbook last synced, 2: the number of its pages. */
+				_n( 'The handbook last synced %1$s: %2$d page.', 'The handbook last synced %1$s: %2$d pages.', (int) $handbook['pages'], 'wpcredits-program-manager' ),
+				wp_date( $format, (int) $handbook['synced_at'] ),
+				(int) $handbook['pages']
+			);
+		} else {
+			$line = sprintf(
+				/* translators: 1: when the handbook last tried to sync, 2: what went wrong. */
+				__( 'The handbook last tried to sync %1$s and failed: %2$s', 'wpcredits-program-manager' ),
+				wp_date( $format, (int) $handbook['synced_at'] ),
+				isset( $handbook['error'] ) ? (string) $handbook['error'] : ''
+			);
+		}
+
+		// Pages the handbook sent without an address, a modified time or text: kept as the index held them.
+		$malformed = is_array( $handbook ) && ! empty( $handbook['synced_at'] ) && ! empty( $handbook['malformed'] ) ? (int) $handbook['malformed'] : 0;
+
+		if ( $malformed > 0 ) {
+			$line .= ' ' . sprintf(
+				/* translators: %d: how many of the handbook's pages came without their address, modified time or text. */
+				_n( '%d of its pages came incomplete and was kept as the index held it.', '%d of its pages came incomplete and were kept as the index held them.', $malformed, 'wpcredits-program-manager' ),
+				$malformed
+			);
+		}
+
+		return $html . '<p class="description">' . esc_html( $line ) . '</p>';
+	}
+
+	/**
+	 * Ask a question here, as the Administrator using the screen: their answer reads every guide, with
+	 * the Administrator guide favored, which is not what a student or a mentor would be given.
 	 */
 	private function render_try() {
 		echo '<div class="wpcpm-card">';
@@ -503,7 +603,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 
 		printf(
 			'<p class="description">%s</p>',
-			esc_html__( 'Exactly what somebody on the program would see, without leaving this screen.', 'wpcredits-program-manager' )
+			esc_html__( 'Asked as you: an Administrator\'s answer can come from every guide, and the Administrator guide comes first.', 'wpcredits-program-manager' )
 		);
 
 		// A GET form back to this screen: asking changes nothing, so the question belongs in
@@ -532,7 +632,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 		if ( ! empty( $answer['unsourced'] ) ) {
 			printf(
 				'<p class="wpcpm-warning">%s</p>',
-				esc_html__( 'This answer cites nothing from the sites listed above, so it cannot be verified against them. Treat it as unconfirmed.', 'wpcredits-program-manager' )
+				esc_html__( 'This answer does not point to a passage of the guides, so it could not be checked against them. Treat it as unconfirmed.', 'wpcredits-program-manager' )
 			);
 		}
 
@@ -548,7 +648,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 			return;
 		}
 
-		echo '<h3>' . esc_html__( 'Pages it read', 'wpcredits-program-manager' ) . '</h3>';
+		echo '<h3>' . esc_html__( 'Sources', 'wpcredits-program-manager' ) . '</h3>';
 		echo '<ol>';
 
 		foreach ( $answer['sources'] as $source ) {

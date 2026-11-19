@@ -483,7 +483,7 @@ class WPCPM_Settings_Screen {
 
 		if ( array() !== $refused ) {
 			// A secret refused is never kept to be drawn again: the row shows its mask, as always.
-			$secrets = array( 'api_token', 'schema_token', 'handbook_key', 'checker_slack_webhook' );
+			$secrets = array( 'api_token', 'schema_token', 'checker_slack_webhook' );
 
 			WPCPM_Flash::keep( self::kept_form( $scope ), array_diff_key( array_intersect_key( $input, $refused ), array_flip( $secrets ) ), $refused );
 		}

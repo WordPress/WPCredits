@@ -106,7 +106,7 @@ A tutor's menu has no **Enroll students** and no **Events**. Until your Collabor
 
 Under **Help** come:
 
-- the Ask box, "Ask about the program", whenever the program has switched its question assistant on for institutions. It answers questions about the program and about WordPress from the WordPress documentation, and links back to the pages its answers came from. Your question is sent to an outside AI service, so do not type anything confidential.
+- the Ask box, "Ask about the program", whenever the program has switched its question assistant on for institutions. It answers questions about the program from this site's guides and the WordPress Credits handbook, and links back to where its answers came from. Your question and the parts of the guides that match it go to the AI service the program has set up, so do not type anything confidential.
 - **Institution guide**, which opens this guide.
 - **#wpcredits on Slack**, which opens the WordPress Credits Slack channel.
 - **Write to the program**, which opens a mail to the Administrator your institution is assigned to, once the program has assigned one and has an address for them.

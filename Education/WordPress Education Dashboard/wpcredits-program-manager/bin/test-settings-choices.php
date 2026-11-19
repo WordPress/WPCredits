@@ -279,6 +279,15 @@ class WPCPM_Dashboards {
 	public static function compare_names( $a, $b ) { return strnatcasecmp( (string) $a, (string) $b ); }
 	public static function render_combo( array $args ) {}
 }
+// The guide index, as the plugin loads it, over the SQLite stand-in of the database: the tool's screen
+// reads what it holds.
+require_once __DIR__ . '/stubs/sqlite-wpdb.php';
+$GLOBALS['wpdb'] = new WPCPM_Test_Wpdb();
+$GLOBALS['wpdb']->create_guide_tables();
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-text.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-search.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-sources.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php';
 // The rows every settings form is drawn with, the Settings screen, and the three tools that draw their
 // own settings on their own screens, as the plugin's loader requires them.

@@ -260,7 +260,6 @@ class WPCPM_Settings {
 			'mentor_notify'               => '',
 			'api_token'                   => '',
 			'schema_token'                => '',
-			'handbook_key'                => '',
 			'checker_slack_webhook'       => '',
 			'institutions_on_site'        => false,
 		);
@@ -287,7 +286,6 @@ class WPCPM_Settings {
 	public static function last_refused() { return self::$refused; }
 	public static function masked_token() { return self::mask( 'api_token' ); }
 	public static function masked_schema_token() { return self::mask( 'schema_token' ); }
-	public static function masked_handbook_key() { return self::mask( 'handbook_key' ); }
 	public static function masked_slack_webhook() { return self::mask( 'checker_slack_webhook' ); }
 	private static function mask( $key ) { $v = (string) self::get_value( $key, '' ); return '' === $v ? '' : str_repeat( '•', 12 ) . substr( $v, -4 ); }
 }
@@ -1702,6 +1700,171 @@ foreach ( array( 'on' => array( 'on', false, array() ), 'off' => array( 'off', t
 ck( 'T1: cli_switch_marks: on empties the marks before the value is stored, off after it, a dry run and an unchanged value not at all', $cli_marks, array( 'on' => array( false ), 'off' => array( false ), 'dry' => array(), 'same' => array() ) );
 
 $GLOBALS['settings'] = array();
+
+echo "\n=== wp wpcredits guides ===\n";
+
+/** The guide index and its sources, stood in: what the command reads and what it is handed. */
+class WPCPM_Guide_Sources {
+	const AUDIENCES   = array( 'student', 'mentor', 'institution', 'sponsor', 'administrator', 'public' );
+	const OPT_HANDBOOK = 'wpcpm_guide_handbook_state';
+	const LOCK         = 'wpcpm_guide_index_lock';
+	const LOCK_TTL     = 300;
+	public static $rebuild = array();
+	public static $sync    = array( 'ok' => true, 'pages' => 0, 'changed' => 0, 'removed' => 0, 'error' => '' );
+	public static $calls   = array();
+	public static function pages() { return array( 'student-guide' => array(), 'faq' => array() ); }
+	public static function rebuild( $handbook = true ) { self::$calls[] = array( 'rebuild', $handbook ); return self::$rebuild; }
+	public static function sync_handbook( $from_file = '' ) { self::$calls[] = array( 'sync_handbook', $from_file ); return self::$sync; }
+	// Records whether the index's lock was held while the page was written: a take that finds it held answers ''.
+	public static function index_page( $page ) { self::$calls[] = array( 'index_page', $page->ID, '' === WPCPM_Lock::take( self::LOCK, 1 ) ); return 7; }
+}
+class WPCPM_Guide_Index {
+	public static $sources = array();
+	public static $state   = array();
+	public static function sources() { return self::$sources; }
+	public static function state() { return self::$state; }
+	public static function count() { return 12; }
+}
+class WPCPM_Guide_Search {
+	public static $rows  = array();
+	public static $calls = array();
+	public static function rank( array $words, array $audiences, string $home = '', int $limit = 5 ) { self::$calls[] = array( $words, $audiences, $home, $limit ); return self::$rows; }
+}
+$GLOBALS['pages_by_path'] = array();
+if ( ! defined( 'OBJECT' ) ) { define( 'OBJECT', 'OBJECT' ); }
+function get_page_by_path( $path, $output = OBJECT, $type = 'page' ) { return isset( $GLOBALS['pages_by_path'][ $path ] ) ? $GLOBALS['pages_by_path'][ $path ] : null; }
+
+$guides_usage = 'error: Use guides status, guides reindex [--source=<page:ID|handbook>], guides sync_handbook [--from-file=<path>], or guides search <words> [--as=<audience>] [--limit=<n>].';
+
+ck( 'a missing or unknown action, and an option the action does not take, is the usage line',
+    array( cli_lines( 'guides', array() ), cli_lines( 'guides', array( 'purge' ) ), cli_lines( 'guides', array( 'status' ), array( 'source' => 'handbook' ) ), cli_lines( 'guides', array( 'reindex' ), array( 'as' => 'student' ) ), cli_lines( 'guides', array( 'sync_handbook' ), array( 'from-file' => true ) ), cli_lines( 'guides', array( 'status', 'extra' ) ) ),
+    array_fill( 0, 6, array( $guides_usage ) ) );
+
+// status.
+WPCPM_Guide_Index::$sources = array(
+	'page:5'               => array( 'kind' => 'guide', 'audience' => 'student', 'passages' => 40, 'indexed_at' => 1700000000 ),
+	'handbook:program-faq' => array( 'kind' => 'handbook', 'audience' => 'public', 'passages' => 3, 'indexed_at' => 1700000060 ),
+);
+WPCPM_Guide_Index::$state = array( 'built_for' => '1.123.101' );
+$GLOBALS['options']       = array( WPCPM_Guide_Sources::OPT_HANDBOOK => array( 'synced_at' => 1700000120, 'ok' => true, 'error' => '', 'pages' => 12 ) );
+ck( 'status prints a table of the sources, the passage total, the handbook\'s last sync and the version the index was built for',
+    cli_lines( 'guides', array( 'status' ) ),
+    array(
+        'items: table ' . json_encode( array( 'fields' => array( 'source', 'kind', 'audience', 'passages', 'indexed' ), 'items' => array(
+            array( 'source' => 'page:5', 'kind' => 'guide', 'audience' => 'student', 'passages' => 40, 'indexed' => '2023-11-14 22:13' ),
+            array( 'source' => 'handbook:program-faq', 'kind' => 'handbook', 'audience' => 'public', 'passages' => 3, 'indexed' => '2023-11-14 22:14' ),
+        ) ) ),
+        'log: Passages in the index: 12',
+        'log: Handbook last synced: 2023-11-14 22:15 (ok, 12 pages)',
+        'log: Index built for plugin version: 1.123.101',
+    ) );
+
+WPCPM_Guide_Index::$sources = array();
+WPCPM_Guide_Index::$state   = array();
+$GLOBALS['options']         = array( WPCPM_Guide_Sources::OPT_HANDBOOK => array( 'synced_at' => 1700000120, 'ok' => false, 'error' => 'No answer.', 'pages' => 0 ) );
+ck( 'status on an empty index says so, and says how the last handbook sync went and that no build is noted',
+    cli_lines( 'guides', array( 'status' ) ),
+    array( 'log: The index holds nothing yet. Run guides reindex.', 'log: Passages in the index: 12', 'log: Handbook last synced: 2023-11-14 22:15 (failed: No answer., 0 pages)', 'log: Index built for plugin version: not yet' ) );
+$GLOBALS['options'] = array();
+ck( 'and a handbook never synced is "never"', array_slice( cli_lines( 'guides', array( 'status' ) ), 2, 1 ), array( 'log: Handbook last synced: never' ) );
+
+// reindex.
+WPCPM_Guide_Sources::$rebuild = array( 'page:5' => 40, 'handbook:program-faq' => 3 );
+WPCPM_Guide_Sources::$calls   = array();
+ck( 'reindex with no source runs the rebuild, handbook included, and reports each source',
+    array( cli_lines( 'guides', array( 'reindex' ) ), WPCPM_Guide_Sources::$calls ),
+    array( array( 'log: page:5: 40 passages', 'log: handbook:program-faq: 3 passages', 'success: Rebuilt the index.' ), array( array( 'rebuild', true ) ) ) );
+
+WPCPM_Guide_Sources::$rebuild = array( 'busy' => true );
+ck( 'a rebuild that answers busy is the error', cli_lines( 'guides', array( 'reindex' ) ), array( 'error: A rebuild is already running.' ) );
+WPCPM_Guide_Sources::$rebuild = array( 'page:5' => 40, 'lost' => true );
+ck( 'and one that lost its lock is an error too', array_slice( cli_lines( 'guides', array( 'reindex' ) ), -1 ), array( 'error: The rebuild lost its lock before it finished. Run it again.' ) );
+
+function guide_post( $id ) { $post = new WP_Post(); $post->ID = $id; return $post; }
+$GLOBALS['pages_by_path'] = array( 'student-guide' => guide_post( 5 ), 'faq' => guide_post( 9 ), 'other' => guide_post( 77 ) );
+WPCPM_Guide_Sources::$calls = array();
+ck( 'reindex --source=page:<ID> reindexes that page alone, under the index\'s lock, which it lets go after',
+    array( cli_lines( 'guides', array( 'reindex' ), array( 'source' => 'page:9' ) ), WPCPM_Guide_Sources::$calls, ( function () { $t = WPCPM_Lock::take( WPCPM_Guide_Sources::LOCK, 300 ); WPCPM_Lock::release( WPCPM_Guide_Sources::LOCK, $t ); return '' !== $t; } )() ),
+    array( array( 'success: Reindexed page:9: 7 passages.' ), array( array( 'index_page', 9, true ) ), true ) );
+
+// Every other writer takes the lock (WPCPM_Guide_Sources::LOCK); so does this one, and it says so when it is held.
+$guides_held                = WPCPM_Lock::take( WPCPM_Guide_Sources::LOCK, 300 );
+WPCPM_Guide_Sources::$calls = array();
+ck( 'while another run holds the index, reindex --source=page:<ID> writes nothing and says a rebuild is running, and the lock stays the other run\'s',
+    array( cli_lines( 'guides', array( 'reindex' ), array( 'source' => 'page:9' ) ), WPCPM_Guide_Sources::$calls, '' === WPCPM_Lock::take( WPCPM_Guide_Sources::LOCK, 300 ) ),
+    array( array( 'error: A rebuild is already running.' ), array(), true ) );
+WPCPM_Lock::release( WPCPM_Guide_Sources::LOCK, $guides_held );
+WPCPM_Guide_Sources::$calls = array();
+$not_listed = array( 'error: %s is not one of the pages the index reads. Use page:<ID> of one of them, or handbook.' );
+ck( 'an ID that is not one of the listed pages, a page at no listed path, and a source that is not page:<ID> or handbook are refused, nothing reindexed',
+    array( cli_lines( 'guides', array( 'reindex' ), array( 'source' => 'page:77' ) ), cli_lines( 'guides', array( 'reindex' ), array( 'source' => 'page:123' ) ), cli_lines( 'guides', array( 'reindex' ), array( 'source' => 'faq' ) ), WPCPM_Guide_Sources::$calls ),
+    array( array( sprintf( $not_listed[0], 'page:77' ) ), array( sprintf( $not_listed[0], 'page:123' ) ), array( sprintf( $not_listed[0], 'faq' ) ), array() ) );
+
+WPCPM_Guide_Sources::$sync  = array( 'ok' => true, 'pages' => 12, 'changed' => 2, 'removed' => 1, 'error' => '' );
+WPCPM_Guide_Sources::$calls = array();
+ck( 'reindex --source=handbook runs sync_handbook(), from no file',
+    array( cli_lines( 'guides', array( 'reindex' ), array( 'source' => 'handbook' ) ), WPCPM_Guide_Sources::$calls ),
+    array( array( 'success: Handbook synced: 12 pages, 2 changed, 1 removed.' ), array( array( 'sync_handbook', '' ) ) ) );
+
+// sync_handbook.
+WPCPM_Guide_Sources::$calls = array();
+ck( 'sync_handbook --from-file hands the path to sync_handbook()',
+    array( cli_lines( 'guides', array( 'sync_handbook' ), array( 'from-file' => '/tmp/handbook.json' ) ), WPCPM_Guide_Sources::$calls ),
+    array( array( 'success: Handbook synced: 12 pages, 2 changed, 1 removed.' ), array( array( 'sync_handbook', '/tmp/handbook.json' ) ) ) );
+WPCPM_Guide_Sources::$sync = array( 'ok' => false, 'pages' => 0, 'changed' => 0, 'removed' => 0, 'error' => 'The file could not be read.' );
+ck( 'a sync that fails is the error, with its own sentence', cli_lines( 'guides', array( 'sync_handbook' ) ), array( 'error: The file could not be read.' ) );
+
+// A write the database refused fails the sync (the outside review's finding 4): the command ends in an error that
+// says how many pages failed and what did change, whichever way the handbook is synced.
+WPCPM_Guide_Sources::$sync = array( 'ok' => false, 'pages' => 12, 'changed' => 3, 'removed' => 1, 'error' => '2 of the handbook\'s pages could not be updated in the index. The next run tries again.', 'more' => false, 'malformed' => 0, 'failed' => 2 );
+$hb_failed_line            = array( 'error: The handbook was read, but 2 of its pages could not be updated in the index (3 changed, 1 removed). Run it again.' );
+ck( 'a sync with pages the database refused ends in an error naming how many, for sync_handbook and reindex --source=handbook alike',
+    array( cli_lines( 'guides', array( 'sync_handbook' ) ), cli_lines( 'guides', array( 'reindex' ), array( 'source' => 'handbook' ) ) ),
+    array( $hb_failed_line, $hb_failed_line ) );
+WPCPM_Guide_Sources::$sync['failed'] = 1;
+ck( 'one page is one page', cli_lines( 'guides', array( 'sync_handbook' ) ), array( 'error: The handbook was read, but 1 of its pages could not be updated in the index (3 changed, 1 removed). Run it again.' ) );
+
+// An incomplete entry keeps what the index holds (finding 2): the sync succeeds and says how many there were.
+WPCPM_Guide_Sources::$sync = array( 'ok' => true, 'pages' => 12, 'changed' => 1, 'removed' => 0, 'error' => '', 'more' => false, 'malformed' => 1, 'failed' => 0 );
+ck( 'a sync with an incomplete entry succeeds and says it kept it as the index held it',
+    cli_lines( 'guides', array( 'sync_handbook' ) ), array( 'success: Handbook synced: 12 pages, 1 changed, 0 removed. 1 of its pages came incomplete and was kept as the index held it.' ) );
+WPCPM_Guide_Sources::$sync['malformed'] = 2;
+ck( 'two incomplete entries', cli_lines( 'guides', array( 'sync_handbook' ) ), array( 'success: Handbook synced: 12 pages, 1 changed, 0 removed. 2 of its pages came incomplete and were kept as the index held them.' ) );
+$GLOBALS['options'] = array( WPCPM_Guide_Sources::OPT_HANDBOOK => array( 'synced_at' => 1700000120, 'ok' => true, 'error' => '', 'pages' => 12, 'more' => false, 'malformed' => 2 ) );
+ck( 'and status names them after the pages', array_slice( cli_lines( 'guides', array( 'status' ) ), 2, 1 ), array( 'log: Handbook last synced: 2023-11-14 22:15 (ok, 12 pages, 2 incomplete)' ) );
+$GLOBALS['options']        = array();
+WPCPM_Guide_Sources::$sync = array( 'ok' => true, 'pages' => 12, 'changed' => 2, 'removed' => 1, 'error' => '' );
+
+// search.
+WPCPM_Guide_Search::$rows = array(
+	array( 'id' => 1, 'score' => 3.14159, 'title' => 'Student Guide', 'heading' => 'Your certificate', 'url' => 'https://example.test/student-guide/#cert' ),
+);
+$table = 'items: table ' . json_encode( array( 'fields' => array( 'score', 'page', 'section', 'address' ), 'items' => array( array( 'score' => '3.14', 'page' => 'Student Guide', 'section' => 'Your certificate', 'address' => 'https://example.test/student-guide/#cert' ) ) ) );
+WPCPM_Guide_Search::$calls = array();
+ck( 'search ranks the words as an Administrator over all six audiences, limit 5, and prints score, page, section and address',
+    array( cli_lines( 'guides', array( 'search', 'my', 'certificate' ) ), WPCPM_Guide_Search::$calls ),
+    array( array( $table ), array( array( array( 'my certificate' ), array( 'student', 'mentor', 'institution', 'sponsor', 'administrator', 'public' ), 'administrator', 5 ) ) ) );
+WPCPM_Guide_Search::$calls = array();
+cli_lines( 'guides', array( 'search', 'certificate' ), array( 'as' => 'student', 'limit' => '3' ) );
+cli_lines( 'guides', array( 'search', 'certificate' ), array( 'as' => 'public', 'limit' => '20' ) );
+ck( 'with --as the ranking reads public and that audience, with that guide as home; public has no home; --limit is passed',
+    WPCPM_Guide_Search::$calls,
+    array( array( array( 'certificate' ), array( 'public', 'student' ), 'student', 3 ), array( array( 'certificate' ), array( 'public' ), '', 20 ) ) );
+WPCPM_Guide_Search::$rows = array();
+ck( 'a search that finds nothing says so', cli_lines( 'guides', array( 'search', 'zzz' ) ), array( 'log: Nothing in the index matches.' ) );
+WPCPM_Guide_Search::$calls = array();
+ck( 'search with no words, an audience that is not one of six, or a limit outside 1 to 20 is an error, nothing ranked',
+    array( cli_lines( 'guides', array( 'search' ) ), cli_lines( 'guides', array( 'search', 'a' ), array( 'as' => 'owner' ) ), cli_lines( 'guides', array( 'search', 'a' ), array( 'limit' => '0' ) ), cli_lines( 'guides', array( 'search', 'a' ), array( 'limit' => '21' ) ), cli_lines( 'guides', array( 'search', 'a' ), array( 'limit' => 'many' ) ), WPCPM_Guide_Search::$calls ),
+    array(
+        array( $guides_usage ),
+        array( 'error: --as takes one of student, mentor, institution, sponsor, administrator, public.' ),
+        array( 'error: --limit takes a number from 1 to 20.' ),
+        array( 'error: --limit takes a number from 1 to 20.' ),
+        array( 'error: --limit takes a number from 1 to 20.' ),
+        array(),
+    ) );
+$GLOBALS['options'] = array();
+
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

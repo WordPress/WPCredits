@@ -19,7 +19,7 @@ The page is drawn in a frame. A bar across the top holds the site's name, **Home
 
 Under **Help** come:
 
-- the Ask box, "Ask about the program", whenever the program has switched its question assistant on for sponsors. Your question is sent to an outside AI service, so do not type anything confidential.
+- the Ask box, "Ask about the program", whenever the program has switched its question assistant on for sponsors. It answers from this site's guides and the WordPress Credits handbook, with links to where each answer came from. Your question and the parts of the guides that match it go to the AI service the program has set up, so do not type anything confidential.
 - **Sponsor guide**, which opens this guide in the same frame, with its sections listed beside it.
 - **Write to the program**, which opens a mail to the Administrator who looks after your company, once the program has assigned one and has an address for them, and while that person is still an Administrator.
 
