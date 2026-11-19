@@ -1605,6 +1605,21 @@ function render_tab( $tab, array $get = array() ) {
 }
 
 /**
+ * What a drawing gives once the site keeps the record of institutions (1.123.102, Part A), the setting off again after.
+ *
+ * @param callable $draw What to draw.
+ * @return mixed What it returned.
+ */
+function in_site_mode( callable $draw ) {
+	$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = true;
+	try {
+		return $draw();
+	} finally {
+		$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = false;
+	}
+}
+
+/**
  * The heading of every card a render draws, in document order, without its count.
  *
  * @param string $html Rendered screen.
@@ -2272,6 +2287,14 @@ foreach ( $slugs as $slug ) {
 }
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] = 'pat';
 ck( 'while Airtable is not connected every tab says so, above its bar and its cards', $warned, array_fill_keys( $slugs, true ) );
+// 1.123.102, Part A, item 2: in site mode the warning says what the missing connection stops then.
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] = '';
+$a2_drawn = in_site_mode( static function () { return render_tab( 'queue' ); } );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] = 'pat';
+ck( 'A2: in site mode the warning says the institutions sync does not start and Airtable\'s copy waits, the old words gone', array(
+	false !== strpos( $a2_drawn, '<div class="notice notice-warning"><p>' . esc_html( 'Airtable is not connected yet. Until it is, the institutions sync does not start, an application for a new institution cannot be approved, leads cannot be moved into the talks, agreements cannot be recorded on file, accepted, revoked or reinstated, and Airtable\'s copy of each change waits.' ) . ' <a href="https://example.test/wp-admin/admin.php?page=wpcpm-settings">Open settings</a></p></div>' ),
+	false !== strpos( $a2_drawn, 'so no institutions can be synced' ),
+), array( true, false ) );
 
 // A mentor request decided without the Administrator Dashboard's return field goes back to the
 // screen's own address, the queue, and its outcome is in the request class's words. Read as a
@@ -2381,6 +2404,27 @@ $blank_html = render_tab( 'pipeline' );
 update_option( WPCPM_Institutions_Index::OPT_NAME, $kept, false );
 ck( 'a nameless record is marked rather than printed blank', substr_count( $blank_html, 'wpcpm-inst-mark--empty' ), 1 );
 ck( 'and shows its record id so it can be found in the grid', false !== strpos( $blank_html, '<code class="wpcpm-inst-record">' . $blank_id . '</code>' ), true );
+// 1.123.102, Part A, item 14: rows carried from the last read of Airtable keep a name left empty or spaced, and in site mode
+// the marks say so without naming Airtable.
+update_option( WPCPM_Institutions_Index::OPT_NAME, $with_blank, false );
+$a14_html = in_site_mode( static function () { return render_tab( 'pipeline' ); } );
+update_option( WPCPM_Institutions_Index::OPT_NAME, $kept, false );
+ck( 'A14: in site mode the nameless mark says the institution has no name and the whitespace mark says the name has whitespace, Airtable on neither', array(
+	substr_count( $a14_html, 'title="' . esc_attr( 'This institution has no name.' ) . '"' ),
+	substr_count( $a14_html, 'title="' . esc_attr( 'The name has whitespace around it; it prints trimmed here.' ) . '"' ),
+	substr_count( $a14_html, 'Name in Airtable' ),
+), array( 1, $seed['counts']['trailing_space_names'], 0 ) );
+// Item 13: an empty list in site mode says how an institution is added.
+$a13_rows = get_option( WPCPM_Institutions_Index::OPT_NAME );
+update_option( WPCPM_Institutions_Index::OPT_NAME, array_merge( $a13_rows, array( 'rows' => array() ) ), false );
+$a13_on  = in_site_mode( static function () { return render_tab( 'pipeline' ); } );
+$a13_off = render_tab( 'pipeline' );
+update_option( WPCPM_Institutions_Index::OPT_NAME, $a13_rows, false );
+ck( 'A13: an empty list says in site mode how one is added, and with the setting off to run a sync', array(
+	false !== strpos( $a13_on, '<p>No institutions yet. One is added when an application is approved or a lead is moved into the talks.</p>' ),
+	false !== strpos( $a13_on, 'Run a sync to read them.' ),
+	false !== strpos( $a13_off, '<p>No institution records yet. Run a sync to read them.</p>' ),
+), array( true, false, true ) );
 
 // Countries: every one an institution names resolves; the ones with no contact are marked.
 $named_without_contact = 0;
@@ -2936,6 +2980,9 @@ $sync_reads     = $GLOBALS['member_reads'];
 ck( 'two counted institutions with a live member leave 84 with none', array( count( array_intersect_key( $GLOBALS['members_of'], $counted ) ), false !== strpos( $members, 'Institutions with no live member <span class="wpcpm-count">' . ( count( $counted ) - 2 ) . '</span>' ) ), array( 2, true ) );
 ck( 'and only the one whose member is the contact leaves the address counted', false !== strpos( $members_sync, '<th scope="row">Contacts who are not members</th><td>' . ( count( $emailed_real ) - 1 ) . ' ' ), true );
 ck( 'and the card says what a contact who is not a member means, and what is not built for it yet', false !== strpos( $members_sync, 'A Contact Email that belongs to no member is the address Airtable names for the institution' ), true );
+// 1.123.102, Part A, item 23: in site mode that sentence names the institution's contact address, and Airtable no longer.
+$a23_sync = in_site_mode( static function () { return render_tab( 'sync' ); } );
+ck( 'A23: in site mode a contact email that belongs to no member is the institution\'s contact address', array( false !== strpos( $a23_sync, '<p class="description">' . esc_html( 'A contact email that belongs to no member is the institution\'s contact address and nobody who can act for it here.' ) . ' ' ), false !== strpos( $a23_sync, 'the address Airtable names' ) ), array( true, false ) );
 ck( 'each tab that prints a membership count asks each institution it counts for its members exactly once, for both counts together: Pipeline the 86 it counts, Sync and storage the 103 that are not a test institution\'s', array(
 	count( $pipeline_reads ),
 	count( array_unique( $pipeline_reads ) ),
@@ -3494,6 +3541,19 @@ ck( 'each discrepancy is listed by name with both sides', array(
 	false !== strpos( $with, '<tr><td>Institution 4<br /><code>recSEED0000000008</code></td><td>accepted</td><td>Revoked</td></tr>' ),
 	false !== strpos( $with, '<tr><td>recNOTINDEXED0001<br /><code>recNOTINDEXED0001</code></td><td>(nothing recorded)</td><td>On file</td></tr>' ),
 ), array( true, true ) );
+// 1.123.102, Part A, item 20: in site mode the card compares each agreement's own record with the status the site's list of
+// institutions holds for it, and says so.
+$a20_with = in_site_mode( static function () { return render_tab( 'agreements' ); } );
+$GLOBALS['discrepancies'] = array();
+$a20_none = in_site_mode( static function () { return render_tab( 'agreements' ); } );
+ck( 'A20: in site mode the card names the agreement\'s record and the site\'s list, its column In the site\'s list, and Airtable nowhere', array(
+	false !== strpos( $a20_with, '<p class="description">' . esc_html( 'An institution is settled only when its agreement\'s own record and the agreement status in the site\'s list of institutions agree. These are the ones where they do not; each is locked until they do.' ) . '</p>' ),
+	false !== strpos( $a20_with, '<th scope="col">' . esc_html( 'In the site\'s list' ) . '</th>' ),
+	false !== strpos( $a20_with, '<tr><td>Institution 4<br /><code>recSEED0000000008</code></td><td>accepted</td><td>Revoked</td></tr>' ),
+	false !== strpos( $a20_with, 'Airtable\'s Agreement Status' ) || false !== strpos( $a20_with, 'In Airtable' ),
+	false !== strpos( $a20_none, '<p>' . esc_html( 'The agreement records and the site\'s list of institutions agree on every agreement.' ) . '</p>' ),
+	false !== strpos( $a20_none, 'The site and Airtable agree' ),
+), array( true, true, true, false, true, false ) );
 $GLOBALS['discrepancies'] = array();
 
 $template = WPCPM_Agreement_Template::load( 'en' );
@@ -3688,6 +3748,13 @@ $words_fprint = '(the start of the fingerprint the plugin\'s tests check, which 
 ck( 'the description says what the module holds, and where the institutions\' accounts are made', $words_module->description(), $words_lede );
 ck( 'and the screen prints it as its lede', false !== strpos( render_screen(), '<p class="wpcpm-lede">' . esc_html( $words_lede ) . '</p>' ), true );
 ck( 'the sync card says what the sync reads and rebuilds, in the program\'s words', false !== strpos( render_tab( 'sync' ), '<h2>Airtable sync</h2><p class="description">' . esc_html( $words_sync ) . '</p>' ), true );
+// 1.123.102, Part A, items 1 and 21: once the site keeps the record, the lede says so and names the Talks card, and the
+// sync card is the institutions sync, saying what a run does then, ending in that it reads nothing from Airtable.
+$a1_lede = 'Educational institutions, the students each one has in the program, and the state of every Collaboration Agreement. The site keeps their records: a school\'s stage, next step and notes are on its Talks card. Each institution has an Institution Dashboard, its own people and its students; their accounts are created and invited on the Accounts tab.';
+$a21_sync = 'Reads the site\'s list of institutions and rebuilds each institution\'s agreement state and its access from it. It reads nothing from Airtable.';
+list( $a1_desc, $a1_screen, $a21_tab ) = in_site_mode( static function () use ( $words_module ) { return array( $words_module->description(), render_screen(), render_tab( 'sync' ) ); } );
+ck( 'A1: in site mode the description and the lede say the site keeps the records, the old words gone', array( $a1_desc, false !== strpos( $a1_screen, '<p class="wpcpm-lede">' . esc_html( $a1_lede ) . '</p>' ), false !== strpos( $a1_screen, esc_html( $words_lede ) ) ), array( $a1_lede, true, false ) );
+ck( 'A21: in site mode the sync card is the Institutions sync, in its own words, and no longer Airtable sync', array( false !== strpos( $a21_tab, '<h2>Institutions sync</h2><p class="description">' . esc_html( $a21_sync ) . '</p>' ), false !== strpos( $a21_tab, 'Airtable sync' ), false !== strpos( $a21_tab, esc_html( $words_sync ) ) ), array( true, false, false ) );
 ck( 'the checksum row says what the twelve characters are', false !== strpos( render_tab( 'agreements' ), '<th scope="row">Checksum</th><td><code>' . substr( WPCPM_Agreement_Template::checksum( WPCPM_Agreement_Template::load( 'en' ) ), 0, 12 ) . '</code> <span class="wpcpm-inst-muted">' . esc_html( $words_fprint ) . '</span></td>' ), true );
 
 $still_technical = array();
@@ -4831,6 +4898,12 @@ ck( 'the first one past it is decided here: Approve, Send this question, Reject 
 	strpos( $first_past, 'This one is listed' ),
 	strpos( $first_past, 'What happens next' ),
 ), array( true, $open_four, 4, 0, false, false ) );
+// 1.123.102, Part A, item 11: in site mode Approve asks before it creates the institution's record, which cannot be removed.
+$a11_past = in_site_mode( static function () { return render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) ); } );
+ck( 'A11: in site mode the Approve confirm names the record and the account, and Airtable no longer', array(
+	false !== strpos( $a11_past, ' data-wpcpm-confirm="' . esc_attr( 'Create a record and a site account for Universidad Example, and email a password-set link to ana@example.test? The record cannot be removed afterward.' ) . '"' ),
+	false !== strpos( $a11_past, 'Create an Airtable record' ),
+), array( true, false ) );
 ck( 'and so is a held one and one waiting on the applicant, each with the same four', array(
 	decisions_on( $held_past, 502 ),
 	decisions_on( $info_past, 503 ),
@@ -5854,6 +5927,24 @@ ck( 'Reject refuses a half-done approval: nothing is sent, nothing moves, nothin
 ck( 'so does Reject as spam', $half_press( 550, 'handle_spam' ), array( $back, 'app-half-done', 'new', 0, 0 ) );
 ck( 'and Put back in the queue, on a held one', $half_press( 551, 'handle_reopen' ), array( $back, 'app-half-done', 'held', 0, 0 ) );
 ck( 'the refusal says what stopped partway and what finishes it', WPCPM_Institutions::queue_messages()['app-half-done'], array( 'error', 'Nothing happened. Approving this application stopped partway: the institution\'s Airtable record, and maybe its account, already exist. Press Approve again to finish.' ) );
+// 1.123.102, Part A, items 6 to 10: in site mode the queue's outcomes name the institution's record. A refused write is still
+// Airtable's or the site's (an approval still creates Airtable's record first), so that sentence is the same in both modes.
+$a6_off = WPCPM_Institutions::queue_messages();
+$a6_on  = in_site_mode( static function () { return WPCPM_Institutions::queue_messages(); } );
+ck( 'A6 to A10: in site mode approved, adopted, the country and the half-done refusal are said for the site\'s record; the refused write is said as before', array(
+	$a6_on['app-approved'], $a6_on['app-adopted'], $a6_on['app-country'], $a6_on['app-half-done'], $a6_on['app-failed'] === $a6_off['app-failed'],
+), array(
+	array( 'success', 'The application is approved. The institution\'s record and its account are created, the invitation is queued, and Airtable gets a copy.' ),
+	array( 'success', 'The application is approved. The site already held a record for this institution, so it was adopted rather than created; the account is made and the invitation is queued.' ),
+	array( 'error', 'Nothing was created. The country on the application is not in the site\'s list of countries.' ),
+	array( 'error', 'Nothing happened. Approving this application stopped partway: a record for the institution, and maybe its account, already exist. Press Approve again to finish.' ),
+	true,
+) );
+ck( 'A6 to A10: and with the setting off every one reads as before', array( $a6_off['app-approved'][1], $a6_off['app-adopted'][1], $a6_off['app-country'][1] ), array(
+	'The application is approved. The Airtable record, the pipeline row and the account are created, and the invitation is queued.',
+	'The application is approved. Airtable already held a record for this institution, so it was adopted rather than created; the account is made and the invitation is queued.',
+	'Nothing was created. The country on the application no longer resolves in the Countries table. Run a sync and try again.',
+) );
 
 $GLOBALS['approved'] = array();
 $_POST               = array( WPCPM_Institutions::FIELD_APPLICATION => 550 );
@@ -5881,6 +5972,19 @@ ck( 'and on this screen the queue\'s mark, under the heading of where it is deci
 	strpos( $half_opened, '<h3>Where it is decided</h3>' . $half_mark ) !== false,
 ), array( 1, true ) );
 ck( 'and on no application whose approval was not begun', strpos( $whole_on_card, 'stopped partway' ), false );
+// 1.123.102, Part A, item 10: in site mode the mark's title and the card's note name the institution's record.
+list( $a10_card, $a10_opened ) = in_site_mode(
+	static function () use ( $module ) {
+		ob_start();
+		$module->render_application_actions( get_post( 550 ), WPCPM_Institution_Application::STATE_NEW, WPCPM_Return::DASHBOARD );
+		return array( (string) ob_get_clean(), render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 550 ) ) );
+	}
+);
+ck( 'A10: in site mode the mark says the earlier press created Airtable\'s copy of the institution, and so does the card\'s note; neither speaks of an Airtable record', array(
+	false !== strpos( $a10_opened, 'title="' . esc_attr( 'An earlier press of Approve stopped partway, so a record for the institution, and maybe the account, already exist.' ) . '"' ),
+	false !== strpos( $a10_card, esc_html( 'An earlier press of Approve stopped partway, so a record for the institution, and maybe the account, already exist. Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.' ) ),
+	false !== strpos( $a10_opened . $a10_card, 'Airtable record' ),
+), array( true, true, false ) );
 // And on its row in the queue's list, as the sponsor applications' rows carry theirs, before the way
 // to open it: the list is where an Administrator meets it first.
 preg_match_all( '#<li class="wpcpm-queue-item[^"]*">.*?</li>#s', render_tab( 'queue' ), $queue_items );

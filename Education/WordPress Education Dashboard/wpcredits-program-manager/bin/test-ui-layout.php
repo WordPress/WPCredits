@@ -711,7 +711,7 @@ foreach ( glob( $root . '/bin/test-*.php' ) as $suite_file ) {
 		$suites[] = $suite_file;
 	}
 }
-ck( 'fifteen suites keep cases for the harness', count( $suites ), 15 );
+ck( 'sixteen suites keep cases for the harness', count( $suites ), 16 );
 $node_run = trim( (string) shell_exec( 'command -v node 2>/dev/null' ) );
 if ( '' === $node_run ) {
 	echo "skip the suites were not drawn: node is not on the path\n";

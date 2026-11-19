@@ -75,7 +75,7 @@
 
 ### Finish an approval that stopped halfway
 
-*When:* **Approve** said "Nothing was finished", or the application says "Approving this application stopped partway..." or carries the mark *approval stopped partway*.
+*When:* **Approve** said "Nothing was finished", or the application says it "stopped partway" or carries the mark *approval stopped partway*.
 
 1. Find the application on the **Institution applications** card.
 2. Press **Approve** again and confirm.
@@ -133,7 +133,7 @@ Once the site keeps the record, the sync no longer reads the Institutions table,
 **Good to know**
 
 - An address that already has an account is refused, unless it is a former member of this school or a mentor's account.
-- For a school at *Confirmed* with its agreement settled, `Institutions > Accounts`, view **No account**, shows **Create account** on its row. It uses Airtable's Contact Email. A row that is not *Ready* says why, for example when the school has had a member before or the address already has an account.
+- For a school at *Confirmed* with its agreement settled, `Institutions > Accounts`, view **No account**, shows **Create account** on its row. It uses Airtable's Contact Email. Once the site keeps the record, it uses the institution's contact email, which you correct in **Your institution's details** on its Institution Dashboard. A row that is not *Ready* says why, for example when the school has had a member before or the address already has an account.
 - A school with no stage is left alone, but give it an active stage first, in Airtable, or on its Talks card once the site keeps the record: at a stage outside the active ones, or once Airtable no longer has it, the next sync takes the account off the school. See [[A school came in through Airtable, not the site's form]].
 
 ### A signed Collaboration Agreement arrived
@@ -204,6 +204,9 @@ Once the site keeps the record, the sync no longer reads the Institutions table,
 - **Reinstate** is refused when an accepted agreement already stands for the school. It works only on the school's most recently revoked agreement.
 - **Revoked agreements** lists a school at any time while it has a revoked agreement and nothing accepted or waiting for review, also one that has since started a new agreement or had one returned. The Administrator Dashboard's **Collaboration Agreements** card also offers **Reinstate** while a signed agreement waits for review.
 - A school at a stage outside the active ones is listed without **Reinstate**: reinstated, the next institutions sync would close it again. In its place the row says "At the stage "{stage}", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." A school with no stage keeps the button. Once the site keeps the record, the line reads "Move it to an active stage on its Talks card first".
+- Since 1.123.102 the same stage rule holds everywhere. On the Administrator Dashboard's **Collaboration Agreements** card such a school's row has no **Reinstate**, and says "At the stage "{stage}". Reinstate after it moves to an active stage in Airtable." Once the site keeps the record, it says "Reinstate after it moves to an active stage on its Talks card."
+- A press of **Reinstate** for such a school, from a page drawn before its stage changed, is refused with "Nothing was reinstated. The institution's stage is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." Nothing is written and nobody is emailed. Once the site keeps the record, it reads "on its Talks card first".
+- A school no longer in the site's list of institutions is not reinstated either: the press says "Nothing was reinstated. That institution is not in the site's list of institutions any more.", and its row on the Administrator Dashboard has no **Reinstate**.
 
 ### Assign a school to another Administrator, or to nobody
 

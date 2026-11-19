@@ -256,6 +256,8 @@ if ( ! class_exists( 'WPCPM_Institutions_Index' ) ) {
 		public static function row( $r ) { return $GLOBALS['index'][ $r ] ?? null; }
 		public static function has( $r ) { return isset( $GLOBALS['index'][ $r ] ); }
 		public static function read() { return array( 'v' => 1, 'read' => 1756800000, 'rows' => $GLOBALS['index'] ); }
+		// The record of institutions is Airtable's here, as on the live site today (asked since 1.123.102).
+		public static function on_site() { return false; }
 	}
 }
 

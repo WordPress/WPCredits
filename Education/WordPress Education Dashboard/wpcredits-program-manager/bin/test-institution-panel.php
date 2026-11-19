@@ -1962,6 +1962,11 @@ $GLOBALS['opts']['date_format'] = 'F j, Y';
 ck( 'the checklist is read, not ticked: three sentences and no boxes', array( substr_count( $template_review, '<li class="wpcpm-ui-checklist__item">' ), substr_count( $template_review, 'type="checkbox"' ) ), array( 3, 0 ) );
 ck( 'a template-kind document names the version the footer should carry', false !== strpos( $template_review, 'The footer on the signed copy names template version 2025-11-04.' ), true );
 ck( 'and the two names, side by side', false !== strpos( $template_review, 'The name on the document is Universidad Example Sede Central. Airtable&#039;s Name for this institution is Universidad Example.' ), true );
+// 1.123.102, Part A, item 12: in site mode the second name is the site's.
+$GLOBALS['stub_settings'] = array( 'institutions_on_site' => true );
+$a12_review               = review( $review_id );
+$GLOBALS['stub_settings'] = array();
+ck( 'A12: in site mode the checklist sets the name on the document beside the site\'s name for the institution', array( false !== strpos( $a12_review, 'The name on the document is Universidad Example Sede Central. The site&#039;s name for this institution is Universidad Example.' ), false !== strpos( $a12_review, 'Airtable&#039;s Name' ) ), array( true, false ) );
 ck( 'and asks whether the signature block is filled', false !== strpos( $template_review, 'signature block is filled in' ), true );
 ck( 'the flags line says what the scan noticed in words, each with the PDF\'s own name for it', false !== strpos( $template_review, 'The scan noticed these in the file: JavaScript code (/JavaScript), an action that runs when the file is opened (/OpenAction).' ), true );
 ck( 'and says in the same breath that it is not evidence', false !== strpos( $template_review, 'The scan is a courtesy and not evidence' ), true );
@@ -3666,7 +3671,8 @@ $t21_cases['accepted, representative, undated']   = array( 'accepted', 'represen
 // listed, a closed stage) came after it
 // (release 2, site mode), so the old branch has no drawing of them to hold the parts to; their words are pinned in the
 // outcomes block above.
-foreach ( array_diff( array_keys( WPCPM_Institution_Panel::messages() ), array( 'agreement-unlisted', 'agreement-on-file-unlisted', 'agreement-on-file-revisit', 'agreement-on-file-not-moving', 'agreement-on-file-spam' ) ) as $t21_slug ) {
+// `agreement-reinstate-left` (1.123.102) came after it too.
+foreach ( array_diff( array_keys( WPCPM_Institution_Panel::messages() ), array( 'agreement-unlisted', 'agreement-on-file-unlisted', 'agreement-on-file-revisit', 'agreement-on-file-not-moving', 'agreement-on-file-spam', 'agreement-reinstate-left', 'agreement-reinstate-unlisted' ) ) as $t21_slug ) {
 	$t21_cases[ 'message ' . $t21_slug . ', none, administrator' ] = array( 'none', 'administrator', $t21_slug, '' );
 }
 foreach ( array( 'agreement-not-pdf', 'agreement-declare', 'agreement-kind', 'agreement-name', 'agreement-name-brackets', 'agreement-too-big', 'agreement-uploaded' ) as $t21_slug ) {
@@ -5094,6 +5100,70 @@ ck( 'F3: the stage refusal names the site\'s stage and the Talks card in site mo
 	'Nothing was accepted. This institution\'s stage says the program is not going ahead with it. Change the stage on its Talks card first: accepting is the program saying yes, and it must not say yes to a record it has said no to.',
 	'Nothing was accepted. Airtable\'s Current Stage for this institution says the program is not going ahead with it. Change the stage in Airtable first: accepting is the program saying yes, and it must not say yes to a record it has said no to.',
 ) );
+
+// 1.123.102, Part A, item 3: in site mode the on-file form never says agreement-unknown (agreement-on-file-unlisted is
+// its refusal there); what still says it is the Regenerate link for a document that is gone (class-wpcpm-agreement-generate.php,
+// print_again()), so in site mode the words say that.
+$a3_off                   = WPCPM_Institution_Panel::messages()['agreement-unknown'];
+$GLOBALS['stub_settings'] = array( 'institutions_on_site' => true );
+$a3_on                    = WPCPM_Institution_Panel::messages()['agreement-unknown'];
+$GLOBALS['stub_settings'] = array();
+ck( 'A3: agreement-unknown in site mode says the document is gone, and with the setting off reads as before', array( $a3_on, $a3_off ), array(
+	array( 'error', 'Nothing was generated. That document is no longer on the site; reload the page to see the agreement as it stands.' ),
+	array( 'error', 'Nothing was recorded. That institution is not in the pipeline index; run a sync and try again.' ),
+) );
+
+// 1.123.102, round 3: V2, a generated document whose Airtable write failed is in site mode the plain success (the site's row is
+// written; the sync's retry writes Airtable's copy), and no such success sentence exists, so it reads as ruled; V3, in site mode
+// agreement-unknown is Regenerate's alone and is said at the block's top, not in the on-file form; V4, its own refusal.
+$v_form                   = new ReflectionMethod( 'WPCPM_Institution_Panel', 'outcome_form' );
+$v_form->setAccessible( true );
+$v_off                    = array( WPCPM_Institution_Panel::messages()['agreement-generated-later'], $v_form->invoke( null, 'agreement-unknown' ), WPCPM_Institution_Panel::messages()['agreement-reinstate-unlisted'] ?? null );
+$GLOBALS['stub_settings'] = array( 'institutions_on_site' => true );
+$v_on                     = array( WPCPM_Institution_Panel::messages()['agreement-generated-later'], $v_form->invoke( null, 'agreement-unknown' ), WPCPM_Institution_Panel::messages()['agreement-reinstate-unlisted'] ?? null, $v_form->invoke( null, 'agreement-link' ) );
+$GLOBALS['stub_settings'] = array();
+$v_unlisted               = array( 'error', 'Nothing was reinstated. That institution is not in the site\'s list of institutions any more.' );
+ck( 'V2 to V4: with the setting off generated-later and agreement-unknown are as before and the unlisted refusal has its sentence', $v_off, array(
+	array( 'info', 'The document was generated and downloaded, but the program\'s own record could not be updated at that moment. The next sync writes it. Nothing is lost and there is nothing to do.' ),
+	'on-file',
+	$v_unlisted,
+) );
+ck( 'V2 to V4: in site mode generated-later is the plain success, agreement-unknown belongs to no form, the unlisted refusal is the same sentence, and the on-file form keeps its own refusals', $v_on, array(
+	array( 'success', 'The document was generated and downloaded.' ),
+	'',
+	$v_unlisted,
+	'on-file',
+) );
+
+// 1.123.102, round 2, R1: in site mode Airtable refusing says nothing changed; a site record not written after Airtable took
+// the change is finished by pressing Record it again (the site-mode sync reads the site's list, not Airtable); a state being
+// rebuilt opens after the next institutions sync in both modes, so that sentence stays.
+$r1_off                   = WPCPM_Institution_Panel::messages();
+$GLOBALS['stub_settings'] = array( 'institutions_on_site' => true );
+$r1_on                    = WPCPM_Institution_Panel::messages();
+$GLOBALS['stub_settings'] = array();
+ck( 'R1: in site mode agreement-airtable and agreement-not-saved read their site-mode words, agreement-later as before; off, all three as before', array(
+	$r1_on['agreement-airtable'][1], $r1_on['agreement-not-saved'][1], $r1_on['agreement-later'] === $r1_off['agreement-later'],
+	$r1_off['agreement-airtable'][1], $r1_off['agreement-not-saved'][1],
+), array(
+	'Airtable could not be updated, so nothing was recorded here either. Nothing changed for the institution. Try again in a moment.',
+	'Airtable was updated but the record on this site could not be written. Press Record it again: a second press completes it.',
+	true,
+	'Airtable could not be updated, so nothing was recorded here either. The base is the record of this state, and the site does not open an account the base has not agreed to.',
+	'Airtable was updated but the record on this site could not be written. Run the institutions sync on the Institutions screen\'s Sync and storage tab: the next reconcile completes it.',
+) );
+
+// 1.123.102, Part B: a reinstatement refused for a school outside the active stages, in each mode's words, an error as the
+// handler's other refusals are, and said at the block's top as they are (no one form owns it).
+$b_off                    = WPCPM_Institution_Panel::messages()['agreement-reinstate-left'] ?? null;
+$GLOBALS['stub_settings'] = array( 'institutions_on_site' => true );
+$b_on                     = WPCPM_Institution_Panel::messages()['agreement-reinstate-left'] ?? null;
+$GLOBALS['stub_settings'] = array();
+ck( 'B1: the refusal of a reinstatement outside the pipeline names Airtable with the setting off and the Talks card in site mode', array( $b_off, $b_on ), array(
+	array( 'error', 'Nothing was reinstated. The institution\'s stage is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again.' ),
+	array( 'error', 'Nothing was reinstated. The institution\'s stage is outside the pipeline. Move it to an active stage on its Talks card first: reinstated now, the next institutions sync would close it again.' ),
+) );
+ck( 'B1: and, like agreement-reinstate-standing, no one form of the block owns it', array( 1 === preg_match( "/'on-file'\\s*=> array\\([^)]*'agreement-reinstate-left'/", (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-panel.php' ) ), 1 === preg_match( "/'on-file'\\s*=> array\\([^)]*'agreement-reinstate-standing'/", (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-panel.php' ) ) ), array( false, false ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

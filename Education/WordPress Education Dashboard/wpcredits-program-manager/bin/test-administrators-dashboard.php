@@ -523,6 +523,8 @@ class WPCPM_Institution_Roster {
 	public static function locked_today() { return isset( $GLOBALS['locked'] ) ? $GLOBALS['locked'] : array(); }
 }
 class WPCPM_Institutions_Index {
+	// Whether the site keeps the record of institutions (1.123.102, Part B): off unless a check turns it on.
+	public static function on_site() { return ! empty( $GLOBALS['on_site'] ); }
 	public static function rows() { return isset( $GLOBALS['inst_rows'] ) ? $GLOBALS['inst_rows'] : array(); }
 	public static function row( $id ) { return isset( $GLOBALS['inst_rows'][ (string) $id ] ) ? $GLOBALS['inst_rows'][ (string) $id ] : null; }
 	public static function has( $id ) { return isset( $GLOBALS['inst_rows'][ (string) $id ] ); }
@@ -711,6 +713,16 @@ class WPCPM_Institution_Agreement {
 	/** The day a document was revoked, as the real class reads it: nothing for a document that is not revoked. */
 	public static function revoked_facts( $post_id ) { return isset( $GLOBALS['agr_revoked_facts'][ (int) $post_id ] ) ? $GLOBALS['agr_revoked_facts'][ (int) $post_id ] : array( 'at' => 0, 'note' => '' ); }
 	public static function summary( $record ) { return array( 'state' => isset( $GLOBALS['agr_summary'][ $record ] ) ? $GLOBALS['agr_summary'][ $record ] : 'none' ); }
+	/** The real rule, word for word (1.123.102, Part B and round 3, V4): why a revoked agreement may not be reinstated. */
+	public static function reinstate_block( $record ) {
+		$row = WPCPM_Institutions_Index::row( trim( (string) $record ) );
+		if ( ! is_array( $row ) ) {
+			return array( 'reason' => 'unlisted', 'stage' => '' );
+		}
+		$stage  = isset( $row['stage'] ) && is_scalar( $row['stage'] ) ? trim( (string) $row['stage'] ) : '';
+		$active = (array) WPCPM_Settings::get_value( 'institution_active_stages', array() );
+		return array( 'reason' => WPCPM_Institutions_Sync::is_in_pipeline( $stage, $active ) ? '' : 'left', 'stage' => $stage );
+	}
 	/** The words an Administrator reads for a summary state, as the real class holds them. */
 	public static function summary_label( $state ) {
 		$words = array( 'none' => 'Not started', 'generated' => 'Template generated', 'submitted' => 'Awaiting review', 'returned' => 'Returned', 'revoked' => 'Revoked', 'accepted' => 'Accepted', 'on_file' => 'On file' );
@@ -820,6 +832,8 @@ class WPCPM_Institutions_Sync {
 	// The columns the answers table matches the country and the consent by, as the real map names them.
 	public static function fields() { return array( 'name' => 'Name', 'country' => 'Country', 'contact_email' => 'Contact Email', 'consent' => 'Privacy Policy Compliance' ); }
 	public static function last_read() { return (int) get_option( 'wpcpm_institutions_last_sync', 0 ); }
+	// The real test, word for word: an empty stage is inside the pipeline (1.123.102, Part B).
+	public static function is_in_pipeline( $stage, array $active ) { return '' === trim( $stage ) || in_array( $stage, $active, true ); }
 }
 class WPCPM_Private_Files {
 	public static function probe_result() { return isset( $GLOBALS['probe'] ) ? $GLOBALS['probe'] : null; }
@@ -5810,6 +5824,73 @@ ck( 'its button is the quiet row action "Reinstate", in the revoked row\'s actio
 	has( $agr_on, '</span></span></div><p class="wpcpm-ui-list__note">Page two is missing.</p>' ),
 	strpos( $agr_on, 'wpcpm-button' ),
 ), array( true, 1, 0, true, false ) );
+
+// 1.123.102, Part B: a revoked row whose school is outside the active stages is listed with its name, its date and its
+// note, offers no Reinstate (the handler refuses it), and says why on one more line, in each mode's words. Awkward data: a
+// 60-character name, a 40-character word in the note, a long stage. The fold's count is unchanged.
+$b_school                        = 'recEXA00000000060';
+$b_name                          = 'Universidade Federal Exemplo de Ciencias e Tecnologia Aplica';
+$b_stage                         = 'Not Moving Forward until the next academic year begins';
+$b_word                          = str_repeat( 'Abcdefghij', 4 );
+$GLOBALS['inst_rows'][ $b_school ] = array( 'record_id' => $b_school, 'name' => $b_name, 'stage' => $b_stage, 'country' => '', 'country_name' => '' );
+$b_data                          = $agr_data;
+$b_data['revoked'][]             = array( 'id' => 605, 'record' => $b_school, 'at' => $b_data['revoked'][0]['at'], 'note' => 'Revoked after the rector wrote ' . $b_word . ' twice.' );
+// Round 3, V4: a revoked school the site's list no longer holds, last, with no note.
+$b_gone                          = 'recEXA00000000061';
+$b_data['revoked'][]             = array( 'id' => 606, 'record' => $b_gone, 'at' => $b_data['revoked'][0]['at'], 'note' => '' );
+$b_draw                          = static function ( $on_site ) use ( $b_data ) {
+	$GLOBALS['on_site'] = $on_site;
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	WPCPM_UI::enter( 'administrator' );
+	$html = capture( static function () use ( $b_data ) { WPCPM_Administrators_Cards::render_agreements( $b_data ); } );
+	WPCPM_UI::leave();
+	WPCPM_UI::set_live( array() );
+	unset( $GLOBALS['on_site'] );
+	return $html;
+};
+$b_row = static function ( $html, $name ) {
+	return preg_match( '#<li class="wpcpm-ui-list__row[^"]*">(?:(?!</li>).)*?' . preg_quote( esc_html( $name ), '#' ) . '(?:(?!</li>).)*</li>#s', $html, $m ) ? $m[0] : '';
+};
+$b_off      = $b_draw( false );
+$b_on       = $b_draw( true );
+$b_line_off = '<p class="wpcpm-ui-note">' . esc_html( 'At the stage "' . $b_stage . '". Reinstate after it moves to an active stage in Airtable.' ) . '</p>';
+$b_line_on  = '<p class="wpcpm-ui-note">' . esc_html( 'At the stage "' . $b_stage . '". Reinstate after it moves to an active stage on its Talks card.' ) . '</p>';
+ck( 'B2: the school outside the active stages is listed with its name, its date and its note, no Reinstate form, and the line in Airtable\'s words with the setting off', array(
+	'' !== $b_row( $b_off, $b_name ),
+	has( $b_row( $b_off, $b_name ), '<p class="wpcpm-ui-list__note">' . esc_html( 'Revoked after the rector wrote ' . $b_word . ' twice.' ) . '</p>' ),
+	has( $b_row( $b_off, $b_name ), '<div class="wpcpm-ui-list__more">' . $b_line_off . '</div>' ),
+	has( $b_row( $b_off, $b_name ), '<form' ),
+	has( $b_row( $b_off, $b_name ), 'Reinstate<' ),
+	has( $b_off, 'name="wpcpm_agreement_post" value="605"' ),
+), array( true, true, true, false, false, false ) );
+ck( 'B2: in site mode the line sends the Administrator to the Talks card, and nothing else of the row changes', array(
+	has( $b_row( $b_on, $b_name ), '<div class="wpcpm-ui-list__more">' . $b_line_on . '</div>' ),
+	has( $b_on, 'in Airtable.' ),
+	str_replace( $b_line_on, $b_line_off, $b_on ) === $b_off,
+), array( true, false, true ) );
+ck( 'B2: the revoked school at an active stage keeps its form and draws no such line, and the fold still counts both', array(
+	has( $b_off, 'name="wpcpm_agreement_post" value="604"' ),
+	substr_count( $b_off, 'value="wpcpm_agreement_reinstate"' ),
+	substr_count( $b_off, 'wpcpm-ui-list__more' ),
+	has( $b_off, '3 revoked agreements' ),
+), array( true, 1, 2, true ) );
+$b_gone_line = '<div class="wpcpm-ui-list__more"><p class="wpcpm-ui-note">' . esc_html( 'Not in the site\'s list of institutions any more, so its agreement cannot be reinstated.' ) . '</p></div>';
+ck( 'V4: a revoked school the site\'s list no longer holds is listed by its record ID with the line and no form, the same in both modes', array(
+	has( $b_row( $b_off, $b_gone ), $b_gone_line ),
+	has( $b_row( $b_on, $b_gone ), $b_gone_line ),
+	has( $b_row( $b_off, $b_gone ), '<form' ),
+	has( $b_off, 'name="wpcpm_agreement_post" value="606"' ),
+), array( true, true, false, false ) );
+ck( 'V6a: the shared part keeps a noted last row\'s note padding when the row has a more under it, so the two are two paragraphs', 1 === preg_match( '/\.wpcpm-ui-list__row:last-child:not\( \.wpcpm-ui-list__row--more \) > \.wpcpm-ui-list__note \{\s*padding-bottom: 0;/', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/parts.css' ) ), true );
+ck( 'B2: the card asks the agreement class\'s one predicate, the one the handler asks', array(
+	1 === preg_match( '/function render_agreement_rows\(.*?WPCPM_Institution_Agreement::reinstate_block\(/s', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php' ) ),
+	1 === preg_match( '/function handle_reinstate\(.*?self::reinstate_block\(/s', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php' ) ),
+), array( true, true ) );
+if ( function_exists( 'wpcpm_layout_keep' ) ) {
+	wpcpm_layout_keep( 'Collaboration Agreements: a revoked school outside the pipeline, a 60-character name, a 40-character word, a long stage', $b_off, 'administrator' );
+	wpcpm_layout_keep( 'Collaboration Agreements: the same row in site mode', $b_on, 'administrator' );
+}
+unset( $GLOBALS['inst_rows'][ $b_school ] );
 
 WPCPM_UI::set_live( array( 'administrator' ) );
 $agr_page = WPCPM_Administrators_Dashboard::render( array() );

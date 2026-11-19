@@ -724,6 +724,19 @@ class WPCPM_Institution_Agreement {
 	}
 
 	/**
+	 * The record IDs of every school whose index row still lacks a change the agreement path made, read once from the
+	 * table (`owes_index()` for one school): for a reader that asks about many schools at once, as the Institutions
+	 * screen's notice of the schools the site's list is behind on does (1.123.102).
+	 *
+	 * @phpstan-impure
+	 *
+	 * @return string[]
+	 */
+	public static function records_owing_index() {
+		return array_values( array_map( 'strval', array_keys( self::index_debts() ) ) );
+	}
+
+	/**
 	 * The agreement status a school still owes its index row (`keep_index()`), read fresh, or '' when it owes none or
 	 * its change holds no status: what a reader that must write nothing (a page drawn) counts as the school's agreement
 	 * until the change is paid (Institutions off Airtable, release 2, Task 15).
@@ -2661,6 +2674,37 @@ class WPCPM_Institution_Agreement {
 	}
 
 	/**
+	 * Why a revoked agreement may not be reinstated for a school, if it may not: reinstated, the next institutions sync
+	 * would close it again. One rule for the handler that refuses it and the Administrator Dashboard's card that does not
+	 * offer it (1.123.102). `unlisted` when the site's list of institutions does not hold the school (the sync's revoke
+	 * phase closes that one); `left` when its stage is outside the active stages, by the sync's own test
+	 * (`WPCPM_Institutions_Sync::is_in_pipeline()`) against `institution_active_stages` read as the Institutions screen's
+	 * Agreements tab reads it, so a listed school with no stage is inside.
+	 *
+	 * @param string $record Institutions record ID.
+	 * @return array{reason: string, stage: string} `reason` '' (it may be), `left` or `unlisted`; `stage` the school's,
+	 *                                              trimmed, '' when it has none or is not listed.
+	 */
+	public static function reinstate_block( $record ) {
+		$row = WPCPM_Institutions_Index::row( trim( (string) $record ) );
+
+		if ( ! is_array( $row ) ) {
+			return array(
+				'reason' => 'unlisted',
+				'stage'  => '',
+			);
+		}
+
+		$stage  = isset( $row['stage'] ) && is_scalar( $row['stage'] ) ? trim( (string) $row['stage'] ) : '';
+		$active = (array) WPCPM_Settings::get_value( 'institution_active_stages', array() );
+
+		return array(
+			'reason' => WPCPM_Institutions_Sync::is_in_pipeline( $stage, $active ) ? '' : 'left',
+			'stage'  => $stage,
+		);
+	}
+
+	/**
 	 * Put the most recently revoked agreement back in force (T9).
 	 *
 	 * The abort that makes revoking a safe click. A manager who revokes the wrong institution,
@@ -2677,6 +2721,9 @@ class WPCPM_Institution_Agreement {
 	 * stands. The second is what keeps "an accepted one stands" meaning one document, which
 	 * T3, T6 and T10 all rely on; the first is what stops a manager reinstating last year's
 	 * agreement from a page drawn before this year's was revoked.
+	 *
+	 * A third, since 1.123.102: the site's list holds the school and its stage is inside the active
+	 * ones (`reinstate_block()`), asked after the other two and before anything is written.
 	 */
 	public static function handle_reinstate() {
 		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
@@ -2724,6 +2771,18 @@ class WPCPM_Institution_Agreement {
 		if ( self::latest_revoked( $record ) !== (int) $post_id ) {
 			self::unlock( $record );
 			self::bounce( 'agreement-not-revoked' );
+		}
+
+		// A school the site's list no longer holds, or one outside the active stages, is not reinstated, from any form
+		// (1.123.102): reinstated now, the next institutions sync would close it again. Asked under the lock, from the list
+		// as it is now, before anything is written or sent.
+		WPCPM_Institutions_Index::forget_cached();
+
+		$block = self::reinstate_block( $record );
+
+		if ( '' !== $block['reason'] ) {
+			self::unlock( $record );
+			self::bounce( 'unlisted' === $block['reason'] ? 'agreement-reinstate-unlisted' : 'agreement-reinstate-left' );
 		}
 
 		$kind   = (string) get_post_meta( $post_id, self::META_KIND, true );

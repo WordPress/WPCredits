@@ -490,10 +490,11 @@ class WPCPM_Institution_Leads {
 
 			// Room for every character typed, so a value refused for its length comes back whole.
 			foreach ( $posted as $field => $value ) {
-				$room[ $field ] = WPCPM_Typed_Text::kept_room( $value, isset( self::MAX_LENGTHS[ $field ] ) ? self::MAX_LENGTHS[ $field ] : 500 );
+				$room[ $field ] = WPCPM_Typed_Text::typed_room( $value, isset( self::MAX_LENGTHS[ $field ] ) ? self::MAX_LENGTHS[ $field ] : 500 );
 			}
 
-			$room['note'] = WPCPM_Typed_Text::kept_room( $note, WPCPM_Institution_Talk_Notes::MAX_LENGTH );
+			// The raw typing, so its room is counted as typed: a typed entity comes back whole (1.123.102).
+			$room['note'] = WPCPM_Typed_Text::typed_room( $note, WPCPM_Institution_Talk_Notes::MAX_LENGTH );
 
 			WPCPM_Typed_Text::keep( self::ADD_FORM, array_merge( $posted, array( 'note' => $note ) ), $room );
 			WPCPM_Flash::set(

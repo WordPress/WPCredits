@@ -2665,13 +2665,14 @@
 
 /* No row of a list inside an inner fold keeps the 56px least height, so each row is its content and its line's 8px over
    and under: every hairline has the same room above and below, and every row-to-row distance is the same, whatever the
-   rows hold (Task 18e). A noted last row ends with its note's words, as on a phone. */
+   rows hold (Task 18e). A noted last row ends with its note's words, as on a phone; one with a `more` under its note keeps
+   the note's 8px under it, so the two are two paragraphs at every width, as on a phone (1.123.102). */
 
 .wpcpm-ui-fold--inner > .wpcpm-ui-fold__body > .wpcpm-ui-list > .wpcpm-ui-list__row > .wpcpm-ui-list__line {
 	min-height: 0;
 }
 
-.wpcpm-ui-fold--inner > .wpcpm-ui-fold__body > .wpcpm-ui-list:last-child > .wpcpm-ui-list__row:last-child > .wpcpm-ui-list__note {
+.wpcpm-ui-fold--inner > .wpcpm-ui-fold__body > .wpcpm-ui-list:last-child > .wpcpm-ui-list__row:last-child:not( .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__note {
 	padding-bottom: 0;
 }
 

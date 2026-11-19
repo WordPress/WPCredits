@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.101
+Stable tag: 1.123.102
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,15 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.102 =
+
+* Collaboration Agreements: Reinstate is refused for a school whose stage is outside the active stages, from the Institutions screen's Agreements tab, from the Administrator Dashboard and from a page drawn earlier. Reinstated, the next institutions sync would close it again. Nothing is written and nobody is emailed; the refusal says to move the school to an active stage first. The same holds for a school no longer in the site's list of institutions.
+* Administrator Dashboard, Collaboration Agreements: such a school's revoked row has no Reinstate, and one more line says its stage and where to move it, or that it is no longer in the site's list. The count is unchanged.
+* With the site's own record of institutions still off, as it is today, these two are the only changes anyone meets in this release.
+* Institutions screen, once the site keeps the record: its sentences say what is true then. They name the site's record, the Talks card and Your institution's details in place of Airtable, and no longer send an Administrator to a sync that cannot help. The sync card is Institutions sync.
+* Talks card, once the site keeps the record: a note refused because someone else was adding one at the same moment comes back in its box, and a note refused for its length comes back whole.
+* Administrator guide: the stage rule of Reinstate, and the Institutions screen's sentences once the site keeps the record.
 
 = 1.123.101 =
 

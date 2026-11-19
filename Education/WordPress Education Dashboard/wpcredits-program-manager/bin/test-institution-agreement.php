@@ -522,6 +522,10 @@ if ( ! class_exists( 'WPCPM_Institutions_Sync' ) ) {
 				'agr_template'     => 'Agreement Template Version',
 			);
 		}
+		/** The real class's test, word for word: an empty stage is inside the pipeline (1.123.102, Part B). */
+		public static function is_in_pipeline( $stage, array $active ) {
+			return '' === trim( $stage ) || in_array( $stage, $active, true );
+		}
 		/** A patch of the index asks for one more run while a tick holds the run's lock; none is held here. */
 		public static function read_again_soon() {
 			return false;
@@ -868,6 +872,8 @@ function reset_world() {
 		'agreement_uploads_per_day' => 5,
 		'agreement_review_days'     => 3,
 		'agreement_discard_days'    => 30,
+		// The plugin's own default list (`WPCPM_Settings`), which a reinstatement asks (1.123.102, Part B).
+		'institution_active_stages' => array( 'First Contact Made', 'Info Sent', 'Waiting on Reply', 'Under Review', 'Call Scheduled', 'Agreement Sent', 'Confirmed', 'Student' ),
 	);
 	$_POST                  = array();
 	$_GET                   = array();
@@ -3197,6 +3203,84 @@ ck( 'the reinstatement itself stands', array( count( $GLOBALS['patched'] ), get_
 ck( 'the gate is shut until the next sync writes the option', WPCPM_Institution_Agreement::is_settled( $rec_a ), false );
 ck( 'and every member was told all the same', mail_log(), array( 'agreement-reinstated to ola@example.edu', 'agreement-reinstated to bo@example.edu' ) );
 
+// 1.123.102, Part B: a school whose stage is outside the active stages is not reinstated, from any form, in either mode:
+// reinstated, the next institutions sync would close it again. Refused under the lock, before anything is written or sent.
+/**
+ * The revoked world with the school at a stage, the setting on or off, then a press of Reinstate.
+ *
+ * @param string $stage   The school's stage in the index.
+ * @param bool   $on_site Whether the site keeps the record.
+ * @return array The outcome, the PATCHes, the journal, the audit rows, the mail, the document's state, the gate, the lock.
+ */
+function reinstate_at_stage( $stage, $on_site ) {
+	$id = revoked_world();
+
+	$GLOBALS['settings']['institutions_on_site']            = $on_site;
+	$GLOBALS['index_rows']['recAAAAAAAAAAAAA1']['stage']    = $stage;
+	WPCPM_Institutions_Index::write( $GLOBALS['index_rows'], time() );
+	$GLOBALS['journal'] = array();
+	$GLOBALS['patched'] = array();
+
+	$outcome = run( 'handle_reinstate' );
+	$result  = array( $outcome, $GLOBALS['patched'], $GLOBALS['journal'], $GLOBALS['audit'], $GLOBALS['mail'], get_post_meta( $id, '_wpcpm_agr_state', true ), WPCPM_Institution_Agreement::is_settled( 'recAAAAAAAAAAAAA1' ), array_key_exists( 'wpcpm_agreement_lock_recAAAAAAAAAAAAA1', $GLOBALS['opts'] ) );
+
+	unset( $GLOBALS['settings']['institutions_on_site'] );
+
+	return $result;
+}
+
+$b_refused = array( 'agreement-reinstate-left', array(), array(), array(), array(), 'revoked', false, false );
+ck( 'B1: Airtable mode, a school at Not Moving Forward is refused in its own outcome: no PATCH, nothing journaled, no audit row, no mail, the document still revoked, the gate shut, the lock let go', reinstate_at_stage( 'Not Moving Forward', false ), $b_refused );
+ck( 'B1: and once the site keeps the record the same', reinstate_at_stage( 'Not Moving Forward', true ), $b_refused );
+ck( 'B1: a stage the list does not name at all is outside it too, in both modes', array( reinstate_at_stage( 'Paused', false )[0], reinstate_at_stage( 'Paused', true )[0] ), array( 'agreement-reinstate-left', 'agreement-reinstate-left' ) );
+ck( 'B1: a school at an active stage is still reinstated, in both modes', array( reinstate_at_stage( 'Agreement Sent', false )[0], reinstate_at_stage( 'Agreement Sent', true )[0] ), array( 'agreement-reinstated', 'agreement-reinstated' ) );
+ck( 'B1: and so is a school with no stage, which has not left the pipeline', array( reinstate_at_stage( '', false )[0], reinstate_at_stage( '  ', true )[0] ), array( 'agreement-reinstated', 'agreement-reinstated' ) );
+$b_standing = revoked_world();
+seed_post( $rec_a, 'accepted', 'own', array( WPCPM_Institution_Agreement::META_DECIDED_AT => '2026-03-03' ) );
+$GLOBALS['index_rows']['recAAAAAAAAAAAAA1']['stage'] = 'SPAM';
+WPCPM_Institutions_Index::write( $GLOBALS['index_rows'], time() );
+ck( 'B1: an agreement that already stands is said first, as before: the stage is asked after it', run( 'handle_reinstate' ), 'agreement-reinstate-standing' );
+// Round 3, V4: the one rule answers which of the two reasons stops a reinstatement: a stage outside the active ones, or a
+// school the site's list does not hold (the revoke phase closes that one too); an empty stage on a listed school is inside.
+$GLOBALS['index_rows']['recCCCCCCCCCCCCC3'] = array_merge( WPCPM_Institutions_Index::empty_row(), array( 'record_id' => 'recCCCCCCCCCCCCC3', 'name' => 'Escola Exemplo', 'stage' => '' ) );
+$GLOBALS['index_rows']['recDDDDDDDDDDDDD4'] = array_merge( WPCPM_Institutions_Index::empty_row(), array( 'record_id' => 'recDDDDDDDDDDDDD4', 'name' => 'Colegio Exemplo', 'stage' => 'Confirmed' ) );
+WPCPM_Institutions_Index::write( $GLOBALS['index_rows'], time() );
+ck( 'V4: the one rule names the reason and the stage: outside, unlisted, and nothing for an empty stage or an active one', array(
+	WPCPM_Institution_Agreement::reinstate_block( 'recAAAAAAAAAAAAA1' ),
+	WPCPM_Institution_Agreement::reinstate_block( 'recZZZZZZZZZZZZZ9' ),
+	WPCPM_Institution_Agreement::reinstate_block( 'recCCCCCCCCCCCCC3' ),
+	WPCPM_Institution_Agreement::reinstate_block( 'recDDDDDDDDDDDDD4' ),
+), array(
+	array( 'reason' => 'left', 'stage' => 'SPAM' ),
+	array( 'reason' => 'unlisted', 'stage' => '' ),
+	array( 'reason' => '', 'stage' => '' ),
+	array( 'reason' => '', 'stage' => 'Confirmed' ),
+) );
+/**
+ * The revoked world with the school gone from the site's list, then a press of Reinstate.
+ *
+ * @param bool $on_site Whether the site keeps the record.
+ * @return array As reinstate_at_stage().
+ */
+function reinstate_unlisted( $on_site ) {
+	$id = revoked_world();
+
+	$GLOBALS['settings']['institutions_on_site'] = $on_site;
+	unset( $GLOBALS['index_rows']['recAAAAAAAAAAAAA1'] );
+	WPCPM_Institutions_Index::write( $GLOBALS['index_rows'], time() );
+	$GLOBALS['journal'] = array();
+	$GLOBALS['patched'] = array();
+
+	$outcome = run( 'handle_reinstate' );
+	$result  = array( $outcome, $GLOBALS['patched'], $GLOBALS['journal'], $GLOBALS['audit'], $GLOBALS['mail'], get_post_meta( $id, '_wpcpm_agr_state', true ), WPCPM_Institution_Agreement::is_settled( 'recAAAAAAAAAAAAA1' ), array_key_exists( 'wpcpm_agreement_lock_recAAAAAAAAAAAAA1', $GLOBALS['opts'] ) );
+
+	unset( $GLOBALS['settings']['institutions_on_site'] );
+
+	return $result;
+}
+$v4_refused = array( 'agreement-reinstate-unlisted', array(), array(), array(), array(), 'revoked', false, false );
+ck( 'V4: a school the site\'s list no longer holds is refused in its own outcome, with setting off and on: no PATCH, nothing journaled, no audit row, no mail, the document still revoked, the lock let go', array( reinstate_unlisted( false ), reinstate_unlisted( true ) ), array( $v4_refused, $v4_refused ) );
+
 /* ---- what the two handlers are, read from the source --------------------- */
 
 echo "\n=== Revoke and reinstate, read from the source ===\n";
@@ -4238,6 +4322,12 @@ $GLOBALS['option_cache']                     = true;
 $before                                      = WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' );
 $GLOBALS['opts'][ $owed_opt ]                = array( 'recAAAAAAAAAAAAA1' => $b_debt );
 ck( 'I1 (c): whether a school is owed is read fresh, so a change owed meanwhile is seen', array( $before, WPCPM_Institution_Agreement::owes_index( 'recAAAAAAAAAAAAA1' ) ), array( false, true ) );
+// 1.123.102, Part C1: the reader for many schools answers the record IDs owed, read fresh in the same way.
+$GLOBALS['opts'][ $owed_opt ] = array( 'recAAAAAAAAAAAAA1' => $b_debt, 'recBBBBBBBBBBBBB2' => $b_debt );
+$c1_both                      = WPCPM_Institution_Agreement::records_owing_index();
+unset( $GLOBALS['opts'][ $owed_opt ] );
+ck( 'C1: records_owing_index() answers every record ID owed, and nothing once none is', array( $c1_both, WPCPM_Institution_Agreement::records_owing_index() ), array( array( 'recAAAAAAAAAAAAA1', 'recBBBBBBBBBBBBB2' ), array() ) );
+$GLOBALS['opts'][ $owed_opt ] = array( 'recAAAAAAAAAAAAA1' => $b_debt );
 
 // The list's own lock held past the wait: the change cannot be kept, and the site's error log says so.
 $log = sys_get_temp_dir() . '/wpcpm-agreement-' . getmypid() . '.log';

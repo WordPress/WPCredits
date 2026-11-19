@@ -431,7 +431,7 @@ class WPCPM_Institution_Talks {
 		}
 
 		// Room for every character typed, so a note refused for its length comes back whole.
-		WPCPM_Typed_Text::keep( self::note_form( $key ), array( 'note' => (string) $note ), array( 'note' => WPCPM_Typed_Text::kept_room( (string) $note, WPCPM_Institution_Talk_Notes::MAX_LENGTH ) ) );
+		self::keep_note( self::note_form( $key ), (string) $note );
 
 		self::finish(
 			$key,
@@ -1583,7 +1583,13 @@ class WPCPM_Institution_Talks {
 		$lock  = WPCPM_Institution_Request::LOCK_PREFIX . 'talks_note_' . $key;
 		$token = WPCPM_Lock::take( $lock, self::NOTE_LOCK_TTL );
 
+		// The card is drawn again after this refusal, so the note typed comes back in its box (1.123.102); not for a lead
+		// gone or moved into the talks meanwhile, whose page has no card to draw it or forget it.
 		if ( '' === $token ) {
+			if ( ! self::is_lead_key( $key ) || null !== WPCPM_Institution_Leads::get( $key ) ) {
+				self::keep_note( $form, $text );
+			}
+
 			self::finish( $key, 'note-busy', $extra, self::NOTE_ID );
 		}
 
@@ -1607,7 +1613,11 @@ class WPCPM_Institution_Talks {
 		}
 
 		if ( is_wp_error( $added ) ) {
-			WPCPM_Typed_Text::keep( $form, array( 'note' => $text ), array( 'note' => WPCPM_Institution_Talk_Notes::MAX_LENGTH ) );
+			// A lead that is gone, or was moved into the talks, has no card to draw the box again, so nothing would ever
+			// draw or forget a note kept for it (1.123.102).
+			if ( ! in_array( $added->get_error_code(), array( 'wpcpm_lead_gone', 'wpcpm_lead_promoted' ), true ) ) {
+				self::keep_note( $form, $text );
+			}
 
 			self::finish( $key, 'note-refused', array_merge( $extra, array( 'problems' => array( 'note' => $added->get_error_message() ) ) ), self::NOTE_ID );
 		}
@@ -1821,6 +1831,20 @@ class WPCPM_Institution_Talks {
 	 */
 	private static function note_form( $key ) {
 		return 'talks-note:' . $key;
+	}
+
+	/**
+	 * Keep a refused note for the one time its box is drawn again, with room for every character typed, so a note
+	 * refused for its length comes back whole (1.123.102). The note is the raw typing, so its room is counted as typed
+	 * (`WPCPM_Typed_Text::typed_room()`): `kept_room()` alone would cut a typed `&amp;` short.
+	 *
+	 * @param string $form The note form's name (`note_form()`).
+	 * @param string $note The note as typed.
+	 */
+	private static function keep_note( $form, $note ) {
+		$note = (string) $note;
+
+		WPCPM_Typed_Text::keep( (string) $form, array( 'note' => $note ), array( 'note' => WPCPM_Typed_Text::typed_room( $note, WPCPM_Institution_Talk_Notes::MAX_LENGTH ) ) );
 	}
 
 	/**

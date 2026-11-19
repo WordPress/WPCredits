@@ -122,7 +122,14 @@ class WPCPM_Institution_Panel {
 			'agreement-on-file'            => array( 'success', __( 'The agreement is recorded as on file. The institution\'s account is open.', 'wpcredits-program-manager' ) ),
 			'agreement-link'               => array( 'error', __( 'Nothing was recorded. Paste the Drive link to the folder or the file: it has to be an https address on drive.google.com or docs.google.com.', 'wpcredits-program-manager' ) ),
 			'agreement-standing'           => array( 'error', __( 'Nothing was recorded. An accepted agreement already stands for this institution.', 'wpcredits-program-manager' ) ),
-			'agreement-unknown'            => array( 'error', __( 'Nothing was recorded. That institution is not in the pipeline index; run a sync and try again.', 'wpcredits-program-manager' ) ),
+			// In site mode the on-file form says agreement-on-file-unlisted instead; what still says this is the Regenerate link for a
+			// document that is gone (`WPCPM_Agreement_Generate`), so the site's words say that (1.123.102).
+			'agreement-unknown'            => array(
+				'error',
+				class_exists( 'WPCPM_Institutions_Index' ) && WPCPM_Institutions_Index::on_site()
+					? __( 'Nothing was generated. That document is no longer on the site; reload the page to see the agreement as it stands.', 'wpcredits-program-manager' )
+					: __( 'Nothing was recorded. That institution is not in the pipeline index; run a sync and try again.', 'wpcredits-program-manager' ),
+			),
 			'agreement-busy'               => array( 'error', __( 'Nothing was saved. Either another write to this institution\'s agreement was in flight, from a sync or from somebody else pressing the same button, or this institution has used up the documents one day allows it to generate and upload. Try again in a moment, and tomorrow if it happens again.', 'wpcredits-program-manager' ) ),
 			// Revoke and reinstate, T8 and T9. Named here with everything else the two agreement
 			// forms can flash, because a slug with no row prints nothing at all: the button
@@ -133,9 +140,30 @@ class WPCPM_Institution_Panel {
 			'agreement-not-accepted'       => array( 'error', __( 'Nothing was revoked. There is no accepted agreement to revoke for this institution.', 'wpcredits-program-manager' ) ),
 			'agreement-not-revoked'        => array( 'error', __( 'Nothing was reinstated. There is no revoked agreement to put back for this institution.', 'wpcredits-program-manager' ) ),
 			'agreement-reinstate-standing' => array( 'error', __( 'Nothing was reinstated. An accepted agreement already stands, so there is nothing for the revoked one to come back to.', 'wpcredits-program-manager' ) ),
+			// A school outside the active stages (1.123.102): read on wp-admin and on the Administrator Dashboard alone.
+			'agreement-reinstate-left'     => array(
+				'error',
+				class_exists( 'WPCPM_Institutions_Index' ) && WPCPM_Institutions_Index::on_site()
+					? __( 'Nothing was reinstated. The institution\'s stage is outside the pipeline. Move it to an active stage on its Talks card first: reinstated now, the next institutions sync would close it again.', 'wpcredits-program-manager' )
+					: __( 'Nothing was reinstated. The institution\'s stage is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again.', 'wpcredits-program-manager' ),
+			),
+			// A school the site's list no longer holds (round 3): the same sentence in both modes.
+			'agreement-reinstate-unlisted' => array( 'error', __( 'Nothing was reinstated. That institution is not in the site\'s list of institutions any more.', 'wpcredits-program-manager' ) ),
 			'agreement-reinstated'         => array( 'success', __( 'The agreement is back in force and the account is open again. Everybody at the institution has been emailed.', 'wpcredits-program-manager' ) ),
-			'agreement-airtable'           => array( 'error', __( 'Airtable could not be updated, so nothing was recorded here either. The base is the record of this state, and the site does not open an account the base has not agreed to.', 'wpcredits-program-manager' ) ),
-			'agreement-not-saved'          => array( 'error', __( 'Airtable was updated but the record on this site could not be written. Run the institutions sync on the Institutions screen\'s Sync and storage tab: the next reconcile completes it.', 'wpcredits-program-manager' ) ),
+			// Once the site keeps the record, the agreement columns are still written to Airtable first (design, section 9), and
+			// the sync reads the site's list, so only a second press finishes a site record not written (1.123.102).
+			'agreement-airtable'           => array(
+				'error',
+				class_exists( 'WPCPM_Institutions_Index' ) && WPCPM_Institutions_Index::on_site()
+					? __( 'Airtable could not be updated, so nothing was recorded here either. Nothing changed for the institution. Try again in a moment.', 'wpcredits-program-manager' )
+					: __( 'Airtable could not be updated, so nothing was recorded here either. The base is the record of this state, and the site does not open an account the base has not agreed to.', 'wpcredits-program-manager' ),
+			),
+			'agreement-not-saved'          => array(
+				'error',
+				class_exists( 'WPCPM_Institutions_Index' ) && WPCPM_Institutions_Index::on_site()
+					? __( 'Airtable was updated but the record on this site could not be written. Press Record it again: a second press completes it.', 'wpcredits-program-manager' )
+					: __( 'Airtable was updated but the record on this site could not be written. Run the institutions sync on the Institutions screen\'s Sync and storage tab: the next reconcile completes it.', 'wpcredits-program-manager' ),
+			),
 			'agreement-later'              => array( 'info', __( 'Airtable and the site record were both written, but this institution\'s state was being rebuilt at that moment. The account opens after the next institutions sync.', 'wpcredits-program-manager' ) ),
 			'agreement-uploaded'           => array( 'success', __( 'The signed agreement is uploaded. An Administrator reviews it and you will get an email either way.', 'wpcredits-program-manager' ) ),
 			'agreement-too-big'            => array(
@@ -173,7 +201,11 @@ class WPCPM_Institution_Panel {
 					? __( 'Nothing was accepted. This institution\'s stage says the program is not going ahead with it. Change the stage on its Talks card first: accepting is the program saying yes, and it must not say yes to a record it has said no to.', 'wpcredits-program-manager' )
 					: __( 'Nothing was accepted. Airtable\'s Current Stage for this institution says the program is not going ahead with it. Change the stage in Airtable first: accepting is the program saying yes, and it must not say yes to a record it has said no to.', 'wpcredits-program-manager' ),
 			),
-			'agreement-generated-later'    => array( 'info', __( 'The document was generated and downloaded, but the program\'s own record could not be updated at that moment. The next sync writes it. Nothing is lost and there is nothing to do.', 'wpcredits-program-manager' ) ),
+			// Once the site keeps the record its own row is written already and only Airtable's copy failed, which the sync's
+			// retry writes: for the school it is the plain success of a generated document (1.123.102).
+			'agreement-generated-later'    => class_exists( 'WPCPM_Institutions_Index' ) && WPCPM_Institutions_Index::on_site()
+				? array( 'success', __( 'The document was generated and downloaded.', 'wpcredits-program-manager' ) )
+				: array( 'info', __( 'The document was generated and downloaded, but the program\'s own record could not be updated at that moment. The next sync writes it. Nothing is lost and there is nothing to do.', 'wpcredits-program-manager' ) ),
 			'agreement-name'               => array( 'error', __( 'Nothing was generated. The agreement needs the institution\'s name exactly as it should print on a document somebody signs. If you are not sure what to put, ask the Administrator who has been in touch with your institution.', 'wpcredits-program-manager' ) ),
 			'agreement-name-brackets'      => array( 'error', __( 'Nothing was generated. The name cannot contain square brackets. The agreement is filled in by replacing the bracketed words in the template, so a name with brackets of its own would print as an unfilled blank on a document somebody signs. Write it without them.', 'wpcredits-program-manager' ) ),
 			'agreement-generate-in-review' => array( 'error', __( 'Nothing was generated. A signed agreement from this institution is already waiting for review. Withdraw it first if you want to start again from the template.', 'wpcredits-program-manager' ) ),
@@ -735,8 +767,11 @@ class WPCPM_Institution_Panel {
 					'' !== $version ? $version : __( 'nothing this site recorded', 'wpcredits-program-manager' )
 				),
 				sprintf(
-					/* translators: 1: the name printed on the document, 2: Airtable's Name for the institution. */
-					__( 'The name on the document is %1$s. Airtable\'s Name for this institution is %2$s.', 'wpcredits-program-manager' ),
+					class_exists( 'WPCPM_Institutions_Index' ) && WPCPM_Institutions_Index::on_site()
+						/* translators: 1: the name printed on the document, 2: the site's name for the institution. */
+						? __( 'The name on the document is %1$s. The site\'s name for this institution is %2$s.', 'wpcredits-program-manager' )
+						/* translators: 1: the name printed on the document, 2: Airtable's Name for the institution. */
+						: __( 'The name on the document is %1$s. Airtable\'s Name for this institution is %2$s.', 'wpcredits-program-manager' ),
 					'' !== $on_paper ? $on_paper : __( '(not recorded)', 'wpcredits-program-manager' ),
 					$airtable_name
 				),
@@ -1845,6 +1880,11 @@ class WPCPM_Institution_Panel {
 	 * @return string `upload`, `generate`, `on-file` or ''.
 	 */
 	private static function outcome_form( $status ) {
+		// Once the site keeps the record only Regenerate says agreement-unknown, so it is said at the block's top (1.123.102).
+		if ( 'agreement-unknown' === (string) $status && class_exists( 'WPCPM_Institutions_Index' ) && WPCPM_Institutions_Index::on_site() ) {
+			return '';
+		}
+
 		$forms = array(
 			'upload'   => array( 'agreement-too-big', 'agreement-not-pdf', 'agreement-no-file', 'agreement-file', 'agreement-encrypted', 'agreement-launch', 'agreement-in-review', 'agreement-declare', 'agreement-kind' ),
 			'generate' => array( 'agreement-name', 'agreement-name-brackets', 'agreement-generate-in-review', 'agreement-generate-standing', 'agreement-generate-not-saved' ),

@@ -449,6 +449,11 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 			}
 			return in_array( $record_id, (array) ( $GLOBALS['owed'] ?? array() ), true );
 		}
+		/** The record IDs owed a change, read once for a list of schools (1.123.102, Part C1): counted, as `owes_index()` is. */
+		public static function records_owing_index() {
+			$GLOBALS['calls']['records_owing_index'] = ( $GLOBALS['calls']['records_owing_index'] ?? 0 ) + 1;
+			return array_values( array_map( 'strval', (array) ( $GLOBALS['owed'] ?? array() ) ) );
+		}
 		/** The record's Drive link, as the real one reads it from the site's answers (`$GLOBALS['site_answers']`). */
 		public static function record_document( $record_id ) {
 			$kept = $GLOBALS['site_answers'][ (string) $record_id ] ?? array();
@@ -1115,6 +1120,29 @@ ck( 'F3: the not-Confirmed refusal names the agreement in site mode, and Airtabl
 	'Only a Confirmed institution is given an account. It is Confirmed once its Collaboration Agreement is accepted or recorded as on file.',
 	'Only a Confirmed institution is given an account. Move it to Confirmed in Airtable first.',
 ) );
+// 1.123.102, Part A, items 17 and 18: in site mode the school's contact email is changed in Your institution's details on its
+// Institution Dashboard, and a school the list does not hold is said as one the site does not have; no sync is asked for.
+$a17_was = $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] ?? null;
+$a17_off = array_map( array( 'WPCPM_Institutions_Sync', 'provision_message' ), array( WPCPM_Institutions_Sync::BLOCK_NOT_INDEXED, WPCPM_Institutions_Sync::BLOCK_NO_EMAIL, WPCPM_Institutions_Sync::BLOCK_CONFLICT ) );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = true;
+$a17_on = array_map( array( 'WPCPM_Institutions_Sync', 'provision_message' ), array( WPCPM_Institutions_Sync::BLOCK_NOT_INDEXED, WPCPM_Institutions_Sync::BLOCK_NO_EMAIL, WPCPM_Institutions_Sync::BLOCK_CONFLICT ) );
+if ( null === $a17_was ) {
+	unset( $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] );
+} else {
+	$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = $a17_was;
+}
+ck( 'A17 and A18: in site mode the three refusals name the site\'s institutions and the details card, and with the setting off read as before', array( $a17_on, $a17_off ), array(
+	array(
+		'That institution is not among the site\'s institutions.',
+		'It has no contact email, and WordPress cannot create an account without an address. Add one in Your institution\'s details, on its Institution Dashboard.',
+		'The contact email already belongs to an account on this site, which is a conflict and not a match. Under Manage members that account is adopted only when it is a mentor\'s; for any other, correct the contact email in Your institution\'s details, on its Institution Dashboard, or the account\'s address first.',
+	),
+	array(
+		'The pipeline index does not hold that institution. Run the institutions sync, then try again.',
+		'Airtable holds no Contact Email for it, and WordPress cannot create an account without an address.',
+		'The Contact Email already belongs to an account on this site, which is a conflict and not a match. Under Manage members that account is adopted only when it is a mentor\'s; for any other, correct the Contact Email in Airtable or the account\'s address first.',
+	),
+) );
 ck( 'provision() refuses the same way, with the reason in the error data', array(
 	is_wp_error( WPCPM_Institutions_Sync::provision( $confirmed ) ),
 	WPCPM_Institutions_Sync::provision( $confirmed )->get_error_code(),
@@ -1671,6 +1699,13 @@ $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] = '';
 $result = WPCPM_Institutions_Sync::start();
 ck( 'start() refuses an unconnected site', array( is_wp_error( $result ), WPCPM_Institutions_Sync::is_running() ), array( true, false ) );
 ck( 'and records why', array( '' !== get_option( WPCPM_Institutions_Sync::OPT_ERROR ) ), array( true ) );
+// 1.123.102, Part A, item 2: in site mode the run reads nothing from Airtable and still does not start without the connection
+// (a finding of 1.123.102, the behavior unchanged); the error says exactly that. With the setting off, the words are as before.
+ck( 'A2: with the setting off the refusal reads as before', $result->get_error_message(), 'Add an Airtable Personal Access Token and Base ID before syncing.' );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = true;
+$a2_result = WPCPM_Institutions_Sync::start();
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = false;
+ck( 'A2: in site mode start() still refuses an unconnected site, and says the institutions sync does not start until Airtable is connected', array( is_wp_error( $a2_result ), WPCPM_Institutions_Sync::is_running(), is_wp_error( $a2_result ) ? $a2_result->get_error_message() : '', get_option( WPCPM_Institutions_Sync::OPT_ERROR ) ), array( true, false, 'The institutions sync does not start until Airtable is connected. Add an Airtable Personal Access Token and Base ID first.', 'The institutions sync does not start until Airtable is connected. Add an Airtable Personal Access Token and Base ID first.' ) );
 
 /* ---- the progress payload ------------------------------------------------- */
 
@@ -1698,6 +1733,28 @@ ck( 'the percent is the countries\' weight once they are done', $progress['perce
 $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_STATE ]['steps'] = array( 'countries' => 1, 'records' => 3 );
 ck( 'and climbs through the records phase by its slices', WPCPM_Institutions_Sync::progress()['percent'], 34 );
 ck( 'the phase weights are the design\'s', array_map( static function ( $p ) { return $p['weight']; }, WPCPM_Institutions_Sync::phases() ), array( 'countries' => 15, 'records' => 45, 'provision' => 25, 'revoke' => 15 ) );
+// 1.123.102, Part A, item 22: in site mode the countries step reads nothing, so it shows no label and no detail, and the
+// records step says it reads the site's institutions; the weights and the steps are the same.
+$a22_state = $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_STATE ];
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = true;
+$a22_records = WPCPM_Institutions_Sync::progress();
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_STATE ]['phase'] = 'countries';
+$a22_countries = WPCPM_Institutions_Sync::progress();
+$a22_phases    = WPCPM_Institutions_Sync::phases();
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = false;
+$a22_off = WPCPM_Institutions_Sync::progress();
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_STATE ] = $a22_state;
+// Round 6, G2: the countries step reads nothing then and only counts the countries the site keeps, so it is Starting, and
+// its detail says what it counts: the progress line has no empty part between its separators.
+ck( 'A22: in site mode the records step reads the site\'s institutions, the countries step is Starting and counts the site\'s countries, with the same weights and steps; off, the countries step reads as before', array(
+	$a22_records['label'], $a22_countries['label'], $a22_countries['detail'], $a22_countries['step_label'],
+	array_map( static function ( $p ) { return $p['weight']; }, $a22_phases ),
+	array( $a22_off['label'], $a22_off['detail'] ),
+), array(
+	'Reading the site\'s institutions…', 'Starting…', 'Counting the countries the site keeps…', 'Step 1 of 4',
+	array( 'countries' => 15, 'records' => 45, 'provision' => 25, 'revoke' => 15 ),
+	array( 'Reading the Countries table…', 'Reading the country routing map…' ),
+) );
 
 // The provision phase says what it is doing rather than what it would do, and counts both
 // halves a manager cares about: the accounts made, and the addresses that stopped one.
@@ -2381,11 +2438,14 @@ ck( 'r1_settled_over_settled: a settled option over a settled row with another s
 
 // Round 3, P3: the Institutions screen draws one warning notice naming each school the rule protects now, found by the
 // one predicate the run uses; read only when the last finished run counted one, and never outside site mode.
+// The reads of the changes owed are counted whichever way they are asked: per school (`owes_index()`) or once for the
+// list (`records_owing_index()`, 1.123.102, Part C1). The third answer is how many of them were per school.
 $p3_notice = static function () {
-	$GLOBALS['calls']['owes_index'] = array();
+	$GLOBALS['calls']['owes_index']          = array();
+	$GLOBALS['calls']['records_owing_index'] = 0;
 	ob_start();
 	WPCPM_Institutions_Sync::render_behind_notice();
-	return array( (string) ob_get_clean(), count( $GLOBALS['calls']['owes_index'] ) );
+	return array( (string) ob_get_clean(), count( $GLOBALS['calls']['owes_index'] ) + $GLOBALS['calls']['records_owing_index'], count( $GLOBALS['calls']['owes_index'] ) );
 };
 $p3_line   = static function ( $name ) {
 	return '<li>' . esc_html( 'The site\'s list is behind on the agreement of ' . $name . ', so its page was left as it is. Tell the product owner.' ) . '</li>';
@@ -2405,10 +2465,16 @@ ck( 'p3_one_school: in site mode the screen draws one warning notice in WordPres
 WPCPM_Institutions_Index::patch( $p3_second, array( 'agreement' => array_merge( $p3_second_block, array( 'status' => 'Sent' ) ) ) );
 $GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $p3_second ) ] = array( 'v' => 1, 'settled' => true, 'airtable_status' => 'On file', 'drive_url' => 'https://drive.google.com/file/d/OPTDOC0001/view', 'updated' => 1 );
 $r1_run( array( 'settled' => true, 'airtable_status' => 'Accepted' ), 'Awaiting review' );
-list( $p3_two ) = $p3_notice();
+list( $p3_two, $p3_two_reads, $p3_two_each ) = $p3_notice();
 ck( 'p3_two_schools: with two such schools, one notice, a line for each',
 	array( get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['behind'], substr_count( $p3_two, '<div class="notice notice-warning' ), substr_count( $p3_two, '<li>' ), has_text( $p3_two, $p3_line( $o1_name ) ), has_text( $p3_two, $p3_line( $p3_second_name ) ) ),
 	array( 2, 1, 2, true, true ) );
+// 1.123.102, Part C1: the changes owed are read once for the whole list, never once per school.
+ck( 'c1_read_once: for a list of several schools the changes owed are read once, and no school is asked one by one', array( $p3_two_reads, $p3_two_each, count( WPCPM_Institutions_Index::rows() ) > 2 ), array( 1, 0, true ) );
+$GLOBALS['owed'] = array( $o1_school );
+list( $c1_owed, $c1_owed_reads ) = $p3_notice();
+$GLOBALS['owed'] = array();
+ck( 'c1_owed_passed: a school the list names as owed is answered by that one read and is not listed, the other one still is', array( $c1_owed_reads, has_text( $c1_owed, $p3_line( $o1_name ) ), has_text( $c1_owed, $p3_line( $p3_second_name ) ) ), array( 1, false, true ) );
 // A school the rule does not protect (its row ahead of its option) is rebuilt by the run, and the screen does not list it.
 $GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $p3_second ) ] = array( 'v' => 1, 'settled' => false, 'airtable_status' => 'Not started', 'drive_url' => '', 'updated' => 1 );
 WPCPM_Institutions_Index::patch( $p3_second, array( 'agreement' => array_merge( $p3_second_block, array( 'status' => 'Template generated' ) ) ) );
@@ -2417,11 +2483,11 @@ ck( 'p3_rebuilt_not_listed: a school that is rebuilt, not protected, is not list
 // The last finished run counted none: nothing is read and nothing is drawn.
 $p3_report = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
 $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_REPORT ]['stats']['behind'] = 0;
-ck( 'p3_report_none_reads_nothing: a report with behind at 0 reads no school and draws nothing', $p3_notice(), array( '', 0 ) );
+ck( 'p3_report_none_reads_nothing: a report with behind at 0 reads no school and draws nothing', $p3_notice(), array( '', 0, 0 ) );
 $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_REPORT ] = $p3_report;
 // The setting off: nothing is read and nothing is drawn.
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = false;
-ck( 'p3_setting_off: with the setting off nothing is read and nothing is drawn', $p3_notice(), array( '', 0 ) );
+ck( 'p3_setting_off: with the setting off nothing is read and nothing is drawn', $p3_notice(), array( '', 0, 0 ) );
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institutions_on_site'] = true;
 ck( 'p3_one_predicate: rebuild_slice() and the screen ask the one public predicate, and the screen draws it after the copy\'s notice, above the tabs',
 	array( 1 === preg_match( '/function rebuild_slice\(.*?self::is_behind\(/s', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-sync.php' ) ), 1 === preg_match( '/WPCPM_Institution_Copy::render_pending_notice\(\);\s*WPCPM_Institutions_Sync::render_behind_notice\(\);\s*WPCPM_Screen_Tabs::render\(/', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php' ) ) ),

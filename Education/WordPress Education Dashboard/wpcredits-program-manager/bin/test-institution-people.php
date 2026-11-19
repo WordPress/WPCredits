@@ -265,6 +265,8 @@ if ( ! class_exists( 'WPCPM_Institutions_Index' ) ) {
 		public static function rows() { return $GLOBALS['index']; }
 		public static function row( $r ) { return $GLOBALS['index'][ $r ] ?? null; }
 		public static function has( $r ) { return isset( $GLOBALS['index'][ $r ] ); }
+		// Whether the site keeps the record of institutions: off unless a check turns it on (1.123.102, Part A).
+		public static function on_site() { return ! empty( $GLOBALS['on_site'] ); }
 	}
 }
 if ( ! class_exists( 'WPCPM_Roster_Index' ) ) {
@@ -566,6 +568,11 @@ ck( 'the manager screen lists the contact too', has( $block, 'Dana Dean' ), true
 // 1.123.98, A9: and counts the same way as the card, the members only: the contact with no account is listed, not counted.
 ck( 'and counts it the same way, the members only', has( $block, '<span class="wpcpm-people__count">0</span>' ), true );
 ck( 'and still names the gap it can close', has( $block, 'no member holds that address' ), true );
+// 1.123.102, Part A, item 19: with the setting off the gap is named as Airtable's contact; in site mode as the institution's.
+$GLOBALS['on_site'] = true;
+$a19_block          = render_manager_block( 1, $D );
+$GLOBALS['on_site'] = false;
+ck( 'A19: with the setting off the line names the contact Airtable names; in site mode the institution\'s contact, Airtable no longer', array( has( $block, 'Airtable names dana@example.test as the contact, and no member holds that address.' ), has( $a19_block, 'dana@example.test is the institution&#039;s contact, and no member holds that address. Add it below if that person should see the school&#039;s students here.' ), has( $a19_block, 'Airtable names' ) ), array( true, true, false ) );
 ck( 'a manager\'s card links Add or re-add to the institution\'s own Manage members view on the Institutions screen', has( $named, '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts&wpcpm_institution=' . $D . '">Add or re-add an account on the Institutions screen</a>' ), true );
 
 echo "\n=== The institution's contact is marked, and the mark takes nothing away ===\n";
@@ -1035,6 +1042,14 @@ ck( 'the outcome of a press on a view that draws no block is printed on its own,
 	$flash_waiting,
 	isset( $GLOBALS['umeta'][18][ WPCPM_Flash::META ] ),
 ), array( true, true, true, true, false ) );
+// 1.123.102, Part A, item 18: in site mode no sync can bring the school, so the outcome says it is not among the site's.
+WPCPM_Flash::set( 'institution_people', array( 'status' => 'unknown-record', 'detail' => '', 'record' => $C ), 18 );
+$GLOBALS['on_site'] = true;
+ob_start();
+WPCPM_Institution_People::render_outcome( $C );
+$a18_outcome        = (string) ob_get_clean();
+$GLOBALS['on_site'] = false;
+ck( 'A18: in site mode the outcome says the institution is not among the site\'s institutions, and asks for no sync', array( has( $a18_outcome, 'That institution is not among the site&#039;s institutions.' ), has( $a18_outcome, 'Run the institutions sync' ) ), array( true, false ) );
 
 ob_start();
 if ( method_exists( 'WPCPM_Institution_People', 'render_outcome' ) ) {

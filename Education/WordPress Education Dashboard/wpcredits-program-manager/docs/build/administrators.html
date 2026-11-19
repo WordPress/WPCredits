@@ -388,7 +388,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p><em>When:</em> <strong>Approve</strong> said "Nothing was finished", or the application says "Approving this application stopped partway..." or carries the mark <em>approval stopped partway</em>.</p>
+<p><em>When:</em> <strong>Approve</strong> said "Nothing was finished", or the application says it "stopped partway" or carries the mark <em>approval stopped partway</em>.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:list {"ordered":true} -->
@@ -567,7 +567,7 @@
 <li>An address that already has an account is refused, unless it is a former member of this school or a mentor's account.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>For a school at <em>Confirmed</em> with its agreement settled, <code>Institutions &gt; Accounts</code>, view <strong>No account</strong>, shows <strong>Create account</strong> on its row. It uses Airtable's Contact Email. A row that is not <em>Ready</em> says why, for example when the school has had a member before or the address already has an account.</li>
+<li>For a school at <em>Confirmed</em> with its agreement settled, <code>Institutions &gt; Accounts</code>, view <strong>No account</strong>, shows <strong>Create account</strong> on its row. It uses Airtable's Contact Email. Once the site keeps the record, it uses the institution's contact email, which you correct in <strong>Your institution's details</strong> on its Institution Dashboard. A row that is not <em>Ready</em> says why, for example when the school has had a member before or the address already has an account.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>A school with no stage is left alone, but give it an active stage first, in Airtable, or on its Talks card once the site keeps the record: at a stage outside the active ones, or once Airtable no longer has it, the next sync takes the account off the school. See <a href="#a-school-came-in-through-airtable-not-the-site-s-form">A school came in through Airtable, not the site's form</a>.</li>
@@ -782,6 +782,15 @@
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>A school at a stage outside the active ones is listed without <strong>Reinstate</strong>: reinstated, the next institutions sync would close it again. In its place the row says "At the stage "{stage}", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." A school with no stage keeps the button. Once the site keeps the record, the line reads "Move it to an active stage on its Talks card first".</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Since 1.123.102 the same stage rule holds everywhere. On the Administrator Dashboard's <strong>Collaboration Agreements</strong> card such a school's row has no <strong>Reinstate</strong>, and says "At the stage "{stage}". Reinstate after it moves to an active stage in Airtable." Once the site keeps the record, it says "Reinstate after it moves to an active stage on its Talks card."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A press of <strong>Reinstate</strong> for such a school, from a page drawn before its stage changed, is refused with "Nothing was reinstated. The institution's stage is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." Nothing is written and nobody is emailed. Once the site keeps the record, it reads "on its Talks card first".</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A school no longer in the site's list of institutions is not reinstated either: the press says "Nothing was reinstated. That institution is not in the site's list of institutions any more.", and its row on the Administrator Dashboard has no <strong>Reinstate</strong>.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list --></div>
@@ -6441,6 +6450,9 @@
 <li>The sync stops reading the Institutions and Countries tables, and every change Airtable has a column for is copied to Airtable. See <a href="#airtable-s-copy-of-the-record">Airtable's copy of the record</a>.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
+<li>On <code>Institutions &gt; Sync and storage</code> the card is <strong>Institutions sync</strong>, and its first step shows no label. The Institutions screen's sentences name the site's record, the Talks card and <strong>Your institution's details</strong> in place of Airtable. For example, an empty Pipeline says "No institutions yet. One is added when an application is approved or a lead is moved into the talks."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
 <li><code>Administrator Dashboard &gt; Talks</code> is in the menu. Each school's Institution Dashboard has its Talks card first under <strong>For Administrators</strong>. The details card no longer holds <strong>Assigned Administrator</strong>.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
@@ -9202,6 +9214,9 @@
 <!-- wp:list-item -->
 <li>A school at a stage outside the active ones is listed without the button, with the line "At the stage "{stage}", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." A school with no stage keeps the button. Once the site keeps the record, the line reads "Move it to an active stage on its Talks card first".</li>
 <!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Since 1.123.102 a press for such a school is refused, from this tab or the Administrator Dashboard: "Nothing was reinstated. The institution's stage is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again."</li>
+<!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
 
@@ -9219,7 +9234,7 @@
 <li>The last sync's error, if it ended in one.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Airtable sync</strong>: when the last sync finished, and <strong>Sync institutions now</strong>. While one runs, its progress and <strong>Cancel sync</strong>.</li>
+<li><strong>Airtable sync</strong>: when the last sync finished, and <strong>Sync institutions now</strong>. While one runs, its progress and <strong>Cancel sync</strong>. Once the site keeps the record, the card is <strong>Institutions sync</strong> and ends "It reads nothing from Airtable." The sync still does not start while Airtable is not connected.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Reconciliation</strong>: where the Students table and Students Reports disagree, from the last students sync. A Students row with no institution has <strong>Link</strong> where linking is safe, and otherwise says why not. SPAM records are not offered.</li>

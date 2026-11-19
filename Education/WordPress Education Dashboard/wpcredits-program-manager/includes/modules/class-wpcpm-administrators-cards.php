@@ -2916,6 +2916,9 @@ final class WPCPM_Administrators_Cards {
 
 		foreach ( $rows as $row ) {
 			$name = self::institution_name( $row['record'] );
+			// A revoked school the handler refuses (outside the active stages, or not in the site's list) is not offered
+			// Reinstate, and one more line says why (1.123.102).
+			$block = $reinstate ? WPCPM_Institution_Agreement::reinstate_block( $row['record'] ) : array( 'reason' => '' );
 			$line = WPCPM_UI::row(
 				array(
 					'name'    => $name,
@@ -2924,7 +2927,8 @@ final class WPCPM_Administrators_Cards {
 					'facts'   => array( self::when_whole( (int) $row['at'] ) ),
 					// The Administrator's note on a line of its own, its line breaks kept.
 					'note'    => (string) $row['note'],
-					'actions' => $reinstate ? array( self::reinstate_form( (int) $row['id'] ) ) : array(),
+					'more'    => '' !== $block['reason'] ? WPCPM_UI::note( self::reinstate_blocked_line( $block ) ) : '',
+					'actions' => $reinstate && '' === $block['reason'] ? array( self::reinstate_form( (int) $row['id'] ) ) : array(),
 				)
 			);
 
@@ -2933,6 +2937,29 @@ final class WPCPM_Administrators_Cards {
 
 		echo WPCPM_UI::list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
 		echo WPCPM_UI::inner_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
+	}
+
+	/**
+	 * The line a revoked row carries in place of Reinstate (1.123.102): for a school not in the site's list, that it is not;
+	 * for one outside the active stages, its stage and where the stage is moved, Airtable or, once the site keeps the
+	 * record, the school's Talks card.
+	 *
+	 * @param array $block `WPCPM_Institution_Agreement::reinstate_block()`'s answer.
+	 * @return string Plain text.
+	 */
+	private static function reinstate_blocked_line( array $block ) {
+		if ( 'unlisted' === $block['reason'] ) {
+			return __( 'Not in the site\'s list of institutions any more, so its agreement cannot be reinstated.', 'wpcredits-program-manager' );
+		}
+
+		return sprintf(
+			class_exists( 'WPCPM_Institutions_Index' ) && WPCPM_Institutions_Index::on_site()
+				/* translators: %s: the institution's stage. */
+				? __( 'At the stage "%s". Reinstate after it moves to an active stage on its Talks card.', 'wpcredits-program-manager' )
+				/* translators: %s: the institution's Current Stage in Airtable. */
+				: __( 'At the stage "%s". Reinstate after it moves to an active stage in Airtable.', 'wpcredits-program-manager' ),
+			(string) $block['stage']
+		);
 	}
 
 	/**

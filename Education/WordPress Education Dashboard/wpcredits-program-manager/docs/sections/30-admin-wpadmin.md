@@ -607,13 +607,14 @@ Step by step: [[A semester report: draft, review, approve, reopen]].
 - The press comes back to the **Agreements** tab. The Administrator Dashboard's **Collaboration Agreements** card still offers it while a signed agreement waits for review.
 - It is refused when an accepted agreement already stands, and for any but the most recently revoked one.
 - A school at a stage outside the active ones is listed without the button, with the line "At the stage "{stage}", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." A school with no stage keeps the button. Once the site keeps the record, the line reads "Move it to an active stage on its Talks card first".
+- Since 1.123.102 a press for such a school is refused, from this tab or the Administrator Dashboard: "Nothing was reinstated. The institution's stage is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again."
 
 Step by step: [[Record an agreement the program already holds]]; [[Take an agreement out of force, or put it back]].
 
 #### The Sync and storage tab
 
 - The last sync's error, if it ended in one.
-- **Airtable sync**: when the last sync finished, and **Sync institutions now**. While one runs, its progress and **Cancel sync**.
+- **Airtable sync**: when the last sync finished, and **Sync institutions now**. While one runs, its progress and **Cancel sync**. Once the site keeps the record, the card is **Institutions sync** and ends "It reads nothing from Airtable." The sync still does not start while Airtable is not connected.
 - **Reconciliation**: where the Students table and Students Reports disagree, from the last students sync. A Students row with no institution has **Link** where linking is safe, and otherwise says why not. SPAM records are not offered.
 - **Storage**: how signed agreements are kept, and whether the host refuses strangers. **Run probe** checks again.
 

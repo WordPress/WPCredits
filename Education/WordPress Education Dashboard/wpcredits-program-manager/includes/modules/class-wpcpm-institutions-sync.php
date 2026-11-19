@@ -173,14 +173,18 @@ class WPCPM_Institutions_Sync {
 	 * @return array<string, array{label: string, weight: int, steps: int}>
 	 */
 	public static function phases() {
+		$on_site = WPCPM_Institutions_Index::on_site();
+
 		return array(
+			// Once the site keeps the record the countries step reads nothing and only counts the countries the site keeps,
+			// so it is the run starting, and the records step reads the site's own list (1.123.102).
 			'countries' => array(
-				'label'  => __( 'Reading the Countries table', 'wpcredits-program-manager' ),
+				'label'  => $on_site ? __( 'Starting', 'wpcredits-program-manager' ) : __( 'Reading the Countries table', 'wpcredits-program-manager' ),
 				'weight' => 15,
 				'steps'  => 1,
 			),
 			'records'   => array(
-				'label'  => __( 'Reading the Institutions table', 'wpcredits-program-manager' ),
+				'label'  => $on_site ? __( 'Reading the site\'s institutions', 'wpcredits-program-manager' ) : __( 'Reading the Institutions table', 'wpcredits-program-manager' ),
 				'weight' => 45,
 				'steps'  => 7,
 			),
@@ -369,8 +373,14 @@ class WPCPM_Institutions_Sync {
 			return new WP_Error( 'wpcpm_sync_running', __( 'A sync is already running.', 'wpcredits-program-manager' ) );
 		}
 
+		// Once the site keeps the record a run reads nothing from Airtable, and it still does not start without the connection.
 		if ( ! WPCPM_Settings::is_connected() ) {
-			$error = new WP_Error( 'wpcpm_not_connected', __( 'Add an Airtable Personal Access Token and Base ID before syncing.', 'wpcredits-program-manager' ) );
+			$error = new WP_Error(
+				'wpcpm_not_connected',
+				WPCPM_Institutions_Index::on_site()
+					? __( 'The institutions sync does not start until Airtable is connected. Add an Airtable Personal Access Token and Base ID first.', 'wpcredits-program-manager' )
+					: __( 'Add an Airtable Personal Access Token and Base ID before syncing.', 'wpcredits-program-manager' )
+			);
 			update_option( self::OPT_ERROR, $error->get_error_message(), false );
 
 			return $error;
@@ -475,7 +485,7 @@ class WPCPM_Institutions_Sync {
 		return array(
 			'running'    => $running,
 			'phase'      => $phase,
-			'label'      => isset( $phases[ $phase ]['label'] ) ? $phases[ $phase ]['label'] . '…' : '',
+			'label'      => isset( $phases[ $phase ]['label'] ) && '' !== $phases[ $phase ]['label'] ? $phases[ $phase ]['label'] . '…' : '',
 			'detail'     => self::phase_detail( $phase, $stats ),
 			'percent'    => self::percent( $state ),
 			'step'       => $running ? $index + 1 : count( $order ),
@@ -537,7 +547,7 @@ class WPCPM_Institutions_Sync {
 
 		switch ( $phase ) {
 			case 'countries':
-				return __( 'Reading the country routing map…', 'wpcredits-program-manager' );
+				return WPCPM_Institutions_Index::on_site() ? __( 'Counting the countries the site keeps…', 'wpcredits-program-manager' ) : __( 'Reading the country routing map…', 'wpcredits-program-manager' );
 
 			case 'records':
 				return sprintf(
@@ -1291,9 +1301,11 @@ class WPCPM_Institutions_Sync {
 		}
 
 		$lines = array();
+		// The changes owed, read once for the whole list rather than once per school (1.123.102).
+		$owing = array_flip( WPCPM_Institution_Agreement::records_owing_index() );
 
 		foreach ( WPCPM_Institutions_Index::rows() as $record_id => $row ) {
-			if ( is_array( $row ) && self::is_behind( (string) $record_id, $row ) ) {
+			if ( is_array( $row ) && self::is_behind( (string) $record_id, $row, isset( $owing[ trim( (string) $record_id ) ] ) ) ) {
 				$lines[] = self::behind_sentence( (string) $record_id, $row );
 			}
 		}
@@ -1541,7 +1553,10 @@ class WPCPM_Institutions_Sync {
 	public static function provision_message( $reason ) {
 		switch ( (string) $reason ) {
 			case self::BLOCK_NOT_INDEXED:
-				return __( 'The pipeline index does not hold that institution. Run the institutions sync, then try again.', 'wpcredits-program-manager' );
+				// Once the site keeps the record no sync can bring a school the list does not hold (1.123.102).
+				return WPCPM_Institutions_Index::on_site()
+					? __( 'That institution is not among the site\'s institutions.', 'wpcredits-program-manager' )
+					: __( 'The pipeline index does not hold that institution. Run the institutions sync, then try again.', 'wpcredits-program-manager' );
 
 			case self::BLOCK_NOT_CONFIRMED:
 				// Once the site keeps the record (release 2), the agreement makes a school Confirmed.
@@ -1550,7 +1565,10 @@ class WPCPM_Institutions_Sync {
 					: __( 'Only a Confirmed institution is given an account. Move it to Confirmed in Airtable first.', 'wpcredits-program-manager' );
 
 			case self::BLOCK_NO_EMAIL:
-				return __( 'Airtable holds no Contact Email for it, and WordPress cannot create an account without an address.', 'wpcredits-program-manager' );
+				// In site mode an Administrator corrects a school's contact email on its details card (1.123.102).
+				return WPCPM_Institutions_Index::on_site()
+					? __( 'It has no contact email, and WordPress cannot create an account without an address. Add one in Your institution\'s details, on its Institution Dashboard.', 'wpcredits-program-manager' )
+					: __( 'Airtable holds no Contact Email for it, and WordPress cannot create an account without an address.', 'wpcredits-program-manager' );
 
 			case self::BLOCK_NO_AGREEMENT:
 				return __( 'No agreement is recorded for it. Record the one on file with its Drive link, or accept a signed one, before the account is created.', 'wpcredits-program-manager' );
@@ -1564,7 +1582,9 @@ class WPCPM_Institutions_Sync {
 			case self::BLOCK_CONFLICT:
 				// Asked after the former members, so the account is never one of this institution's
 				// former members, the other kind Manage members adopts (`WPCPM_Institution_People`).
-				return __( 'The Contact Email already belongs to an account on this site, which is a conflict and not a match. Under Manage members that account is adopted only when it is a mentor\'s; for any other, correct the Contact Email in Airtable or the account\'s address first.', 'wpcredits-program-manager' );
+				return WPCPM_Institutions_Index::on_site()
+					? __( 'The contact email already belongs to an account on this site, which is a conflict and not a match. Under Manage members that account is adopted only when it is a mentor\'s; for any other, correct the contact email in Your institution\'s details, on its Institution Dashboard, or the account\'s address first.', 'wpcredits-program-manager' )
+					: __( 'The Contact Email already belongs to an account on this site, which is a conflict and not a match. Under Manage members that account is adopted only when it is a mentor\'s; for any other, correct the Contact Email in Airtable or the account\'s address first.', 'wpcredits-program-manager' );
 		}
 
 		return '';

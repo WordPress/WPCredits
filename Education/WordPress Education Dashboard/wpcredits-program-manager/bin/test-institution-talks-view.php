@@ -734,6 +734,14 @@ view( 7, array( 'wpcpm_lead' => $new ) );
 ck( 'the same name pressed by another Administrator is refused as taken', array( add_post( 11, array( 'name' => 'Nowa Szkoła Testowa' ) ), WPCPM_Flash::take( WPCPM_Institution_Leads::ADD_FLASH, 11 )['text'] ?? null ), array( 'redirect:' . $view_url . '#wpcpm-add-lead', 'A school of that name is already in the talks.' ) );
 $GLOBALS['posts'][ (int) substr( $new, 5 ) ]->post_date_gmt = gmdate( 'Y-m-d H:i:s', time() - 120 );
 ck( 'and by the same account two minutes later, refused as taken too', add_post( 7, array( 'name' => 'Nowa Szkoła Testowa' ) ), 'redirect:' . $view_url . '#wpcpm-add-lead' );
+// 1.123.102, round 5, C3: a refused Add a lead keeps every field as typed: a one-line field over its limit by a typed &amp;,
+// and the note with round 4's case, 4,999 characters and a typed &amp;.
+$c3_city = str_repeat( 'x', WPCPM_Institution_Leads::MAX_LENGTHS['city'] - 1 ) . '&amp;';
+$c3_note = str_repeat( 'x', WPCPM_Institution_Talk_Notes::MAX_LENGTH - 1 ) . '&amp;';
+add_post( 7, array( 'name' => 'Nowa Szkoła Testowa', 'city' => $c3_city, 'note' => $c3_note ) );
+$GLOBALS['uid'] = 7;
+$c3_kept        = WPCPM_Typed_Text::kept( WPCPM_Institution_Leads::ADD_FORM );
+ck( 'c3_add_kept_whole: the refused form keeps the city and the note exactly as typed', array( ( $c3_kept['city'] ?? '' ) === $c3_city, ( $c3_kept['note'] ?? '' ) === $c3_note, $c3_kept['name'] ?? '' ), array( true, true, 'Nowa Szkoła Testowa' ) );
 view( 7 );
 $GLOBALS['posts'][ (int) substr( $new, 5 ) ]->post_date_gmt = gmdate( 'Y-m-d H:i:s' );
 $lead_page = view( 7, array( 'wpcpm_lead' => $new ) );

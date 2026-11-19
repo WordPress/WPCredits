@@ -452,6 +452,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * @return string
 	 */
 	public function description() {
+		// Once the site keeps the record (release 2), the records are the site's own (1.123.102).
+		if ( class_exists( 'WPCPM_Institutions_Index' ) && WPCPM_Institutions_Index::on_site() ) {
+			return __( 'Educational institutions, the students each one has in the program, and the state of every Collaboration Agreement. The site keeps their records: a school\'s stage, next step and notes are on its Talks card. Each institution has an Institution Dashboard, its own people and its students; their accounts are created and invited on the Accounts tab.', 'wpcredits-program-manager' );
+		}
+
 		return __( 'Educational institution records from Airtable, the students each one has in the program, and the state of every Collaboration Agreement. Each institution has an Institution Dashboard, its own people and its students; their accounts are created and invited on the Accounts tab.', 'wpcredits-program-manager' );
 	}
 
@@ -830,11 +835,17 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * @return array<string, string>
 	 */
 	protected function screen_words() {
+		$on_site = WPCPM_Institutions_Index::on_site();
+
 		return array(
 			'heading_views'      => __( 'Filter institution accounts list', 'wpcredits-program-manager' ),
 			'heading_pagination' => __( 'Institution accounts list navigation', 'wpcredits-program-manager' ),
 			'heading_list'       => __( 'Institution accounts list', 'wpcredits-program-manager' ),
-			'not_connected'      => __( 'Airtable is not connected yet, so no institutions can be synced.', 'wpcredits-program-manager' ),
+			// Once the site keeps the record the sync reads nothing from Airtable and still does not start without it, and every
+			// action that writes Airtable first is refused (1.123.102).
+			'not_connected'      => $on_site
+				? __( 'Airtable is not connected yet. Until it is, the institutions sync does not start, an application for a new institution cannot be approved, leads cannot be moved into the talks, agreements cannot be recorded on file, accepted, revoked or reinstated, and Airtable\'s copy of each change waits.', 'wpcredits-program-manager' )
+				: __( 'Airtable is not connected yet, so no institutions can be synced.', 'wpcredits-program-manager' ),
 			'list_heading'       => __( 'Institution accounts', 'wpcredits-program-manager' ),
 			'page_label'         => __( 'Institution Dashboard:', 'wpcredits-program-manager' ),
 			'page_missing'       => __( 'The Institution Dashboard page is missing. Re-activate the plugin to recreate it.', 'wpcredits-program-manager' ),
@@ -2120,14 +2131,22 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		if ( class_exists( 'WPCPM_Return' ) && WPCPM_Return::DASHBOARD === (string) $where ) {
 			// On the Administrator Dashboard, the note part (Task 17b, ruling 1).
-			echo WPCPM_UI::note( __( 'Approving this application stopped partway: the institution\'s Airtable record, and maybe its account, already exist. Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.', 'wpcredits-program-manager' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::note().
+			$stopped = WPCPM_Institutions_Index::on_site()
+				? __( 'An earlier press of Approve stopped partway, so a record for the institution, and maybe the account, already exist. Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.', 'wpcredits-program-manager' )
+				: __( 'Approving this application stopped partway: the institution\'s Airtable record, and maybe its account, already exist. Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.', 'wpcredits-program-manager' );
+
+			echo WPCPM_UI::note( $stopped ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::note().
 
 			return;
 		}
 
 		printf(
 			'<p><span class="wpcpm-inst-mark wpcpm-inst-mark--half-done" title="%1$s">%2$s</span> %3$s</p>',
-			esc_attr__( 'An earlier press of Approve created the institution\'s Airtable record and then stopped, so the record, and maybe the account, already exist.', 'wpcredits-program-manager' ),
+			esc_attr(
+				WPCPM_Institutions_Index::on_site()
+					? __( 'An earlier press of Approve stopped partway, so a record for the institution, and maybe the account, already exist.', 'wpcredits-program-manager' )
+					: __( 'An earlier press of Approve created the institution\'s Airtable record and then stopped, so the record, and maybe the account, already exist.', 'wpcredits-program-manager' )
+			),
 			esc_html__( 'approval stopped partway', 'wpcredits-program-manager' ),
 			esc_html__( 'Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.', 'wpcredits-program-manager' )
 		);
@@ -2644,14 +2663,34 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * @return array<string, array>
 	 */
 	public static function queue_messages() {
+		// Once the site keeps the record (release 2) the record is the site's; an approval still creates Airtable's first, so
+		// a refused write is said alike in both modes (1.123.102).
+		$on_site = WPCPM_Institutions_Index::on_site();
+
 		return array(
-			'app-approved'         => array( 'success', __( 'The application is approved. The Airtable record, the pipeline row and the account are created, and the invitation is queued.', 'wpcredits-program-manager' ) ),
-			'app-adopted'          => array( 'success', __( 'The application is approved. Airtable already held a record for this institution, so it was adopted rather than created; the account is made and the invitation is queued.', 'wpcredits-program-manager' ) ),
+			'app-approved'         => array(
+				'success',
+				$on_site
+					? __( 'The application is approved. The institution\'s record and its account are created, the invitation is queued, and Airtable gets a copy.', 'wpcredits-program-manager' )
+					: __( 'The application is approved. The Airtable record, the pipeline row and the account are created, and the invitation is queued.', 'wpcredits-program-manager' ),
+			),
+			'app-adopted'          => array(
+				'success',
+				$on_site
+					? __( 'The application is approved. The site already held a record for this institution, so it was adopted rather than created; the account is made and the invitation is queued.', 'wpcredits-program-manager' )
+					: __( 'The application is approved. Airtable already held a record for this institution, so it was adopted rather than created; the account is made and the invitation is queued.', 'wpcredits-program-manager' ),
+			),
 			'app-unknown'          => array( 'error', __( 'Nothing happened. That application no longer exists.', 'wpcredits-program-manager' ) ),
 			'app-state'            => array( 'error', __( 'Nothing happened. That application is not in a state this decision applies to; somebody may have decided it first. Reload the screen to see where it is.', 'wpcredits-program-manager' ) ),
 			'app-unverified'       => array( 'error', __( 'Nothing was created. The address on that application has not been confirmed, and approving mails a password-set link: it must never go to an address nobody has claimed. Confirming it is the applicant\'s own act and no Administrator can take it for them; open the application, where the line under the heading says what that means for the state this one is in.', 'wpcredits-program-manager' ) ),
 			'app-email'            => array( 'error', __( 'Nothing was created. An account on this site already holds that address. Find out whose it is first: an account found by address with no institution stamp is a conflict, not a match.', 'wpcredits-program-manager' ) ),
-			'app-country'          => array( 'error', __( 'Nothing was created. The country on the application no longer resolves in the Countries table. Run a sync and try again.', 'wpcredits-program-manager' ) ),
+			// In site mode the countries map is never read again, so nothing on the site changes it.
+			'app-country'          => array(
+				'error',
+				$on_site
+					? __( 'Nothing was created. The country on the application is not in the site\'s list of countries.', 'wpcredits-program-manager' )
+					: __( 'Nothing was created. The country on the application no longer resolves in the Countries table. Run a sync and try again.', 'wpcredits-program-manager' ),
+			),
 			'app-busy'             => array( 'error', __( 'Nothing happened. This application was already being approved, from a sync or from somebody else pressing the same button. Give it a minute and look at the row again.', 'wpcredits-program-manager' ) ),
 			'app-incomplete'       => array( 'error', __( 'Nothing was created. This application does not carry the name, the address or the answers a record is made from. Ask the applicant for what is missing, or reject it.', 'wpcredits-program-manager' ) ),
 			'app-failed'           => array( 'error', __( 'Nothing was finished. Airtable or this site refused a write; whatever half landed is stamped, and pressing Approve again completes the rest.', 'wpcredits-program-manager' ) ),
@@ -2691,7 +2730,12 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			'app-rejected'         => array( 'success', __( 'The application is rejected and the applicant has a neutral acknowledgement with no reason in it. Your reason is on the application\'s own history, where the next Administrator can read it.', 'wpcredits-program-manager' ) ),
 			'app-rejected-unsent'  => array( 'warning', __( 'The application is rejected. No acknowledgement could be sent: the application has no usable address, or the mail host refused the message.', 'wpcredits-program-manager' ) ),
 			'app-spam'             => array( 'info', __( 'The application is marked as spam. Nothing was sent: the address is forged or is somebody else\'s, and either way a reply is wrong.', 'wpcredits-program-manager' ) ),
-			'app-half-done'        => array( 'error', __( 'Nothing happened. Approving this application stopped partway: the institution\'s Airtable record, and maybe its account, already exist. Press Approve again to finish.', 'wpcredits-program-manager' ) ),
+			'app-half-done'        => array(
+				'error',
+				$on_site
+					? __( 'Nothing happened. Approving this application stopped partway: a record for the institution, and maybe its account, already exist. Press Approve again to finish.', 'wpcredits-program-manager' )
+					: __( 'Nothing happened. Approving this application stopped partway: the institution\'s Airtable record, and maybe its account, already exist. Press Approve again to finish.', 'wpcredits-program-manager' ),
+			),
 			'app-reopened'         => array( 'info', __( 'The application is open again and back in the queue.', 'wpcredits-program-manager' ) ),
 			'app-reopened-sent'    => array( 'info', __( 'The application is open again and back in the queue. It was never acknowledged, so the applicant was sent the acknowledgement now, with the link that confirms the address.', 'wpcredits-program-manager' ) ),
 			'app-link-sent'        => array( 'success', __( 'The confirmation link was sent again.', 'wpcredits-program-manager' ) ),
@@ -2951,8 +2995,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * to (`WPCPM_Institution_People::manager_url()`); the upload comes back by its referer, which is
 	 * this address. The record is the address's, so it is looked up in the pipeline index, with its
 	 * case, before anything is drawn for it, and a value the index does not hold, well formed or
-	 * not, names no record and is never printed: the view says so and names the remedy, the
-	 * institutions sync, on its tab. A press can still land on such a view, when a sync dropped the
+	 * not, names no record and is never printed: the view says so and, with the setting
+	 * `institutions_on_site` off, names the remedy, the institutions sync, on its tab (in site mode no
+	 * sync can bring one, 1.123.102). A press can still land on such a view, when a sync dropped the
 	 * record after the view was drawn, so its outcome is printed there on its own
 	 * (`WPCPM_Institution_People::render_outcome()`) rather than left for a later block. The two
 	 * blocks decide for themselves who sees them, by the capability and then the policy, so a viewer
@@ -2970,6 +3015,15 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		// no lookup and is answered as one the index lacks.
 		if ( ! WPCPM_Institutions_Index::has( $record ) ) {
 			WPCPM_Institution_People::render_outcome( $record );
+
+			// Once the site keeps the record no sync can bring one, so the sentence stands alone (1.123.102).
+			if ( WPCPM_Institutions_Index::on_site() ) {
+				echo '<p>' . esc_html__( 'No institution record has that ID.', 'wpcredits-program-manager' ) . '</p>';
+				$this->render_back_to_accounts();
+				echo '</div>';
+
+				return;
+			}
 
 			printf(
 				'<p>%1$s %2$s</p>',
@@ -3163,9 +3217,16 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 */
 	private function render_sync_panel( array $progress, $last ) {
 		echo '<div class="wpcpm-card">';
-		echo '<h2>' . esc_html__( 'Airtable sync', 'wpcredits-program-manager' ) . '</h2>';
+		// Once the site keeps the record a run reads the site's own list (1.123.102).
+		if ( WPCPM_Institutions_Index::on_site() ) {
+			echo '<h2>' . esc_html__( 'Institutions sync', 'wpcredits-program-manager' ) . '</h2>';
 
-		echo '<p class="description">' . esc_html__( 'Reads the Countries table, then each institution\'s name, stage, country, city, website and contact, and its eight agreement columns, and rebuilds the institution list and each institution\'s agreement state. The long written answers in the base are never read.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'Reads the site\'s list of institutions and rebuilds each institution\'s agreement state and its access from it. It reads nothing from Airtable.', 'wpcredits-program-manager' ) . '</p>';
+		} else {
+			echo '<h2>' . esc_html__( 'Airtable sync', 'wpcredits-program-manager' ) . '</h2>';
+
+			echo '<p class="description">' . esc_html__( 'Reads the Countries table, then each institution\'s name, stage, country, city, website and contact, and its eight agreement columns, and rebuilds the institution list and each institution\'s agreement state. The long written answers in the base are never read.', 'wpcredits-program-manager' ) . '</p>';
+		}
 
 		if ( ! empty( $progress['running'] ) ) {
 			printf(
@@ -4476,8 +4537,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'class'   => 'button button-primary',
 				'kind'    => $confirmed ? 'primary' : 'secondary',
 				'confirm' => sprintf(
-					/* translators: 1: institution name, 2: contact email address. */
-					__( 'Create an Airtable record and a site account for %1$s, and email a password-set link to %2$s? The Airtable record cannot be removed from here.', 'wpcredits-program-manager' ),
+					WPCPM_Institutions_Index::on_site()
+						/* translators: 1: institution name, 2: contact email address. */
+						? __( 'Create a record and a site account for %1$s, and email a password-set link to %2$s? The record cannot be removed afterward.', 'wpcredits-program-manager' )
+						/* translators: 1: institution name, 2: contact email address. */
+						: __( 'Create an Airtable record and a site account for %1$s, and email a password-set link to %2$s? The Airtable record cannot be removed from here.', 'wpcredits-program-manager' ),
 					$name,
 					'' !== $email ? $email : __( 'the address on the application', 'wpcredits-program-manager' )
 				),
@@ -4768,7 +4832,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$this->read_line( $read, __( 'Pipeline index', 'wpcredits-program-manager' ) );
 
 		if ( empty( $rows ) ) {
-			echo '<p>' . esc_html__( 'No institution records yet. Run a sync to read them.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p>' . esc_html(
+				WPCPM_Institutions_Index::on_site()
+					? __( 'No institutions yet. One is added when an application is approved or a lead is moved into the talks.', 'wpcredits-program-manager' )
+					: __( 'No institution records yet. Run a sync to read them.', 'wpcredits-program-manager' )
+			) . '</p>';
 			echo '</div>';
 
 			return;
@@ -5047,7 +5115,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			printf(
 				'<span class="wpcpm-inst-name__text wpcpm-inst-muted">%1$s</span> <span class="wpcpm-inst-mark wpcpm-inst-mark--empty" title="%2$s">%3$s</span>',
 				self::institution_link( __( '(no name)', 'wpcredits-program-manager' ), $record_id, $page ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in institution_link(): the words, and the link around them.
-				esc_attr__( 'This record has no Name in Airtable.', 'wpcredits-program-manager' ),
+				esc_attr( WPCPM_Institutions_Index::on_site() ? __( 'This institution has no name.', 'wpcredits-program-manager' ) : __( 'This record has no Name in Airtable.', 'wpcredits-program-manager' ) ),
 				esc_html__( 'no name', 'wpcredits-program-manager' )
 			);
 		} else {
@@ -5062,7 +5130,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			if ( $name !== $trimmed ) {
 				printf(
 					' <span class="wpcpm-inst-mark wpcpm-inst-mark--space" title="%1$s">%2$s</span>',
-					esc_attr__( 'The Name in Airtable has whitespace around it; it prints trimmed here.', 'wpcredits-program-manager' ),
+					esc_attr( WPCPM_Institutions_Index::on_site() ? __( 'The name has whitespace around it; it prints trimmed here.', 'wpcredits-program-manager' ) : __( 'The Name in Airtable has whitespace around it; it prints trimmed here.', 'wpcredits-program-manager' ) ),
 					esc_html__( 'whitespace', 'wpcredits-program-manager' )
 				);
 			}
@@ -6041,7 +6109,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		echo '</tbody></table>';
 
 		$this->render_routes_in(
-			__( 'A Contact Email that belongs to no member is the address Airtable names for the institution and nobody who can act for it here.', 'wpcredits-program-manager' ),
+			WPCPM_Institutions_Index::on_site()
+				? __( 'A contact email that belongs to no member is the institution\'s contact address and nobody who can act for it here.', 'wpcredits-program-manager' )
+				: __( 'A Contact Email that belongs to no member is the address Airtable names for the institution and nobody who can act for it here.', 'wpcredits-program-manager' ),
 			__( 'The sync provisions the address on its own only for an institution that has never had a member, so a removed contact is not re-created on every run.', 'wpcredits-program-manager' )
 		);
 
@@ -6622,12 +6692,19 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			esc_html__( 'Agreement discrepancies', 'wpcredits-program-manager' ),
 			esc_html( number_format_i18n( count( WPCPM_Test_Institutions::real_keys( $discrepancies ) ) ) )
 		);
-		echo '<p class="description">' . esc_html__( 'An institution is settled only when the site\'s record and Airtable\'s Agreement Status agree. These are the ones where they do not; each is locked until they do.', 'wpcredits-program-manager' ) . '</p>';
+		// Once the site keeps the record, the other side is the status the site's list of institutions holds (1.123.102).
+		$on_site = WPCPM_Institutions_Index::on_site();
+
+		echo '<p class="description">' . esc_html(
+			$on_site
+				? __( 'An institution is settled only when its agreement\'s own record and the agreement status in the site\'s list of institutions agree. These are the ones where they do not; each is locked until they do.', 'wpcredits-program-manager' )
+				: __( 'An institution is settled only when the site\'s record and Airtable\'s Agreement Status agree. These are the ones where they do not; each is locked until they do.', 'wpcredits-program-manager' )
+		) . '</p>';
 
 		$this->read_line( $read, __( 'Pipeline index', 'wpcredits-program-manager' ) );
 
 		if ( empty( $discrepancies ) ) {
-			echo '<p>' . esc_html__( 'The site and Airtable agree on every agreement.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p>' . esc_html( $on_site ? __( 'The agreement records and the site\'s list of institutions agree on every agreement.', 'wpcredits-program-manager' ) : __( 'The site and Airtable agree on every agreement.', 'wpcredits-program-manager' ) ) . '</p>';
 			echo '</div>';
 
 			return;
@@ -6636,7 +6713,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		echo '<table class="widefat striped wpcpm-list"><thead><tr>';
 		echo '<th scope="col">' . esc_html__( 'Institution', 'wpcredits-program-manager' ) . '</th>';
 		echo '<th scope="col">' . esc_html__( 'On the site', 'wpcredits-program-manager' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'In Airtable', 'wpcredits-program-manager' ) . '</th>';
+		echo '<th scope="col">' . esc_html( $on_site ? __( 'In the site\'s list', 'wpcredits-program-manager' ) : __( 'In Airtable', 'wpcredits-program-manager' ) ) . '</th>';
 		echo '</tr></thead><tbody>';
 
 		foreach ( $discrepancies as $record_id => $sides ) {

@@ -1071,7 +1071,11 @@ class WPCPM_Institutions_Table extends WPCPM_Accounts_Table {
 		$this->render_gate();
 
 		if ( in_array( true, array_column( $this->worklist(), 'ready' ), true ) ) {
-			echo '<p>' . esc_html__( 'Creating an account emails a password-set link to the address Airtable holds for the institution. An invitation cannot be recalled once sent.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p>' . esc_html(
+				WPCPM_Institutions_Index::on_site()
+					? __( 'Creating an account emails a password-set link to the institution\'s contact email. An invitation cannot be recalled once sent.', 'wpcredits-program-manager' )
+					: __( 'Creating an account emails a password-set link to the address Airtable holds for the institution. An invitation cannot be recalled once sent.', 'wpcredits-program-manager' )
+			) . '</p>';
 		}
 	}
 

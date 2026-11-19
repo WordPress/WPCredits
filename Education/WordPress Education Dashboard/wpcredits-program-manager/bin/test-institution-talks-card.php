@@ -534,6 +534,10 @@ function as_drawn_text( $html, $name ) {
 	return preg_match( '#<textarea[^>]*name="' . $name . '"[^>]*>\n(.*?)</textarea>#s', $html, $m ) ? html_entity_decode( $m[1], ENT_QUOTES ) : '';
 }
 function rows_of( $key, $kind ) { return array_values( array_filter( WPCPM_Institution_Audit::entries_for( $key, 0 ), static function ( $r ) use ( $kind ) { return $kind === $r['kind']; } ) ); }
+/** The forms whose typing a refusal kept for this account, by name (1.123.102, Part C2). */
+function kept_forms_of( $uid ) {
+	return array_values( array_map( static function ( $channel ) { return substr( (string) $channel, strlen( WPCPM_Typed_Text::KEPT_CHANNEL ) ); }, array_filter( array_keys( (array) ( $GLOBALS['umeta'][ (int) $uid ]['wpcpm_flash'] ?? array() ) ), static function ( $channel ) { return 0 === strpos( (string) $channel, WPCPM_Typed_Text::KEPT_CHANNEL ); } ) ) );
+}
 function flash_of( $uid ) { return $GLOBALS['umeta'][ (int) $uid ]['wpcpm_flash']['institution_talks'] ?? null; }
 function back( $key = S, $anchor = 'wpcpm-talks' ) { return 'redirect:https://example.test/institution-dashboard/?wpcpm_view=administrators&wpcpm_institution_view=' . $key . '#' . $anchor; }
 function stage_of( $key ) { WPCPM_Institutions_Index::forget_cached(); return WPCPM_Institutions_Index::row( $key )['stage']; }
@@ -983,10 +987,32 @@ ck( 'a second press of the same words within a minute adds nothing, in the new w
 $GLOBALS['held'][ WPCPM_Institution_Request::LOCK_PREFIX . 'talks_note_' . S ] = true;
 ck( 'the guard and the add run under one short lock: a press while another holds it adds nothing (L8)', array( post_as( 7, 'handle_note', array_merge( $note_post, array( 'note' => 'At the same moment' ) ) ), count( WPCPM_Institution_Talk_Notes::for_key( S ) ), flash_of( 7 )['status'] ?? null, in_array( WPCPM_Institution_Request::LOCK_PREFIX . 'talks_note_' . S, $GLOBALS['taken'], true ) ), array( back( S, 'wpcpm-talks-note' ), 1, 'note-busy', true ) );
 $GLOBALS['held'] = array();
+// 1.123.102, Part C2: the card is drawn again after that refusal, and the note typed comes back in its box.
+ck( 'c2_busy_kept: a note refused because another press held the lock comes back in its box, as typed', as_drawn_text( draw( 7 ), 'note' ), 'At the same moment' );
 $GLOBALS['posts'][ WPCPM_Institution_Talk_Notes::for_key( S )[0]['id'] ]->post_date_gmt = gmdate( 'Y-m-d H:i:s', time() - 120 );
 ck( 'the same words two minutes later are a note of their own', array( post_as( 7, 'handle_note', $note_post ), count( WPCPM_Institution_Talk_Notes::for_key( S ) ) ), array( back( S, 'wpcpm-talks-note' ), 2 ) );
 ck( 'an empty one says Write the note first., under its box', array( post_as( 7, 'handle_note', array_merge( $note_post, array( 'note' => '   ' ) ) ), flash_of( 7 )['problems']['note'] ?? null, count( WPCPM_Institution_Talk_Notes::for_key( S ) ) ), array( back( S, 'wpcpm-talks-note' ), 'Write the note first.', 2 ) );
 ck( 'and the redraw\'s refusal over the note form links to the box (U6)', has( draw( 7 ), '<a href="#wpcpm-talks-note-text">The note was not added. Correct what is marked below and add it again.</a>' ), true );
+// 1.123.102, Part C3: a note refused for its length comes back whole, every character typed, as the leads' add keeps one.
+$c3_long = str_repeat( 'ą', WPCPM_Institution_Talk_Notes::MAX_LENGTH + 1 );
+// Round 4, C1: a note over the limit that holds a literal entity, typed out, comes back exactly as typed: at its end, and in
+// its middle.
+$c1_end = str_repeat( 'x', WPCPM_Institution_Talk_Notes::MAX_LENGTH - 1 ) . '&amp;';
+$c1_mid = str_repeat( 'x', 2500 ) . '&amp;' . str_repeat( 'y', 2500 );
+$c1_end_post = post_as( 7, 'handle_note', array_merge( $note_post, array( 'note' => $c1_end ) ) );
+$c1_end_back = array( $c1_end_post, flash_of( 7 )['status'] ?? null, as_drawn_text( draw( 7 ), 'note' ) === $c1_end );
+$c1_mid_post = post_as( 7, 'handle_note', array_merge( $note_post, array( 'note' => $c1_mid ) ) );
+$c1_mid_back = array( $c1_mid_post, flash_of( 7 )['status'] ?? null, as_drawn_text( draw( 7 ), 'note' ) === $c1_mid );
+ck( 'c4_entity_whole: 4,999 characters and a typed &amp; (5,004 as typed) are refused and come back exactly as typed, and so does one with &amp; in the middle', array( $c1_end_back, $c1_mid_back ), array( array( back( S, 'wpcpm-talks-note' ), 'note-refused', true ), array( back( S, 'wpcpm-talks-note' ), 'note-refused', true ) ) );
+// And the leads' add, which lands with its refused first note through land_added(): the same note comes back whole.
+$c1_land = '';
+try {
+	WPCPM_Institution_Talks::land_added( S, 'A note can be at most 5000 characters long.', $c1_end );
+} catch ( Exception $e ) {
+	$c1_land = $e->getMessage();
+}
+ck( 'c4_land_whole: land_added() keeps the same note exactly as typed', array( $c1_land, as_drawn_text( draw( 7 ), 'note' ) === $c1_end ), array( back( S, 'wpcpm-talks-note' ), true ) );
+ck( 'c3_long_whole: a note one character over the limit is refused, nothing added, and comes back whole in its box', array( post_as( 7, 'handle_note', array_merge( $note_post, array( 'note' => $c3_long ) ) ), flash_of( 7 )['status'] ?? null, count( WPCPM_Institution_Talk_Notes::for_key( S ) ), mb_strlen( as_drawn_text( draw( 7 ), 'note' ), 'UTF-8' ) ), array( back( S, 'wpcpm-talks-note' ), 'note-refused', 2, WPCPM_Institution_Talk_Notes::MAX_LENGTH + 1 ) );
 
 // The outside review, O8: a note for a LEAD is added under the lead's own lock, and the lead is read from the table
 // under it: held, the lead's busy sentence; gone, or moved into the talks, the leads' gone sentence; nothing written.
@@ -1001,6 +1027,7 @@ $o8_count = static function ( $key ) {
 $GLOBALS['held'][ $o8_lock ] = true;
 post_as( 7, 'handle_note', $o8_note );
 $GLOBALS['held'] = array();
+ck( 'c2_lead_busy_kept: the lead\'s card is drawn again after its busy refusal, so that note is kept', in_array( 'talks-note:' . $o8_lead, kept_forms_of( 7 ), true ), true );
 ck( 'o8_lead_lock_held: with the lead\'s lock held the note is refused with the lead\'s busy sentence, nothing written',
 	array( flash_of( 7 )['status'] ?? null, flash_of( 7 )['problems']['note'] ?? null, $o8_count( $o8_lead ) ),
 	array( 'note-refused', 'Somebody else is changing this lead. Try again in a while.', 0 ) );
@@ -1041,15 +1068,24 @@ $p1_moved = WPCPM_Institution_Leads::add( array( 'name' => 'Example Promoted Lea
 WPCPM_Institution_Record::set( LONG, array( WPCPM_Institution_Leads::RECORD_LEAD_KEY => $p1_moved ) );
 unset( $GLOBALS['posts'][ (int) substr( $p1_moved, 5 ) ], $GLOBALS['pmeta'][ (int) substr( $p1_moved, 5 ) ] );
 post_as( 7, 'handle_note', array( 'action' => 'wpcpm_talks_note', 'key' => $p1_moved, '_wpnonce' => 'nonce-wpcpm_talks_note_' . $p1_moved, 'note' => 'After the move.' ) );
+ck( 'c2_moved_not_kept: no card draws that lead\'s note box again, so the note typed is not kept', in_array( 'talks-note:' . $p1_moved, kept_forms_of( 7 ), true ), false );
 ck( 'p1_moved_post_gone: a note for a lead whose post is gone and which became an institution says so, nothing written',
 	array( flash_of( 7 )['status'] ?? null, flash_of( 7 )['problems']['note'] ?? null, $o8_count( $p1_moved ), $o8_count( LONG ), WPCPM_Institution_Leads::add_note( $p1_moved, 'Directly.', 7 ) instanceof WP_Error ? WPCPM_Institution_Leads::add_note( $p1_moved, 'Directly.', 7 )->get_error_code() : null ),
 	array( 'note-refused', 'This lead is an institution now. Add the note on its Talks card.', 0, 0, 'wpcpm_lead_promoted' ) );
 $p1_gone = WPCPM_Institution_Leads::add( array( 'name' => 'Example Deleted Lead', 'country' => PL, 'assigned' => 7, 'source' => 'test' ), 7, false );
 unset( $GLOBALS['posts'][ (int) substr( $p1_gone, 5 ) ], $GLOBALS['pmeta'][ (int) substr( $p1_gone, 5 ) ] );
 post_as( 7, 'handle_note', array( 'action' => 'wpcpm_talks_note', 'key' => $p1_gone, '_wpnonce' => 'nonce-wpcpm_talks_note_' . $p1_gone, 'note' => 'After the delete.' ) );
+ck( 'c2_gone_not_kept: nor for a lead that is gone', in_array( 'talks-note:' . $p1_gone, kept_forms_of( 7 ), true ), false );
 ck( 'p1_deleted_post_gone: a note for a lead whose post is gone and which became nothing says it is gone, nothing written',
 	array( flash_of( 7 )['status'] ?? null, flash_of( 7 )['problems']['note'] ?? null, $o8_count( $p1_gone ) ),
 	array( 'note-refused', 'That lead is not in the talks any more.', 0 ) );
+// Round 4, C2: a press while the note lock is held for a lead that is gone meanwhile is still told it is busy, and keeps nothing.
+$c2_gone = WPCPM_Institution_Leads::add( array( 'name' => 'Example Busy Gone Lead', 'country' => PL, 'assigned' => 7, 'source' => 'test' ), 7, false );
+unset( $GLOBALS['posts'][ (int) substr( $c2_gone, 5 ) ], $GLOBALS['pmeta'][ (int) substr( $c2_gone, 5 ) ] );
+$GLOBALS['held'][ WPCPM_Institution_Request::LOCK_PREFIX . 'talks_note_' . $c2_gone ] = true;
+post_as( 7, 'handle_note', array( 'action' => 'wpcpm_talks_note', 'key' => $c2_gone, '_wpnonce' => 'nonce-wpcpm_talks_note_' . $c2_gone, 'note' => 'While it was held.' ) );
+$GLOBALS['held'] = array();
+ck( 'c5_busy_gone_not_kept: busy for a lead that is gone, the reader is told busy as before, and the note is not kept', array( flash_of( 7 )['status'] ?? null, in_array( 'talks-note:' . $c2_gone, kept_forms_of( 7 ), true ) ), array( 'note-busy', false ) );
 
 /* ---- words -------------------------------------------------------------- */
 

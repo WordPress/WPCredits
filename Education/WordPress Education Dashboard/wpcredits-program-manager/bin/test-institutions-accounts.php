@@ -191,6 +191,21 @@ class WPCPM_Settings {
 	public static function get_value( $key, $fallback = null ) { return isset( self::$values[ $key ] ) ? self::$values[ $key ] : $fallback; }
 }
 
+/**
+ * What a drawing gives once the site keeps the record of institutions (1.123.102, Part A), the setting off again after.
+ *
+ * @param callable $draw What to draw.
+ * @return mixed What it returned.
+ */
+function in_site_mode( callable $draw ) {
+	WPCPM_Settings::$values['institutions_on_site'] = true;
+	try {
+		return $draw();
+	} finally {
+		unset( WPCPM_Settings::$values['institutions_on_site'] );
+	}
+}
+
 require_once __DIR__ . '/stubs/institution-card-url.php';
 /** The Institution Dashboard's page, which the list names and a row's View page opens. */
 class WPCPM_Institutions_Dashboard {
@@ -1609,6 +1624,15 @@ ck( 'Delta\'s: its address belongs to an account already, so the Account column 
 	array( cell( $delta, 'contact' ), cell( $delta, 'account' ), array_keys( actions_in( $delta ) ), substr_count( $delta, 'toggle-row' ) ),
 	array( 'email on record', 'The Contact Email already belongs to an account on this site, which is a conflict and not a match. Under Manage members that account is adopted only when it is a mentor&#039;s; for any other, correct the Contact Email in Airtable or the account&#039;s address first.', array( 'view', 'members' ), 1 ) );
 
+// 1.123.102, Part A, items 16 and 17: in site mode the view's warning names the institution's contact email, and Delta's
+// conflict sends the reader to the school's details card, not to Airtable.
+$a16_html = in_site_mode( static function () { return html_of( draw( screen( array( 'wpcpm_view' => 'no-account' ) ) ) ); } );
+ck( 'A16 and A17: in site mode the warning names the institution\'s contact email and the conflict the details card; Airtable on neither', array(
+	has( $a16_html, '<p>Creating an account emails a password-set link to the institution&#039;s contact email. An invitation cannot be recalled once sent.</p>' ),
+	cell( record_row( $a16_html, DELTA ), 'account' ),
+	has( $a16_html, 'address Airtable holds' ),
+), array( true, esc_html( 'The contact email already belongs to an account on this site, which is a conflict and not a match. Under Manage members that account is adopted only when it is a mentor\'s; for any other, correct the contact email in Your institution\'s details, on its Institution Dashboard, or the account\'s address first.' ), false ) );
+
 $create = actions_in( $ecole );
 
 ck( 'a ready row\'s actions are Create account, View page, then Manage members, under its name',
@@ -2195,6 +2219,9 @@ ck( 'the members\' addresses are printed on the view, as the Institution Dashboa
 		has( $view_body, 'Airtable names office@zeta.example as the contact' ),
 	),
 	array( true, true, true, true ) );
+// 1.123.102, Part A, item 19: in site mode the contact is the institution's own.
+$a19_body = in_site_mode( static function () { return html_of( page_for( screen( array( 'wpcpm_institution' => ZETA ) ) ) ); } );
+ck( 'A19: in site mode the line names office@zeta.example as the institution\'s contact, and Airtable no longer', array( has( $a19_body, esc_html( 'office@zeta.example is the institution\'s contact, and no member holds that address. Add it below if that person should see the school\'s students here.' ) ), has( $a19_body, 'Airtable names' ) ), array( true, false ) );
 ck( 'with no signed copy waiting, every button on the view is one of core\'s: Nora\'s and Ben\'s Remove as Re-add and Add account are, and Upload the signed agreement as the primary one, the Institution Dashboard\'s own button classes nowhere on it',
 	array(
 		substr_count( $view_body, '<button type="submit" class="button button-secondary wpcpm-people__remove" data-wpcpm-confirm=' ),
@@ -2320,6 +2347,9 @@ ck( 'a record the pipeline index does not hold, one in another case among them, 
 		array( 'recINSTNOPEX00099', strtolower( ZETA ), 'not-a-record' ),
 		array( true, array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-institutions', 'tab' => 'accounts' ) ), false, false, false, array(), array() )
 	) );
+// 1.123.102, Part A, item 15: in site mode no sync can bring the record, so the sentence stands alone.
+$a15_page = in_site_mode( static function () { return html_of( page_for( screen( array( 'wpcpm_institution' => 'recINSTNOPEX00099' ) ) ) ); } );
+ck( 'A15: in site mode the view says no record has that ID and sends nobody to the sync', array( has( $a15_page, '<p>No institution record has that ID.</p>' ), has( $a15_page, 'If it should be here' ) ), array( true, false ) );
 
 // An Add account pressed on a view whose record a sync has since dropped lands on that record's
 // view, which draws no block: the outcome is printed all the same, on the block's anchor, and is

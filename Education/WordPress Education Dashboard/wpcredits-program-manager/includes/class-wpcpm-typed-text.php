@@ -728,6 +728,20 @@ final class WPCPM_Typed_Text {
 	}
 
 	/**
+	 * The most characters `keep()` keeps for a refused typing, when what is kept is the raw typing itself and not the text
+	 * its box was drawn from: `kept_room()` for it, and never less than the typing as posted, each CR LF one character, so
+	 * a typing refused for its length comes back whole, a typed entity such as `&amp;` counted as the five characters it
+	 * was typed as (1.123.102).
+	 *
+	 * @param string $typed The typing, as posted.
+	 * @param int    $limit The box's limit.
+	 * @return int
+	 */
+	public static function typed_room( $typed, $limit ) {
+		return max( self::kept_room( (string) $typed, $limit ), mb_strlen( str_replace( "\r\n", "\n", (string) $typed ), 'UTF-8' ) );
+	}
+
+	/**
 	 * A kept typing as a text input's value, ready for `esc_attr()`: each "&" written `&amp;`.
 	 *
 	 * `esc_attr()` keeps an entity it finds, so "Q&amp;A" typed out and drawn through it alone would

@@ -535,6 +535,7 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 **What happens next**
 
 - The sync stops reading the Institutions and Countries tables, and every change Airtable has a column for is copied to Airtable. See [[Airtable's copy of the record]].
+- On `Institutions > Sync and storage` the card is **Institutions sync**, and its first step shows no label. The Institutions screen's sentences name the site's record, the Talks card and **Your institution's details** in place of Airtable. For example, an empty Pipeline says "No institutions yet. One is added when an application is approved or a lead is moved into the talks."
 - `Administrator Dashboard > Talks` is in the menu. Each school's Institution Dashboard has its Talks card first under **For Administrators**. The details card no longer holds **Assigned Administrator**.
 - The Monday email of follow-ups due starts, and so does the hourly retry of Airtable's copy.
 

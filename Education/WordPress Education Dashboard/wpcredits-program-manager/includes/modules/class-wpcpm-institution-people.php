@@ -987,8 +987,12 @@ class WPCPM_Institution_People {
 				'<p class="wpcpm-people__contact-gap">%s</p>',
 				esc_html(
 					sprintf(
-						/* translators: %s: the contact email Airtable holds. */
-						__( 'Airtable names %s as the contact, and no member holds that address. Add it below if that person should see the school\'s students here.', 'wpcredits-program-manager' ),
+						// Once the site keeps the record the contact is the institution's own (1.123.102).
+						class_exists( 'WPCPM_Institutions_Index' ) && WPCPM_Institutions_Index::on_site()
+							/* translators: %s: the institution's contact email. */
+							? __( '%s is the institution\'s contact, and no member holds that address. Add it below if that person should see the school\'s students here.', 'wpcredits-program-manager' )
+							/* translators: %s: the contact email Airtable holds. */
+							: __( 'Airtable names %s as the contact, and no member holds that address. Add it below if that person should see the school\'s students here.', 'wpcredits-program-manager' ),
 						self::contact_email_raw( $record_id )
 					)
 				)
@@ -1714,7 +1718,13 @@ class WPCPM_Institution_People {
 				__( 'An account already uses that address: %s. Nothing was created.', 'wpcredits-program-manager' ),
 			),
 			'bad-email'      => array( 'error', __( 'That is not an address WordPress can create an account with.', 'wpcredits-program-manager' ) ),
-			'unknown-record' => array( 'error', __( 'That institution is not in the pipeline index. Run the institutions sync, then try again.', 'wpcredits-program-manager' ) ),
+			// Once the site keeps the record no sync can bring a school the list does not hold (1.123.102).
+			'unknown-record' => array(
+				'error',
+				class_exists( 'WPCPM_Institutions_Index' ) && WPCPM_Institutions_Index::on_site()
+					? __( 'That institution is not among the site\'s institutions.', 'wpcredits-program-manager' )
+					: __( 'That institution is not in the pipeline index. Run the institutions sync, then try again.', 'wpcredits-program-manager' ),
+			),
 			'not-former'     => array( 'error', __( 'That account is not a former member of this institution, so there is nothing to put back.', 'wpcredits-program-manager' ) ),
 			'error'          => array( 'error', __( 'That could not be done.', 'wpcredits-program-manager' ) ),
 		);

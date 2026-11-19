@@ -1273,7 +1273,9 @@ ck( 'Task 18d: a table that needs 936px stacks below 936px of the main area, exa
 // above and below and every row-to-row distance is the same; a noted last row ends with its note's text, its 8px gone,
 // as on a phone.
 $t18e_all  = '.wpcpm-ui-fold--inner > .wpcpm-ui-fold__body > .wpcpm-ui-list > .wpcpm-ui-list__row > .wpcpm-ui-list__line';
-$t18e_note = '.wpcpm-ui-fold--inner > .wpcpm-ui-fold__body > .wpcpm-ui-list:last-child > .wpcpm-ui-list__row:last-child > .wpcpm-ui-list__note';
+// 1.123.102, round 3, V6a: except a last row with a `more` under its note, which keeps the note's 8px, so the two are two
+// paragraphs at every width, as on a phone. The unscoped rule is gone.
+$t18e_note = '.wpcpm-ui-fold--inner > .wpcpm-ui-fold__body > .wpcpm-ui-list:last-child > .wpcpm-ui-list__row:last-child:not( .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__note';
 ck( 'Task 18e: every row of a list inside an inner fold has no least height, and a noted last row adds no room under its note', array(
 	$sel_decls( $t18e_all ),
 	$weight( $t18e_all ) > $weight( '.wpcpm-ui-list__line' ),
@@ -1281,7 +1283,8 @@ ck( 'Task 18e: every row of a list inside an inner fold has no least height, and
 	$sel_decls( $t18e_note ),
 	$weight( $t18e_note ) > $weight( '.wpcpm-ui-list__note' ),
 	$has( '.wpcpm-ui-list__note', 'padding: 6px 0 8px' ),
-), array( array( 'min-height: 0' ), true, true, array( 'padding-bottom: 0' ), true, true ) );
+	$sel_decls( '.wpcpm-ui-fold--inner > .wpcpm-ui-fold__body > .wpcpm-ui-list:last-child > .wpcpm-ui-list__row:last-child > .wpcpm-ui-list__note' ),
+), array( array( 'min-height: 0' ), true, true, array( 'padding-bottom: 0' ), true, true, array() ) );
 
 // Task 18e, point 3: a long name in a row with a tag wraps inside its own column (any long word broken), the tag keeps
 // its natural width in a column of its own beside the name's first line, and the action keeps the last column, on line

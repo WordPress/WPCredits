@@ -155,7 +155,7 @@ Where to start:
 
 ### Finish an approval that stopped halfway
 
-*When:* **Approve** said "Nothing was finished", or the application says "Approving this application stopped partway..." or carries the mark *approval stopped partway*.
+*When:* **Approve** said "Nothing was finished", or the application says it "stopped partway" or carries the mark *approval stopped partway*.
 
 1. Find the application on the **Institution applications** card.
 2. Press **Approve** again and confirm.
@@ -213,7 +213,7 @@ Once the site keeps the record, the sync no longer reads the Institutions table,
 **Good to know**
 
 - An address that already has an account is refused, unless it is a former member of this school or a mentor's account.
-- For a school at *Confirmed* with its agreement settled, `Institutions > Accounts`, view **No account**, shows **Create account** on its row. It uses Airtable's Contact Email. A row that is not *Ready* says why, for example when the school has had a member before or the address already has an account.
+- For a school at *Confirmed* with its agreement settled, `Institutions > Accounts`, view **No account**, shows **Create account** on its row. It uses Airtable's Contact Email. Once the site keeps the record, it uses the institution's contact email, which you correct in **Your institution's details** on its Institution Dashboard. A row that is not *Ready* says why, for example when the school has had a member before or the address already has an account.
 - A school with no stage is left alone, but give it an active stage first, in Airtable, or on its Talks card once the site keeps the record: at a stage outside the active ones, or once Airtable no longer has it, the next sync takes the account off the school. See [A school came in through Airtable, not the site's form](#a-school-came-in-through-airtable-not-the-site-s-form).
 
 ### A signed Collaboration Agreement arrived
@@ -284,6 +284,9 @@ Once the site keeps the record, the sync no longer reads the Institutions table,
 - **Reinstate** is refused when an accepted agreement already stands for the school. It works only on the school's most recently revoked agreement.
 - **Revoked agreements** lists a school at any time while it has a revoked agreement and nothing accepted or waiting for review, also one that has since started a new agreement or had one returned. The Administrator Dashboard's **Collaboration Agreements** card also offers **Reinstate** while a signed agreement waits for review.
 - A school at a stage outside the active ones is listed without **Reinstate**: reinstated, the next institutions sync would close it again. In its place the row says "At the stage "{stage}", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." A school with no stage keeps the button. Once the site keeps the record, the line reads "Move it to an active stage on its Talks card first".
+- Since 1.123.102 the same stage rule holds everywhere. On the Administrator Dashboard's **Collaboration Agreements** card such a school's row has no **Reinstate**, and says "At the stage "{stage}". Reinstate after it moves to an active stage in Airtable." Once the site keeps the record, it says "Reinstate after it moves to an active stage on its Talks card."
+- A press of **Reinstate** for such a school, from a page drawn before its stage changed, is refused with "Nothing was reinstated. The institution's stage is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." Nothing is written and nobody is emailed. Once the site keeps the record, it reads "on its Talks card first".
+- A school no longer in the site's list of institutions is not reinstated either: the press says "Nothing was reinstated. That institution is not in the site's list of institutions any more.", and its row on the Administrator Dashboard has no **Reinstate**.
 
 ### Assign a school to another Administrator, or to nobody
 
@@ -2123,6 +2126,7 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 **What happens next**
 
 - The sync stops reading the Institutions and Countries tables, and every change Airtable has a column for is copied to Airtable. See [Airtable's copy of the record](#airtable-s-copy-of-the-record).
+- On `Institutions > Sync and storage` the card is **Institutions sync**, and its first step shows no label. The Institutions screen's sentences name the site's record, the Talks card and **Your institution's details** in place of Airtable. For example, an empty Pipeline says "No institutions yet. One is added when an application is approved or a lead is moved into the talks."
 - `Administrator Dashboard > Talks` is in the menu. Each school's Institution Dashboard has its Talks card first under **For Administrators**. The details card no longer holds **Assigned Administrator**.
 - The Monday email of follow-ups due starts, and so does the hourly retry of Airtable's copy.
 
@@ -3283,13 +3287,14 @@ Step by step: [A semester report: draft, review, approve, reopen](#a-semester-re
 - The press comes back to the **Agreements** tab. The Administrator Dashboard's **Collaboration Agreements** card still offers it while a signed agreement waits for review.
 - It is refused when an accepted agreement already stands, and for any but the most recently revoked one.
 - A school at a stage outside the active ones is listed without the button, with the line "At the stage "{stage}", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." A school with no stage keeps the button. Once the site keeps the record, the line reads "Move it to an active stage on its Talks card first".
+- Since 1.123.102 a press for such a school is refused, from this tab or the Administrator Dashboard: "Nothing was reinstated. The institution's stage is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again."
 
 Step by step: [Record an agreement the program already holds](#record-an-agreement-the-program-already-holds); [Take an agreement out of force, or put it back](#take-an-agreement-out-of-force-or-put-it-back).
 
 #### The Sync and storage tab
 
 - The last sync's error, if it ended in one.
-- **Airtable sync**: when the last sync finished, and **Sync institutions now**. While one runs, its progress and **Cancel sync**.
+- **Airtable sync**: when the last sync finished, and **Sync institutions now**. While one runs, its progress and **Cancel sync**. Once the site keeps the record, the card is **Institutions sync** and ends "It reads nothing from Airtable." The sync still does not start while Airtable is not connected.
 - **Reconciliation**: where the Students table and Students Reports disagree, from the last students sync. A Students row with no institution has **Link** where linking is safe, and otherwise says why not. SPAM records are not offered.
 - **Storage**: how signed agreements are kept, and whether the host refuses strangers. **Run probe** checks again.
 
