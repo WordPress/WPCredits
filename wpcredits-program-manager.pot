@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.123.101\n"
+"Project-Id-Version: WPCredits Program Manager 1.123.102\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-19T12:47:10+00:00\n"
+"POT-Creation-Date: 2026-11-19T14:41:25+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -438,7 +438,7 @@ msgstr ""
 #: includes/class-wpcpm-notices.php:76
 #: includes/mail/class-wpcpm-mail-templates.php:1167
 #: includes/modules/class-wpcpm-administrators-cards.php:2527
-#: includes/modules/class-wpcpm-administrators-cards.php:3530
+#: includes/modules/class-wpcpm-administrators-cards.php:3557
 #: includes/modules/class-wpcpm-administrators-dashboard.php:778
 #: includes/modules/class-wpcpm-mentors.php:108
 #: includes/modules/class-wpcpm-sponsor-offers.php:3041
@@ -1651,10 +1651,10 @@ msgstr ""
 #: includes/mail/templates/mentor-applications.php:261
 #: includes/mail/templates/sponsors.php:362
 #: includes/mail/templates/student-interests.php:117
-#: includes/modules/class-wpcpm-administrators-cards.php:4035
+#: includes/modules/class-wpcpm-administrators-cards.php:4062
 #: includes/modules/class-wpcpm-institution-announce.php:401
-#: includes/modules/class-wpcpm-institution-panel.php:1692
-#: includes/modules/class-wpcpm-institutions.php:5451
+#: includes/modules/class-wpcpm-institution-panel.php:1727
+#: includes/modules/class-wpcpm-institutions.php:5519
 #: includes/tools/class-wpcpm-emails.php:496
 #: includes/tools/class-wpcpm-track-history-screen.php:202
 #, php-format
@@ -1982,7 +1982,7 @@ msgstr ""
 #. translators: 1: start date, 2: end date. Joined by the word "to", not a hyphen: WordPress would texturize a spaced hyphen into an en dash once this renders on the page.
 #. translators: 1: start date and time, 2: end time, with its date only when the call crosses midnight. Joined by the word "to", not a hyphen: WordPress would texturize a spaced hyphen into an en dash once this renders on the page.
 #. translators: 1: the first day of the sponsor's term, 2: its last day, both in the site's date format.
-#: includes/modules/class-wpcpm-administrators-cards.php:3565
+#: includes/modules/class-wpcpm-administrators-cards.php:3592
 #: includes/modules/class-wpcpm-institution-roster-view.php:949
 #: includes/modules/class-wpcpm-mentor-calls.php:2426
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1604
@@ -1991,7 +1991,7 @@ msgstr ""
 msgid "%1$s to %2$s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:3670
+#: includes/modules/class-wpcpm-administrators-cards.php:3697
 #: includes/modules/class-wpcpm-institution-export.php:185
 #: includes/modules/class-wpcpm-institution-roster-view.php:382
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1223
@@ -1999,7 +1999,7 @@ msgstr ""
 msgid "Hours"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:4049
+#: includes/modules/class-wpcpm-administrators-cards.php:4076
 #: includes/modules/class-wpcpm-mentor-calls.php:144
 msgid "Mentor call"
 msgstr ""
@@ -2502,8 +2502,8 @@ msgid "Leaving…"
 msgstr ""
 
 #. translators: who sent a Collaboration Agreement back or revoked it, when the Administrator's account holds no name: "... by an Administrator, with this note:".
-#: includes/modules/class-wpcpm-institution-agreement.php:4676
-#: includes/modules/class-wpcpm-institution-agreement.php:4726
+#: includes/modules/class-wpcpm-institution-agreement.php:4735
+#: includes/modules/class-wpcpm-institution-agreement.php:4785
 #: includes/modules/class-wpcpm-mentor-application-queue.php:1996
 #: includes/modules/class-wpcpm-mentor-calls.php:1947
 msgid "an Administrator"
@@ -2512,11 +2512,11 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-application.php:750
 #: includes/modules/class-wpcpm-institution-areas.php:448
 #: includes/modules/class-wpcpm-institution-details.php:140
-#: includes/modules/class-wpcpm-institution-leads.php:1887
 #: includes/modules/class-wpcpm-institution-leads.php:1888
+#: includes/modules/class-wpcpm-institution-leads.php:1889
 #: includes/modules/class-wpcpm-institution-talks-view.php:613
 #: includes/modules/class-wpcpm-institution-talks.php:540
-#: includes/modules/class-wpcpm-institutions.php:4900
+#: includes/modules/class-wpcpm-institutions.php:4968
 #: includes/modules/class-wpcpm-mentor-application-form.php:448
 #: includes/modules/class-wpcpm-student-interest-form.php:427
 #: includes/modules/class-wpcpm-student-interest.php:961
@@ -2525,10 +2525,10 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:756
 #: includes/modules/class-wpcpm-institution-details.php:133
-#: includes/modules/class-wpcpm-institution-leads.php:1886
+#: includes/modules/class-wpcpm-institution-leads.php:1887
 #: includes/modules/class-wpcpm-institution-talks-view.php:610
 #: includes/modules/class-wpcpm-institution-talks.php:536
-#: includes/modules/class-wpcpm-institutions.php:4901
+#: includes/modules/class-wpcpm-institutions.php:4969
 #: includes/modules/class-wpcpm-student-interest-form.php:433
 #: includes/modules/class-wpcpm-student-interest.php:962
 msgid "City"
@@ -2624,7 +2624,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-areas.php:504
 #: includes/modules/class-wpcpm-institution-details-card.php:462
 #: includes/modules/class-wpcpm-institution-talks-view.php:616
-#: includes/modules/class-wpcpm-institution-talks.php:2267
+#: includes/modules/class-wpcpm-institution-talks.php:2291
 #: includes/modules/class-wpcpm-mentor-application-form.php:1387
 #: includes/modules/class-wpcpm-student-interest-form.php:1231
 msgid "Choose a country"
@@ -2641,7 +2641,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-application.php:1760
 #: includes/modules/class-wpcpm-institution-details-card.php:465
 #: includes/modules/class-wpcpm-institution-talks-view.php:618
-#: includes/modules/class-wpcpm-institution-talks.php:2280
+#: includes/modules/class-wpcpm-institution-talks.php:2304
 #: includes/modules/class-wpcpm-mentor-application-form.php:1401
 #: includes/modules/class-wpcpm-student-interest-form.php:1239
 msgid "No country has that name."
@@ -2651,7 +2651,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-application.php:1762
 #: includes/modules/class-wpcpm-institution-details-card.php:467
 #: includes/modules/class-wpcpm-institution-talks-view.php:620
-#: includes/modules/class-wpcpm-institution-talks.php:2282
+#: includes/modules/class-wpcpm-institution-talks.php:2306
 #: includes/modules/class-wpcpm-mentor-application-form.php:1406
 #: includes/modules/class-wpcpm-student-interest-form.php:1241
 #, php-format
@@ -2725,7 +2725,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-details-card.php:308
 #: includes/modules/class-wpcpm-institution-request.php:1888
 #: includes/modules/class-wpcpm-institution-request.php:1984
-#: includes/modules/class-wpcpm-institution-talks.php:2363
+#: includes/modules/class-wpcpm-institution-talks.php:2387
 #: includes/modules/class-wpcpm-institution-tracks.php:368
 #: includes/modules/class-wpcpm-semester-report-screen.php:1198
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:455
@@ -2885,7 +2885,7 @@ msgstr ""
 msgid "this student"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-talks.php:2581
+#: includes/modules/class-wpcpm-institution-talks.php:2605
 #: includes/modules/class-wpcpm-mentor-engagement-table.php:98
 #: includes/modules/class-wpcpm-mentor-notes.php:725
 #: includes/modules/class-wpcpm-sponsors.php:835
@@ -2894,7 +2894,7 @@ msgstr ""
 msgid "Notes"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-talks.php:2629
+#: includes/modules/class-wpcpm-institution-talks.php:2653
 #: includes/modules/class-wpcpm-mentor-notes.php:855
 #: includes/modules/class-wpcpm-mentors-dashboard.php:440
 msgid "Add a note"
