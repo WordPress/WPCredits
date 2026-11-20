@@ -85,6 +85,18 @@ class WPCPM_Guide_Jobs {
 			'anchor' => 'add-a-lead',
 			'title'  => 'Add a lead',
 		),
+		'talks-change'            => array(
+			'anchor' => 'change-a-school-s-stage-next-step-and-follow-up-date',
+			'title'  => "Change a school's stage, next step and follow-up date",
+		),
+		'lead-close'              => array(
+			'anchor' => 'close-a-lead-or-reopen-it',
+			'title'  => 'Close a lead, or reopen it',
+		),
+		'airtable-copy'           => array(
+			'anchor' => 'read-the-notice-about-airtable-s-copy',
+			'title'  => "Read the notice about Airtable's copy",
+		),
 		'syncs'                   => array(
 			'anchor' => 'run-a-sync-by-hand-and-read-its-report',
 			'title'  => 'Run a sync by hand and read its report',
@@ -146,10 +158,12 @@ class WPCPM_Guide_Jobs {
 	 *
 	 * @param string $key   A key of `JOBS`.
 	 * @param string $about The card's title, which a screen reader reads after the words.
+	 * @param string $words Other words for the link, translated, such as How to read this for a notice that is read
+	 *                      rather than done (1.123.104); '' for How to do this.
 	 * @return string The link's markup, escaped; '' for a reader who cannot manage the program, an
 	 *                unknown key, or a site with no published guide.
 	 */
-	public static function link( $key, $about = '' ) {
+	public static function link( $key, $about = '', $words = '' ) {
 		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
 			return '';
 		}
@@ -163,7 +177,7 @@ class WPCPM_Guide_Jobs {
 		return sprintf(
 			'<a class="wpcpm-job-link" href="%1$s">%2$s%3$s</a>',
 			esc_url( $url ),
-			esc_html__( 'How to do this', 'wpcredits-program-manager' ),
+			'' === (string) $words ? esc_html__( 'How to do this', 'wpcredits-program-manager' ) : esc_html( (string) $words ),
 			'' === (string) $about ? '' : '<span class="screen-reader-text">: ' . esc_html( (string) $about ) . '</span>'
 		);
 	}

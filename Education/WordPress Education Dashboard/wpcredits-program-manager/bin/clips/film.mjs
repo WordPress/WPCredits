@@ -82,6 +82,9 @@ mkdirSync(join(WORK, 'frames'), { recursive: true });
 const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--hide-scrollbars', '--font-render-hinting=none'] });
 const refusedHosts = new Set();
 async function newContext({ signedIn = true, login = null } = {}) {
+  // US English, as every date the site prints reads ("November 13, 2026"). Chrome on a Mac still draws a date box in
+  // the Mac's own short date format (System Settings, Date format), which neither this locale, --lang, LANG nor a
+  // per-process Cocoa override changes (1.123.104, round 5): a step that types a day asks the box its order first.
   const context = await browser.newContext({ acceptDownloads: true, viewport: VIEW, deviceScaleFactor: DSF, reducedMotion: 'reduce', locale: 'en-US', timezoneId: 'UTC' });
   await context.route('**/*', route => {
     const u = new URL(route.request().url());
@@ -92,6 +95,15 @@ async function newContext({ signedIn = true, login = null } = {}) {
     // as it does with the image missing quietly; nothing is fetched.
     if (route.request().resourceType() === 'image') return route.fulfill({ status: 200, contentType: 'image/gif', body: Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64') });
     return route.abort();
+  });
+  // The dashboards' templates carry no sticky site header, yet the theme lands an anchor `--wpc-landing-offset` below
+  // the admin bar, room kept for that header (76px, its stand-in height, since header-height.js finds no header part
+  // to measure there), and the heading above the card showed half in that room. Told the header has no height, the
+  // landing keeps the theme's 28px of air alone, and the first frame after a press is whole (1.123.104, round 5).
+  // The root element may not exist yet when the script runs, so it is set as soon as it does, before the page scrolls.
+  await context.addInitScript(() => {
+    const set = () => { if (document.documentElement) { document.documentElement.style.setProperty('--wpc-header-live', '0px'); return true; } return false; };
+    if (!set()) { new MutationObserver((m, o) => { if (set()) o.disconnect(); }).observe(document, { childList: true }); }
   });
   if (signedIn) await context.addCookies(cookiesFor(login || shot.login || 'wpcredits-local'));
   return context;
@@ -232,7 +244,7 @@ const CLEAR = TOOLBAR + 16;
  * its top 8 pixels below CLEAR.
  */
 async function scrollTarget(loc, off) {
-  return loc.evaluate((el, { off, clear, toolbar, limit }) => {
+  const answer = await loc.evaluate((el, { off, clear, toolbar, limit }) => {
     const elH = el.getBoundingClientRect().height;
     let y = scrollY + el.getBoundingClientRect().top - Math.max(off, clear);
     for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
@@ -248,8 +260,44 @@ async function scrollTarget(loc, off) {
       const elTop = scrollY + el.getBoundingClientRect().top - y;
       if (elTop + up + elH <= limit) y -= up; else y += top + headH - toolbar + 2;
     }
-    return Math.max(0, y);
+    // No line cut in half under the toolbar (1.123.104, round 5): the position nearest the one asked for at which the
+    // toolbar's edge falls in the space between two blocks, crossing no line of words and no control, with at least 4px
+    // of air above the first line under it; the element still clear of the toolbar and above the line of text. Each
+    // position is measured with the page really there, since the frame's side menu is sticky and does not move with the
+    // page one for one; the page goes back where it was before the answer.
+    // A line is a line of words as drawn (each text node's line boxes, not the boxes around them, which touch one another
+    // in a list) or a control's own box.
+    const from = scrollY;
+    const out = n => n.closest && n.closest('#wpadminbar, #wpcpm-film-overlay');
+    const texts = [];
+    const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, { acceptNode: t => (t.nodeValue.trim() && !out(t.parentElement) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT) });
+    while (walk.nextNode()) texts.push(walk.currentNode);
+    const controls = [...document.querySelectorAll('input:not([type="hidden"]), select, textarea, button, img, svg')].filter(n => !out(n));
+    const crossed = r => r.width > 0 && r.height > 0 && r.height < 160 && r.top < toolbar + 4 && r.bottom > toolbar;
+    const clean = v => {
+      window.scrollTo({ top: v, behavior: 'instant' });
+      // At 1.5 device pixels a CSS pixel the page snaps to a third of a pixel; a position past the page's end is not one.
+      if (Math.abs(scrollY - v) >= 1) return false;
+      const t = el.getBoundingClientRect().top;
+      if (t < clear || t + elH > limit) return false;
+      if (controls.some(n => crossed(n.getBoundingClientRect()))) return false;
+      const range = document.createRange();
+      return !texts.some(tn => { range.selectNodeContents(tn); return [...range.getClientRects()].some(crossed); });
+    };
+    const want = Math.max(0, Math.round(y));
+    let found = null;
+    for (let d = 0; d <= 240 && null === found; d += 1) {
+      for (const v of d ? [want - d, want + d] : [want]) {
+        if (v >= 0 && clean(v)) { found = v; break; }
+      }
+    }
+    if (null !== found) y = found;
+    window.scrollTo({ top: from, behavior: 'instant' });
+    return { y: Math.max(0, y), found: null !== found, want };
   }, { off, clear: CLEAR, toolbar: TOOLBAR, limit: VIEW.height - CAPTION_BAND - 12 });
+  // Said when no clean position was near, so a frame with a cut line is known before it is watched.
+  if (!answer.found) console.log(`no position without a cut line near ${answer.want}: kept it`);
+  return answer.y;
 }
 
 /** Whether the element is whole between the toolbar's clearance and the line of text. */
@@ -281,6 +329,34 @@ async function scrollSmooth(page, toY, frames = 14) {
     await page.evaluate(y => window.scrollTo({ top: y, behavior: 'instant' }), from + (toY - from) * e);
     await frame(page, 1 / FPS);
   }
+}
+
+// ---------------------------------------------------------------- a day typed into a date box
+// The order this browser's date boxes take their parts in, asked once off camera, on a page of its own in the same
+// context: a box typed 12312026 that reads 2026-12-31 is month first, one typed 31122026 day first. Any other order
+// stops the filming with its reason.
+let DATE_ORDER = null;
+async function dateOrder(page) {
+  if (DATE_ORDER) return DATE_ORDER;
+  const probe = await page.context().newPage();
+  const read = async digits => {
+    await probe.setContent('<input type="date" id="d" style="width:220px;font:16px sans-serif">');
+    await probe.locator('#d').click({ position: { x: 12, y: 10 } });
+    await probe.keyboard.type(digits);
+    return probe.locator('#d').inputValue();
+  };
+  if ('2026-12-31' === await read('12312026')) DATE_ORDER = 'MDY';
+  else if ('2026-12-31' === await read('31122026')) DATE_ORDER = 'DMY';
+  await probe.close();
+  if (!DATE_ORDER) throw new Error('stopped: this browser\'s date boxes take neither month, day, year nor day, month, year, so a day cannot be typed into one');
+  console.log(`date boxes take ${DATE_ORDER === 'MDY' ? 'month, day, year (mm/dd/yyyy)' : 'day, month, year (dd.mm.yyyy, the Mac\'s own date format)'}`);
+  return DATE_ORDER;
+}
+
+/** The digits a person types for the day `n` days from today (UTC), in the order the box takes. */
+async function typedDay(page, n) {
+  const [y, m, d] = new Date(Date.now() + n * 86400000).toISOString().slice(0, 10).split('-');
+  return 'MDY' === await dateOrder(page) ? m + d + y : d + m + y;
 }
 
 // ---------------------------------------------------------------- the steps
@@ -344,6 +420,14 @@ async function runStep(page, step, n) {
       await loc.click();
     }
     await settle(page);
+    // `land`: a press that loads a page settles at once where the shot names, before any frame of the new page is
+    // taken, so no landing is ever seen half under the toolbar (1.123.104, round 5).
+    if (step.land) {
+      const to = locate(page, step.land);
+      await to.waitFor({ state: 'visible', timeout: 15000 });
+      const y = await scrollTarget(to, step.land.offset ?? 56);
+      await page.evaluate(v => window.scrollTo({ top: v, behavior: 'instant' }), y);
+    }
     // The real mouse stays where the press was; after a reload that spot may be another control, drawn in its
     // hover state. Move it to a place clear of every control (the drawn pointer does not move).
     { const spot = await clearSpot(page); await page.mouse.move(spot.x, spot.y); }
@@ -365,13 +449,21 @@ async function runStep(page, step, n) {
 
   if (step.type) {
     const loc = locate(page, step.type);
+    let at = null;
     if (!step.type.focused) {
-      const at = await aim(page, loc);
+      at = await aim(page, loc);
+      // A date box is typed from its first part, whatever order the browser draws it in: the pointer and the press go
+      // 16 pixels in, on that part.
+      if (await loc.evaluate(el => el.type === 'date')) at.x = at.box.x + 16;
       await moveTo(page, at.x, at.y, step.moveMs || 650);
       await frame(page, 0.3, { mark: true });
     } else if (!(await loc.evaluate(el => el === document.activeElement))) throw new Error('the box the shot types into does not have the focus');
-    if (!step.type.focused) await loc.click();
-    for (const ch of step.type.value) { await page.keyboard.type(ch); await page.waitForTimeout(40); await frame(page, 0.09); }
+    // The press lands where the pointer is drawn, near the box's start: in a date box that is its first part, the
+    // month in the en-US browser, so the digits typed fill the day from its start (1.123.104, the talks clips).
+    if (!step.type.focused) await loc.click({ position: { x: at.x - at.box.x, y: at.box.height / 2 } });
+    // `day: n` types the day n days from today in the box's own order; `value` types the words as given.
+    const typed = undefined !== step.type.day ? await typedDay(page, step.type.day) : step.type.value;
+    for (const ch of typed) { await page.keyboard.type(ch); await page.waitForTimeout(40); await frame(page, 0.09); }
     await settle(page);
   }
 

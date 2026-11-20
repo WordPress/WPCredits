@@ -467,7 +467,62 @@ $GLOBALS['program'] = array( 20 => array( 'program' => 'In Sensei', 'is_past' =>
 $GLOBALS['uid'] = 5; $GLOBALS['nonce_ok'] = true; $GLOBALS['sent'] = array(); $GLOBALS['audit'] = array(); $GLOBALS['buckets'] = array(); $GLOBALS['now'] = gmmktime( 12, 0, 0, 9, 5, 2026 );
 
 function post( array $fields, $action ) { $_POST = $fields; $GLOBALS['left'] = null; $GLOBALS['redirected'] = null; try { call_user_func( $action ); } catch ( WPCPM_Test_Redirect $e ) { return $GLOBALS['left'] ?? array( 'redirect', $GLOBALS['redirected'] ); } catch ( WPCPM_Test_Die $e ) { return array( 'die', $e->getMessage() ); } return array( 'fell-through' ); }
-function card( $class, $record, $context ) { ob_start(); call_user_func( array( $class, 'render' ), $record, $context ); return ob_get_clean(); }
+/**
+ * Keeps a drawing for the layout harness (bin/ui/layout/, the census of 19 Nov 2026), numbered under its name, when it
+ * draws a neighbor the drawings kept under that name did not: two elements in a row, each by its tag and classes. The
+ * suites draw some cards dozens of times one offer or one word apart, and those add nothing to a count of the gaps
+ * between kinds of blocks; WPCPM_LAYOUT_EVERY=1 keeps every drawing that differs at all. Only when the harness's
+ * dump.php is loaded.
+ *
+ * @param string $name    The case's name.
+ * @param string $html    What the suite drew.
+ * @param string $surface The dashboard and view it is drawn on.
+ */
+function layout_keep_once( $name, $html, $surface ) {
+	if ( ! function_exists( 'wpcpm_layout_keep' ) || '' === trim( (string) $html ) ) {
+		return;
+	}
+	preg_match_all( '#<(/?)([a-z0-9]+)(?:[^>]*?\sclass="([^"]*)")?[^>]*>#', (string) $html, $tags, PREG_SET_ORDER );
+	$pairs = array();
+	$last  = '';
+	foreach ( $tags as $tag ) {
+		$one = $tag[1] . $tag[2] . '.' . ( $tag[3] ?? '' );
+		$pairs[ $surface . ' ' . $last . ' ' . $one ] = true;
+		$last = $one;
+	}
+	// WPCPM_LAYOUT_EVERY=1 keeps every drawing that differs in anything, for a census of all of them.
+	if ( getenv( 'WPCPM_LAYOUT_EVERY' ) ) {
+		$pairs = array( md5( $surface . "\n" . (string) $html ) => true );
+	}
+	$seen = $GLOBALS['layout_pairs'][ $name ] ?? array();
+	if ( ! array_diff_key( $pairs, $seen ) ) {
+		return;
+	}
+	$GLOBALS['layout_pairs'][ $name ] = $seen + $pairs;
+	$GLOBALS['layout_n'][ $name ]     = ( $GLOBALS['layout_n'][ $name ] ?? 0 ) + 1;
+	wpcpm_layout_keep( $name . ', drawing ' . $GLOBALS['layout_n'][ $name ], $html, $surface );
+}
+/** The Sponsor Dashboard's view that draws each card class (WPCPM_Sponsors_Dashboard::view_owners()), and its name. */
+function layout_card_view( $class ) {
+	$views = array(
+		'WPCPM_Sponsor_Tier_Card'      => array( 'sponsorship', 'Your sponsorship', 'the tier card' ),
+		'WPCPM_Sponsor_Report_Card'    => array( 'sponsorship', 'Your sponsorship', 'the yearly reports card' ),
+		'WPCPM_Sponsor_Badge'          => array( 'sponsorship', 'Your sponsorship', 'the badge card' ),
+		'WPCPM_Sponsor_Offers'         => array( 'offers', 'Offers', 'the Offers and codes card' ),
+		'WPCPM_Sponsor_Posts'          => array( 'offers', 'Offers', 'the Posts card' ),
+		'WPCPM_Sponsor_Usage'          => array( 'reached', 'Students reached', 'the usage card' ),
+		'WPCPM_Sponsor_Mentors'        => array( 'mentors', 'Mentors to sponsor', 'the mentors cards' ),
+		'WPCPM_Sponsor_Profile'        => array( 'company', 'Your company', 'the profile card' ),
+		'WPCPM_Sponsor_Agreement_Card' => array( 'agreement', 'Agreement', 'the agreement card' ),
+	);
+	return $views[ $class ] ?? array( 'overview', 'Overview', $class );
+}
+/** Keeps a Sponsor Dashboard card a suite drew, on the view that draws it. */
+function layout_keep_card( $class, $html ) {
+	list( $view, $view_name, $card_name ) = layout_card_view( $class );
+	layout_keep_once( 'Sponsor Dashboard, ' . $view_name . ': ' . $card_name, $html, 'sponsor/' . $view );
+}
+function card( $class, $record, $context ) { ob_start(); call_user_func( array( $class, 'render' ), $record, $context ); $html = ob_get_clean(); layout_keep_card( $class, $html ); return $html; }
 /**
  * Run what the next request does, as a fresh user id holding the user meta the person held, so
  * `WPCPM_Flash::take()`'s per-request memo does not hide what the request before it left (a handler
@@ -1314,14 +1369,14 @@ ck( 'a sponsor with no offer: the numbers are promised for later, and the card e
 // and a region named by the card's heading words, which carry an id for it, not the count beside
 // them. A card with no offer has no table, so no box.
 $usage_box = preg_match_all( '#<div class="wpcpm-usage__scroll"([^>]*)>(.*?)</div>#s', $html, $usage_found, PREG_SET_ORDER ) ? $usage_found : array();
-ck( 'the Usage table sits alone in a box that is a tab stop and a region named by the card\'s heading words, not its count', array(
+ck( 'the Usage table sits alone in a box that is a tab stop and a region named by the card\'s heading words, not its count, marked for the layout harness as a box that scrolls on purpose', array(
 	count( $usage_box ),
 	isset( $usage_box[0] ) ? trim( $usage_box[0][1] ) : null,
 	isset( $usage_box[0] ) ? ( 0 === strpos( $usage_box[0][2], '<table class="wpcpm-table wpcpm-usage">' ) && '</table>' === substr( $usage_box[0][2], -8 ) ) : null,
 	false !== strpos( $html, '<h3 class="wpcpm-group__title"><span id="wpcpm-sponsor-usage-title">Usage</span> <span class="wpcpm-group__count">' ),
 	substr_count( $html, 'id="wpcpm-sponsor-usage-title"' ),
 	false !== strpos( $html, '</tr></tfoot></table></div><form method="post"' ),
-), array( 1, 'tabindex="0" role="region" aria-labelledby="wpcpm-sponsor-usage-title"', true, true, 1, true ) );
+), array( 1, 'tabindex="0" role="region" aria-labelledby="wpcpm-sponsor-usage-title" data-wpcpm-scrolls', true, true, 1, true ) );
 ck( 'with no offer there is no table and no box, and the heading reads as it does with one', array( substr_count( $no_offer, 'wpcpm-usage__scroll' ), false !== strpos( $no_offer, '<h3 class="wpcpm-group__title"><span id="wpcpm-sponsor-usage-title">Usage</span> <span class="wpcpm-group__count">0</span></h3>' ) ), array( 0, true ) );
 $no_offer_row = card( 'WPCPM_Sponsor_Offers', 'recNOOFFERS000001', $context );
 $one_claim    = array( card( 'WPCPM_Sponsor_Offers', $B, $context ), card( 'WPCPM_Sponsor_Usage', $B, $context ) );
@@ -2878,6 +2933,7 @@ function of_drawn( array $ids, $surface ) {
 			$html = (string) ob_get_clean();
 			if ( 'administrator' === $surface ) {
 				parts_inventory_add( $html );
+				layout_keep_once( 'Administrator Dashboard, Overview: sponsor offers to review', $html, 'administrator/overview' );
 			}
 			if ( '' !== $surface ) {
 				WPCPM_UI::leave();

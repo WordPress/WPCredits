@@ -161,6 +161,12 @@ ck( 'a required textarea field, whole', $f,
 	. '<textarea class="wpcpm-ui-field__control wpcpm-ui-field__control--textarea" id="why" name="why" required maxlength="2000" aria-describedby="why-hint">' . "\n" . '</textarea>'
 	. '<p class="wpcpm-ui-field__hint" id="why-hint">Say why.</p></div>' );
 $o = WPCPM_UI::field( array( 'id' => 'nm', 'name' => 'nm', 'label' => 'Name', 'need' => 'optional' ) );
+// 1.123.104, rounds 4 and 5: `after` is one link, href and label, that the part draws as the field's last line: a text
+// link in the hint's paragraph, so its first letter is on the box's edge and it stands at a hint's distance; an outside
+// link opens in a tab of its own; the address and the words escaped; none without it, or without an address.
+$af = WPCPM_UI::field( array( 'id' => 'hd', 'name' => 'hd', 'label' => 'Link', 'hint' => 'One line.', 'after' => array( 'href' => 'https://example.org/a?b=1&c=2', 'label' => 'Open <it>', 'outside' => true ) ) );
+$an = WPCPM_UI::field( array( 'id' => 'hn', 'name' => 'hn', 'label' => 'Link', 'after' => array( 'href' => '', 'label' => 'Open' ) ) );
+ck( 'field(): after is a text link, the hint\'s last line, escaped, opening an outside address in a tab of its own; none without an address', array( 1 === preg_match( '#<p class="wpcpm-ui-field__hint" id="hd-hint">One line\.</p><p class="wpcpm-ui-field__hint"><a href="https://example\.org/a\?b=1&\#038;c=2" rel="noopener noreferrer" target="_blank">Open &lt;it&gt;</a></p></div>$#', $af ), substr_count( $o . $an, 'wpcpm-ui-field__hint' ), false !== strpos( $af, 'wpcpm-btn' ) ), array( true, 0, false ) );
 ck( 'optional prints Optional and no required', array( false !== strpos( $o, '<span class="wpcpm-ui-field__need">Optional</span>' ), false === strpos( $o, 'required' ) ), array( true, true ) );
 // Task 18a, point 5: a box the handler refuses empty, which today's form leaves to the server, says Required in words
 // and prints no `required` (nor minlength): what the browser refuses stays as it is.

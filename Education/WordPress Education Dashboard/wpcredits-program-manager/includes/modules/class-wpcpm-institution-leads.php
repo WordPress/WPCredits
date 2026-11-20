@@ -2000,10 +2000,8 @@ class WPCPM_Institution_Leads {
 				return strtolower( $value );
 
 			case 'help_desk':
-				if ( 0 !== strpos( $value, 'https://' ) || false === filter_var( $value, FILTER_VALIDATE_URL ) ) {
-					return new WP_Error( 'wpcpm_lead_help_desk', __( 'The help desk link must be an address that starts with https://.', 'wpcredits-program-manager' ) );
-				}
-				return $value;
+				$problem = self::help_desk_problem( $value );
+				return null === $problem ? $value : $problem;
 
 			case 'estimated_students':
 				if ( 1 !== preg_match( '/^[0-9]{1,6}$/D', $value ) || (int) $value > self::MAX_STUDENTS ) {
@@ -2019,6 +2017,23 @@ class WPCPM_Institution_Leads {
 		}
 
 		return $value;
+	}
+
+	/**
+	 * The one rule of a help desk link, a lead's and a school's (1.123.104, round 4): an address that starts with https://.
+	 * The Talks card asks it for a school too, so a person meets one rule and one sentence for the field.
+	 *
+	 * @param string $value The link, trimmed; '' is no link and is never refused.
+	 * @return WP_Error|null The refusal, or null when the link is fine.
+	 */
+	public static function help_desk_problem( $value ) {
+		$value = (string) $value;
+
+		if ( '' === $value || ( 0 === strpos( $value, 'https://' ) && false !== filter_var( $value, FILTER_VALIDATE_URL ) ) ) {
+			return null;
+		}
+
+		return new WP_Error( 'wpcpm_lead_help_desk', __( 'The help desk link must be an address that starts with https://.', 'wpcredits-program-manager' ) );
 	}
 
 	/**

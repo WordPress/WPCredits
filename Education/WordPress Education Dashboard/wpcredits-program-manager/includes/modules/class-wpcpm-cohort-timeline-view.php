@@ -481,8 +481,9 @@ final class WPCPM_Cohort_Timeline_View {
 		self::render_legend( $places );
 
 		// A tab stop and a named region, as every box that scrolls sideways on this site: a keyboard
-		// reaches it and its arrow keys scroll it, and a screen reader says what scrolls.
-		printf( '<div class="wpcpm-timeline__scroll" tabindex="0" role="region" aria-labelledby="%s-caption"><div class="wpcpm-timeline__plot">', esc_attr( $id ) );
+		// reaches it and its arrow keys scroll it, and a screen reader says what scrolls. `data-wpcpm-scrolls`
+		// tells the layout harness (bin/ui/layout/measure.js) that it scrolls on purpose (20 Nov 2026).
+		printf( '<div class="wpcpm-timeline__scroll" tabindex="0" role="region" aria-labelledby="%s-caption" data-wpcpm-scrolls><div class="wpcpm-timeline__plot">', esc_attr( $id ) );
 
 		if ( ! $compact ) {
 			echo '<div class="wpcpm-timeline__bands" aria-hidden="true">';

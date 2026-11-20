@@ -823,6 +823,29 @@ ck( 'the quiet line closes the page\'s box, and the box the main area, the body 
 ck( 'with the switch off the Overview draws no card: every card is on a view of its own', substr_count( $out, '<details id="wpcpm-sponsor-' ), 0 );
 $views_off = every_view();
 $all_off   = implode( '', $views_off );
+// The layout harness's cases (bin/ui/layout/, the census of 19 Nov 2026): every view of the page in the frame's main
+// area, as render() prints it, in the states this suite draws: a member's first look (nothing waits, the tiers off),
+// all eight waits at once, the same with a 60-character company name and an empty website, and a program manager
+// reading it through the switcher. A view a state draws as an earlier one did is not kept twice. Drawn only when the
+// harness's dump.php is loaded.
+$lk_keep = static function ( $label, array $views ) {
+	if ( ! function_exists( 'wpcpm_layout_keep' ) ) {
+		return;
+	}
+	$names = array( 'overview' => 'Overview', 'sponsorship' => 'Your sponsorship', 'offers' => 'Offers', 'reached' => 'Students reached', 'mentors' => 'Mentors to sponsor', 'company' => 'Your company', 'agreement' => 'Agreement' );
+	foreach ( $views as $view => $html ) {
+		$at   = strpos( (string) $html, '<div class="wpcpm-frame__main">' );
+		$main = false === $at ? '' : substr( (string) $html, $at + strlen( '<div class="wpcpm-frame__main">' ), -strlen( '</div></div></div>' ) );
+		$key  = md5( $main );
+		if ( '' === $main || isset( $GLOBALS['lk_seen'][ $key ] ) ) {
+			continue;
+		}
+		$GLOBALS['lk_seen'][ $key ] = true;
+		$drawn = view_drawn( $html );
+		wpcpm_layout_keep( 'Sponsor Dashboard, ' . $label . ': ' . ( $names[ $drawn ] ?? $drawn ), $main, 'sponsor/' . $drawn );
+	}
+};
+$lk_keep( 'a member, nothing waits, the tiers off', $views_off );
 // Offer more (1.123.22): its support choices were the sponsor application's before the levels, and its
 // Tell us said what the Sponsorship card's Talk to your program contact says. No view draws it.
 ck( 'Offer more is on no view: no card, no Tell us, no title and no support choices', array( strpos( $all_off, 'wpcpm-sponsor-interests' ), strpos( $all_off, 'Tell us' ), strpos( $all_off, 'Offer more' ), strpos( $all_off, 'name="wpcpm_support[]"' ) ), array( false, false, false, false ) );
@@ -1770,6 +1793,9 @@ ck( 'but nothing is said to wait for it, since its rows would read the empty row
 // mentors, and no row is drawn for its offers or its mentors, though its offers, mentors and profile are
 // drawn on their views. The figures' source line names today, and is matched as words.
 $mentor_off = $D::render();
+// The layout harness's case of 20 Nov 2026: this Overview, the figures and their source line over "Nothing waits for
+// you.", the one state the suite draws with the quiet line under the figures rather than the head.
+$lk_keep( 'a Friend, nothing waits, the figures drawn', array( 'overview' => $mentor_off ) );
 ck( 'a Friend with the switch off and nothing waiting: "Nothing waits for you." alone, right under the figures and the line that says where they come from, no count in the menu, and no row for its offers or its three mentors', array(
 	waiting_of( $mentor_off ),
 	1 === preg_match( '#</header><section class="wpcpm-figures wpcpm-figures--1" aria-label="What your support did">.*?</section><p class="wpcpm-figures__source">As of [^<]*, from the claims on this site and the program&\#039;s mentor records\.</p>' . preg_quote( nothing_waits(), '#' ) . '#', main_of( $mentor_off ) ),
@@ -2145,6 +2171,17 @@ ck( 'and the menu counts what waits in each view: eight beside Overview, the ter
 // suite does not load.
 $drawn_by_view = array();
 foreach ( the_views() as $view ) { $drawn_by_view[ $view ] = view_cards( in_view( $view ) ); }
+$lk_keep( 'all eight waits', every_view() );
+if ( function_exists( 'wpcpm_layout_keep' ) ) {
+	$lk_row = WPCPM_Sponsors_Index::row( $A );
+	WPCPM_Sponsors_Index::patch( $A, array( 'name' => 'Examplecorp International Hosting and Developer Tools Groups', 'website' => '' ) );
+	$lk_keep( 'all eight waits, a 60-character name, no website', every_view() );
+	// 20 Nov 2026: a name that is one word of forty letters and an example.org address of sixty characters with no
+	// break, which must wrap inside their cards at a narrow main area.
+	WPCPM_Sponsors_Index::patch( $A, array( 'name' => 'Exampleunbrokencompanynamefortyletterxyz', 'website' => 'https://www.exampleaddresswithnobreakforthelayo.example.org/' ) );
+	$lk_keep( 'all eight waits, a forty-letter word for a name, a sixty-character address', every_view() );
+	WPCPM_Sponsors_Index::patch( $A, array( 'name' => $lk_row['name'], 'website' => $lk_row['website'] ) );
+}
 ck( 'each view draws only the cards VIEW_CARDS lists for it, in that order, so every card\'s address is the view that draws it', $drawn_by_view, array( 'overview' => array(), 'sponsorship' => array( 'sponsorship', 'events', 'reports', 'badge' ), 'offers' => array( 'offers', 'posts' ), 'reached' => array(), 'mentors' => array( 'mentors', 'looking' ), 'company' => array( 'profile', 'people' ), 'agreement' => array( 'agreement' ) ) );
 ck( 'and with every card drawn no student is named on any view', preg_match( '/Student(?! Report Card|s reached)/', $eight_views ), 0 );
 
@@ -2155,6 +2192,7 @@ $GLOBALS['get'] = array( WPCPM_Sponsor_Roster::ARG_VIEW => $A );
 $as_manager     = $D::render();
 $manager_rows   = rows_without_card( $as_manager );
 $manager_views  = implode( '', every_view() );
+$lk_keep( 'a program manager through the switcher', array( 'overview' => $as_manager ) );
 $GLOBALS['uid'] = 5;
 $GLOBALS['get'] = array();
 ck( 'a program manager viewing the sponsor through the switcher reads the same rows and counts, each link carrying the sponsor and landing on its card, and New offer too', array(

@@ -3182,6 +3182,41 @@ $GLOBALS['index'][ PAUSED ]['status']  = 'Paused';
 $GLOBALS['index'][ PARTS_B ]['status'] = 'Paused';
 
 /**
+ * Keeps a drawing for the layout harness (bin/ui/layout/, the census of 19 Nov 2026), numbered under its name, when it
+ * draws a neighbor the drawings kept under that name did not: two elements in a row, each by its tag and classes. The
+ * suites draw some cards dozens of times one offer or one word apart, and those add nothing to a count of the gaps
+ * between kinds of blocks; WPCPM_LAYOUT_EVERY=1 keeps every drawing that differs at all. Only when the harness's
+ * dump.php is loaded.
+ *
+ * @param string $name    The case's name.
+ * @param string $html    What the suite drew.
+ * @param string $surface The dashboard and view it is drawn on.
+ */
+function layout_keep_once( $name, $html, $surface ) {
+	if ( ! function_exists( 'wpcpm_layout_keep' ) || '' === trim( (string) $html ) ) {
+		return;
+	}
+	preg_match_all( '#<(/?)([a-z0-9]+)(?:[^>]*?\sclass="([^"]*)")?[^>]*>#', (string) $html, $tags, PREG_SET_ORDER );
+	$pairs = array();
+	$last  = '';
+	foreach ( $tags as $tag ) {
+		$one = $tag[1] . $tag[2] . '.' . ( $tag[3] ?? '' );
+		$pairs[ $surface . ' ' . $last . ' ' . $one ] = true;
+		$last = $one;
+	}
+	// WPCPM_LAYOUT_EVERY=1 keeps every drawing that differs in anything, for a census of all of them.
+	if ( getenv( 'WPCPM_LAYOUT_EVERY' ) ) {
+		$pairs = array( md5( $surface . "\n" . (string) $html ) => true );
+	}
+	$seen = $GLOBALS['layout_pairs'][ $name ] ?? array();
+	if ( ! array_diff_key( $pairs, $seen ) ) {
+		return;
+	}
+	$GLOBALS['layout_pairs'][ $name ] = $seen + $pairs;
+	$GLOBALS['layout_n'][ $name ]     = ( $GLOBALS['layout_n'][ $name ] ?? 0 ) + 1;
+	wpcpm_layout_keep( $name . ', drawing ' . $GLOBALS['layout_n'][ $name ], $html, $surface );
+}
+/**
  * The card as one manager sees it on the next page: as it ships (''), with the Administrator Dashboard's switch on and
  * no surface named ('unnamed'), or with the switch on and a surface named. The dashboard takes its own channel at the
  * top of the page, before any card.
@@ -3207,6 +3242,7 @@ function pc_card( $uid, $surface = '' ) {
 		$html = (string) ob_get_clean();
 		if ( 'administrator' === $surface ) {
 			parts_inventory_add( $html );
+			layout_keep_once( 'Administrator Dashboard, Overview: the Events card', $html, 'administrator/overview' );
 		}
 		if ( '' !== $surface && 'unnamed' !== $surface ) {
 			WPCPM_UI::leave();

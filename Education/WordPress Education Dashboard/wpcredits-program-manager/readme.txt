@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.103
+Stable tag: 1.123.104
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,16 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.104 =
+
+* This release is the Administrator guide, its links, and two fields of the Talks card. While the site does not keep the record of institutions, nothing anyone sees on a screen changes.
+* Once the site keeps the record, a school's Last contact and Help desk link are changed on its Talks card, and a lead's Last contact on its page. Last contact cannot be a day after today. A help desk link must start with https://, as a lead's always had to, and Open the help desk link under its box opens it.
+* Administrator guide: ready for the site keeping the record of institutions. The start page lists what changes for an Administrator, the switch's job runs from telling the Administrators to switching off the six Airtable automations, each kind of line in the import's summary says what to do, and the glossary has talks, lead, stage and due. It also says what the institutions sync does once the site keeps the record, when the first Monday email goes, and where Last contact and the help desk link are changed.
+* Once the site keeps the record, the Talks card has a How to do this link to the guide, a lead's page too, and the Institutions screen's notice about Airtable's copy ends with How to read this.
+* Settings, Create accounts automatically: once the site keeps the record, its description names the institution's contact email on the site in place of Airtable's.
+* Administrator guide: five clips, one under each daily job of the talks, and pictures of the Talks view, the Talks card and a lead's page.
+* Spacing: with the script off, the Decide heading stands 12px over its panel. On the Sponsor Dashboard the error summary, a group's note, an empty view and the mentor tiles follow the shared rhythm, and on a phone nothing on Your sponsorship or the Usage card is wider than the screen, and the usage chart names every other month.
 
 = 1.123.103 =
 

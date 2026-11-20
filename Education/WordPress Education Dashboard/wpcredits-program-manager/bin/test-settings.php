@@ -4365,6 +4365,20 @@ ck( 'the texts that ran past 300 characters are one sentence each, the rest in i
         ),
     ) );
 
+// G10 (1.123.104): Create accounts automatically names where the address comes from in each mode. While Airtable keeps
+// the record its words are byte for byte as before; once the site keeps it, they name the institution's own contact
+// email, which Your institution's details corrects. The fold is the same in both.
+$provision_airtable = help_of( draw_settings( 'institutions' ), 'Create accounts automatically' );
+press_tab( 'advanced', array( 'institutions_on_site' => '1' ) );
+$provision_site = help_of( draw_settings( 'institutions' ), 'Create accounts automatically' );
+press_tab( 'advanced', array() );
+ck( 'g10_provision_airtable: while Airtable keeps the record, the row\'s words are as they were',
+    $provision_airtable[0],
+    array( 'From the Contact Email Airtable holds, and only for a Confirmed institution whose agreement is recorded and that has never had a member.' ) );
+ck( 'g10_provision_site: once the site keeps the record, they name the institution\'s contact email, and the fold is the same',
+    array( $provision_site[0], $provision_site[1] === $provision_airtable[1], WPCPM_Settings::get()['institutions_on_site'] ),
+    array( array( 'From the institution\'s contact email on the site, and only for a Confirmed institution whose agreement is recorded and that has never had a member.' ), true, false ) );
+
 // The mentor-assigned email's row sits in Accounts, after the invitation emails and before the sync.
 $assigned_label = 'Students assigned to a mentor';
 $assigned_help  = help_of( $states['people'], $assigned_label );

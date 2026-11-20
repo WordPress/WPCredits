@@ -131,9 +131,11 @@ final class WPCPM_Sponsor_Usage {
 	 * tab stop, so a keyboard reaches it and its arrow keys scroll it, and a region named by the
 	 * card's heading words, which the card shell gives an id (`title_id`), so a screen reader says
 	 * what scrolls: "Usage", not the count beside it. A tab stop at every width, as those are.
+	 * `data-wpcpm-scrolls` tells the layout harness (bin/ui/layout/measure.js) that the box scrolls on
+	 * purpose, so the table wider than it is not a fault (20 Nov 2026).
 	 */
 	private static function scroll_open() {
-		printf( '<div class="wpcpm-usage__scroll" tabindex="0" role="region" aria-labelledby="%s">', esc_attr( WPCPM_Dashboard_Card::title_id( 'wpcpm-sponsor-' . self::CARD ) ) );
+		printf( '<div class="wpcpm-usage__scroll" tabindex="0" role="region" aria-labelledby="%s" data-wpcpm-scrolls>', esc_attr( WPCPM_Dashboard_Card::title_id( 'wpcpm-sponsor-' . self::CARD ) ) );
 	}
 
 	/**

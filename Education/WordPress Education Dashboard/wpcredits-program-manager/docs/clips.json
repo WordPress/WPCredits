@@ -61,5 +61,50 @@
     "width": 1920,
     "height": 1080,
     "caption": "Invite a representative or a tutor for a school: sending the invitation and adding a tutor to the list (35 seconds, no sound)."
+  },
+  "read-the-follow-ups-due": {
+    "id": 2862,
+    "src": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-read-the-follow-ups-due.mp4",
+    "poster": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-read-the-follow-ups-due.jpg",
+    "captions": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-read-the-follow-ups-due.vtt",
+    "width": 1920,
+    "height": 1080,
+    "caption": "Read the follow-ups due and open a school's talks: the head's count, the table of follow-ups due, the schools by stage, and a school's Talks card (33 seconds, no sound)."
+  },
+  "change-a-schools-stage": {
+    "id": 2865,
+    "src": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-change-a-schools-stage.mp4",
+    "poster": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-change-a-schools-stage.jpg",
+    "captions": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-change-a-schools-stage.vtt",
+    "width": 1920,
+    "height": 1080,
+    "caption": "Change a school's stage, next step and follow-up date: a new stage, a next step, the days to follow up and of the last contact, and Save (27 seconds, no sound)."
+  },
+  "add-a-note-to-a-schools-talks": {
+    "id": 2868,
+    "src": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-add-a-note-to-a-schools-talks.mp4",
+    "poster": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-add-a-note-to-a-schools-talks.jpg",
+    "captions": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-add-a-note-to-a-schools-talks.vtt",
+    "width": 1920,
+    "height": 1080,
+    "caption": "Add a note to a school's talks: typing the note, adding it, and the note first under Notes (22 seconds, no sound)."
+  },
+  "add-a-lead": {
+    "id": 2871,
+    "src": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-add-a-lead.mp4",
+    "poster": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-add-a-lead.jpg",
+    "captions": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-add-a-lead.vtt",
+    "width": 1920,
+    "height": 1080,
+    "caption": "Add a lead: the fields, adding the lead, its page, and the lead in the first list of the Talks view (26 seconds, no sound)."
+  },
+  "move-a-lead-into-the-talks": {
+    "id": 2874,
+    "src": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-move-a-lead-into-the-talks.mp4",
+    "poster": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-move-a-lead-into-the-talks.jpg",
+    "captions": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-move-a-lead-into-the-talks.vtt",
+    "width": 1920,
+    "height": 1080,
+    "caption": "Move a lead into the talks as an institution: choosing the stage, saving, and the school's own Talks card with the lead's note (18 seconds, no sound)."
   }
 }

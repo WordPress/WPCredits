@@ -251,6 +251,23 @@ ck( 'no pointer brackets are left, and the four other guides are unchanged',
 );
 cleanup( $root );
 
+// 1.123.104, round 2: bullets indented under a step are a short list inside that step, and the steps keep counting.
+$root = scratch_tree( null, array( '60-admin-start' => "### Nested\n\n1. Change what moved on:\n   - **Stage**\n   - **Next step**, wrapped\n     over two lines\n2. Press **Save**.\n" ) );
+list( $status ) = build( $root );
+$html = (string) @file_get_contents( $root . '/docs/build/administrators.html' );
+preg_match( '#id="nested".*?<ol class="wp-block-list">(.*?)</ol>#s', $html, $nested );
+$nested = isset( $nested[1] ) ? $nested[1] : '';
+ck( 'nested_list: indented bullets are a list inside their step, a wrapped bullet one item, and the ordered list holds two steps',
+	array(
+		$status,
+		false !== strpos( $nested, "<li>Change what moved on:<!-- wp:list -->\n<ul class=\"wp-block-list\">\n<!-- wp:list-item -->\n<li><strong>Stage</strong></li>" ),
+		false !== strpos( $nested, '<li><strong>Next step</strong>, wrapped over two lines</li>' ),
+		substr_count( preg_replace( '#<ul class="wp-block-list">.*?</ul>#s', '', $nested ), '<li>' ),
+	),
+	array( 0, true, true, 2 )
+);
+cleanup( $root );
+
 $root = scratch_tree( null, array( '60-admin-start' => 'See [[No such job]].' ) );
 list( $status, $log ) = build( $root );
 ck( 'a pointer to an unknown heading stops the build with exit 1, names the guide, section and pointer, and writes nothing',

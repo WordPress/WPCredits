@@ -57,6 +57,9 @@
 .wpcpm-sponsor__field .wpcpm-student__note { max-width: 32em; margin-top: 0.25em; }
 .wpcpm-sponsor__choices { border: 0; padding: 0; margin: 0 0 1em; }
 .wpcpm-sponsor__choices label { display: block; margin: 0 0 6px; }
+/* A group's note under its options as a block of its own, the last option's 6px under it, as a hint stands under
+   its options in the parts; inline, it stood on the line box of the fieldset's text, 5.4px under it. */
+.wpcpm-sponsor__choices > .wpcpm-student__note { display: block; margin-top: 0; }
 
 /* A sub-heading inside a card: .wpcpm-people__subtitle's margin, the theme's heading size. */
 .wpcpm-sponsor__subheading { margin: 0 0 1em; }
@@ -128,10 +131,11 @@
 .wpcpm-sponsor__people li:last-child { margin-bottom: 0; }
 
 /* The mentor cards (1.94.1): the shape the Credits Program Mentors plugin gives the program's
-   mentors, so a sponsor who has seen that page recognises these. A grid of three, then two,
-   then one; each card a centred column of photo, name, counts, chips and link. */
+   mentors, so a sponsor who has seen that page recognizes these. A grid of three, then two,
+   then one; each card a centered column of photo, name, counts, chips and link, 8px apart (20 Nov 2026: 0.5em
+   was 7px), and the form's button 14px under the link. */
 .wpcpm-mentor-tiles { display: grid; gap: 1em; grid-template-columns: repeat( 3, minmax( 0, 1fr ) ); }
-.wpcpm-mentor-tile { align-items: center; background: var( --wpcpm-surface ); border: 1px solid var( --wpcpm-border ); border-radius: var( --wpcpm-radius ); display: flex; flex-direction: column; gap: 0.5em; margin: 0; padding: 1.5em 1.25em 1.25em; text-align: center; }
+.wpcpm-mentor-tile { align-items: center; background: var( --wpcpm-surface ); border: 1px solid var( --wpcpm-border ); border-radius: var( --wpcpm-radius ); display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 1.5em 1.25em 1.25em; text-align: center; }
 .wpcpm-mentor-tile__photo { line-height: 0; }
 .wpcpm-mentor-tile__img, .wpcpm-mentor-tile__initials { border-radius: 50%; height: 116px; object-fit: cover; width: 116px; }
 .wpcpm-mentor-tile__initials { align-items: center; border: 1px solid var( --wpcpm-border ); display: inline-flex; font-size: 2.2em; font-weight: 700; justify-content: center; line-height: 1; }
@@ -140,7 +144,7 @@
 .wpcpm-mentor-tile__tags { display: flex; flex-wrap: wrap; gap: 0.35em; justify-content: center; margin: 0; }
 .wpcpm-mentor-tile__tag { border: 1px solid var( --wpcpm-border ); border-radius: 999px; font-size: 0.8em; padding: 0.1em 0.6em; white-space: nowrap; }
 .wpcpm-mentor-tile__link { margin: 0; }
-.wpcpm-mentor-tile .wpcpm-inline-form { margin-top: 0.5em; }
+.wpcpm-mentor-tile .wpcpm-inline-form { margin-top: 6px; }
 @media ( max-width: 1024px ) { .wpcpm-mentor-tiles { grid-template-columns: repeat( 2, minmax( 0, 1fr ) ); } }
 @media ( max-width: 600px ) { .wpcpm-mentor-tiles { grid-template-columns: minmax( 0, 1fr ); } }
 .wpcpm-sponsor__muted { opacity: 0.75; overflow-wrap: anywhere; }
@@ -263,9 +267,19 @@
 	min-width: 0;
 }
 
+/* The rows of a view stand the root's 28px apart, and nothing adds to it: the one quiet line among them, an empty
+   view's "Nothing to show here yet." and a member's Overview's "Nothing waits for you." alike (administrator.css
+   gives that line 12px above, for the Administrator Dashboard's cards; here it stood 40px under the head). */
 .wpcpm-frame .wpcpm-sponsor > .wpcpm-dashboard__switcher,
-.wpcpm-frame .wpcpm-sponsor > .wpcpm-dashboard__message {
+.wpcpm-frame .wpcpm-sponsor > .wpcpm-dashboard__message,
+.wpcpm-frame .wpcpm-sponsor > .wpcpm-overview__quiet {
 	margin: 0;
+}
+
+/* A refused form's summary stands 16px over the field under it, as on the Institution Dashboard (its 1.5em
+   was 21px). */
+.wpcpm-frame .wpcpm-sponsor .wpcpm-errors {
+	margin-bottom: var( --wpcpm-f-block );
 }
 
 /* The head's logo, or the company's initials, in a box 88px high beside the head's copy: square for the
@@ -530,10 +544,13 @@
 	white-space: nowrap;
 }
 
-/* A view's cards, one under the other on the main area's rhythm; no hairline over each, as in the frame. */
+/* A view's cards, one under the other on the main area's rhythm; no hairline over each, as in the frame. One
+   column no wider than the main area: an auto column took the widest card's own width (362px in a main area
+   of 358). */
 .wpcpm-frame .wpcpm-sponsor__cards {
 	display: grid;
 	gap: 16px;
+	grid-template-columns: minmax( 0, 1fr );
 	min-width: 0;
 }
 
@@ -541,6 +558,41 @@
 	border-top: 0;
 	margin: 0;
 	padding: 0;
+}
+
+/* The badge's two versions may each narrow to the card, the badge scaling down inside its panel: each kept the
+   badge's own 300px and its panel's 12px a side, 324px in a card of 320 at a main area of 358. */
+.wpcpm-frame .wpcpm-sponsor-badge__figure {
+	min-width: 0;
+}
+
+/* The Usage chart's month names on a narrow main area: twelve do not fit a phone's plot, and each was cut to its
+   first letter and an ellipsis. Every other month is named, the last among them, in the caption's 12px and never
+   cut; the row is hidden from a screen reader already (the plot's label says it all). */
+@container wpcpm-main ( max-width: 479.98px ) {
+	.wpcpm-frame .wpcpm-usage__chart .wpcpm-chart__months {
+		font-size: 12px;
+	}
+
+	.wpcpm-frame .wpcpm-usage__chart .wpcpm-chart__months li {
+		overflow: visible;
+		text-overflow: clip;
+	}
+
+	.wpcpm-frame .wpcpm-usage__chart .wpcpm-chart__months li:nth-last-child( even ) {
+		visibility: hidden;
+	}
+
+	/* Each month named sits centered on its month whatever its width, so a longer short name in another language
+	   runs over both sides alike, into the unnamed months beside it; the last ends at the plot's end, never past it. */
+	.wpcpm-frame .wpcpm-usage__chart .wpcpm-chart__months li:nth-last-child( odd ) {
+		justify-self: center;
+		width: max-content;
+	}
+
+	.wpcpm-frame .wpcpm-usage__chart .wpcpm-chart__months li:last-child {
+		justify-self: end;
+	}
 }
 
 /* New offer: a button, the form under it once it is pressed. */

@@ -70,6 +70,9 @@ $ids = array(
 	'sponsor-usage-card'                     => 1785,
 	'sponsor-company-card'                   => 1786,
 	'sponsor-events-card'                    => 1787,
+	'talks-view'                             => 2877,
+	'talks-card'                             => 2878,
+	'talks-lead-page'                        => 2879,
 );
 
 $guides = require __DIR__ . '/docs-guides.php';
@@ -450,25 +453,38 @@ function wpcpm_docs_to_blocks( $md, $reference = false ) {
 			continue;
 		}
 
-		// Lists: bullets or numbers, each item possibly wrapped over several lines.
+		// Lists: bullets or numbers, each item possibly wrapped over several lines. An item indented past the list's
+		// first one is a bullet of a short list under the item above it (one level, as a step's choices are written).
 		if ( preg_match( '/^(\s*)([-*]|\d+\.) (.+)$/', $line, $m ) ) {
 			$flush();
 			$ordered = ! in_array( $m[2], array( '-', '*' ), true );
+			$indent  = strlen( $m[1] );
 			$items   = array();
-			$current = $m[3];
+			$current = array( $m[3], array() );
+			$under   = false;
 
 			while ( ++$i < $count ) {
 				$next = rtrim( $lines[ $i ] );
 				if ( preg_match( '/^(\s*)([-*]|\d+\.) (.+)$/', $next, $n ) ) {
+					if ( strlen( $n[1] ) > $indent ) {
+						$current[1][] = $n[3];
+						$under        = true;
+						continue;
+					}
 					$items[] = $current;
-					$current = $n[3];
+					$current = array( $n[3], array() );
+					$under   = false;
 					continue;
 				}
 				if ( '' === trim( $next ) ) {
 					break;
 				}
-				// A continuation line of the item above.
-				$current .= ' ' . trim( $next );
+				// A continuation line of the item above, or of the last bullet under it.
+				if ( $under ) {
+					$current[1][ count( $current[1] ) - 1 ] .= ' ' . trim( $next );
+				} else {
+					$current[0] .= ' ' . trim( $next );
+				}
 			}
 			$items[] = $current;
 
@@ -476,7 +492,15 @@ function wpcpm_docs_to_blocks( $md, $reference = false ) {
 			$attr = $ordered ? ' {"ordered":true}' : '';
 			$li   = '';
 			foreach ( $items as $item ) {
-				$li .= "<!-- wp:list-item -->\n<li>" . wpcpm_docs_inline( trim( $item ) ) . "</li>\n<!-- /wp:list-item -->\n";
+				$inner = '';
+				if ( array() !== $item[1] ) {
+					$sub = '';
+					foreach ( $item[1] as $bullet ) {
+						$sub .= "<!-- wp:list-item -->\n<li>" . wpcpm_docs_inline( trim( $bullet ) ) . "</li>\n<!-- /wp:list-item -->\n";
+					}
+					$inner = "<!-- wp:list -->\n<ul class=\"wp-block-list\">\n" . $sub . "</ul>\n<!-- /wp:list -->";
+				}
+				$li .= "<!-- wp:list-item -->\n<li>" . wpcpm_docs_inline( trim( $item[0] ) ) . $inner . "</li>\n<!-- /wp:list-item -->\n";
 			}
 			$out[] = sprintf( "<!-- wp:list%s -->\n<%s class=\"wp-block-list\">%s</%s>\n<!-- /wp:list -->", $attr, $tag, "\n" . $li, $tag );
 			continue;

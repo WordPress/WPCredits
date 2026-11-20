@@ -588,6 +588,48 @@ if (!browser) {
 		out(JSON.stringify(reads) === JSON.stringify({ introToGroup: [8, 8, 8], groupToTick: [14, 14, 14], rowToIntro: [16, 16, 16], mutedToField: [8, 8, 8], legendToOption: [6, 6, 6] }), 'and its census reads them as the checks above do: an intro 8px over its group, a tick 14px under it, a sentence 16px under an action row, a muted intro 8px over a field, a legend 6px over its option, at each window', reads);
 		const legendEdges = real.results.flatMap(r => r.census.edges.filter(e => 'legend' === e.k));
 		out(0 === legendEdges.length && real.results.every(r => r.census.zeroEdges > 0), 'and every legend there starts at its fields\' edge: no legend edge off, the edges on counted', legendEdges);
+		// 20 Nov 2026: what is hidden on purpose does not widen its cell (the cohort timeline's month tooltips). A 40px cell
+		// whose wide child is visibility hidden is no CELL; the same cell with the child shown is one, at 358.
+		const cell = vis => `<section class="wpcpm-ui-block"><div style="overflow:hidden;position:relative;width:40px"><span>Jan</span><span style="left:0;position:absolute;top:0;white-space:nowrap;visibility:${ vis }">A tooltip far wider than its month cell</span></div></section>`;
+		// 1.123.104, round 6 (the outside review): a hidden wrapper whose child sets visibility visible again is seen, so the
+		// text it holds, cut by the box, is a CELL.
+		const shownInsideHidden = '<section class="wpcpm-ui-block"><div style="height:20px;overflow:hidden;position:relative;width:40px"><span style="left:0;position:absolute;top:0;visibility:hidden"><span style="visibility:visible;white-space:nowrap">A long text that its box cuts</span></span></div></section>';
+		const tips = await runMod.measureCases([{ name: 'tip hidden', html: cell('hidden') }, { name: 'tip shown', html: cell('visible') }, { name: 'shown inside a hidden wrapper', html: shownInsideHidden }], [358], { pluginDir: plugin, themeDir: theme, fixtureDir: join(tmp, 'fresh') });
+		const cellsOf = name => tips.results.filter(r => r.name === name).flatMap(r => r.faults.filter(f => /^CELL /.test(f)));
+		// 20 Nov 2026: a row link whose word stays for assistive technology and whose hit area is its ::after (the Overview's
+		// Mentor applications row, the parts at a main area of 358) is not a CELL; a 1px box with overflow hidden and words
+		// in it but no stretched ::after still is one.
+		const rowLinkCase = '<div class="wpcpm-dashboard wpcpm-administrator wpcpm-administrator--overview"><section class="wpcpm-administrator__card wpcpm-ui-fold-card"><div class="wpcpm-ui-fold wpcpm-ui-fold--row"><div class="wpcpm-ui-fold__head"><h3 class="wpcpm-ui-fold__title">Mentor applications</h3><span class="wpcpm-ui-fold__phrase">4 waiting</span><span class="wpcpm-ui-fold__end"><span class="wpcpm-ui-fold__help-slot" aria-hidden="true"></span></span><span class="wpcpm-ui-fold__ext" aria-hidden="true"></span><a class="wpcpm-btn wpcpm-btn--secondary" href="#review">Review<span class="screen-reader-text"> on the Mentors screen</span></a></div></div></section></div>';
+		const squeezed = '<section class="wpcpm-ui-block"><div style="height:1px;overflow:hidden;width:1px">Review the applications</div></section>';
+		// Round 5: a row that lost its positioning would let the ::after stretch over a larger ancestor while its insets still
+		// read 0px, so the parts' row link in a row of position static is still a CELL.
+		const staticRow = '<style>.h-static-row{position:static!important}</style>' + rowLinkCase.replace('wpcpm-ui-fold wpcpm-ui-fold--row"', 'wpcpm-ui-fold wpcpm-ui-fold--row h-static-row"');
+		// 1.123.104, round 6 (the outside review): a row link that is itself positioned lays its ::after out against its own
+		// 1px box, though its insets still read 0px, so it is still a CELL.
+		const positionedLink = '<style>.h-rel-link{position:relative!important}</style>' + rowLinkCase.replace('<a class="wpcpm-btn wpcpm-btn--secondary"', '<a class="wpcpm-btn wpcpm-btn--secondary h-rel-link"');
+		const links = await runMod.measureCases([{ name: 'row link', html: rowLinkCase, surface: 'administrator' }, { name: 'squeezed box', html: squeezed }, { name: 'row link, static row', html: staticRow, surface: 'administrator' }, { name: 'row link, positioned link', html: positionedLink, surface: 'administrator' }], [358], { pluginDir: plugin, themeDir: theme, fixtureDir: join(tmp, 'fresh') });
+		const linkCells = name => links.results.filter(r => r.name === name).flatMap(r => r.faults.filter(f => /^CELL /.test(f)));
+		// Round 4 of 20 Nov 2026: the two rules stay blind to nothing real. A 100px flex box with its overflow hidden holding a
+		// 60px visibility hidden placeholder in the flow and a 70px label is a CELL (the placeholder holds its room); a box
+		// squeezed to 1px with its overflow hidden and a small absolutely placed ::after icon, not the parts' row link, is one.
+		const stays = await runMod.measureCases([
+			{ name: 'placeholder in the flow', html: '<section class="wpcpm-ui-block"><div style="display:flex;overflow:hidden;width:100px"><span style="flex:none;visibility:hidden;width:60px">Kept room</span><span style="flex:none;white-space:nowrap">Cut label</span></div></section>' },
+			{ name: 'squeezed icon box', html: '<style>.h-icon-box{display:block;height:1px;overflow:hidden;position:relative;width:1px}.h-icon-box::after{content:"";height:8px;left:0;position:absolute;top:0;width:8px}</style><section class="wpcpm-ui-block"><a class="h-icon-box" href="#open">Open the yearly report</a></section>' },
+		], [358], { pluginDir: plugin, themeDir: theme, fixtureDir: join(tmp, 'fresh') });
+		const staysCells = name => stays.results.filter(r => r.name === name).flatMap(r => r.faults.filter(f => /^CELL /.test(f)));
+		out(1 === staysCells('placeholder in the flow').length && 1 === staysCells('squeezed icon box').length, 'a visibility hidden placeholder that holds room in the flow does not hide the cut label beside it, and a box squeezed to 1px with a small absolute ::after icon that is not the parts\' row link is still a CELL', { placeholder: staysCells('placeholder in the flow'), icon: staysCells('squeezed icon box') });
+		// Round 4 of 20 Nov 2026: the Usage chart's month row at main 358 with month names of five letters, as a language with
+		// longer short names prints them: each name shown is centered on its month, and nothing is a CELL or an OVERFLOW.
+		const fiveMonths = ['Decem', 'Janua', 'Febru', 'March', 'April', 'Mayyy', 'Junee', 'Julyy', 'Augus', 'Septe', 'Octob', 'Novem'];
+		const usageChart = '<div class="wpcpm-sponsor__cards"><section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-usage" class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">Usage</h3></summary><div class="wpcpm-group__body"><div class="wpcpm-chart wpcpm-usage__chart"><div class="wpcpm-chart__frame"><div class="wpcpm-chart__scale" aria-hidden="true"><span class="wpcpm-chart__tick" style="bottom:0%">0</span><span class="wpcpm-chart__tick" style="bottom:100%">4</span></div><div class="wpcpm-chart__plot" role="img" aria-label="Claims">' + fiveMonths.map(() => '<div class="wpcpm-chart__month"><span class="wpcpm-chart__bar wpcpm-chart__bar--1" style="height:50%"></span></div>').join('') + '</div><ol class="wpcpm-chart__months" aria-hidden="true">' + fiveMonths.map(m => '<li>' + m + '</li>').join('') + '</ol></div></div></div></details></section></div>';
+		const five = await runMod.measureCases([{ name: 'five-letter months', html: usageChart, surface: 'sponsor/reached' }], [358], { pluginDir: plugin, themeDir: theme, fixtureDir: join(tmp, 'fresh') });
+		const fiveFaults = five.results.flatMap(r => r.faults.filter(f => /^(CELL|OVERFLOW|H-SCROLL) /.test(f)));
+		out(0 === fiveFaults.length && 1 === five.results.length, 'the Usage chart\'s month row at main 358 with month names of five letters draws no CELL, OVERFLOW or H-SCROLL', fiveFaults);
+		out(1 === linkCells('row link, static row').length, 'the parts\' row link in a row that is not positioned is still a CELL: its ::after would stretch over a larger ancestor', linkCells('row link, static row'));
+		out(0 === linkCells('row link').length && 1 === linkCells('squeezed box').length, 'a row link whose word stays for assistive technology and whose hit area is its ::after is not a CELL at main 358; a 1px box with overflow hidden and words but no stretched ::after still is one', { rowLink: linkCells('row link'), squeezed: linkCells('squeezed box') });
+		out(0 === cellsOf('tip hidden').length && 1 === cellsOf('tip shown').length && /^CELL JanA tooltip/.test(cellsOf('tip shown')[0] || ''), 'a cell whose wide child is hidden on purpose (visibility hidden) is not a CELL; the same cell with the child shown is one', { hidden: cellsOf('tip hidden'), shown: cellsOf('tip shown') });
+		out(1 === cellsOf('shown inside a hidden wrapper').length, 'a hidden wrapper out of the flow whose child sets visibility visible again does not hide the cut text: it is a CELL', cellsOf('shown inside a hidden wrapper'));
+		out(1 === linkCells('row link, positioned link').length, 'the parts\' row link that is itself positioned is still a CELL: its ::after covers the 1px link, not the row', linkCells('row link, positioned link'));
 		// Gate B round 3, R4: F1's one-row second piece is the fold's own head's: a portrait fold drawn inside a plain inner
 		// fold keeps its second piece under its name, at 960.
 		const nestedF = join(tmp, 'nested-portrait.html');
@@ -711,7 +753,7 @@ foreach ( glob( $root . '/bin/test-*.php' ) as $suite_file ) {
 		$suites[] = $suite_file;
 	}
 }
-ck( 'sixteen suites keep cases for the harness', count( $suites ), 16 );
+ck( 'twenty-six suites keep cases for the harness: main\'s sixteen, and since the census of 19 Nov 2026 ten more of the Administrator and Sponsor Dashboards', count( $suites ), 26 );
 $node_run = trim( (string) shell_exec( 'command -v node 2>/dev/null' ) );
 if ( '' === $node_run ) {
 	echo "skip the suites were not drawn: node is not on the path\n";
@@ -785,6 +827,56 @@ JS;
 		ck( 'the Agreement\'s signer tick, drawn by the panel, stands 14px under the kind\'s choice group in every kept case at 960 and 358 (' . count( $tick_cases ) . ' cases)', array_values( array_filter( array_keys( $tick_gaps ), 'is_int' ) ), array( 14 ) );
 		ck( 'two of the Agreement\'s steps stand 16px apart where either holds a form', $step_gaps, array( 'with a form 16' ) );
 	}
+	// 1.123.104, round 5: Open the help desk link reads as its field's hint line, on the Talks card's own markup as the
+	// card suite keeps it (a school with a long address, a lead's page): the link's first letter on the box's start
+	// edge, and its distance under the box a hint's distance on the same card (Program details' hint under its box), at
+	// main 960 and 358.
+	$desk_cases = array();
+	foreach ( $all_cases as $case_name => $case ) {
+		if ( false !== strpos( (string) $case['html'], 'Open the help desk link' ) ) {
+			$desk_cases[ $case_name ] = $case;
+		}
+	}
+	file_put_contents( $census_dir . 'desk.json', json_encode( (object) $desk_cases ) );
+	$desk_js = <<<'JS'
+import { pathToFileURL } from 'node:url';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
+const [plugin, dir] = process.argv.slice(2);
+const mod = await import(pathToFileURL(join(plugin, 'bin/ui/layout/page.mjs')).href);
+const { chromium } = await import(pathToFileURL(process.env.WPCPM_PLAYWRIGHT || join(homedir(), 'Projects/wpcredits-release/a11y/node_modules/playwright-core/index.mjs')).href);
+const all = Object.entries(JSON.parse(readFileSync(join(dir, 'desk.json'), 'utf8'))).map(([name, c]) => ({ name, html: c.html, surface: c.surface || 'institution' }));
+const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--allow-file-access-from-files'] });
+const seen = [];
+for (const surface of [...new Set(all.map(c => c.surface))]) {
+	const cases = all.filter(c => c.surface === surface);
+	for (const [w, win] of [[960, 1280], [358, 390]]) {
+		const f = join(dir, `desk-${surface.replace(/[^a-z]/g, '-')}-${w}.html`);
+		writeFileSync(f, mod.page(cases, [w], { pluginDir: plugin, surface }));
+		const r = await browser.newPage({ viewport: { width: win, height: 1000 } });
+		await r.goto(pathToFileURL(f).href, { waitUntil: 'load' });
+		seen.push(...await r.evaluate(w => [...document.querySelectorAll('#wpcpm-talks-help-desk')].map(box => {
+			const a = box.parentElement.querySelector('p.wpcpm-ui-field__hint a');
+			const ta = box.closest('form').querySelector('#wpcpm-talks-program-details');
+			const hint = box.closest('form').querySelector('#wpcpm-talks-program-details-hint');
+			if (!a || !ta || !hint) { return 'missing at ' + w; }
+			// Each line's words as drawn, not their boxes: a button's padding would hide inside its box.
+			const textOf = el => { const g = document.createRange(); g.selectNodeContents(el); return g.getClientRects()[0]; };
+			const edge = Math.round(textOf(a).left - box.getBoundingClientRect().left);
+			const gap = Math.round(textOf(a).top - box.getBoundingClientRect().bottom);
+			const hintGap = Math.round(textOf(hint).top - ta.getBoundingClientRect().bottom);
+			return `edge ${edge} gap ${gap - hintGap}`;
+		}), w));
+		await r.close();
+	}
+}
+await browser.close();
+console.log(JSON.stringify({ count: seen.length, kinds: [...new Set(seen)] }));
+JS;
+	file_put_contents( $census_dir . 'desk.mjs', $desk_js );
+	$desk_out = json_decode( trim( (string) shell_exec( 'cd ' . escapeshellarg( $root ) . ' && ' . escapeshellarg( $node_run ) . ' ' . escapeshellarg( $census_dir . 'desk.mjs' ) . ' ' . escapeshellarg( $root ) . ' ' . escapeshellarg( rtrim( $census_dir, '/' ) ) . ' 2>&1' ) ), true );
+	ck( 'Open the help desk link starts on its box\'s edge and stands a hint\'s distance under it, a school\'s and a lead\'s, at 960 and 358 (' . count( $desk_cases ) . ' cases)', array( count( $desk_cases ) >= 2, is_array( $desk_out ) ? $desk_out['kinds'] : $desk_out ), array( true, array( 'edge 0 gap 0' ) ) );
 	// 1.123.97: the head beside a school's site icon. The markup is `render_head()`'s own, kept by the dashboard suite
 	// for a school with a short name: once with its site icon and once with none (the same school, its site cached as
 	// offering no icon). The first is drawn twice: with the icon's address answered by a picture, and with it answered
@@ -949,6 +1041,9 @@ JS;
 		$gone       = array_values( array_diff( $want_lines, $got_lines ) );
 		// Gate B round 3: the ruled pairs the census reads on the rhythm but cannot fail when they go back (0px is on it), each
 		// held to its value at every width and window: suite, the pair's kinds, words in either block, the value.
+		// Every row of the census is read as a PHP array: with the Administrator and Sponsor Dashboards' cases (19 Nov
+		// 2026) the rows outgrow the default 128MB.
+		ini_set( 'memory_limit', '1024M' );
 		$census = json_decode( read_layout( $census_dir . 'census.json' ), true );
 		$ruled  = array(
 			array( 'institution-panel', 'note', 'paragraph', '/agreement is not settled/', 8 ),
@@ -966,6 +1061,24 @@ JS;
 			array( 'institution-roster-view', 'card fold', 'muted line', '/^Read from the program records/', 24 ),
 			array( 'institution-roster-view', 'muted line', 'muted line', '/^No students in this group/', 16 ),
 			array( 'institution-people', 'list', 'muted line', '/^Nobody can act for this institution/', 16 ),
+			// The spacing fixes of 20 Nov 2026 (the census of the Administrator and Sponsor Dashboards, 19 Nov), whose
+			// surfaces the GAP check does not fail yet: "Decide" 12px over its panel with the script off (it stood 28px),
+			// a refused form's summary 16px over the field under it on the Sponsor Dashboard as on the Institution
+			// Dashboard (21px), a group's note the last option's 6px under it (5.4px), an empty view's line and a member's
+			// Overview's "Nothing waits for you." at the root's 28px under the head or the figures' source line (40px), and
+			// the mentor tiles' photo, name and counts 8px apart (7px).
+			array( 'institution-request', 'heading', 'panel', '/^Decide$/', 12 ),
+			array( 'sponsor-event-queue', 'heading', 'panel', '/^Decide$/', 12 ),
+			array( 'administrators-dashboard', 'in-card heading', 'panel', '/^Decide$/', 12 ),
+			array( 'sponsor-cards', 'error summary', 'paragraph', '/need(s)? a change/', 16 ),
+			array( 'sponsor-offers', 'error summary', 'paragraph', '/need(s)? a change/', 16 ),
+			array( 'sponsor-offers', 'block <label>', 'line of text', '/^Current students are always in/', 6 ),
+			array( 'sponsors-dashboard', 'view head', 'muted line', '/^Nothing to show here yet/', 28 ),
+			array( 'sponsors-dashboard', 'view head', 'muted line', '/^Nothing waits for you\./', 28 ),
+			array( 'sponsors-dashboard', 'paragraph', 'muted line', '/^Nothing waits for you\./', 28 ),
+			array( 'sponsor-cards', 'image', 'heading', '/wpcpm-mentor-tile__photo/', 8 ),
+			array( 'sponsor-cards', 'heading', 'paragraph', '/students now/', 8 ),
+			array( 'sponsor-cards', 'paragraph', 'paragraph', '/students now/', 8 ),
 		);
 		$ruled_got = array();
 		foreach ( $ruled as $rule ) {
@@ -979,7 +1092,36 @@ JS;
 			$ruled_got[] = $suite_name . ' ' . $upper . ' to ' . $lower . ' ' . $words . ': ' . ( $seen ? implode( ', ', array_keys( $seen ) ) : 'none drawn' );
 		}
 		ck( 'the ruled pairs of round 3 hold their values in every case and window that draws them', $ruled_got, array_map( static function ( $rule ) { return $rule[0] . ' ' . $rule[1] . ' to ' . $rule[2] . ' ' . $rule[3] . ': ' . $rule[4]; }, $ruled ) );
-		ck( 'no OVERFLOW, CELL or H-SCROLL on any suite', $other, array() );
+		// The CELL findings still to fix, held here with the discipline of $known: each is its suite, the words of the
+		// cell its line names and the main-area width it fires under, and the run fails on a CELL line that is no entry's and on an entry that no longer fires.
+		// OVERFLOW and H-SCROLL have no such list.
+		$known_cells = array(
+			// The cohort timeline's half-year band label (.wpcpm-timeline__band, cohort-timeline.css: one line, an ellipsis):
+			// a half-year band over fewer months than its label needs is cut with an ellipsis ("July to Dec..."). Held for
+			// the product owner's decision of 20 November 2026; remove this entry when it is fixed.
+			// Held at the main-area widths where it fires today (under 960); a line at 960 or wider is not this entry's.
+			array( 'cohort-timeline', '/^CELL (January to June|July to December) \d{4} \(\d+ > \d+\)$/', 960 ),
+		);
+		$cell_hits = array_fill( 0, count( $known_cells ), 0 );
+		$unlisted  = array();
+		foreach ( $other as $other_line ) {
+			$held = false;
+			if ( 1 === preg_match( '/^([^|]+) \| .*? (\d+)(?: folded| open)?(?: panels open)? (CELL .*)$/', $other_line, $m ) ) {
+				foreach ( $known_cells as $i => $cell_entry ) {
+					if ( trim( $m[1] ) === $cell_entry[0] && (int) $m[2] < $cell_entry[2] && 1 === preg_match( $cell_entry[1], $m[3] ) ) {
+						++$cell_hits[ $i ];
+						$held = true;
+						break;
+					}
+				}
+			}
+			if ( ! $held ) {
+				$unlisted[] = $other_line;
+			}
+		}
+		ck( 'no OVERFLOW, CELL or H-SCROLL on any suite that is not a known CELL finding', $unlisted, array() );
+		ck( 'and every known CELL finding still fires (one that no longer does is removed from the list)', array_keys( array_filter( $cell_hits, static function ( $n ) { return 0 === $n; } ) ), array() );
+		echo '     ' . count( $known_cells ) . ' known CELL finding' . ( 1 === count( $known_cells ) ? '' : 's' ) . ', ' . array_sum( $cell_hits ) . " lines\n";
 		ck( 'no GAP or EDGE fault that is not a known finding', $new, array() );
 		ck( 'and every known finding still fires (one that no longer does is removed from the list)', $gone, array() );
 		echo '     ' . count( $known ) . ' known findings, ' . count( $got ) . " found\n";

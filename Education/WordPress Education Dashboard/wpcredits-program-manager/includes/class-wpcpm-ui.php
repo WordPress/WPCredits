@@ -351,6 +351,11 @@ final class WPCPM_UI {
 	 *                    word after the label, the hint and the refusal under it and tied to both boxes; it also takes
 	 *                    options (value to label, in the order to draw them), find, none and count (the field's words);
 	 *                    `required_attr` false prints no `required` on its select, as for any box. Task 19.
+	 *                    `after`: one link, `array( 'href' => ..., 'label' => ..., 'outside' => bool )`, drawn as the field's
+	 *                    last line: a text link in the hint's paragraph, so its first letter is on the box's edge and it
+	 *                    stands at a hint's distance (1.123.104: Open the help desk link). An outside link opens in a tab of
+	 *                    its own, as the dashboards' other outside links. No address, no line; without it the field is as
+	 *                    before.
 	 * @return string Escaped markup.
 	 */
 	public static function field( array $args ): string {
@@ -430,6 +435,12 @@ final class WPCPM_UI {
 		$out = '<div class="wpcpm-ui-field"><label class="wpcpm-ui-field__label" for="' . esc_attr( $id ) . '">' . esc_html( (string) ( $args['label'] ?? '' ) ) . self::need_gap( $word ) . '</label>' . $control;
 		if ( '' !== $hint ) {
 			$out .= '<p class="wpcpm-ui-field__hint" id="' . esc_attr( $hint_id ) . '">' . esc_html( $hint ) . '</p>';
+		}
+		$after = isset( $args['after'] ) && is_array( $args['after'] ) ? $args['after'] : array();
+		if ( '' !== (string) ( $after['href'] ?? '' ) ) {
+			$out .= '<p class="wpcpm-ui-field__hint"><a href="' . esc_url( (string) $after['href'] ) . '"'
+				. ( ! empty( $after['outside'] ) ? ' rel="noopener noreferrer" target="_blank"' : '' )
+				. '>' . esc_html( (string) ( $after['label'] ?? '' ) ) . '</a></p>';
 		}
 		return $out . WPCPM_Form_Errors::problem( $id, $problem ) . '</div>';
 	}

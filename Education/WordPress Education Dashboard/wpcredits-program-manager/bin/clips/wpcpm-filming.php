@@ -22,7 +22,7 @@ define( 'WPCPM_FILMING', true );
  * is not in any queue while this plugin is loaded.
  */
 function wpcpm_filming_invented_schools() {
-	return array( 'Northfield College', 'Example University', 'Example State College', 'Example Institute of Technology', 'Example School of Design', 'Example Community College' );
+	return array( 'Northfield College', 'Example University', 'Example State College', 'Example Institute of Technology', 'Example School of Design', 'Example Community College', 'Example Polytechnic College', 'Example Lakeside College', 'Example Valley College', 'Example Hillside College', 'Example Riverside Institute', 'Example Harbor College' );
 }
 
 /**
@@ -102,8 +102,13 @@ function wpcpm_filming_airtable( $pre, $args, $url ) {
 	$answer = null;
 
 	if ( 'GET' === $method && '' === $record ) {
-		// A list read (the duplicate search before an approval, any other lookup): no rows.
-		$answer = array( 'records' => array() );
+		// A list read (the duplicate search before an approval, any other lookup): no rows. The institutions sync's
+		// own reads of the Institutions and Countries tables, whole and unfiltered, are answered with what the copy
+		// already holds, so a sync run before the talks clips switch the record to the site rewrites nothing.
+		$query = isset( $parts['query'] ) ? (string) $parts['query'] : '';
+		$whole = false === strpos( $query, 'filterByFormula' );
+		$echo  = $whole ? wpcpm_filming_echo_table( $table ) : null;
+		$answer = null !== $echo ? array( 'records' => $echo ) : array( 'records' => array() );
 	} elseif ( 'GET' === $method ) {
 		$answer = array( 'id' => $record, 'createdTime' => $now, 'fields' => new stdClass() );
 	} elseif ( 'POST' === $method ) {
@@ -155,6 +160,83 @@ function wpcpm_filming_airtable( $pre, $args, $url ) {
 		'cookies'  => array(),
 		'filename' => null,
 	);
+}
+
+/**
+ * The rows the copy already holds, in Airtable's shape, for one of the two tables the institutions sync reads whole:
+ * the site's list of institutions (`WPCPM_Institutions_Index`, with each agreement's Drive link the site keeps) and its
+ * countries map (`WPCPM_Countries`). Null for any other table, so it keeps answering no rows. Nothing is read from
+ * Airtable and nothing leaves the copy.
+ *
+ * @param string $table The table ID the request names.
+ * @return array[]|null
+ */
+function wpcpm_filming_echo_table( $table ) {
+	if ( ! class_exists( 'WPCPM_Settings' ) || ! class_exists( 'WPCPM_Institutions_Index' ) || ! class_exists( 'WPCPM_Countries' ) || ! class_exists( 'WPCPM_Institutions_Sync' ) ) {
+		return null;
+	}
+
+	$settings = WPCPM_Settings::get();
+	$rows     = array();
+
+	if ( isset( $settings['institutions_table'] ) && (string) $settings['institutions_table'] === $table ) {
+		$fields = WPCPM_Institutions_Sync::fields();
+
+		if ( ! empty( $settings['institutions_name_field'] ) ) {
+			$fields['name'] = (string) $settings['institutions_name_field'];
+		}
+
+		foreach ( (array) WPCPM_Institutions_Index::rows() as $id => $row ) {
+			$agreement = isset( $row['agreement'] ) && is_array( $row['agreement'] ) ? $row['agreement'] : array();
+			$cells     = array(
+				$fields['name']             => (string) $row['name'],
+				$fields['stage']            => (string) $row['stage'],
+				$fields['country']          => '' !== (string) $row['country'] ? array( (string) $row['country'] ) : array(),
+				$fields['city']             => (string) $row['city'],
+				$fields['website']          => (string) $row['website'],
+				$fields['contact_person']   => (string) $row['contact_person'],
+				$fields['contact_email']    => (string) $row['contact_email'],
+				$fields['confirmed_on']     => (string) $row['confirmed_on'],
+				$fields['consent']          => ! empty( $row['consent'] ),
+				$fields['agr_status']       => isset( $agreement['status'] ) ? (string) $agreement['status'] : '',
+				$fields['agr_kind']         => isset( $agreement['kind'] ) ? (string) $agreement['kind'] : '',
+				$fields['agr_accepted_on']  => isset( $agreement['accepted_on'] ) ? (string) $agreement['accepted_on'] : '',
+				$fields['agr_signed_on']    => isset( $agreement['signed_on'] ) ? (string) $agreement['signed_on'] : '',
+				$fields['agr_accepted_by']  => isset( $agreement['accepted_by'] ) ? (string) $agreement['accepted_by'] : '',
+				$fields['agr_document']     => class_exists( 'WPCPM_Institution_Agreement' ) ? (string) WPCPM_Institution_Agreement::record_document( (string) $id ) : '',
+				$fields['agr_submitted_on'] => isset( $agreement['submitted_on'] ) ? (string) $agreement['submitted_on'] : '',
+				$fields['agr_template']     => isset( $agreement['template_version'] ) ? (string) $agreement['template_version'] : '',
+			);
+			$rows[]    = array(
+				'id'          => (string) $id,
+				'createdTime' => '' !== (string) $row['created'] ? (string) $row['created'] . 'T00:00:00.000Z' : gmdate( 'Y-m-d\TH:i:s.000\Z' ),
+				'fields'      => $cells,
+			);
+		}
+
+		return $rows;
+	}
+
+	if ( isset( $settings['countries_table'] ) && (string) $settings['countries_table'] === $table ) {
+		$name = ! empty( $settings['countries_name_field'] ) ? (string) $settings['countries_name_field'] : 'Name';
+
+		foreach ( WPCPM_Countries::all() as $id => $country ) {
+			$rows[] = array(
+				'id'          => (string) $id,
+				'createdTime' => gmdate( 'Y-m-d\TH:i:s.000\Z' ),
+				'fields'      => array(
+					$name                            => (string) $country['name'],
+					WPCPM_Countries::FIELD_CONTACT  => (string) $country['manager'],
+					WPCPM_Countries::FIELD_EMAIL    => (string) $country['email'],
+					WPCPM_Countries::FIELD_CALENDLY => (string) $country['calendly'],
+				),
+			);
+		}
+
+		return $rows;
+	}
+
+	return null;
 }
 
 /*

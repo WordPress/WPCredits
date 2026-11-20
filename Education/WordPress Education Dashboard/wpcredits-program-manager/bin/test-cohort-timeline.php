@@ -409,6 +409,15 @@ parts_inventory_add( $cv_on );
 WPCPM_UI::leave();
 WPCPM_UI::set_live( null );
 $cv_on['view tight'] = $ct_on['view'];
+// The layout harness's cases (bin/ui/layout/, the census of 19 Nov 2026): the view in each state on the Administrator
+// Dashboard's parts, and the card as Watch draws it (outside its group, which the dashboard's suite draws without it).
+if ( function_exists( 'wpcpm_layout_keep' ) ) {
+	foreach ( array( 'view tight' => 'tight', 'view short' => 'short', 'view none' => 'nothing ahead', 'view unread' => 'no roster read yet' ) as $lk_key => $lk_name ) {
+		wpcpm_layout_keep( 'Administrator Dashboard, Cohort timeline: ' . $lk_name, $cv_on[ $lk_key ], 'administrator/cohort-timeline' );
+	}
+	wpcpm_layout_keep( 'Administrator Dashboard, Watch: the Upcoming cohorts card, tight', $ct_on['card tight'], 'administrator/watch' );
+	wpcpm_layout_keep( 'Administrator Dashboard, Watch: the Upcoming cohorts card, short', $ct_on['card short'], 'administrator/watch' );
+}
 
 // What is today's on the parts too: the frame's head, the four figures and the chart (no part draws a tile or a chart),
 // the intakes (no part draws an intake's tile, its split bar or a chip with a count) and the notes' lines (sentences, one
@@ -458,9 +467,9 @@ $cv_pins = array(
 	'stats view tight'    => 'f426572e322b04b4ac50d6559d37f7a8',
 	'stats view short'    => '13657bb44f8f1f3694dc9c2740a383f4',
 	'stats view none'     => '89e708b9778d2bc2f46a198a6da3b379',
-	'chart view tight'    => '54d715ee9f90032212de932590b9112a',
-	'chart view short'    => 'abe2f8fa0b6235f653053ac1a618990c',
-	'chart view none'     => '49a4f188a07f043d1fde6dc2b68142d5',
+	'chart view tight'    => 'af50f83cca8f84d483968cc8f0a4126e',
+	'chart view short'    => 'a217242a69b5e23c47dcb295bb963df2',
+	'chart view none'     => '6343690a21a748341ea4b627205cb517',
 	'intakes view tight'  => '95dff237cab11185712df66934ad76d3',
 	'intakes view short'  => '95dff237cab11185712df66934ad76d3',
 	'notes view tight'    => '61adbca31d58c82ddc6122f6fd7a80ad',

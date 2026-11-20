@@ -791,6 +791,12 @@ ck( 'a lapsed term: the card says the badge names that year', false !== strpos( 
 // open on the suite's day, has ended by May 2028, and the badge names the year it ended, not that
 // day's year.
 ob_start(); $B::render( 'spoBBBB0000000001', array(), '2028-05-01' ); $later = ob_get_clean();
+// The layout harness's cases (bin/ui/layout/, the census of 19 Nov 2026): the card as Your sponsorship draws it, its
+// term running and its term ended. Only when the harness's dump.php is loaded.
+if ( function_exists( 'wpcpm_layout_keep' ) ) {
+	wpcpm_layout_keep( 'Sponsor Dashboard, Your sponsorship: the badge card, term running', $card, 'sponsor/sponsorship' );
+	wpcpm_layout_keep( 'Sponsor Dashboard, Your sponsorship: the badge card, term ended', $lapsed_card, 'sponsor/sponsorship' );
+}
 ck( 'a day given is the day the card speaks of: no note while the term runs, the note once it has ended, and then the year the term ended', array( strpos( $card, 'term ended' ), false !== strpos( $later, 'Your Supporter term ended on March 31, 2027; the badge names that year' ), false !== strpos( $later, 'alt="WordPress Credits Supporter 2027 badge, for a light background"' ) ), array( false, true, true ) );
 // The row (the design the owner approved on 27 September 2026): folded, titled Badge, the tier the
 // badge names and its year read by year(), so a lapsed term's row names the year it ended, as the

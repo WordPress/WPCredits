@@ -8,7 +8,12 @@
  * .wpcpm-ui-panel or .wpcpm-frame__main by more than 0.5px (only the outermost one of a run is named).
  * CELL: an element whose scrollWidth passes its clientWidth by more than 1; an element that scrolls on
  * purpose (overflow-x auto or scroll) is excepted only when it carries data-wpcpm-scrolls, and a form control
- * (input, textarea, select) is never asked, since its own text scrolls inside its box: it is measured as a box.
+ * (input, textarea, select) is never asked, since its own text scrolls inside its box: it is measured as a box; and
+ * what is hidden on purpose (hiddenBox, below) and placed out of the flow inside an element does not widen it: the
+ * element is read again without it, unless something inside it is seen (a child that sets visibility visible again). The
+ * parts' row link (`.wpcpm-ui-fold--row .wpcpm-btn`: at most 1px each way, overflow hidden, its word kept for assistive
+ * technology and its hit area its ::after stretched over the row, which is positioned, while the link itself is static)
+ * is not a CELL either (rowLink, below).
  * H-SCROLL: the main area itself scrolls sideways.
  * tables: the form of each table.wpcpm-ui-table: `table`, `one column` or `lines a+b`.
  */
@@ -66,6 +71,53 @@ window.wpcpmMeasure = function ( onlyOpened, ignore ) {
 		var cs = getComputedStyle( e );
 		return /auto|scroll/.test( cs.overflowX );
 	}
+	// What is hidden on purpose and out of the flow does not widen its cell (20 Nov 2026, the cohort timeline's month
+	// tooltips): an element whose scrollWidth passes its clientWidth is read again with every descendant hiddenBox() calls
+	// hidden that is absolutely or fixed placed taken out of the layout (display none), and each is put back exactly as it
+	// was. A hidden box in the flow holds its room and stays. True when the element still passes.
+	function seenInside( d ) {
+		return Array.prototype.some.call( d.querySelectorAll( '*' ), function ( x ) { var r = rect( x ); return r.width > 0 && r.height > 0 && ! hiddenBox( x ) && 'hidden' !== getComputedStyle( x ).visibility && ! x.closest( '[hidden]' ) && ! hiddenUnder( x, d ); } );
+	}
+	// Whether something between a descendant and the wrapper hides it in a way visibility visible cannot undo: display none,
+	// the hidden attribute or the clip pattern (visibility hidden is undone by a visible child, so it does not count).
+	function hiddenUnder( x, d ) {
+		for ( var a = x.parentElement; a && a !== d; a = a.parentElement ) {
+			var cs = getComputedStyle( a );
+			if ( 'none' === cs.display || a.hasAttribute( 'hidden' ) || ( 'hidden' !== cs.visibility && hiddenBox( a ) ) ) { return true; }
+		}
+		var w = getComputedStyle( d );
+		return 'none' === w.display || d.hasAttribute( 'hidden' ) || ( 'hidden' !== w.visibility && hiddenBox( d ) );
+	}
+	function widerWithoutHidden( e ) {
+		var hid = [];
+		// A hidden subtree goes out only when nothing in it is seen: a descendant that sets visibility visible again, with a
+		// box, is seen by a person, and its wrapper stays (1.123.104, round 6).
+		e.querySelectorAll( '*' ).forEach( function ( d ) { if ( /^(absolute|fixed)$/.test( getComputedStyle( d ).position ) && hiddenBox( d ) && ! seenInside( d ) ) { hid.push( d ); } } );
+		if ( ! hid.length ) { return true; }
+		var was = hid.map( function ( d ) { return [ d.style.getPropertyValue( 'display' ), d.style.getPropertyPriority( 'display' ) ]; } );
+		try {
+			hid.forEach( function ( d ) { d.style.setProperty( 'display', 'none', 'important' ); } );
+			return e.scrollWidth > e.clientWidth + 1;
+		} finally {
+			hid.forEach( function ( d, i ) {
+				if ( '' === was[ i ][ 0 ] ) { d.style.removeProperty( 'display' ); } else { d.style.setProperty( 'display', was[ i ][ 0 ], was[ i ][ 1 ] ); }
+			} );
+		}
+	}
+	// The parts' row link (20 Nov 2026, parts.css `.wpcpm-ui-fold--row .wpcpm-btn` under a main area of 800px): a box at
+	// most 1px each way with its overflow hidden, whose word stays there for assistive technology, and whose hit area is
+	// its ::after, absolutely placed with content and stretched over the row (inset 0 on all four sides). Not hidden (its
+	// hit area is real), so only the CELL check passes it; any other 1px box with its overflow hidden is still a CELL, and
+	// so is the row link of a row that is not positioned (its ::after would stretch over a larger ancestor).
+	function rowLink( e ) {
+		var row = e.closest( '.wpcpm-ui-fold--row' );
+		if ( ! e.matches( '.wpcpm-ui-fold--row .wpcpm-btn' ) || ! row || 'static' === getComputedStyle( row ).position ) { return false; }
+		var r = rect( e ), cs = getComputedStyle( e ), after = getComputedStyle( e, '::after' );
+		var stretched = [ after.top, after.right, after.bottom, after.left ].every( function ( v ) { return '0px' === v; } );
+		// The link itself static, so its ::after is laid out against the positioned row and not its own 1px box (1.123.104,
+		// round 6).
+		return r.width <= 1 && r.height <= 1 && 'hidden' === cs.overflowX && 'static' === cs.position && 'absolute' === after.position && 'none' !== after.content && 'normal' !== after.content && stretched;
+	}
 	function insideScroller( e, stop ) {
 		for ( var p = e.parentElement; p && p !== stop; p = p.parentElement ) {
 			if ( p.hasAttribute( 'data-wpcpm-scrolls' ) && scrollsOnPurpose( p ) ) { return true; }
@@ -114,7 +166,7 @@ window.wpcpmMeasure = function ( onlyOpened, ignore ) {
 			}
 			// A form control's own text scrolls inside its box, as a text box does: an input, a text area or a select is
 			// measured as a box only (OVERFLOW and H-SCROLL), never by the text it holds (Institution Dashboard, Task 16).
-			if ( ! /^(INPUT|TEXTAREA|SELECT)$/.test( el.tagName ) && el.scrollWidth > el.clientWidth + 1 && ! ( scrollsOnPurpose( el ) && el.hasAttribute( 'data-wpcpm-scrolls' ) ) ) {
+			if ( ! /^(INPUT|TEXTAREA|SELECT)$/.test( el.tagName ) && el.scrollWidth > el.clientWidth + 1 && ! ( scrollsOnPurpose( el ) && el.hasAttribute( 'data-wpcpm-scrolls' ) ) && ! rowLink( el ) && widerWithoutHidden( el ) ) {
 				add( 'CELL', el, 'CELL ' + txt( el ) + ' (' + el.scrollWidth + ' > ' + el.clientWidth + ')' );
 			}
 		} );

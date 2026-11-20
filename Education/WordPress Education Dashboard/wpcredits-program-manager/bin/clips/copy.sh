@@ -90,7 +90,8 @@ restore)
   rm -f "$MU/wpcpm-filming.php" "$DOCKER/site/wp-content/wpcpm-filming.log" "$DOCKER/site/wp-content/wpcpm-filming-links.log"
   rm -rf "$MU/wpcpm-proto.php" "$MU/wpcpm-proto"   # the UI audit's prototype round (ui-audit/proto/wpcpm-proto.php)
   rm -rf "$STAGE"
-  bin/unscrub | tail -1
+  # A prepare that stopped before the scrub left none to undo: say so and go on with the rest of restore.
+  if [ -e snapshots/before-scrub.tgz ]; then bin/unscrub | tail -1; else echo "no scrub to undo (snapshots/before-scrub.tgz does not exist): skipped bin/unscrub"; fi
   if [ -s "$WORK/theme-before.tgz" ]; then rm -rf "$THEMES/wpcredits-theme" && tar -xzf "$WORK/theme-before.tgz" -C "$THEMES" && echo "theme: the copy's own put back"; fi
   # The plugin the snapshot was taken under goes back first, then the database (the copy's README: install that
   # line's plugin first, then restore). .worktrees stays as it is.

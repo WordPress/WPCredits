@@ -23,6 +23,7 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 - The syncs also run by themselves every three hours while **Automatic sync** is ticked ("Read Airtable on a schedule", tab **Students and mentors**). The mentors run starts half an hour after the students run.
 - A press while a run is going starts nothing. It says "A sync is already running. Its progress is shown below."
 - "No progress for over two minutes" means the run may have stopped. Press **Cancel sync**, then start it again.
+- Once the site keeps the record of institutions, the institutions sync reads nothing from Airtable. It reads the site's own list of institutions, rebuilds each school's agreement record from it, creates first accounts while **Create accounts automatically** is on, and takes away the access of schools outside the active stages. It still does not start while Airtable is not connected.
 
 ### A sync stopped before taking roles
 
@@ -512,10 +513,21 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 - The talks fields are filled where the site has none. The Notes and Comments columns, the FreeScout column and the record comments come over as notes.
 - The Outreach Tracker's rows come over as leads. A row whose name matches a school or a lead is joined to it as notes.
 - Tutors are added to their schools' lists, and missing assignments are made.
-- No email is sent, and nothing is written to Airtable. A second run adds nothing twice.
+- No email is sent, and nothing is written to Airtable.
+- A second run brings nothing twice, and does not bring again a value changed in Airtable since the first run.
 
 **Good to know**
 
+- The summary's lines that ask for something, and what to do:
+  - "Not resolved:" a lead's country is not one the site knows, so it is kept as text, or its Lead Owner is no Administrator here, so the lead is not assigned. Correct the country or the owner in the Outreach Tracker before you write, or choose the country and the Administrator on the lead's page after the import.
+  - "Left out:" a follow-up or last contact that is not a real day, or estimated students that are not a whole number, does not come over. Correct it in Airtable and run the import again, before the switch: a field the site has none of is filled then.
+  - "Cut:" a lead's text is longer than a lead's field holds. The lead keeps the start, or no lead owner, and a note keeps the whole text. Nothing is lost.
+  - "Not assigned:" no Administrator covers the school's country, and nobody here first handled it. Assign it after the import. See [[Assign a school to another Administrator, or to nobody]].
+  - "Unnamed: the Outreach Tracker row" a row with no name comes over as an unnamed lead. Give the row a name in the Outreach Tracker before you write, or close the lead after the import.
+  - "Changed in Airtable since it was brought, and not brought again:" a column's text changed in Airtable after an earlier run. The site keeps what it brought. Add what matters as a note on the Talks card.
+  - "Promoted and matched to several institutions, so it comes over as a lead to merge by hand:" and "Promoted but matched to no institution, so it comes over as a lead to merge by hand:" an Outreach Tracker row marked as promoted comes over as a lead. Copy what matters to the right school's Talks card, then close and delete the lead.
+  - "Not in the site's list of institutions, so nothing of it comes over:" press **Sync institutions now**, then run the import again.
+  - After "Written:", "Not everything was written." and a sentence for each write that did not happen, with why. Run the command again: it brings nothing twice.
 - `--skip-comments` leaves the record comments unread, for a token without the scope data.recordComments:read. A later run without it brings them over.
 - `--save=<file>` writes what was read to a file, for a rehearsal on a copy of the site, and `--from=<file>` reads that file instead of Airtable. The file holds personal data. A place inside the plugin, WordPress or a repository is refused.
 - A saved read must be from within 30 minutes of this site's last sync, except on a local copy of the site: "That saved read is not from this site's last sync. Read Airtable again."
@@ -525,19 +537,25 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 
 *When:* the product owner has decided the switch, and the import is done. One save moves the record of institutions from Airtable to the site.
 
-1. Open `WPCredits Program > Institutions`, tab **Sync and storage**. Press **Sync institutions now** and wait until it finishes.
-2. Have the import run, its dry run first. See [[Run the import from Airtable]].
-3. Press **Sync institutions now** again, and wait until it finishes.
-4. Within 15 minutes, open `WPCredits Program > Settings`, tab **Advanced**. In the row **Institutions' record**, tick **The site keeps the record, and Airtable gets a copy**.
-5. Press **Save settings**.
-6. If the save says "The institutions' record was not moved", do what the rest of its sentence says, then save again.
+1. Tell the Administrators, and ask for a quiet half hour: no edits to the Institutions table or the Outreach Tracker, and no agreement decided.
+2. Open `WPCredits Program > Institutions`, tab **Sync and storage**. Press **Sync institutions now** and wait until it finishes.
+3. Have the import run, its dry run first. See [[Run the import from Airtable]].
+4. Press **Sync institutions now** again, and wait until it finishes.
+5. Within 15 minutes, open `WPCredits Program > Settings`, tab **Advanced**. In the row **Institutions' record**, tick **The site keeps the record, and Airtable gets a copy**.
+6. Press **Save settings**.
+7. If the save says "The institutions' record was not moved", do what the rest of its sentence says, then save again.
+8. Compare five schools with Airtable: on each Talks card, the stage, the next step and the follow-up date.
+9. Change one school's **Next step** on its Talks card, press **Save**, and see the change in Airtable.
+10. Open `WPCredits Program > Institutions` and see that it shows no notice about Airtable's copy. See [[Read the notice about Airtable's copy]].
+11. In Airtable, switch off the six automations that act on institutions: Institutions 1 - Application Received, Revisit Later follow-up date, Institution confirmation date assignment, New institution for one Administrator (if it is still on), Student status in institutions table, and Promote outreach lead to Institutions.
+12. Tell the Administrators it is done, and send them to [[Once the site keeps the record of institutions]].
 
 **What happens next**
 
 - The sync stops reading the Institutions and Countries tables, and every change Airtable has a column for is copied to Airtable. See [[Airtable's copy of the record]].
 - On `Institutions > Sync and storage` the card is **Institutions sync**, and its first step shows no label. The Institutions screen's sentences name the site's record, the Talks card and **Your institution's details** in place of Airtable. For example, an empty Pipeline says "No institutions yet. One is added when an application is approved or a lead is moved into the talks."
 - `Administrator Dashboard > Talks` is in the menu. Each school's Institution Dashboard has its Talks card first under **For Administrators**. The details card no longer holds **Assigned Administrator**.
-- The Monday email of follow-ups due starts, and so does the hourly retry of Airtable's copy.
+- The Monday email of follow-ups due starts, and so does the hourly retry of Airtable's copy. The email goes at 07:00 UTC on a Monday, so a switch saved on a Monday after 07:00 UTC sends the first one a week later.
 
 **Good to know**
 

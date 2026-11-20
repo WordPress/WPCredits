@@ -69,6 +69,10 @@ function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function __( $s, $d = null ) { return $s; }
 function esc_html__( $s, $d = null ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
+function esc_url( $u ) { return htmlspecialchars( (string) $u, ENT_QUOTES ); }
+// The notice's How to read this (1.123.104, G5) is for an account that manages the program, which every reader of the
+// Institutions screen is.
+function current_user_can( $cap ) { return 'wpcpm_manage_program' === $cap && ! empty( $GLOBALS['can_manage'] ); }
 function add_action( $h, $c, $p = 10, $a = 1 ) { $GLOBALS['actions'][] = array( $h, $c, $p ); }
 function register_post_type( $t, $a = array() ) {}
 function wp_date( $f, $t = null, $z = null ) { return gmdate( $f, null === $t ? $GLOBALS['now'] : (int) $t ); }
@@ -251,6 +255,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-record
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-talks.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-copy.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-switch.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+// No guide page unless a check sets one, so the notice's markup is as it was (1.123.104).
+require_once __DIR__ . '/stubs/guide-jobs.php';
 if ( ! function_exists( 'wp_sprintf_l' ) ) {
 	function wp_sprintf_l( $pattern, $args ) { $args = array_values( (array) $args ); if ( count( $args ) < 2 ) { return implode( '', $args ); } $last = array_pop( $args ); return implode( ', ', $args ) . ( count( $args ) > 1 ? ', and ' : ' and ' ) . $last; }
 }
@@ -901,7 +908,31 @@ store_marks( $marks );
 $html = notice();
 
 ck( 'notice_ten_then_count: the ten oldest by name, then "and 2 more"', array( substr_count( $html, '<li>' ), false !== strpos( $html, 'Listed School 10' ), false === strpos( $html, 'Listed School 11' ), false !== strpos( $html, '<li>and 2 more</li>' ), strpos( $html, 'Listed School 01' ) < strpos( $html, 'Listed School 02' ) ), array( 11, true, true, true, true ) );
-ck( 'no link in it', false === strpos( $html, '<a ' ), true );
+ck( 'no link in it while the site has no published guide', false === strpos( $html, '<a ' ), true );
+
+// G5 (1.123.104): with a published guide, the notice ends its sentence with a plain link, How to read this, to the job
+// Read the notice about Airtable's copy, for an Administrator; the list under it is as it was.
+$GLOBALS['wpcpm_guide_page'] = new WP_Post();
+$GLOBALS['wpcpm_guide_page']->post_status = 'publish';
+$GLOBALS['can_manage']       = true;
+WPCPM_Guide_Jobs::forget();
+$linked = notice();
+ck( 'g5_notice_link: the sentence ends with How to read this, to Read the notice about Airtable\'s copy, and the list is as it was',
+	array(
+		false !== strpos( $linked, 'and at least once a day. <a class="wpcpm-job-link" href="https://example.test/administrator-guide/#read-the-notice-about-airtable-s-copy">How to read this</a></p><ul class="ul-disc">' ),
+		substr_count( $linked, '<a ' ),
+		str_replace( ' <a class="wpcpm-job-link" href="https://example.test/administrator-guide/#read-the-notice-about-airtable-s-copy">How to read this</a>', '', $linked ) === $html,
+	),
+	array( true, 1, true ) );
+$GLOBALS['can_manage'] = false;
+ck( 'g5_notice_no_manager: a reader who cannot manage the program gets the notice without it', notice() === $html, true );
+$GLOBALS['settings']['institutions_on_site'] = false;
+$GLOBALS['can_manage']                       = true;
+ck( 'g5_notice_off: outside site mode there is no notice, so no link', notice(), '' );
+$GLOBALS['settings']['institutions_on_site'] = true;
+$GLOBALS['can_manage']                       = false;
+unset( $GLOBALS['wpcpm_guide_page'] );
+WPCPM_Guide_Jobs::forget();
 
 echo "\n-- create(): a promoted lead's record ------------------------------------------\n";
 

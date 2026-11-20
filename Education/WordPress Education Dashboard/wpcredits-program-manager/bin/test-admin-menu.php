@@ -694,6 +694,11 @@ $must_name = array(
 	// nor the two answers to Remove and Leave.
 	'Landing page'      => array( 'Mentor landing page', 'Student landing page', 'Institution landing page', 'Sponsor landing page' ),
 	'Remove and Leave'  => array( 'Remove the Mentor role', 'Leave the role in place' ),
+	// The four words of the talks with the schools (1.123.104, G15), each with the screen name it is met by.
+	'Talks'             => array( 'Talks' ),
+	'Lead'              => array( 'Add a lead' ),
+	'Stage'             => array( 'Stage' ),
+	'Due'               => array( 'Follow-ups due' ),
 );
 
 foreach ( $must_name as $row => $names ) {
@@ -704,7 +709,7 @@ foreach ( $must_name as $row => $names ) {
 	}
 }
 
-ck( 'and it has a table of the words the screens use: the plugin\'s name, the five audiences, every tool by its name, the landing pages and the leaving rules\' two answers, each row naming them as the screens do',
+ck( 'and it has a table of the words the screens use: the plugin\'s name, the five audiences, every tool by its name, the landing pages, the leaving rules\' two answers and the four words of the talks, each row naming them as the screens do',
     array( array_column( $rows, 0 ), $lacks ),
     array( array_keys( $must_name ), array() ) );
 

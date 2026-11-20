@@ -8054,6 +8054,84 @@ if ( null === $gr_page_kept ) { unset( $GLOBALS['student_page'] ); } else { $GLO
 unset( $GLOBALS['gr_cached'] );
 $GLOBALS['live_filters'] = $gr_filters;
 
+// The layout harness's cases (bin/ui/layout/, the census of 19 Nov 2026): each view of the page in the frame's main
+// area, under the real switch, as render() prints it for a signed-in Administrator. The fixture as it stands; every
+// queue holding something; the sponsors' queues quiet; and awkward data (a 60-character institution and company
+// name, a 40-character word in a request's note and a post's title, five open requests and five posts, an empty
+// note and website). Drawn only when the harness's dump.php is loaded; the run's checks above are untouched.
+if ( function_exists( 'wpcpm_layout_keep' ) ) {
+	$lk_main = static function ( $html ) {
+		$at = strpos( (string) $html, '<div class="wpcpm-frame__main">' );
+		return false === $at ? '' : substr( (string) $html, $at + strlen( '<div class="wpcpm-frame__main">' ), -strlen( '</div></div></div>' ) );
+	};
+	$lk_views = static function ( $label ) use ( $lk_main ) {
+		foreach ( array( 'overview' => 'Overview', 'watch' => 'Watch', 'reference' => 'The program' ) as $view => $name ) {
+			unset( $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] );
+			if ( 'overview' !== $view ) {
+				$_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] = $view;
+			}
+			$html = $lk_main( WPCPM_Administrators_Dashboard::render( array() ) );
+			// A view this state draws as an earlier state did is not kept twice.
+			if ( ! isset( $GLOBALS['lk_seen'][ md5( $html ) ] ) ) {
+				$GLOBALS['lk_seen'][ md5( $html ) ] = true;
+				wpcpm_layout_keep( 'Administrator Dashboard, ' . $label . ': ' . $name, $html, 'administrator/' . $view );
+			}
+		}
+		unset( $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] );
+	};
+	$lk_kept = array( $GLOBALS['uid'], $GLOBALS['manage'], $GLOBALS['inst_rows'], $GLOBALS['requests'], $GLOBALS['facts'], $GLOBALS['sponsor_posts'], $GLOBALS['sponsor_apps'], $GLOBALS['agr_review'], $GLOBALS['mentor_waiting'] ?? null, $GLOBALS['tiers_live'] ?? null );
+	$GLOBALS['uid']    = 3;
+	$GLOBALS['manage'] = array( 3 );
+	WPCPM_UI::set_live( null );
+	$lk_views( 'the fixture' );
+	$GLOBALS['offer_reviews'] = array( array( 'id' => 931, 'record' => 'recSPN00000000001', 'company' => 'TEST Sponsor', 'title' => 'A year of hosting', 'change' => 'new', 'by' => 'Member One', 'at' => time() - 600, 'fields' => array() ) );
+	$GLOBALS['unlinked']      = pending_unlinked();
+	$GLOBALS['tiers_live']    = true;
+	$lk_views( 'every queue holding something' );
+	unset( $GLOBALS['offer_reviews'], $GLOBALS['unlinked'] );
+	$GLOBALS['sponsor_posts']  = array();
+	$GLOBALS['agr_review']     = array();
+	$GLOBALS['sponsor_apps']   = array();
+	$GLOBALS['mentor_waiting'] = 0;
+	$lk_views( 'the sponsors\' queues quiet' );
+	list( , , , , , $GLOBALS['sponsor_posts'], $GLOBALS['sponsor_apps'], $GLOBALS['agr_review'] ) = $lk_kept;
+	$lk_long = 'The Example Institute of Applied Sciences and Very Long Name';
+	$lk_word = 'Pneumonoultramicroscopicsilicovolcanocon';
+	$lk_firm = 'Examplecorp International Hosting and Developer Tools Groups';
+	$GLOBALS['inst_rows'][ $A ]['name'] = $lk_long;
+	$GLOBALS['requests']['open']        = array( 801, 802, 811, 812, 813 );
+	$GLOBALS['facts'][801]              = array_merge( $GLOBALS['facts'][801], array( 'institution_name' => $lk_long, 'note' => 'See ' . $lk_word . ' in the form.' ) );
+	foreach ( array( 811, 812, 813 ) as $lk_i => $lk_id ) {
+		$GLOBALS['facts'][ $lk_id ] = array_merge( $GLOBALS['facts'][802], array( 'id' => $lk_id, 'note' => 0 === $lk_i ? $lk_word : '', 'institution_name' => 0 === $lk_i ? $lk_long : 'Instituto Gamma', 'at' => time() - ( 2 + $lk_i ) * DAY_IN_SECONDS ) );
+	}
+	$GLOBALS['sponsor_posts'] = array();
+	for ( $lk_i = 0; $lk_i < 5; $lk_i++ ) {
+		$GLOBALS['sponsor_posts'][] = array( 'id' => 9050 + $lk_i, 'title' => 0 === $lk_i ? $lk_word : ( 1 === $lk_i ? $lk_firm : 'Ten tips' ), 'record' => 'recSPN00000000001', 'company' => 0 === $lk_i ? $lk_firm : 'TEST Sponsor', 'author' => 'Member One', 'at' => time() - ( $lk_i + 1 ) * 3600, 'preview' => 'https://example.test/?p=905&preview=true' );
+	}
+	$GLOBALS['sponsor_apps'][0] = array_merge( $GLOBALS['sponsor_apps'][0], array( 'company' => $lk_firm, 'website' => '' ) );
+	$lk_views( 'long names, a long word, five rows' );
+	// Nothing waits: no application, agreement, report, request, post, offer, event or sponsor report in any queue.
+	$lk_more = array( $GLOBALS['posts'], $GLOBALS['agr'], $GLOBALS['reports'], $GLOBALS['sreports'], $GLOBALS['sevents'] ?? null );
+	$GLOBALS['posts']    = array_filter( $GLOBALS['posts'], static function ( $p ) { return 'wpcpm_inst_app' !== $p->post_type; } );
+	$GLOBALS['agr']['submitted'] = array();
+	$GLOBALS['reports']['queue'] = array();
+	$GLOBALS['reports']['due']   = array();
+	$GLOBALS['sreports']['queue'] = array();
+	$GLOBALS['sreports']['due']   = array();
+	if ( isset( $GLOBALS['sevents']['waiting'] ) ) { $GLOBALS['sevents']['waiting'] = array(); }
+	$GLOBALS['requests']['open'] = array();
+	$GLOBALS['sponsor_posts']    = array();
+	$GLOBALS['sponsor_apps']     = array();
+	$GLOBALS['agr_review']       = array();
+	$GLOBALS['mentor_waiting']   = 0;
+	$lk_views( 'nothing waits' );
+	list( $GLOBALS['posts'], $GLOBALS['agr'], $GLOBALS['reports'], $GLOBALS['sreports'], $lk_se ) = $lk_more;
+	if ( null !== $lk_se ) { $GLOBALS['sevents'] = $lk_se; }
+	unset( $GLOBALS['lk_seen'] );
+	list( $GLOBALS['uid'], $GLOBALS['manage'], $GLOBALS['inst_rows'], $GLOBALS['requests'], $GLOBALS['facts'], $GLOBALS['sponsor_posts'], $GLOBALS['sponsor_apps'], $GLOBALS['agr_review'], $lk_mw, $lk_tl ) = $lk_kept;
+	if ( null === $lk_mw ) { unset( $GLOBALS['mentor_waiting'] ); } else { $GLOBALS['mentor_waiting'] = $lk_mw; }
+	if ( null === $lk_tl ) { unset( $GLOBALS['tiers_live'] ); } else { $GLOBALS['tiers_live'] = $lk_tl; }
+}
 // Back to reading the site: the seam was set for this run only.
 WPCPM_Mentor_Engagement::for_tests( null );
 // The inventory (UI shared parts, Task 17b; bin/stubs/parts-inventory.php): every old class this suite's drawings on

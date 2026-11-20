@@ -3085,6 +3085,13 @@
 	margin-top: 0;
 }
 
+/* With no script the row's openers are hidden and the row is empty, so the first open panel stands where the row
+   would: 12px under the heading, the heading's own room, not that plus a panel's 16px (28px). */
+
+.wpcpm-ui-decide > .wpcpm-ui-actions:not( :has( > :not( [hidden] ) ) ) + .wpcpm-ui-panel {
+	margin-top: 0;
+}
+
 .wpcpm-ui-panel {
 	border-top: 1px solid var( --wpcpm-f-line );
 	margin-top: var( --wpcpm-f-block );

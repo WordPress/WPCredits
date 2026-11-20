@@ -6,6 +6,17 @@ Students, mentors and schools are kept in Airtable. The site sets a school's fir
 
 Once **The site keeps the record, and Airtable gets a copy** is saved on `Settings > Advanced`, the site keeps the record of the schools instead, and Airtable gets a copy. You then change a school's stage, next step and follow-up date on its Talks card. Until then nothing changes: the site reads the schools from Airtable as before.
 
+### Once the site keeps the record of institutions
+
+What changes for you once the setting is saved:
+
+- A school's stage, next step, follow-up date and notes are on its Talks card, and all schools are on the **Talks** view of the Administrator Dashboard. See [[Change a school's stage, next step and follow-up date]] and [[Read the follow-ups due and open a school's talks]].
+- Prospects are leads on the **Talks** view. The Outreach Tracker is no longer used. See [[Add a lead]].
+- The site no longer reads the Institutions table or the Outreach Tracker in Airtable, so nobody edits them there any more. The site's next copy of a field writes over what was typed in Airtable. See [[Airtable's copy of the record]].
+- Each Monday, an Administrator with follow-ups due gets one email. See [[The Monday email of follow-ups due arrived]].
+- Approving an application, moving a lead into the talks and the agreement steps still write to Airtable first, so they cannot be done while Airtable is not connected. Only Airtable's copy of a change waits. See [[Institutions]].
+- Students and mentors are untouched. They are kept in Airtable as before.
+
 ### The Administrator Dashboard at a glance
 
 The page is created at `/administrator-dashboard/`. Its side menu, in order:
@@ -21,7 +32,7 @@ Under **In wp-admin** are the screens **Students**, **Mentors**, **Institutions*
 
 Under **Help**: this **Administrator guide**, the **WordPress Credits handbook**, **#wpcredits on Slack**, and **Ask about the program** when it is on.
 
-Each card that waits for a decision has a **How to do this** link, which opens that job in this guide.
+Each card that waits for a decision, and others such as the Talks card, has a **How to do this** link, which opens that job in this guide.
 
 Where to start:
 

@@ -488,7 +488,10 @@ final class WPCPM_Institution_Copy {
 			return;
 		}
 
-		echo '<div class="notice notice-warning wpcpm-copy-pending"><p>' . esc_html__( 'These institutions\' changes are not in Airtable yet. The site tries again by itself: after an hour or two at first, then less often, and at least once a day.', 'wpcredits-program-manager' ) . '</p><ul class="ul-disc">';
+		// How to read this, a plain link at the end of the sentence, to the guide's job (1.123.104, G5); none without a guide.
+		$help = WPCPM_Guide_Jobs::link( 'airtable-copy', '', __( 'How to read this', 'wpcredits-program-manager' ) );
+
+		echo '<div class="notice notice-warning wpcpm-copy-pending"><p>' . esc_html__( 'These institutions\' changes are not in Airtable yet. The site tries again by itself: after an hour or two at first, then less often, and at least once a day.', 'wpcredits-program-manager' ) . ( '' === $help ? '' : ' ' . $help ) . '</p><ul class="ul-disc">'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in esc_html__() and WPCPM_Guide_Jobs::link().
 
 		foreach ( array_slice( $owed, 0, self::NOTICE_MAX, true ) as $record_id => $entry ) {
 			$row  = WPCPM_Institutions_Index::row( $record_id );

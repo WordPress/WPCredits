@@ -505,17 +505,21 @@ class WPCPM_Institution_Talks {
 
 	/**
 	 * The fields the card's form edits for a school, in the order it draws them: a lead's contact and help desk link
-	 * too, since a lead has no details card to change them on.
+	 * too, since a lead has no details card to change them on. Last contact follows Follow up on, the two days of a
+	 * follow-up read together; a school's help desk link follows Country, where a lead's card has it, so a lead moved
+	 * into the talks keeps its link in the same place (1.123.104, round 2: the owner made both changeable).
 	 *
 	 * @param array $facts `facts()`.
 	 * @return string[]
 	 */
 	private static function editable( array $facts ) {
-		$fields = array( 'stage', 'next_step', 'follow_up', 'assigned', 'country' );
+		$fields = array( 'stage', 'next_step', 'follow_up', 'last_contact', 'assigned', 'country' );
 
 		if ( ! empty( $facts['lead'] ) ) {
 			// A lead's own fields, its city first, right after the country (Task 16 fix round 1, V7).
 			$fields = array_merge( $fields, array( 'city', 'contact_person', 'contact_email', 'help_desk' ) );
+		} else {
+			$fields[] = 'help_desk';
 		}
 
 		// Program details last, the one long text, before the action row.
@@ -542,6 +546,7 @@ class WPCPM_Institution_Talks {
 			'first_students'     => __( 'First students begin', 'wpcredits-program-manager' ),
 			'next_step'          => __( 'Next step', 'wpcredits-program-manager' ),
 			'follow_up'          => __( 'Follow up on', 'wpcredits-program-manager' ),
+			'last_contact'       => __( 'Last contact', 'wpcredits-program-manager' ),
 			'program_details'    => __( 'Program details', 'wpcredits-program-manager' ),
 		);
 
@@ -772,6 +777,25 @@ class WPCPM_Institution_Talks {
 
 				return '' === $value ? '' : (string) (int) $value;
 
+			case 'last_contact':
+				// A day the import left, posted back as drawn, is left as it is, so it never stops a save of another field.
+				if ( trim( (string) $facts['last_contact'] ) === $value ) {
+					return null;
+				}
+
+				if ( '' !== $value && ! self::is_day( $value ) ) {
+					/* translators: %s: the name of a date field, as "Follow up on". */
+					return new WP_Error( 'wpcpm_talks_date', sprintf( __( '%s must be a date.', 'wpcredits-program-manager' ), self::label( $field ) ) );
+				}
+
+				// After today only when it is after today everywhere on Earth: today at UTC+14 (1.123.104, round 4), so an
+				// Administrator east of the site's time zone can give their own today.
+				if ( '' !== $value && $value > gmdate( 'Y-m-d', time() + 14 * HOUR_IN_SECONDS ) ) {
+					return new WP_Error( 'wpcpm_talks_last_contact', __( 'Last contact cannot be after today.', 'wpcredits-program-manager' ) );
+				}
+
+				return $value;
+
 			case 'first_students':
 			case 'follow_up':
 				if ( '' !== $value && ! self::is_day( $value ) ) {
@@ -816,11 +840,15 @@ class WPCPM_Institution_Talks {
 				return strtolower( $value );
 
 			case 'help_desk':
-				if ( '' !== $value && ( 0 !== strpos( $value, 'https://' ) || false === filter_var( $value, FILTER_VALIDATE_URL ) ) ) {
-					return new WP_Error( 'wpcpm_talks_help_desk', __( 'The help desk link must be an address that starts with https://.', 'wpcredits-program-manager' ) );
+				// A link the import left, posted back as drawn, is left as it is, so it never stops a save of another field.
+				if ( trim( (string) $facts['help_desk'] ) === $value ) {
+					return null;
 				}
 
-				return $value;
+				// One rule for a lead's and a school's link, the leads' own (1.123.104, round 4).
+				$problem = WPCPM_Institution_Leads::help_desk_problem( $value );
+
+				return null === $problem ? $value : $problem;
 		}
 
 		// The city and the contact person: one line, as their boxes draw them, by the rule a lead's Add a lead keeps too.
@@ -2046,11 +2074,19 @@ class WPCPM_Institution_Talks {
 	 */
 	private static function render_parts( array $facts, $flash, array $kept, array $note, $named = true ) {
 		$facts = self::with_agreement( $facts );
+		$title = __( 'Talks', 'wpcredits-program-manager' );
+
+		// How to do this, as the dashboards' other cards carry it (1.123.104, G5): a lead's page to closing or reopening
+		// the lead, a school's card to changing its stage, next step and follow-up date.
+		$help = ! empty( $facts['lead'] )
+			? WPCPM_Guide_Jobs::link( 'lead-close', $title )
+			: WPCPM_Guide_Jobs::link( 'talks-change', $title );
 
 		WPCPM_Dashboard_Card::open(
 			array(
 				'key'           => 'talks',
-				'title'         => __( 'Talks', 'wpcredits-program-manager' ),
+				'title'         => $title,
+				'help'          => $help,
 				'open'          => true,
 				'prefix'        => 'wpcpm-',
 				'id_on'         => 'section',
@@ -2323,7 +2359,7 @@ class WPCPM_Institution_Talks {
 			),
 		);
 
-		foreach ( array( 'first_students', 'next_step', 'follow_up' ) as $field ) {
+		foreach ( array( 'first_students', 'next_step', 'follow_up', 'last_contact' ) as $field ) {
 			$parts[ $field ] = WPCPM_UI::field(
 				array(
 					'type'    => 'next_step' === $field ? 'text' : 'date',
@@ -2351,28 +2387,43 @@ class WPCPM_Institution_Talks {
 			)
 		);
 
-		if ( $lead ) {
-			foreach ( array(
+		// The stored link, when it is one, opens from a text link under its box, the field's hint line, in a tab of its own
+		// as the dashboards' other outside links open (1.123.104, rounds 4 and 5): a text box cannot be followed.
+		$desk = trim( (string) $facts['help_desk'] );
+		$open = '' !== $desk && null === WPCPM_Institution_Leads::help_desk_problem( $desk )
+			? array(
+				'href'    => $desk,
+				'label'   => __( 'Open the help desk link', 'wpcredits-program-manager' ),
+				'outside' => true,
+			)
+			: array();
+
+		// A lead's own fields; the help desk link a school's too (round 2).
+		$own = $lead
+			? array(
 				'city'           => 'text',
 				'contact_person' => 'text',
 				'contact_email'  => 'email',
 				'help_desk'      => 'url',
-			) as $field => $type ) {
-				$parts[ $field ] = WPCPM_UI::field(
-					array(
-						'type'    => 'url' === $type ? 'text' : $type,
-						'id'      => self::field_id( $field ),
-						'name'    => $field,
-						'label'   => self::label( $field ),
-						'value'   => $value( $field ),
-						'problem' => isset( $problems[ $field ] ) ? $problems[ $field ] : '',
-						'attrs'   => array(
-							'maxlength' => 'city' === $field ? WPCPM_Institution_Leads::MAX_LENGTHS['city'] : ( 'contact_person' === $field ? 1000 : ( 'contact_email' === $field ? 200 : 500 ) ),
-							'inputmode' => 'url' === $type ? 'url' : '',
-						),
-					)
-				);
-			}
+			)
+			: array( 'help_desk' => 'url' );
+
+		foreach ( $own as $field => $type ) {
+			$parts[ $field ] = WPCPM_UI::field(
+				array(
+					'type'    => 'url' === $type ? 'text' : $type,
+					'id'      => self::field_id( $field ),
+					'name'    => $field,
+					'label'   => self::label( $field ),
+					'value'   => $value( $field ),
+					'problem' => isset( $problems[ $field ] ) ? $problems[ $field ] : '',
+					'after'   => 'help_desk' === $field ? $open : array(),
+					'attrs'   => array(
+						'maxlength' => 'city' === $field ? WPCPM_Institution_Leads::MAX_LENGTHS['city'] : ( 'contact_person' === $field ? 1000 : ( 'contact_email' === $field ? 200 : 500 ) ),
+						'inputmode' => 'url' === $type ? 'url' : '',
+					),
+				)
+			);
 		}
 
 		// A lead whose move into the talks did not finish says so, until a save of a stage finishes it (W5): in the place
@@ -2502,8 +2553,9 @@ class WPCPM_Institution_Talks {
 
 	/**
 	 * What the card shows and does not edit, under its heading: an institution's contact person and their email, which
-	 * the details card changes (and the sentence that says where), the last contact and the help desk link; a lead's
-	 * last contact; the lead owner when the import gave one. "Not recorded" in words, of the empty kind, for none.
+	 * the details card changes (and the sentence that says where); the lead owner when the import gave one. "Not
+	 * recorded" in words, of the empty kind, for none. Nothing at all for a lead with no lead owner. Last contact and the
+	 * help desk link are the form's since round 2 of 1.123.104.
 	 *
 	 * @param array $facts `facts()`.
 	 * @return string Escaped markup.
@@ -2533,14 +2585,12 @@ class WPCPM_Institution_Talks {
 			$rows[] = array( __( 'Contact\'s email', 'wpcredits-program-manager' ), (string) $facts['contact_email'], 'token' );
 		}
 
-		$rows[] = array( __( 'Last contact', 'wpcredits-program-manager' ), WPCPM_Dates::day( (string) $facts['last_contact'] ), 'day' );
-
-		if ( ! $lead ) {
-			$rows[] = array( self::label( 'help_desk' ), (string) $facts['help_desk'], 'link' );
-		}
-
 		if ( '' !== trim( (string) $facts['lead_owner'] ) ) {
 			$rows[] = array( __( 'Lead owner', 'wpcredits-program-manager' ), (string) $facts['lead_owner'], 'text' );
+		}
+
+		if ( array() === $rows ) {
+			return '';
 		}
 
 		$heading = 'wpcpm-talks-record-heading';
@@ -2558,10 +2608,6 @@ class WPCPM_Institution_Talks {
 
 			if ( '' === trim( $shown ) ) {
 				$cell = WPCPM_UI::cell( $text, esc_html__( 'Not recorded', 'wpcredits-program-manager' ), 'empty' );
-			} elseif ( 'link' === $kind && 0 === strpos( $shown, 'https://' ) ) {
-				$cell = WPCPM_UI::cell( $token, '<a href="' . esc_url( $shown ) . '">' . esc_html( $shown ) . '</a>' );
-			} elseif ( 'day' === $kind ) {
-				$cell = WPCPM_UI::cell( $text, WPCPM_UI::whole( $shown ) );
 			} else {
 				$cell = WPCPM_UI::cell( 'text' === $kind ? $text : $token, esc_html( $shown ) );
 			}

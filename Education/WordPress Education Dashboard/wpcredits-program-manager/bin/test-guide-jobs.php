@@ -63,7 +63,9 @@ foreach ( $m as $h ) {
 	$headings[ $h[1] ] = html_entity_decode( trim( strip_tags( $h[2] ) ), ENT_QUOTES, 'UTF-8' );
 }
 
-ck( 'the list holds the nineteen jobs', count( WPCPM_Guide_Jobs::JOBS ), 19 );
+// 1.123.104 adds three: the Talks card, a lead's page and the notice about Airtable's copy (G5).
+ck( 'the list holds the twenty-two jobs', count( WPCPM_Guide_Jobs::JOBS ), 22 );
+ck( 'the three of 1.123.104 are the Talks card\'s, a lead\'s and the copy notice\'s jobs', array( WPCPM_Guide_Jobs::JOBS['talks-change']['anchor'] ?? null, WPCPM_Guide_Jobs::JOBS['lead-close']['anchor'] ?? null, WPCPM_Guide_Jobs::JOBS['airtable-copy']['anchor'] ?? null ), array( 'change-a-school-s-stage-next-step-and-follow-up-date', 'close-a-lead-or-reopen-it', 'read-the-notice-about-airtable-s-copy' ) );
 foreach ( WPCPM_Guide_Jobs::JOBS as $key => $job ) {
 	ck( "$key: the anchor is an h3 of the guide", isset( $headings[ $job['anchor'] ] ), true );
 	ck( "$key: that heading's words are the title, exactly", $headings[ $job['anchor'] ] ?? null, $job['title'] );
@@ -103,6 +105,10 @@ ck( 'the link, with the card\'s title in its name',
 ck( 'without a title, the words alone',
 	WPCPM_Guide_Jobs::link( 'institution-application' ),
 	'<a class="wpcpm-job-link" href="https://example.test/administrator-guide/#a-school-applied">How to do this</a>' );
+ck( 'other words in place of How to do this, for a notice that is read rather than done (1.123.104)',
+	WPCPM_Guide_Jobs::link( 'institution-application', '', 'How to read this' ),
+	'<a class="wpcpm-job-link" href="https://example.test/administrator-guide/#a-school-applied">How to read this</a>' );
+ck( 'empty words are How to do this', WPCPM_Guide_Jobs::link( 'institution-application', '', '' ), WPCPM_Guide_Jobs::link( 'institution-application' ) );
 ck( 'the title is escaped', false !== strpos( WPCPM_Guide_Jobs::link( 'syncs', '<b>"x"</b>' ), '&lt;b&gt;&quot;x&quot;&lt;/b&gt;' ) && false === strpos( WPCPM_Guide_Jobs::link( 'syncs', '<b>' ), '<b>' ), true );
 ck( 'an unknown key gives none', WPCPM_Guide_Jobs::link( 'nope', 'X' ), '' );
 $GLOBALS['can'] = false;

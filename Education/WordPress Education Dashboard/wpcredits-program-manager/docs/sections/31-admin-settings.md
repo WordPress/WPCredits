@@ -272,7 +272,7 @@ Headed **Applications and enrollment** on the screen.
 
 - **Applications from institutions**: **Take applications through the form on this site** opens the public form at /institution-application/. Default: off.
 - **Enrollment lists from institutions**: **Let an institution send a list of students to enroll** adds an **Enroll students** view to the Institution Dashboard's menu. A school chooses the program and the term, then adds one student or sends a CSV. Default: off.
-- **Create accounts automatically**: **Let the sync create the first account for a Confirmed institution**, from the Contact Email in Airtable. Default: off.
+- **Create accounts automatically**: **Let the sync create the first account for a Confirmed institution**, from the Contact Email in Airtable, or once the site keeps the record of institutions, from the institution's contact email on the site. Default: off.
 
 Rules:
 - The old address /apply/ sends visitors to the form. While the box is off, the form says applications are closed.

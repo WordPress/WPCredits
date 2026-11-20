@@ -9,9 +9,9 @@
 1. The school sends the application form on the site. Detail: [[A school applied]].
 2. The school follows the link in its acknowledgement email to confirm its address. Detail: [[The application's address is not confirmed]].
 3. You talk with the school. The acknowledgement email gives them a link to book a call with you, when you have a booking link.
-4. You press **Approve**. The site creates the Airtable record and the account, and emails a password link. Detail: [[A school applied]].
+4. You press **Approve**. The site creates the Airtable record and the account, and emails a password link. Once the site keeps the record of institutions, it also adds the school to the site's list, where its talks are kept. Detail: [[A school applied]].
 5. The school sets its password, signs the Collaboration Agreement and uploads it. Detail: [[A signed Collaboration Agreement arrived]].
-6. You press **Accept it**. The site opens the school's account and sets Current Stage to Confirmed in Airtable.
+6. You press **Accept it**. The site opens the school's account and sets Current Stage to Confirmed in Airtable. Once the site keeps the record, the stage on the school's Talks card moves to Confirmed too. Detail: [[A signed Collaboration Agreement arrived]].
 7. The school, or you, enrolls students, if enrolling by list is on. Detail: [[Enroll students for a school]].
 8. After the semester the site drafts the semester report, if **Drafting** is on, and you approve it. Detail: [[A semester report: draft, review, approve, reopen]].
 
@@ -232,13 +232,16 @@ Once the site keeps the record, the sync no longer reads the Institutions table,
 
 ### Read the follow-ups due and open a school's talks
 
-*When:* **Talks** in the Administrator Dashboard's menu has an amber number, or you want to see where the talks with the schools stand. **Talks** is in the menu once the site keeps the record of institutions.
+{{clip:read-the-follow-ups-due}}
 
-1. Open `Administrator Dashboard > Talks`. Its head says how many follow-ups are due, such as "3 follow-ups are due", and which one is the oldest.
-2. Read the table **Follow-ups due**: **School**, **Next step** and **Follow up on**, oldest first.
-3. Under it, read the schools by stage, from Lead to Confirmed, each stage with its count, such as "Agreement Sent: 3 schools". Revisit Later, Not Moving Forward, SPAM and any stage the site does not know are folded at the end.
-4. The view opens on your own schools: "Showing your schools". To see every Administrator's, press **Show all schools**. **Show your schools** goes back.
-5. Press a school's name to open its Talks card.
+*When:* you want to know which schools to follow up today. **Talks** in the Administrator Dashboard's menu has an amber number when some are due. It is in the menu once the site keeps the record of institutions.
+
+1. Open `Administrator Dashboard > Talks`.
+2. Read the head. It says how many follow-ups are due, such as "3 follow-ups are due", and which one is the oldest.
+3. Read the table **Follow-ups due**: **School**, **Next step** and **Follow up on**, oldest first.
+4. Read the schools by stage under it, from Lead to Confirmed, each stage with its count, such as "Agreement Sent: 3 schools".
+5. To see every Administrator's schools, press **Show all schools**. **Show your schools** goes back.
+6. Press a school's name to open its Talks card.
 
 **What happens next**
 
@@ -246,36 +249,49 @@ Once the site keeps the record, the sync no longer reads the Institutions table,
 
 **Good to know**
 
-- A follow-up is due when its date is today or earlier, and only while the talks go on: at Lead, First Contact Made to Agreement Sent, Revisit Later, or no stage. Confirmed, Student, Not Moving Forward, SPAM and a closed lead are never due.
-- Your schools are the ones assigned to you, the ones assigned to nobody in your area, and the ones assigned to nobody that no Administrator's area holds. Every Administrator has those last ones.
-- A school assigned to someone who is no longer an Administrator counts as assigned to nobody, and is tagged **Not assigned**.
-- A stage with more than 20 schools shows 20, and a link to show all of them.
-- A school at Student is in no list: **Find a school** finds it.
+- A follow-up is due when its date is today or earlier, while the talks go on. See [[The words the screens use]].
+- The view opens on your own schools: "Showing your schools". Your schools are the ones assigned to you, the ones assigned to nobody in your area, and the ones assigned to nobody that no Administrator's area holds. Every Administrator has those last ones.
 - The number beside **Talks** in the menu counts your own follow-ups due. It is gone when none is due.
+- Revisit Later, Not Moving Forward, SPAM and any stage the site does not know are folded at the end.
+- A school at Student is in no list: **Find a school** finds it.
+- A stage with more than 20 schools shows 20, and a link to show all of them.
+- A school assigned to someone who is no longer an Administrator counts as assigned to nobody, and is tagged **Not assigned**.
+- What the view shows, part by part: [[The Talks view]].
 
 ### Change a school's stage, next step and follow-up date
 
-*When:* the talks with a school moved on, or a follow-up is done.
+{{clip:change-a-schools-stage}}
 
-1. Open the school's Talks card: press its name in `Administrator Dashboard > Talks`, or open its Institution Dashboard, then **For Administrators**. The Talks card is the first card there.
-2. Change **Stage**, **Next step** or **Follow up on**, and any other field you need: **Assigned Administrator**, **Country**, **Estimated students**, **First students begin** or **Program details**.
+*When:* a call or an email moved the talks with a school on, or you did a follow-up.
+
+1. Open the school's Talks card: press its name in `Administrator Dashboard > Talks`.
+2. Change what moved on:
+   - **Stage**
+   - **Next step**
+   - **Follow up on**
+   - **Last contact**
+   - any other field: **Assigned Administrator**, **Country**, **Help desk link**, **Estimated students**, **First students begin** or **Program details**
 3. Press **Save**.
-4. If the card says "Nothing was saved: these talks changed after you opened the card.", read the values it shows now. Make your change again and press **Save**.
+4. If the card says "Nothing was saved: these talks changed after you opened the card.", read the values it shows now, make your change again and press **Save**.
 
 **What happens next**
 
 - The card says "The talks are saved." Under **Stage**, a line says when the stage last changed and who changed it: "Since {day}, by {name}."
-- The stage, the next step, the follow-up date and the country are copied to Airtable. See [[Read the notice about Airtable's copy]].
+- What changed is copied to Airtable, where Airtable has a column for it. See [[Airtable's copy of the record]].
 - The school's **History** gets a row for the change.
 
 **Good to know**
 
-- Lead is never offered to a school that already has a record: "Lead is only for a school the program has not talked to yet."
+- The Talks card is also the first card under **For Administrators** on the school's Institution Dashboard.
 - Moving to Revisit Later sets **Follow up on** 90 days ahead, when you left the date as it was. The card says so, and you can change it.
 - The tag **Past due** beside the name means the follow-up date is before today.
+- **Last contact** cannot be a day after today: "Last contact cannot be after today."
+- **Help desk link** takes an address that starts with https://: "The help desk link must be an address that starts with https://." When it holds one, **Open the help desk link** under the box opens it.
 - The contact person and their email are changed on **Your institution's details**, on the **Your institution** view. The card shows them under **On record**.
+- Lead is never offered to a school that already has a record: "Lead is only for a school the program has not talked to yet."
 - When two people save the same school at once, one is told "Someone else is changing these talks just now, so nothing was saved. Try again in a moment."
-- **Estimated students** takes a whole number from 0 to 100000. **Next step** takes 200 characters at most.
+- If the school is gone from the site's list meanwhile, the card says "That school is not in the talks any more." Look for it with **Find a school** on the Talks view.
+- Every field, what it holds and its limits: [[The Talks card]].
 
 ### A school leaves the active stages, and comes back
 
@@ -337,7 +353,9 @@ Once the site keeps the record, the sync no longer reads the Institutions table,
 
 ### Add a note to a school's talks
 
-*When:* you want to keep what was said or done with a school.
+{{clip:add-a-note-to-a-schools-talks}}
+
+*When:* something was said or done with a school that the next Administrator should know.
 
 1. Open the school's Talks card, or a lead's page.
 2. Under **Notes**, type in **Add a note**. A note takes 5,000 characters at most.
@@ -350,17 +368,27 @@ Once the site keeps the record, the sync no longer reads the Institutions table,
 **Good to know**
 
 - A note cannot be changed or removed on the card.
-- A second press of the same words says "That note is already added." and adds nothing.
 - Notes never go to the school or to Airtable.
+- A second press of the same words says "That note is already added." and adds nothing.
+- A note for a lead that has become an institution is refused: "This lead is an institution now. Add the note on its Talks card." Open the school's Talks card from the lead's page and add it there.
+- Where the notes stand on the card: [[The Talks card]].
 
 ### Add a lead
 
-*When:* a school the program has not talked to yet should be followed up.
+{{clip:add-a-lead}}
 
-1. Open `Administrator Dashboard > Talks` and press **Add a lead**.
-2. Type the school's **Name**. It is required.
-3. Fill in what you know: **City**, **Country**, **Contact person**, **Contact's email**, **Help desk link**, **Next step**, **Follow up on** and a **Note**.
-4. Press **Add the lead**.
+*When:* you heard of a school the program has not talked to yet, and it should be followed up.
+
+1. Open `Administrator Dashboard > Talks`.
+2. Press **Add a lead**.
+3. Type the school's **Name**. It is required.
+4. Fill in what you know:
+   - **City** and **Country**
+   - **Contact person** and **Contact's email**
+   - **Help desk link**
+   - **Next step** and **Follow up on**
+   - a **Note**
+5. Press **Add the lead**.
 
 **What happens next**
 
@@ -369,10 +397,12 @@ Once the site keeps the record, the sync no longer reads the Institutions table,
 
 **Good to know**
 
-- A name already in the talks, a school's or a lead's, is refused: "A school of that name is already in the talks."
 - A lead is never written to Airtable.
-- If its note is refused, the lead is still added: "The lead is added, but its note is not. Correct the note below and add it again."
 - **Help desk link** must start with https://.
+- A name already in the talks, a school's or a lead's, is refused: "A school of that name is already in the talks."
+- If its note is refused, the lead is still added: "The lead is added, but its note is not. Correct the note below and add it again."
+- While another lead is being added, the add is refused: "Another lead is being saved just now. Try again in a moment." Press **Add the lead** again in a moment.
+- What a lead is, and what it holds: [[Leads]].
 
 ### Close a lead, or reopen it
 
@@ -393,10 +423,13 @@ Once the site keeps the record, the sync no longer reads the Institutions table,
 - A closed lead's **Stage** offers only Lead. Reopen it before you move it on.
 - What you typed and did not save stays in the form: "The lead is closed. What you typed is not saved yet: press Save to keep it."
 - A lead whose move into the talks did not finish cannot be closed. See [[Move a lead into the talks as an institution]].
+- A press on a page drawn before the lead was deleted, or before it became an institution, says "That lead is not in the talks any more." Look for it with **Find a school**.
 
 ### Move a lead into the talks as an institution
 
-*When:* the program has talked with a lead, and it should become an institution.
+{{clip:move-a-lead-into-the-talks}}
+
+*When:* you have talked with a lead, and the program wants to go on with it as a school.
 
 1. Open the lead's page.
 2. If **Country** is empty, choose the school's country from the list.
@@ -408,7 +441,7 @@ Once the site keeps the record, the sync no longer reads the Institutions table,
 
 - The site creates the institution's record in Airtable and adds it to the site's list. The lead's fields, notes and history go with it.
 - The card says "The lead is an institution now. Its talks go on here." It is the school's own Talks card now.
-- The next step, the follow-up date and the last contact are copied to Airtable.
+- Its fields are copied to the new record where Airtable has a column for them. See [[Airtable's copy of the record]].
 - The lead's old page says "This lead is an institution now: {school}.", with a link to its Talks card.
 
 **Good to know**
@@ -418,6 +451,7 @@ Once the site keeps the record, the sync no longer reads the Institutions table,
 - A country kept only as text is refused: "The country of this lead, {country}, is not one of the program's yet. Choose it, then move the lead on."
 - If Airtable cannot create the record: "Airtable could not create the institution's record, so it is still a lead. Try again in a while."
 - A lead whose move did not finish cannot be closed or deleted until the move is finished.
+- What a lead is, and what it holds: [[Leads]].
 
 ### Delete a lead
 
@@ -439,6 +473,7 @@ Once the site keeps the record, the sync no longer reads the Institutions table,
 - If the lead changes between the two presses, the question is asked again.
 - A site that keeps no Trash refuses it: "This site keeps no Trash, so a lead cannot be deleted here."
 - There is no screen to bring a deleted lead back. Until WordPress empties its Trash, the product owner can have it brought back whole.
+- The deleted lead's old address says "This lead is not in the talks." There is nothing more to do.
 
 ### Find a school in the talks
 
@@ -473,7 +508,7 @@ Once the site keeps the record, the sync no longer reads the Institutions table,
 
 **Good to know**
 
-- It goes on Mondays at 07:00 UTC, once a week, only while the site keeps the record of institutions.
+- It goes once a week, only while the site keeps the record of institutions. When it is sent, and to whom: [[The Monday email of follow-ups due]].
 - It goes to each Administrator with an area or an assigned school who has a follow-up due among their own schools. An Administrator with none gets no email.
 - It lists the same follow-ups as **Follow-ups due** in the Talks view, while the view shows your schools.
 - A Monday whose run only happens on Tuesday sends nothing that week.

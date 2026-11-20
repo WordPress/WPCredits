@@ -396,6 +396,10 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
+// The website fields' check, which a school's help desk link takes (round 2, Part IV).
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-field-value.php';
+// The Talks card's How to do this (1.123.104, G5): no guide page unless a check sets one.
+require_once __DIR__ . '/stubs/guide-jobs.php';
 
 $total = 0;
 $fails = 0;
@@ -606,14 +610,15 @@ $page = draw( 7 );
 $text = plain( $page );
 ck( 'the school\'s name heads the card, and the stage is said once, in its box, "Since <day>, by <name>." its hint (U3)', array( has( $text, 'Wyższa Szkoła Górnołąćka' ), 1 === preg_match( '#id="wpcpm-talks-stage-hint">Since \d{1,2} \w+ \d{4}, by Piotr Admin\.</p>#', $page ), substr_count( $text, 'Confirmed' ) - substr_count( plain( preg_replace( '#<select.*?</select>#s', '', $page ) ), 'Confirmed' ) > 0, has( $page, '<span class="wpcpm-ui-item__fact">Confirmed</span>' ) ), array( true, true, true, false ) );
 ck( 'a follow-up before today is the red status tag Past due, beside the name', array( has( $page, '<p class="wpcpm-ui-item__facts"><span class="wpcpm-status wpcpm-status--red">Past due</span></p>' ), substr_count( $text, 'Past due' ) ), array( true, 1 ) );
-ck( 'the fields in their order: Stage, Next step, Follow up on, Assigned Administrator, Country, Estimated students, First students begin (U4)', field_order( $page ), array( 'stage', 'next-step', 'follow-up', 'assigned', 'country', 'estimated-students', 'first-students', 'program-details' ) );
+// Round 2, Part IV: Last contact follows Follow up on, and the help desk link follows Country, where a lead's card has it.
+ck( 'the fields in their order: Stage, Next step, Follow up on, Last contact, Assigned Administrator, Country, Help desk link, Estimated students, First students begin (U4)', field_order( $page ), array( 'stage', 'next-step', 'follow-up', 'last-contact', 'assigned', 'country', 'help-desk', 'estimated-students', 'first-students', 'program-details' ) );
 ck( 'Stage and Country carry the Required mark, with no required on the box (U5)', array( 1 === preg_match( '#for="wpcpm-talks-stage">Stage <span class="wpcpm-ui-field__need">Required</span></label><select[^>]*aria-required="true"#', $page ), 1 === preg_match( '#for="wpcpm-talks-country">Country <span class="wpcpm-ui-field__need">Required</span>#', $page ), has( $page, 'id="wpcpm-talks-stage" name="stage" required' ) ), array( true, true, false ) );
 ck( 'a settled school is offered Confirmed, Student and the three that close the talks (L2)', options_of( $page, 'stage' ), array( 'Confirmed', 'Student', 'Not Moving Forward', 'SPAM', 'Revisit Later' ) );
 ck( 'a school not settled is offered First Contact Made to Agreement Sent and the three, never Confirmed or Student', options_of( draw( 7, LONG ), 'stage' ), array( 'First Contact Made', 'Call Scheduled', 'Info Sent', 'Waiting on Reply', 'Under Review', 'Agreement Sent', 'Not Moving Forward', 'SPAM', 'Revisit Later' ) );
 ck( 'a school at a stage its agreement does not lead to keeps it offered, first', options_of( draw( 7, DONE ), 'stage' ), array( 'Confirmed', 'First Contact Made', 'Call Scheduled', 'Info Sent', 'Waiting on Reply', 'Under Review', 'Agreement Sent', 'Not Moving Forward', 'SPAM', 'Revisit Later' ) );
 ck( 'the assigned Administrator and the country are each the one combobox, the stored values chosen', array( has( $page, 'name="wpcpm_talks_assigned"' ), as_drawn( $page )['wpcpm_talks_assigned'] ?? null, as_drawn( $page )['country'] ?? null ), array( true, '11', PL ) );
 ck( 'labels over the boxes, and one Save, a primary', array( substr_count( $page, '>Save</button>' ), substr_count( $page, 'class="wpcpm-btn"' ) ), array( 1, 2 ) );
-ck( 'the contact person and their email shown, with the sentence that names the details card and links to it; last contact and help desk shown, not edited', array( has( $text, 'Contact person Kontakt Jeden' ), has( $text, "Contact's email kontakt@example.test" ), has( $page, '#wpcpm-details">Your institution&#039;s details</a>' ), has( html_entity_decode( strip_tags( $page ), ENT_QUOTES ), 'Change the contact person and their email in Your institution\'s details, on the Your institution view.' ), has( $page, 'name="contact_person"' ), has( $page, 'name="last_contact"' ) ), array( true, true, true, true, false, false ) );
+ck( 'the contact person and their email shown, with the sentence that names the details card and links to it; last contact and help desk are boxes of the form now (round 2), not rows of On record', array( has( $text, 'Contact person Kontakt Jeden' ), has( $text, "Contact's email kontakt@example.test" ), has( $page, '#wpcpm-details">Your institution&#039;s details</a>' ), has( html_entity_decode( strip_tags( $page ), ENT_QUOTES ), 'Change the contact person and their email in Your institution\'s details, on the Your institution view.' ), has( $page, 'name="contact_person"' ), has( $page, 'name="last_contact"' ), has( $page, 'name="help_desk"' ), 1 === preg_match( '#<th[^>]*>Last contact</th>#', $page ) ), array( true, true, true, true, false, true, true, false ) );
 ck( 'a note\'s row: its author the name, its moment the fact, its words after in the note\'s weight, newest first (U7)', array( 1 === preg_match( '#<span class="wpcpm-ui-list__name">Ana Admin</span><span class="wpcpm-ui-list__facts">.*?5 October 2026 09:00.*?<div class="wpcpm-ui-list__more"><p class="wpcpm-ui-note">Sent the brochure\.</p>#s', $page ), strpos( $text, 'Sent the brochure.' ) < strpos( $text, 'Spoke with the dean.' ) ), array( true, true ) );
 ck( 'and Add a note, a form of its own, with its own primary; novalidate on both', array( substr_count( $page, '<form ' ), substr_count( $page, ' novalidate ' ), has( $page, '>Add the note</button>' ) ), array( 2, 2, true ) );
 // Restored in fix round 2 (R7): the two checks the first round dropped.
@@ -895,7 +900,7 @@ fresh();
 $lead = WPCPM_Institution_Leads::add( array( 'name' => '架空山学園大学', 'country' => JP, 'contact_person' => 'Kōhō Tantō', 'contact_email' => 'koho@example.test', 'assigned' => 7, 'source' => 'test' ), 7, false );
 $lead_page = draw( 7, $lead );
 ck( 'a lead\'s stage offers Lead and the promotion stages, nothing else', options_of( $lead_page, 'stage' ), array_merge( array( 'Lead' ), WPCPM_Institution_Leads::promotion_stages() ) );
-ck( 'its own fields after Country, its City first (Task 16 fix round 1, V7), Contact\'s email so named (U9), and Close this lead a quiet press of its own, with its own nonce', array( field_order( $lead_page ), has( $lead_page, ">Contact's email</label>" ) || has( $lead_page, '>Contact&#039;s email</label>' ), has( $lead_page, 'class="wpcpm-btn wpcpm-btn--quiet" name="action" value="wpcpm_talks_close">Close this lead' ), has( $lead_page, 'name="wpcpm_talks_lead_nonce" value="nonce-wpcpm_talks_close_' . $lead . '"' ) ), array( array( 'stage', 'next-step', 'follow-up', 'assigned', 'country', 'city', 'contact-person', 'contact-email', 'help-desk', 'estimated-students', 'first-students', 'program-details' ), true, true, true ) );
+ck( 'its own fields after Country, its City first (Task 16 fix round 1, V7), Contact\'s email so named (U9), and Close this lead a quiet press of its own, with its own nonce', array( field_order( $lead_page ), has( $lead_page, ">Contact's email</label>" ) || has( $lead_page, '>Contact&#039;s email</label>' ), has( $lead_page, 'class="wpcpm-btn wpcpm-btn--quiet" name="action" value="wpcpm_talks_close">Close this lead' ), has( $lead_page, 'name="wpcpm_talks_lead_nonce" value="nonce-wpcpm_talks_close_' . $lead . '"' ) ), array( array( 'stage', 'next-step', 'follow-up', 'last-contact', 'assigned', 'country', 'city', 'contact-person', 'contact-email', 'help-desk', 'estimated-students', 'first-students', 'program-details' ), true, true, true ) );
 $lead_back = 'redirect:https://example.test/administrator-dashboard/?wpcpm_view=talks&wpcpm_lead=' . $lead . '#wpcpm-talks';
 ck( 'a lead\'s City is saved on its card (Task 16 fix round 1, V7); an institution\'s card has no City box', array( save_as( 7, array( 'city' => 'Nagoya' ), $lead ), WPCPM_Institution_Talks::facts( $lead )['city'], has( draw( 7 ), 'name="city"' ) ), array( 'redirect:https://example.test/administrator-dashboard/?wpcpm_view=talks&wpcpm_lead=' . $lead . '#wpcpm-talks', 'Nagoya', false ) );
 ck( 'its fields go through the leads\' update', array( save_as( 7, array( 'next_step' => 'Write to the rector', 'contact_email' => 'Rector@Example.test' ), $lead ), WPCPM_Institution_Talks::facts( $lead )['next_step'], WPCPM_Institution_Talks::facts( $lead )['contact_email'], $GLOBALS['sent'] ), array( $lead_back, 'Write to the rector', 'rector@example.test', array() ) );
@@ -975,6 +980,75 @@ fresh();
 save_as( 7, array( 'estimated_students' => '55' ) );
 ck( 'o9_talks_estimated_sent: a save that changes Estimated students sends it to the copy', array( WPCPM_Institution_Talks::facts( S )['estimated_students'], $GLOBALS['sent'] ), array( '55', array( array( S, array( 'estimated_students' ) ) ) ) );
 ck( 'and the stand-in\'s columns are the copy\'s', array_keys( WPCPM_Institution_Copy::COLUMNS ), array( 'name', 'stage', 'country', 'city', 'website', 'contact_person', 'contact_email', 'confirmed_on', 'next_step', 'follow_up', 'last_contact', 'estimated_students', 'help_desk' ) );
+
+echo "\n=== Last contact and the help desk link (round 2, Part IV) ===\n";
+
+// The owner, 20 November 2026: a school's Last contact and help desk link are changed on its Talks card, in its own form
+// and by its Save, through the lock, the stale-save check, the History row and Airtable's copy every other field has.
+$p4_today    = gmdate( 'Y-m-d' );
+// Round 4 (the review, point 4): a day is after today only when it is after today everywhere on Earth, at UTC+14.
+$p4_latest   = gmdate( 'Y-m-d', time() + 14 * HOUR_IN_SECONDS );
+$p4_tomorrow = gmdate( 'Y-m-d', time() + 14 * HOUR_IN_SECONDS + DAY_IN_SECONDS );
+fresh();
+$p4_page = draw( 7 );
+ck( 'p4_boxes: Last contact a date box and the help desk link a text box for a web address, labelled as the card printed them', array( has( $p4_page, 'type="date" class="wpcpm-ui-field__control wpcpm-ui-field__control--date" id="wpcpm-talks-last-contact"' ), 1 === preg_match( '#for="wpcpm-talks-last-contact">Last contact</label>#', $p4_page ), 1 === preg_match( '#for="wpcpm-talks-help-desk">Help desk link</label>#', $p4_page ), 1 === preg_match( '#id="wpcpm-talks-help-desk" name="help_desk"[^>]*inputmode="url"#', $p4_page ) ), array( true, true, true, true ) );
+$GLOBALS['sent'] = array();
+ck( 'p4_saved: both saved and read back, the copy sends the two columns once, one talks_saved row names them', array( save_as( 7, array( 'last_contact' => '2026-11-02', 'help_desk' => 'https://helpdesk.example.org/conversation/12' ) ), WPCPM_Institution_Talks::facts( S )['last_contact'], WPCPM_Institution_Talks::facts( S )['help_desk'], $GLOBALS['sent'], rows_of( S, 'talks_saved' )[0]['message'] ?? null ), array( back(), '2026-11-02', 'https://helpdesk.example.org/conversation/12', array( array( S, array( 'last_contact', 'help_desk' ) ) ), 'The talks were updated: Last contact and Help desk link.' ) );
+$GLOBALS['sent'] = array();
+ck( 'p4_one_column: a change of the link alone sends that column alone', array( save_as( 7, array( 'help_desk' => 'https://helpdesk.example.org/conversation/13' ) ), $GLOBALS['sent'] ), array( back(), array( array( S, array( 'help_desk' ) ) ) ) );
+$GLOBALS['sent'] = array();
+ck( 'p4_utc14: the card judges after today at UTC+14, the latest today on Earth, for a school and a lead alike', 1 === preg_match( '/case \'last_contact\':.*?gmdate\( \'Y-m-d\', time\(\) \+ 14 \* HOUR_IN_SECONDS \)/s', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-talks.php' ) ), true );
+ck( 'p4_latest: the day that is today at UTC+14 is a last contact, from any time zone', array( save_as( 7, array( 'last_contact' => $p4_latest ) ), WPCPM_Institution_Talks::facts( S )['last_contact'] ), array( back(), $p4_latest ) );
+ck( 'p4_today: today is a last contact', array( save_as( 7, array( 'last_contact' => $p4_today ) ), WPCPM_Institution_Talks::facts( S )['last_contact'] ), array( back(), $p4_today ) );
+$p4_before = WPCPM_Institution_Talks::facts( S );
+$p4_rows   = count( WPCPM_Institution_Audit::entries_for( S, 0 ) );
+$GLOBALS['sent'] = array();
+ck( 'p4_future: the day after today at UTC+14 is refused at its box, nothing saved, nothing sent, no row', array( save_as( 7, array( 'last_contact' => $p4_tomorrow, 'next_step' => 'Typed with it' ) ), flash_of( 7 )['problems'] ?? null, WPCPM_Institution_Talks::facts( S )['last_contact'], WPCPM_Institution_Talks::facts( S )['next_step'] === $p4_before['next_step'], $GLOBALS['sent'], count( WPCPM_Institution_Audit::entries_for( S, 0 ) ) ), array( back(), array( 'last_contact' => 'Last contact cannot be after today.' ), $p4_today, true, array(), $p4_rows ) );
+$p4_refused = draw( 7 );
+ck( 'p4_future_kept: the redraw links the sentence to the box, and the typing is kept', array( has( $p4_refused, '<a href="#wpcpm-talks-last-contact">Nothing was saved.' ), has( $p4_refused, 'id="wpcpm-talks-last-contact-problem"' ), as_drawn( $p4_refused )['last_contact'] ?? null, as_drawn( $p4_refused )['next_step'] ?? null ), array( true, true, $p4_tomorrow, 'Typed with it' ) );
+$cases['Last contact refused, a day after today'] = $p4_refused;
+// Round 4 (the review, point 5): one field, one rule: a school's link takes a lead's rule and sentence, https only.
+$p4_https = 'The help desk link must be an address that starts with https://.';
+ck( 'p4_bad_link: what is no https address is refused at its box in the lead\'s sentence, nothing saved, the typing kept', array( save_as( 7, array( 'help_desk' => 'not a link at all' ) ), flash_of( 7 )['problems'] ?? null, WPCPM_Institution_Talks::facts( S )['help_desk'], as_drawn( draw( 7 ) )['help_desk'] ?? null ), array( back(), array( 'help_desk' => $p4_https ), 'https://helpdesk.example.org/conversation/13', 'not a link at all' ) );
+ck( 'p4_schemeless: an address without https:// is refused alike, and so is one with http://', array( save_as( 7, array( 'help_desk' => 'helpdesk.example.org/conversation/14' ) ), flash_of( 7 )['problems'] ?? null, save_as( 7, array( 'help_desk' => 'http://helpdesk.example.org/conversation/14' ) ), flash_of( 7 )['problems'] ?? null, WPCPM_Institution_Talks::facts( S )['help_desk'] ), array( back(), array( 'help_desk' => $p4_https ), back(), array( 'help_desk' => $p4_https ), 'https://helpdesk.example.org/conversation/13' ) );
+ck( 'p4_same_rule: the card asks the leads\' own check, and keeps no copy of the sentence', array( substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-talks.php' ), 'must be an address that starts with https://' ), 1 === preg_match( '/WPCPM_Institution_Leads::help_desk_problem\\(/', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-talks.php' ) ) ), array( 0, true ) );
+// Round 4 (point 2): under the box, one quiet link that opens a stored https address in a tab of its own.
+// Round 5: a text link, the field's hint line, no button (its padding put it off the form's edge).
+$p4_open = static function ( $html ) { return preg_match_all( '#<p class="wpcpm-ui-field__hint"><a href="([^"]*)" rel="noopener noreferrer" target="_blank">Open the help desk link</a></p>#', $html, $m ) ? $m[1] : array(); };
+ck( 'p4_open_link: the stored address, escaped, under the Help desk link box', array( $p4_open( draw( 7 ) ), 1 === preg_match( '#id="wpcpm-talks-help-desk"[^>]*><p class="wpcpm-ui-field__hint"><a [^>]*>Open the help desk link</a></p></div>#s', draw( 7 ) ) ), array( array( 'https://helpdesk.example.org/conversation/13' ), true ) );
+$GLOBALS['sent'] = array();
+ck( 'p4_cleared: empty clears each, and the copy sends the two', array( save_as( 7, array( 'last_contact' => '', 'help_desk' => '' ) ), WPCPM_Institution_Talks::facts( S )['last_contact'], WPCPM_Institution_Talks::facts( S )['help_desk'], $GLOBALS['sent'] ), array( back(), '', '', array( array( S, array( 'last_contact', 'help_desk' ) ) ) ) );
+fresh();
+WPCPM_Institution_Record::set( S, array( 'last_contact' => '2099-01-01', 'help_desk' => 'an imported word' ) );
+$GLOBALS['sent'] = array();
+ck( 'p4_kept_as_imported: values the import left that the boxes would refuse, posted back as drawn, are left as they are and do not stop a save', array( save_as( 7, array( 'next_step' => 'Around the import' ) ), WPCPM_Institution_Talks::facts( S )['last_contact'], WPCPM_Institution_Talks::facts( S )['help_desk'], $GLOBALS['sent'] ), array( back(), '2099-01-01', 'an imported word', array( array( S, array( 'next_step' ) ) ) ) );
+ck( 'p4_open_none: no link while the stored value is no https address, nor while the box is empty', array( $p4_open( draw( 7 ) ), $p4_open( draw( 7, LONG ) ) ), array( array(), array() ) );
+fresh();
+$p4_form = as_drawn( draw( 7 ) );
+$p4_step = WPCPM_Institution_Talks::facts( S )['next_step'];
+WPCPM_Institution_Record::set( S, array( 'last_contact' => '2026-10-30' ) );
+ck( 'p4_stale_last_contact: a colleague\'s change of Last contact refuses a save made on the card drawn before it', array( post_as( 7, 'handle_save', array_merge( $p4_form, array( 'next_step' => 'Over the change' ) ) ), flash_of( 7 )['status'] ?? null, WPCPM_Institution_Talks::facts( S )['next_step'] ), array( back(), 'changed', $p4_step ) );
+$p4_form = as_drawn( draw( 7 ) );
+WPCPM_Institution_Record::set( S, array( 'help_desk' => 'https://helpdesk.example.org/colleague' ) );
+ck( 'p4_stale_help_desk: and so does a change of the help desk link', array( post_as( 7, 'handle_save', array_merge( $p4_form, array( 'help_desk' => 'https://helpdesk.example.org/mine' ) ) ), flash_of( 7 )['status'] ?? null, WPCPM_Institution_Talks::facts( S )['help_desk'] ), array( back(), 'changed', 'https://helpdesk.example.org/colleague' ) );
+fresh();
+WPCPM_Institution_Record::set( LONG, array( 'help_desk' => 'https://helpdesk.example.org/' . str_repeat( 'conversation-with-a-very-long-path-', 12 ) . 'end' ) );
+$cases['Last contact and a very long help desk link, a 60-character name'] = draw( 7, LONG );
+$cases['Last contact and the help desk link empty'] = draw( 7 );
+$p4_lead = WPCPM_Institution_Leads::add( array( 'name' => 'Example Lead College', 'country' => PL, 'assigned' => 7, 'source' => 'test' ), 7, false );
+ck( 'p4_lead: a lead\'s Last contact is a box of its card too, saved through the leads\' update, a day after today refused alike', array( save_as( 7, array( 'last_contact' => '2026-10-15' ), $p4_lead ), WPCPM_Institution_Talks::facts( $p4_lead )['last_contact'], save_as( 7, array( 'last_contact' => $p4_tomorrow ), $p4_lead ), flash_of( 7 )['problems'] ?? null, WPCPM_Institution_Talks::facts( $p4_lead )['last_contact'], $GLOBALS['sent'] ), array( 'redirect:https://example.test/administrator-dashboard/?wpcpm_view=talks&wpcpm_lead=' . $p4_lead . '#wpcpm-talks', '2026-10-15', 'redirect:https://example.test/administrator-dashboard/?wpcpm_view=talks&wpcpm_lead=' . $p4_lead . '#wpcpm-talks', array( 'last_contact' => 'Last contact cannot be after today.' ), '2026-10-15', array() ) );
+ck( 'p4_lead_link: a lead\'s help desk link keeps its own rule and sentence', array( save_as( 7, array( 'help_desk' => 'helpdesk.example.org', 'last_contact' => '2026-10-15' ), $p4_lead ), flash_of( 7 )['problems'] ?? null ), array( 'redirect:https://example.test/administrator-dashboard/?wpcpm_view=talks&wpcpm_lead=' . $p4_lead . '#wpcpm-talks', array( 'help_desk' => 'The help desk link must be an address that starts with https://.' ) ) );
+WPCPM_Institution_Leads::update( $p4_lead, array( 'help_desk' => 'https://helpdesk.example.org/lead?a=1&b=2' ), 7 );
+ck( 'p4_lead_open: a lead\'s page draws the link alike, its address escaped', $p4_open( draw( 7, $p4_lead ) ), array( 'https://helpdesk.example.org/lead?a=1&amp;b=2' ) );
+// Round 5: the lead's page with its link, on the Administrator Dashboard, for the harness's edge and gap.
+WPCPM_UI::enter( 'administrator' );
+ob_start();
+WPCPM_Institution_Talks::render( $p4_lead, array( 'named' => false ) );
+$GLOBALS['admin_cases']['a lead\'s page, its help desk link and Open the help desk link'] = (string) ob_get_clean();
+WPCPM_UI::leave();
+$GLOBALS['on_site'] = false;
+ck( 'p4_off: outside site mode the card, and with it both boxes, is not drawn', draw( 7 ), '' );
+$GLOBALS['on_site'] = true;
 
 echo "\n=== Notes ===\n";
 
@@ -1374,7 +1448,38 @@ WPCPM_Institution_Leads::close( $lead, 7 );
 $cases['a closed lead'] = draw( 7, $lead );
 post_as( 7, 'handle_note', array( 'action' => 'wpcpm_talks_note', 'key' => S, '_wpnonce' => 'nonce-wpcpm_talks_note_' . S, 'note' => '' ) );
 $cases['the notes list empty, a note refused'] = draw( 7 );
-ck( 'fifteen cases on the Institution Dashboard and seven on the Administrator Dashboard, each the card', array( count( $cases ), count( array_filter( $cases, static function ( $html ) { return has( $html, 'id="wpcpm-talks"' ); } ) ), count( array_filter( $GLOBALS['admin_cases'] ?? array(), static function ( $html ) { return has( $html, 'id="wpcpm-talks"' ) && has( $html, 'Program details' ); } ) ) ), array( 15, 15, 7 ) );
+// G5 (1.123.104): the card carries How to do this as the dashboards' other cards do, in the fold head's help slot and,
+// for the phone, first in the body: a school's card to the job Change a school's stage, next step and follow-up date, a
+// lead's page to Close a lead, or reopen it. A site with no published guide draws none, and a member is drawn no card.
+fresh();
+$g5_none = draw( 7 );
+$GLOBALS['wpcpm_guide_page'] = new WP_Post( array( 'ID' => 0, 'post_status' => 'publish', 'post_name' => 'administrator-guide' ) );
+WPCPM_Guide_Jobs::forget();
+$g5_school = draw( 7, LONG );
+$g5_lead   = WPCPM_Institution_Leads::add( array( 'name' => 'Liceum ' . str_repeat( 'Ź', 40 ) . ' Wymyślone', 'country_text' => 'Atlantis', 'assigned' => 7, 'source' => 'test' ), 7, false );
+WPCPM_UI::enter( 'administrator' );
+ob_start();
+WPCPM_Institution_Talks::render( $g5_lead, array( 'named' => false ) );
+$g5_lead_page = (string) ob_get_clean();
+WPCPM_UI::leave();
+$g5_member = draw( 40 );
+$g5_job    = 'href="https://example.test/administrator-guide/#change-a-school-s-stage-next-step-and-follow-up-date"';
+$g5_close  = 'href="https://example.test/administrator-guide/#close-a-lead-or-reopen-it"';
+ck( 'G5: a school\'s card carries one help link in its head\'s slot and its phone copy first in the body, to Change a school\'s stage, next step and follow-up date, named for the card',
+	array(
+		substr_count( $g5_school, 'administrator-guide/#' ),
+		substr_count( $g5_school, $g5_job ),
+		1 === preg_match( '#</details><p class="wpcpm-ui-fold__help"><a class="wpcpm-job-link wpcpm-ui-fold__help-link" ' . preg_quote( $g5_job, '#' ) . '>How to do this<span class="screen-reader-text">: Talks</span></a></p></section>#', $g5_school ),
+		1 === preg_match( '#<div class="wpcpm-ui-fold__body"><p class="wpcpm-ui-fold__help wpcpm-ui-fold__help--phone"><a [^>]*' . preg_quote( $g5_job, '#' ) . '#', $g5_school ),
+	),
+	array( 2, 2, true, true ) );
+ck( 'G5: a lead\'s page links Close a lead, or reopen it instead, and nothing else', array( substr_count( $g5_lead_page, 'administrator-guide/#' ), substr_count( $g5_lead_page, $g5_close ) ), array( 2, 2 ) );
+ck( 'G5: no guide, no link; a member is drawn no card at all', array( substr_count( $g5_none, 'administrator-guide/#' ), has( $g5_none, 'id="wpcpm-talks"' ), $g5_member ), array( 0, true, '' ) );
+$cases['How to do this, a 60-character name with a 40-character word'] = $g5_school;
+$GLOBALS['admin_cases']['How to do this on a lead\'s page, its country as text'] = $g5_lead_page;
+unset( $GLOBALS['wpcpm_guide_page'] );
+WPCPM_Guide_Jobs::forget();
+ck( 'nineteen cases on the Institution Dashboard and nine on the Administrator Dashboard, each the card', array( count( $cases ), count( array_filter( $cases, static function ( $html ) { return has( $html, 'id="wpcpm-talks"' ); } ) ), count( array_filter( $GLOBALS['admin_cases'] ?? array(), static function ( $html ) { return has( $html, 'id="wpcpm-talks"' ) && has( $html, 'Program details' ); } ) ) ), array( 19, 19, 9 ) );
 if ( function_exists( 'wpcpm_layout_keep' ) ) {
 	foreach ( $cases as $name => $html ) {
 		wpcpm_layout_keep( 'Talks card: ' . $name, $html );

@@ -220,9 +220,51 @@ Step by step: [[Give a country or a region to an Administrator]]; [[Close a "no 
 
 ### The talks with institutions
 
+The talks are everything the program does with one school on its way in: its stage, the next step, the day to follow up, and your notes.
+
 Who keeps the record of institutions is one setting: **Institutions' record**, at `WPCredits Program > Settings`, tab **Advanced**. While it is off, Airtable keeps the record, as before, and nothing in this part is shown. Once **The site keeps the record, and Airtable gets a copy** is saved, the site keeps each school's talks, and Airtable gets a copy of what it has columns for.
 
+The stages, in order:
+
+| Stage | Who sets it | Can be due |
+|---|---|---|
+| Lead | Set when a lead is added: a school the program has not talked to yet | Yes |
+| First Contact Made | You, on the Talks card | Yes |
+| Call Scheduled | You | Yes |
+| Info Sent | You | Yes |
+| Waiting on Reply | You | Yes |
+| Under Review | You | Yes |
+| Agreement Sent | You | Yes |
+| Confirmed | The Collaboration Agreement, when it is accepted or recorded as on file | No |
+| Student | You, once the agreement is settled | No |
+| Not Moving Forward | You, to end the talks | No |
+| SPAM | You | No |
+| Revisit Later | You, to pause the talks. **Follow up on** moves 90 days ahead when you left the date as it was | Yes |
+
+With the default **Institution pipeline stages**, a move to Not Moving Forward, SPAM or Revisit Later asks first, then takes away the school's access. See [[A school leaves the active stages, and comes back]].
+
+Where each thing is done:
+
+- The **Talks** view, `Administrator Dashboard > Talks`: every school by stage, the follow-ups due, **Find a school** and **Add a lead**. See [[The Talks view]].
+- The Talks card: one school's stage, next step, follow-up date, notes and the rest, first under **For Administrators** on its Institution Dashboard. See [[The Talks card]].
+- A lead's page: the Talks card of a lead, opened from the **Talks** view. See [[Leads]].
+
+Your daily jobs:
+
+- [[Read the follow-ups due and open a school's talks]]
+- [[Change a school's stage, next step and follow-up date]]
+- [[Add a note to a school's talks]]
+- [[Add a lead]]
+- [[Move a lead into the talks as an institution]]
+- [[The Monday email of follow-ups due arrived]]
+
+Airtable still gets a copy of a school's fields, but never the notes or the leads. See [[Airtable's copy of the record]].
+
 #### The Talks view
+
+Where an Administrator sees the talks with every school at once, and what is due. Only Administrators see it, and only once the site keeps the record.
+
+{{image:talks-view|The Talks view: how many follow-ups are due, the table Follow-ups due, and the schools by stage. Names shown are examples.}}
 
 `Administrator Dashboard > Talks`, after **Watch** in the menu, with an amber number: your own follow-ups due.
 
@@ -237,18 +279,39 @@ Who keeps the record of institutions is one setting: **Institutions' record**, a
 - **Add a lead**, folded, at the end of the view.
 - A lead's page: the lead's name as the title, then its Talks card. A lead that became an institution says "This lead is an institution now: {school}."
 
+How to: [[Read the follow-ups due and open a school's talks]]; [[Add a lead]]; [[Find a school in the talks]].
+
 #### The Talks card
 
-The first card of **For Administrators** on a school's Institution Dashboard, and the card on a lead's page. Only Administrators see it, and only once the site keeps the record.
+Where one school's talks are changed. Only Administrators see it, and only once the site keeps the record: it is the first card of **For Administrators** on a school's Institution Dashboard, and the card on a lead's page.
+
+{{image:talks-card|A school's Talks card: its stage, next step, follow-up date, last contact and help desk link, with Open the help desk link under its box. Names shown are examples.}}
+
+| Field | What it holds | Changed |
+|---|---|---|
+| **Stage** | Where the talks stand | On the card. Confirmed comes from the agreement. See [[The stages the Talks card offers]]. |
+| **Next step** | What is to be done next, one line of at most 200 characters | On the card |
+| **Follow up on** | The day to follow up | On the card. Revisit Later sets it 90 days ahead when you left the date as it was. |
+| **Last contact** | The day of the last contact, never after today | On the card. It starts as the import or the lead left it. |
+| **Assigned Administrator** | Who follows the school up | On the card |
+| **Country** | The school's country | On the card |
+| **Help desk link** | The school's help desk address, starting with https://, opened by **Open the help desk link** under the box | On the card. It starts as the import or the lead left it. |
+| **City**, **Contact person**, **Contact's email** | A lead's own | On a lead's card |
+| **Estimated students** | A whole number from 0 to 100000 | On the card |
+| **First students begin** | A day | On the card |
+| **Program details** | What the school asks for, at most 5,000 characters | On the card. See [[Program details]]. |
+| **Notes** | Notes, each signed and dated, newest first | Added on the card, never changed |
+| **Contact person**, **Contact's email**, under **On record** | A school's contact | On **Your institution's details** |
+| **Lead owner**, under **On record** | The owner the import brought from the Outreach Tracker | No screen changes it |
 
 - Beside the name, **Past due** when the follow-up date is before today, or **Closed** for a closed lead.
-- Fields, in order: **Stage**, **Next step**, **Follow up on**, **Assigned Administrator**, **Country**; for a lead, **City**, **Contact person**, **Contact's email** and **Help desk link**; then **Estimated students**, **First students begin** and **Program details**.
+- The fields stand in the table's order, a school's **Help desk link** after **Country**, where a lead's card has it.
 - One **Save**. A lead's row adds **Close this lead** or **Reopen this lead**, and a closed lead's **Delete this lead**.
 - Under **Stage**: "Since {day}, by {name}.", the stage's last change.
-- **On record**: what the card shows and does not change. A school's **Contact person**, **Contact's email** and **Help desk link**, **Last contact**, and **Lead owner** when the import gave one. A school's contact is changed on **Your institution's details**.
-- **Notes**, newest first, then **Add a note** with **Add the note**.
 - A save made after someone else changed the same talks is refused, and the card shows the values as they are now.
 - While another request changes the same school, a save changes nothing and says "Someone else is changing these talks just now, so nothing was saved. Try again in a moment."
+
+How to: [[Change a school's stage, next step and follow-up date]]; [[Add a note to a school's talks]]; [[Record what a school asks for]]; [[Assign a school to another Administrator, or to nobody]].
 
 #### The stages the Talks card offers
 
@@ -256,25 +319,29 @@ The first card of **For Administrators** on a school's Institution Dashboard, an
 |---|---|
 | A lead | Lead, and First Contact Made to Agreement Sent |
 | A closed lead | Lead alone |
-| A school whose Collaboration Agreement is not settled | First Contact Made to Agreement Sent, Revisit Later, Not Moving Forward, SPAM |
-| A school whose agreement is accepted or on file | Confirmed, Student, Revisit Later, Not Moving Forward, SPAM |
+| A school whose Collaboration Agreement is not settled | First Contact Made to Agreement Sent, Not Moving Forward, SPAM, Revisit Later |
+| A school whose agreement is accepted or on file | Confirmed, Student, Not Moving Forward, SPAM, Revisit Later |
 
 - The stage the school is at is always offered too, so a save that does not touch it keeps it.
 - A move to a stage outside **Institution pipeline stages** asks first, then takes away the school's agreement record, as a sync does. See [[A school leaves the active stages, and comes back]].
-- Moving to Revisit Later sets the follow-up 90 days ahead, unless you changed the date.
+- Moving to Revisit Later sets the follow-up 90 days ahead, when you left the date as it was.
 
 #### Leads
 
-A lead is a school the program has not talked to yet, kept on the site alone.
+A lead is a school the program has not talked to yet, kept on the site alone. Only Administrators see leads, on the **Talks** view and on each lead's own page.
 
-- It is added on the Talks view, or brought over from the Outreach Tracker by the import.
+{{image:talks-lead-page|A lead's page: its name, then its Talks card with its own city, contact and help desk link. Names shown are examples.}}
+
+- It is added on the **Talks** view, or brought over from the Outreach Tracker by the import.
+- Its page holds its Talks card, with its own **City**, **Contact person**, **Contact's email** and **Help desk link**, which must start with https://. Its **Last contact** is changed there too.
 - It is never written to Airtable. It gets an Airtable record only when it moves into the talks as an institution, at First Contact Made to Agreement Sent.
 - It is assigned by its country's area when it is added.
-- A lead that goes nowhere is closed, and can be reopened. A closed lead keeps everything, and in the Talks view only **Find a school** shows it.
+- A lead that goes nowhere is closed, and can be reopened. A closed lead keeps everything, and in the **Talks** view only **Find a school** shows it.
 - A closed lead can be deleted. It goes to WordPress's Trash with its notes. No screen brings it back.
+- The lead and its notes are gone for good only once WordPress empties its Trash. Until then, `Tools > Export Personal Data` and `Tools > Erase Personal Data` still find the lead by its contact's email.
 - A name is used once in the talks, by a school or a lead.
 
-Step by step: [[Add a lead]]; [[Close a lead, or reopen it]]; [[Move a lead into the talks as an institution]]; [[Delete a lead]].
+How to: [[Add a lead]]; [[Close a lead, or reopen it]]; [[Move a lead into the talks as an institution]]; [[Delete a lead]].
 
 #### Program details
 
@@ -288,27 +355,40 @@ Step by step: [[Record what a school asks for]].
 
 #### The Monday email of follow-ups due
 
-**Institution follow-ups due this week, to the Administrator**, in `Tools > Emails`.
+One email a week to each Administrator with follow-ups due. Its words are **Institution follow-ups due this week, to the Administrator**, in `Tools > Emails`.
 
+- When: Mondays at 07:00 UTC, once a week, only while the site keeps the record. A switch saved on a Monday after 07:00 UTC sends the first one a week later.
+- Who: each Administrator who has an area or an assigned school, and only when they have follow-ups due among their own schools. Nobody else is mailed.
 - Subject: "[{site}] Follow-ups due this week: {count}". The count is the lines the email holds.
 - Two lists: "These follow-ups are due, oldest first:" for your own schools, and "Not assigned to anybody:" for the ones nobody is assigned to. A list with no line is left out.
 - Each line: the school, its next step and the day it was due, with a link to its talks.
-- Mondays at 07:00 UTC, once a week, only while the site keeps the record.
-- To each Administrator who has an area or an assigned school, and only when they have follow-ups due among their own schools. Nobody else is mailed.
+- Due means the follow-up date is today or earlier, while the talks go on. See [[The words the screens use]].
 
-Step by step: [[The Monday email of follow-ups due arrived]].
+How to: [[The Monday email of follow-ups due arrived]].
 
 #### Airtable's copy of the record
 
-Once the site keeps the record, the site is written first, and Airtable gets a copy.
+Once the site keeps the record, the site is written first, and Airtable gets a copy, so what still reads Airtable reads the same school.
 
-- Copied: the name, the stage, the country, the city, the website, the contact person and email, the day it was confirmed, the next step, the follow-up date, the last contact date, **Estimated students** and the help desk link.
-- Not copied: the notes, **Program details**, **First students begin**, the assigned Administrator, and leads, which are never written to Airtable.
-- The site tries again by itself: a new change goes with the next hourly run, and after each refused try a school waits twice as long, up to a day.
-- `WPCredits Program > Institutions` lists the schools whose changes are not in Airtable yet, above the tabs.
+| Copied to Airtable | Kept on the site only |
+|---|---|
+| The name | The notes |
+| The stage | **Program details** |
+| The country and the city | **First students begin** |
+| The website | The assigned Administrator |
+| The contact person and email | The lead owner |
+| The day it was confirmed | Leads, which are never written to Airtable |
+| The next step and the follow-up date | |
+| The last contact date | |
+| **Estimated students** | |
+| The help desk link | |
+
+- What changed is sent right after the save, with any earlier change of the same school that Airtable has not taken yet.
+- When Airtable refuses a copy, the change stands on the site, and `WPCredits Program > Institutions` lists the school above the tabs. The site tries again by itself: a new change goes with the next hourly run, and after each refused try a school waits twice as long, up to a day.
+- The site never reads Airtable's Institutions table any more. An edit made there after the switch stays only in Airtable, until the site's next copy of that field writes over it.
 - The Collaboration Agreement still writes Airtable first, as before.
 
-Step by step: [[Read the notice about Airtable's copy]]; [[Give the record back to Airtable]].
+How to: [[Read the notice about Airtable's copy]]; [[Give the record back to Airtable]].
 
 #### A lead's contact and WordPress's personal data tools
 

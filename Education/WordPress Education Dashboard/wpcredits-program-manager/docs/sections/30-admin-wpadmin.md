@@ -15,6 +15,10 @@ The screens, the settings and this guide call each thing by one name.
 | **Tools** | The parts run on their own: **Header notices**, **Emails**, **Need help?**, **Mentor Status Checker**, **Student Duplicate Finder** and **Track Builder**. | The **Tools** screen and the Overview's **Tools** card. |
 | Landing page | Where an account goes when it logs in: **Mentor landing page**, **Student landing page**, **Institution landing page** and **Sponsor landing page**. The page's address is under each switch. | Settings, tabs **Students and mentors**, **Institutions**, **Sponsors**. |
 | Remove and Leave | Each rule for someone who leaves has two answers, in this order: one starts with Remove, one with Leave. For example **Remove the Mentor role** and **Leave the role in place**. No account is deleted either way. | Settings, sections **When someone leaves**, **When an institution leaves the pipeline**, **When a sponsor is no longer Approved**. |
+| Talks | The program's talks with one school or lead: its stage, next step, follow-up date and notes. Kept on the site once the site keeps the record of institutions. | The **Talks** view of the Administrator Dashboard, and each school's Talks card. |
+| Lead | A school the program has not talked to yet, kept on the site alone and never written to Airtable. | The stage Lead on the **Talks** view, and **Add a lead**. |
+| Stage | Where the talks with a school stand, such as First Contact Made, Agreement Sent or Confirmed. Airtable calls it Current Stage. | **Stage** on the Talks card, and `Institutions > Pipeline`. |
+| Due | A follow-up is due when its date is today or earlier, while the talks go on. Confirmed, Student, Not Moving Forward, SPAM and a closed lead are never due. | **Follow-ups due** on the **Talks** view, the amber number beside **Talks**, and the Monday email. |
 
 ### Overview
 
@@ -465,7 +469,7 @@ Step by step: [[Set the contact address the emails name]]; [[Change the words of
 The program's schools, at `WPCredits Program > Institutions`, in six tabs: **Waiting for review**, **Pipeline**, **Accounts**, **Semester reports**, **Agreements** and **Sync and storage**. The screen opens on **Waiting for review**.
 
 - The result of a press is said above the tabs.
-- While Airtable is not connected, a warning above the tabs says so, with **Open settings**.
+- While Airtable is not connected, a warning above the tabs says so, with **Open settings**. Once the site keeps the record of institutions, it reads "Airtable is not connected yet. Until it is, the institutions sync does not start, an application for a new institution cannot be approved, leads cannot be moved into the talks, agreements cannot be recorded on file, accepted, revoked or reinstated, and Airtable's copy of each change waits."
 - Once the site keeps the record of institutions, a notice above the tabs lists the schools whose changes are not in Airtable yet. See [[Read the notice about Airtable's copy]].
 - The menu entry's bubble counts the applications, signed agreements and requests waiting. At 200 or more it reads *200+*.
 
@@ -549,9 +553,9 @@ To invite several, tick them, choose **Send invite** or **Resend invite** under 
 
 #### The No account view for institutions
 
-Confirmed institutions with no account yet, ready ones first. **Contact** says whether Airtable holds an address. **Account** says **Ready**, or why not.
+Confirmed institutions with no account yet, ready ones first. **Contact** says whether an address is on record: Airtable's Contact Email, or once the site keeps the record, the institution's contact email on the site. **Account** says **Ready**, or why not.
 
-- **Create account**, under a ready name or under **Bulk actions**, uses the Contact Email in Airtable and queues an invitation. It cannot be recalled once sent.
+- **Create account**, under a ready name or under **Bulk actions**, uses that address and queues an invitation. It cannot be recalled once sent. Once the site keeps the record, the address is corrected in **Your institution's details** on the school's Institution Dashboard.
 - One press creates at most 25 accounts.
 - While any Confirmed institution here has no agreement recorded, nothing is created in bulk.
 - **Manage members** is under every row here, to add a person by name and address.
@@ -590,7 +594,7 @@ Step by step: [[A semester report: draft, review, approve, reopen]].
 - **Agreements on file**: Confirmed institutions with no agreement recorded. Each opens the school's **Collaboration Agreement** panel, with **Record an agreement the program already holds**.
 - **Agreements in force**: each standing agreement, **Accepted on the site** or **Recorded on file**, and the day.
 - **Revoked agreements**: each school with a revoked agreement and nothing accepted or waiting for review, also one that has since started a new agreement or had one returned: the day it was revoked, the Administrator's note and **Reinstate**.
-- **Agreement discrepancies**: where the site and Airtable's Agreement Status disagree. Each is locked until they agree.
+- **Agreement discrepancies**: where the site and Airtable's Agreement Status disagree. Once the site keeps the record, it compares each agreement's own record with the agreement status in the site's list of institutions instead. Each is locked until they agree.
 - **Agreement template**: the site's copy of the agreement, its version, the date it was copied from the program's Doc, and which institutions signed which version.
 
 **Revoke this agreement**, under an agreement in force:

@@ -526,7 +526,62 @@ WPCPM_Sponsor_Event::for_tests( static function () { return (int) strtotime( $GL
 // WPCPM_Request::posted_text() reads $_POST directly too), so a helper that populated anything
 // else would leave that check always false.
 function post( array $fields, $action ) { $_POST = $fields; $GLOBALS['left'] = null; try { call_user_func( $action ); } catch ( WPCPM_Test_Redirect $e ) { return $GLOBALS['left']; } catch ( WPCPM_Test_Die $e ) { return array( 'die', $e->getMessage() ); } return array( 'fell-through' ); }
-function card( $class, $record, $context ) { ob_start(); call_user_func( array( $class, 'render' ), $record, $context ); return ob_get_clean(); }
+/**
+ * Keeps a drawing for the layout harness (bin/ui/layout/, the census of 19 Nov 2026), numbered under its name, when it
+ * draws a neighbor the drawings kept under that name did not: two elements in a row, each by its tag and classes. The
+ * suites draw some cards dozens of times one offer or one word apart, and those add nothing to a count of the gaps
+ * between kinds of blocks; WPCPM_LAYOUT_EVERY=1 keeps every drawing that differs at all. Only when the harness's
+ * dump.php is loaded.
+ *
+ * @param string $name    The case's name.
+ * @param string $html    What the suite drew.
+ * @param string $surface The dashboard and view it is drawn on.
+ */
+function layout_keep_once( $name, $html, $surface ) {
+	if ( ! function_exists( 'wpcpm_layout_keep' ) || '' === trim( (string) $html ) ) {
+		return;
+	}
+	preg_match_all( '#<(/?)([a-z0-9]+)(?:[^>]*?\sclass="([^"]*)")?[^>]*>#', (string) $html, $tags, PREG_SET_ORDER );
+	$pairs = array();
+	$last  = '';
+	foreach ( $tags as $tag ) {
+		$one = $tag[1] . $tag[2] . '.' . ( $tag[3] ?? '' );
+		$pairs[ $surface . ' ' . $last . ' ' . $one ] = true;
+		$last = $one;
+	}
+	// WPCPM_LAYOUT_EVERY=1 keeps every drawing that differs in anything, for a census of all of them.
+	if ( getenv( 'WPCPM_LAYOUT_EVERY' ) ) {
+		$pairs = array( md5( $surface . "\n" . (string) $html ) => true );
+	}
+	$seen = $GLOBALS['layout_pairs'][ $name ] ?? array();
+	if ( ! array_diff_key( $pairs, $seen ) ) {
+		return;
+	}
+	$GLOBALS['layout_pairs'][ $name ] = $seen + $pairs;
+	$GLOBALS['layout_n'][ $name ]     = ( $GLOBALS['layout_n'][ $name ] ?? 0 ) + 1;
+	wpcpm_layout_keep( $name . ', drawing ' . $GLOBALS['layout_n'][ $name ], $html, $surface );
+}
+/** The Sponsor Dashboard's view that draws each card class (WPCPM_Sponsors_Dashboard::view_owners()), and its name. */
+function layout_card_view( $class ) {
+	$views = array(
+		'WPCPM_Sponsor_Tier_Card'      => array( 'sponsorship', 'Your sponsorship', 'the tier card' ),
+		'WPCPM_Sponsor_Report_Card'    => array( 'sponsorship', 'Your sponsorship', 'the yearly reports card' ),
+		'WPCPM_Sponsor_Badge'          => array( 'sponsorship', 'Your sponsorship', 'the badge card' ),
+		'WPCPM_Sponsor_Offers'         => array( 'offers', 'Offers', 'the Offers and codes card' ),
+		'WPCPM_Sponsor_Posts'          => array( 'offers', 'Offers', 'the Posts card' ),
+		'WPCPM_Sponsor_Usage'          => array( 'reached', 'Students reached', 'the usage card' ),
+		'WPCPM_Sponsor_Mentors'        => array( 'mentors', 'Mentors to sponsor', 'the mentors cards' ),
+		'WPCPM_Sponsor_Profile'        => array( 'company', 'Your company', 'the profile card' ),
+		'WPCPM_Sponsor_Agreement_Card' => array( 'agreement', 'Agreement', 'the agreement card' ),
+	);
+	return $views[ $class ] ?? array( 'overview', 'Overview', $class );
+}
+/** Keeps a Sponsor Dashboard card a suite drew, on the view that draws it. */
+function layout_keep_card( $class, $html ) {
+	list( $view, $view_name, $card_name ) = layout_card_view( $class );
+	layout_keep_once( 'Sponsor Dashboard, ' . $view_name . ': ' . $card_name, $html, 'sponsor/' . $view );
+}
+function card( $class, $record, $context ) { ob_start(); call_user_func( array( $class, 'render' ), $record, $context ); $html = ob_get_clean(); layout_keep_card( $class, $html ); return $html; }
 /**
  * Run what the next request does, as a fresh user id holding the user meta the person held, so
  * `WPCPM_Flash::take()`'s per-request memo does not hide what the request before it left (a handler
@@ -1882,8 +1937,10 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-agreement-card.
 function agreement_card( $record, $manage = false ) {
 	ob_start();
 	WPCPM_Sponsor_Agreement_Card::render( $record, array( 'can_manage' => $manage, 'open' => '', 'viewer' => wp_get_current_user() ) );
+	$html = (string) ob_get_clean();
+	layout_keep_card( 'WPCPM_Sponsor_Agreement_Card', $html );
 
-	return (string) ob_get_clean();
+	return $html;
 }
 
 // One document on file, standing in for this sponsor's whole history regardless of which
