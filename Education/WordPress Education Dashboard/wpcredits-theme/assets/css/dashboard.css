@@ -116,12 +116,16 @@
    Somewhere to land
 
    A card or an item reached by the anchor in its address scrolls to the top of
-   the window, which puts it under the sticky header: the wp-admin screens link
-   straight to an item ("Open on the Administrator Dashboard"), and a decision's
-   way back lands on its card. Every anchor the program links to on these pages
-   is one of the plugin's ids. The offset is the one the guides' headings use,
-   `--wpc-landing-offset`: the header's real height and some air, so more on a
-   phone, where the bar is taller. The admin bar's own height is reserved by
+   the window: the wp-admin screens link straight to an item ("Open on the
+   Administrator Dashboard"), and a decision's way back lands on its card. Every
+   anchor the program links to on these pages is one of the plugin's ids. The
+   offset is the theme's one landing offset, `--wpc-landing-offset`, which the
+   Documentation template's headings use too. On the Mentor Report Card and the
+   Student Report Card, which pin the site's sticky header, it is the header's
+   real height and some air, so more on a phone, where the bar is taller. The
+   Administrator Dashboard, the Institution Dashboard and the Sponsor Dashboard
+   are drawn in the plugin's frame and pin no header, so there (`wpc-frame-page`,
+   in style.css) it is the air alone. The admin bar's own height is reserved by
    WordPress.
 
    A student's row on the Mentor Report Card has one more sticky layer to clear,

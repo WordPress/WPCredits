@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.32.30
+Version: 1.32.31
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -109,6 +109,18 @@ Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, 
 	   JavaScript on). WordPress reserves the admin bar's own height above this for a signed-in
 	   reader. A phone has its own stand-in for a bar not yet measured (below). */
 	--wpc-landing-offset: calc( var( --wpc-header-live, var( --wpc-header-height ) ) + 28px );
+}
+
+/* A page the plugin draws in its frame (the Administrator Dashboard, the Institution Dashboard, the
+   Sponsor Dashboard, their guides and their updates) is on a bare canvas: the WordPress.org bar, which
+   is not pinned, the content and the footer, and no sticky header. There the landing offset is the same
+   28px of air alone, at every width, so an anchored card lands 28px below the top of the window, or
+   below the admin bar, which WordPress makes room for itself. It is said on the body, which
+   `wpcredits_body_class()` marks, and not on the root: a custom property's `var()` is worked out where
+   it is declared, so a header height of 0 given to the body would not reach the root's sum. Until theme
+   1.32.31 these pages reserved a bar's height they do not have, 76px, or 180px on a phone. */
+.wpc-frame-page {
+	--wpc-landing-offset: 28px;
 }
 
 /* ==========================================================================

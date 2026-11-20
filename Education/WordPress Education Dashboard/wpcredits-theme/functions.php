@@ -263,6 +263,12 @@ function wpcredits_body_class( $classes ) {
 		$classes[] = 'wpc-sponsor-page';
 	}
 
+	// A page the plugin draws in its frame is on a bare canvas, with no sticky header, so style.css lands
+	// an anchor there below nothing but the admin bar (theme 1.32.31).
+	if ( wpcredits_is_frame_page() ) {
+		$classes[] = 'wpc-frame-page';
+	}
+
 	if ( is_user_logged_in() ) {
 		$classes[] = 'wpc-signed-in';
 	}
