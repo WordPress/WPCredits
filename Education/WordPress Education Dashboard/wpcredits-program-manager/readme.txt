@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.105
+Stable tag: 1.123.106
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,10 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.106 =
+
+* AI Mentor: Enter sends the message, and Shift+Enter starts a new line. While an input method is still composing, as in Japanese, Chinese or Korean typing, Enter does not send.
 
 = 1.123.105 =
 

@@ -448,9 +448,7 @@
 			} );
 	}
 
-	form.addEventListener( 'submit', function ( event ) {
-		event.preventDefault();
-
+	function submitMessage() {
 		if ( pending || input.disabled ) {
 			return;
 		}
@@ -471,6 +469,27 @@
 		}
 
 		ask( message );
+	}
+
+	form.addEventListener( 'submit', function ( event ) {
+		event.preventDefault();
+		submitMessage();
+	} );
+
+	// Enter sends, as Send does; Shift+Enter is left to the browser for a new line. A key pressed while an input
+	// method is composing (keyCode 229) or with Ctrl, Alt or Meta held is left alone too.
+	input.addEventListener( 'keydown', function ( event ) {
+		if ( 'Enter' !== event.key || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey || event.isComposing || 229 === event.keyCode ) {
+			return;
+		}
+
+		event.preventDefault();
+
+		if ( send.disabled ) {
+			return;
+		}
+
+		submitMessage();
 	} );
 
 	if ( earlier ) {

@@ -262,15 +262,15 @@ class Element {
 	}
 
 	// An event at this element, then up through its ancestors, as a click and a submit bubble.
-	dispatch( type ) {
-		const event = {
+	dispatch( type, props ) {
+		const event = Object.assign( {
 			type,
 			target: this,
 			defaultPrevented: false,
 			preventDefault() {
 				this.defaultPrevented = true;
 			},
-		};
+		}, props || {} );
 		let node = this;
 
 		while ( node && 1 === node.nodeType ) {
@@ -411,6 +411,8 @@ function build( html, source ) {
 			page.form.dispatch( 'submit' );
 		}
 	};
+	// A key pressed in an element: the event the browser would hand the listener.
+	page.key = ( element, key, extra ) => element.dispatch( 'keydown', Object.assign( { key, keyCode: 'Enter' === key ? 13 : 0, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, isComposing: false }, extra || {} ) );
 	page.click = ( element ) => {
 		if ( element && ! element.disabled ) {
 			element.dispatch( 'click' );
@@ -949,6 +951,130 @@ async function handedOff() {
 				} ),
 				links: page.last().querySelectorAll( '.wpcpm-tutor__sources a' ).length,
 			};
+		}
+	);
+
+	await scenario(
+		'Enter in the message box sends one message, as Send does, and keeps the box clear for the next',
+		{ requests: 1, message: 'Where is my report?', prevented: true, box: '', send: true, working: true },
+		async () => {
+			const page = build( input.page, source );
+
+			page.box.value = '  Where is my report?  ';
+			const event = page.key( page.box, 'Enter' );
+
+			await settle();
+
+			return {
+				requests: page.requests.length,
+				message: page.requests[ 0 ] ? page.requests[ 0 ].body.message : null,
+				prevented: event.defaultPrevented,
+				box: page.box.value,
+				send: page.send.disabled,
+				working: page.shown( '[data-wpcpm-tutor-working]' ),
+			};
+		}
+	);
+
+	await scenario(
+		'Shift+Enter sends nothing and is left to the browser, which puts a new line in the box',
+		{ requests: 0, prevented: false, box: 'First line' },
+		async () => {
+			const page = build( input.page, source );
+
+			page.box.value = 'First line';
+			const event = page.key( page.box, 'Enter', { shiftKey: true } );
+
+			await settle();
+
+			return { requests: page.requests.length, prevented: event.defaultPrevented, box: page.box.value };
+		}
+	);
+
+	await scenario(
+		'Enter while an input method is composing, or with keyCode 229, sends nothing',
+		{ requests: 0, prevented: [ false, false ], box: 'nihongo' },
+		async () => {
+			const page = build( input.page, source );
+
+			page.box.value = 'nihongo';
+			const first = page.key( page.box, 'Enter', { isComposing: true } );
+			const second = page.key( page.box, 'Enter', { keyCode: 229 } );
+
+			await settle();
+
+			return { requests: page.requests.length, prevented: [ first.defaultPrevented, second.defaultPrevented ], box: page.box.value };
+		}
+	);
+
+	await scenario(
+		'Enter with Ctrl, Alt or Meta held sends nothing and is left to the browser',
+		{ requests: 0, prevented: [ false, false, false ] },
+		async () => {
+			const page = build( input.page, source );
+
+			page.box.value = 'Hold on';
+
+			const held = [ 'ctrlKey', 'altKey', 'metaKey' ].map( ( name ) => page.key( page.box, 'Enter', { [ name ]: true } ).defaultPrevented );
+
+			await settle();
+
+			return { requests: page.requests.length, prevented: held };
+		}
+	);
+
+	await scenario(
+		'Enter in an empty box sends nothing, and the box keeps focus',
+		{ requests: 0, working: false, turns: 32, focus: true },
+		async () => {
+			const page = build( input.page, source );
+
+			page.box.value = '   ';
+			page.key( page.box, 'Enter' );
+			await settle();
+
+			return { requests: page.requests.length, working: page.shown( '[data-wpcpm-tutor-working]' ), turns: page.turns().length, focus: page.doc.activeElement === page.box };
+		}
+	);
+
+	await scenario(
+		'Enter twice while a request is in flight sends one, and past the limit sends none',
+		{ requests: 1, kept: 'Second one', closed: 1 },
+		async () => {
+			const page = build( input.page, source );
+
+			page.box.value = 'First one';
+			page.key( page.box, 'Enter' );
+			page.box.value = 'Second one';
+			page.key( page.box, 'Enter' );
+			await settle();
+
+			const requests = page.requests.length;
+			const kept = page.box.value;
+
+			page.answer( page.requests[ 0 ], 200, { limit: true, text: LIMIT, left: 0 } );
+			await settle();
+			page.box.value = 'After the limit';
+			page.key( page.box, 'Enter' );
+			await settle();
+
+			return { requests, kept, closed: page.requests.length };
+		}
+	);
+
+	await scenario(
+		'Enter in the hand-off preview\'s note box sends nothing: it stays a new line there',
+		{ requests: 1, prevented: false, note: 'A line' },
+		async () => {
+			const page = await handedOff();
+			const note = page.preview.querySelector( 'textarea' );
+
+			note.value = 'A line';
+			const event = page.key( note, 'Enter' );
+
+			await settle();
+
+			return { requests: page.requests.length, prevented: event.defaultPrevented, note: note.value };
 		}
 	);
 
