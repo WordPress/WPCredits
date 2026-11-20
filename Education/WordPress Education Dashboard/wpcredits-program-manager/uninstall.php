@@ -122,6 +122,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-assigned.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentors-dashboard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-notes.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-questions.php';
 // The calendar's three classes are required here for one reason: `WPCPM_Mentors`
 // names them in its own `uninstall()`. This file builds its dependencies by hand
 // rather than booting the plugin, so a class the modules reach for and this list

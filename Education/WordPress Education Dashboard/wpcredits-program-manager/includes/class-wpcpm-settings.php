@@ -141,6 +141,9 @@ class WPCPM_Settings {
 			'handbook_access'               => 'mentor',
 			// Generated answers per person per hour. The extractive answer is never limited.
 			'handbook_limit'                => 20,
+			// Whether a student may send a question Need help? could not answer to their mentor
+			// (AI Mentor R2). Off until mentors are told.
+			'handbook_to_mentors'           => false,
 			// On by default: a mentor logging in otherwise lands on a wp-admin
 			// screen that shows them nothing they can use.
 			'mentor_home'                   => true,
@@ -478,6 +481,7 @@ class WPCPM_Settings {
 				'handbook_model',
 				'handbook_access',
 				'handbook_limit',
+				'handbook_to_mentors',
 			),
 			'tool:emails'                => array(
 				'mail_contact',
@@ -924,6 +928,10 @@ class WPCPM_Settings {
 			$clean['handbook_enabled'] = ! empty( $input['handbook_enabled'] );
 		}
 
+		if ( array_key_exists( 'handbook_to_mentors', $input ) ) {
+			$clean['handbook_to_mentors'] = ! empty( $input['handbook_to_mentors'] );
+		}
+
 		foreach ( array( 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home' ) as $flag ) {
 			if ( isset( $reads[ $flag ] ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
@@ -1051,7 +1059,7 @@ class WPCPM_Settings {
 		// not, so unticking one still switches it off through this same guarded read. Absent
 		// means "leave alone" for a patch and for a save that names no scope: a save given a
 		// scope has already read each of the scope's absent switches as off.
-		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'sponsor_tiers_live', 'duplicate_delete_enabled', 'mentor_applications_enabled', 'mentor_activation_enabled', 'student_registrations_enabled', 'student_interest_open', 'student_checklist_enabled', 'mentor_assigned_email', 'mcp_enabled', 'institutions_on_site' ) as $flag ) {
+		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'sponsor_tiers_live', 'duplicate_delete_enabled', 'mentor_applications_enabled', 'mentor_activation_enabled', 'student_registrations_enabled', 'student_interest_open', 'student_checklist_enabled', 'mentor_assigned_email', 'mcp_enabled', 'institutions_on_site', 'handbook_to_mentors' ) as $flag ) {
 			if ( array_key_exists( $flag, $input ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
 			}

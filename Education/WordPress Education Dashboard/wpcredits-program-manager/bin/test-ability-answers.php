@@ -2154,7 +2154,87 @@ foreach ( $builds as $label => $built ) {
 }
 ck( 'the search for "ample" found three names, by name', array_column( $builds['institution-summary, three matches']['answer']['matches'], 'name' ), array( 'Example Institute of Technology', 'Northern UNIVERSITY of Samples', 'University of Example' ) );
 
-echo "\n=== A builder never returns an error ===\n";
+echo "\n=== The two writes a student makes (wpcpm/post-student-message, wpcpm/add-mentor-note) ===\n";
+readers_reset();
+$GLOBALS['uid'] = 70;
+
+// The stand-ins are the real classes' shape: each method and each code is still on the real class.
+$questions_source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-questions.php' );
+$notes_source     = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-notes.php' );
+ck( 'the real classes still hold what the stand-ins stand in for: send(), mentor_of(), add_need_help_note() and the short codes',
+	array(
+		1 === preg_match( '/public static function send\( \$student_user_id, \$question, \$note = \'\', \$links = array\(\) \)/', $questions_source ),
+		1 === preg_match( '/public static function mentor_of\( \$student_user_id \)/', $questions_source ),
+		1 === preg_match( '/public static function add_need_help_note\( \$student_user_id, \$text \)/', $notes_source ),
+		1 === preg_match( "/const ERROR_SHORT\s*=\s*'wpcpm_question_short';/", $questions_source ),
+		false !== strpos( $notes_source, "'wpcpm_note_short'" ),
+	),
+	array( true, true, true, true, true ) );
+
+$message = build( 'student_message', array( 'question' => 'How do I book a call?', 'note' => 'It is urgent.', 'links' => array( 'https://example.test/student-guide/' ) ) );
+ck( 'student_message(): an answer and the two record IDs, the student\'s then the mentor\'s',
+	array( array_keys( $message ), array_keys( $message['answer'] ), $message['records'] ),
+	array( array( 'answer', 'records' ), array( 'question_id', 'student_record_id', 'mentor_record_id', 'state', 'sent_at' ), array( 'recSTUD0000000070', 'recMENT0000000070' ) ) );
+ck( 'its answer: the question\'s ID, the two record IDs, the state and the time as an ISO date, and nothing of emailed',
+	$message['answer'],
+	array( 'question_id' => 901, 'student_record_id' => 'recSTUD0000000070', 'mentor_record_id' => 'recMENT0000000070', 'state' => 'sent', 'sent_at' => gmdate( 'c', 1792825200 ) ) );
+$asked = array_values( array_filter( $GLOBALS['reader_calls'], static function ( $call ) { return 'send' === $call[0]; } ) );
+ck( 'it acts for the signed-in account and passes the words as typed, never another student', array( $asked[ count( $asked ) - 1 ][1], $asked[ count( $asked ) - 1 ][2], $asked[ count( $asked ) - 1 ][3], $asked[ count( $asked ) - 1 ][4] ), array( 70, 'How do I book a call?', 'It is urgent.', array( 'https://example.test/student-guide/' ) ) );
+ck( 'and no name, no address and none of the text written is in the answer', array( false !== strpos( json_of( $message ), 'book a call' ), false !== strpos( json_of( $message ), 'urgent' ), false !== strpos( json_of( $message ), '@' ), false !== strpos( json_of( $message ), 'example.test' ) ), array( false, false, false, false ) );
+
+foreach ( array( 'limit' => 0, 'duplicate' => 1792800000 ) as $state => $at ) {
+	$GLOBALS['readers']['sent'] = array( 'question_id' => 'limit' === $state ? 0 : 903, 'emailed' => false, 'state' => $state, 'sent_at' => $at );
+	$other = build( 'student_message', array( 'question' => 'How do I book a call?' ) );
+	ck( "a $state is an answer, with its state and " . ( 0 === $at ? 'no time' : 'the earlier question\'s time' ), array( $other['answer']['state'], $other['answer']['sent_at'], $other['records'] ), array( $state, 0 === $at ? null : gmdate( 'c', $at ), array( 'recSTUD0000000070', 'recMENT0000000070' ) ) );
+}
+readers_reset();
+
+ck( 'a question that is too short is wpcpm_question_short, the error itself and no records', array( is_wp_error( build( 'student_message', array( 'question' => 'ab' ) ) ) ? build( 'student_message', array( 'question' => 'ab' ) )->get_error_code() : 'answer' ), array( 'wpcpm_question_short' ) );
+foreach ( array( 72 => 'wpcpm_past', 73 => 'wpcpm_no_mentor', 74 => 'wpcpm_not_student', 99 => 'wpcpm_not_student' ) as $user => $code ) {
+	$GLOBALS['uid'] = $user;
+	$refused        = build( 'student_message', array( 'question' => 'How do I book a call?' ) );
+	ck( "an account refused by mentor_of() ($code, account $user): the refusal comes back with its code, unchanged", is_wp_error( $refused ) ? $refused->get_error_code() : 'answer', $code );
+}
+$GLOBALS['uid'] = 70;
+ck( 'no input at all is too short, and not an answer', is_wp_error( build( 'student_message', null ) ) ? build( 'student_message', null )->get_error_code() : 'answer', 'wpcpm_question_short' );
+build( 'student_message', array( 'question' => 'How do I book a call?', 'note' => 7, 'links' => 'https://example.test/' ) );
+$last = array_values( array_filter( $GLOBALS['reader_calls'], static function ( $call ) { return 'send' === $call[0]; } ) );
+ck( 'links that are not a list are none and a note that is not text is none: send() is given an empty note and no links', array( $last[ count( $last ) - 1 ][3], $last[ count( $last ) - 1 ][4] ), array( '', array() ) );
+
+$noted = build( 'mentor_note', array( 'text' => 'I do not understand the report month.' ) );
+ck( 'mentor_note(): an answer, its records the student\'s record ID then the mentor\'s (the answer holds no mentor record)', array( array_keys( $noted ), array_keys( $noted['answer'] ), $noted['records'] ), array( array( 'answer', 'records' ), array( 'note_id', 'student_record_id', 'state', 'written_at' ), array( 'recSTUD0000000070', 'recMENT0000000070' ) ) );
+ck( 'its answer: the note\'s ID, the student\'s record ID, the state and the time as an ISO date', $noted['answer'], array( 'note_id' => 902, 'student_record_id' => 'recSTUD0000000070', 'state' => 'written', 'written_at' => gmdate( 'c', 1792825260 ) ) );
+ck( 'and none of the text written, no name and no address is in it', array( false !== strpos( json_of( $noted ), 'report month' ), false !== strpos( json_of( $noted ), '@' ) ), array( false, false ) );
+$GLOBALS['readers']['written'] = array( 'note_id' => 0, 'state' => 'limit', 'written_at' => 0 );
+$limit = build( 'mentor_note', array( 'text' => 'I do not understand the report month.' ) );
+ck( 'a limit is an answer: state limit and no time', array( $limit['answer']['state'], $limit['answer']['written_at'] ), array( 'limit', null ) );
+readers_reset();
+ck( 'a note that is too short is wpcpm_note_short, the error itself', is_wp_error( build( 'mentor_note', array( 'text' => 'x' ) ) ) ? build( 'mentor_note', array( 'text' => 'x' ) )->get_error_code() : 'answer', 'wpcpm_note_short' );
+$GLOBALS['uid'] = 72;
+ck( 'a past student is refused by mentor_of()\'s own code', is_wp_error( build( 'mentor_note', array( 'text' => 'A note for my mentor.' ) ) ) ? build( 'mentor_note', array( 'text' => 'A note for my mentor.' ) )->get_error_code() : 'answer', 'wpcpm_past' );
+$GLOBALS['uid'] = 70;
+
+$send_schema = WPCPM_Ability_Answers::input_schema( 'student_message' );
+ck( 'the question\'s input schema: an object that requires question, takes note and links besides and nothing else',
+	array( $send_schema['type'], $send_schema['required'], array_keys( $send_schema['properties'] ), $send_schema['additionalProperties'] ),
+	array( 'object', array( 'question' ), array( 'question', 'note', 'links' ), false ) );
+ck( 'question is 3 to 400 characters, note 0 to 600, links at most five strings',
+	array( $send_schema['properties']['question']['type'], $send_schema['properties']['question']['minLength'], $send_schema['properties']['question']['maxLength'], $send_schema['properties']['note']['type'], isset( $send_schema['properties']['note']['minLength'] ) ? $send_schema['properties']['note']['minLength'] : 0, $send_schema['properties']['note']['maxLength'], $send_schema['properties']['links']['type'], $send_schema['properties']['links']['maxItems'], $send_schema['properties']['links']['items']['type'] ),
+	array( 'string', 3, 400, 'string', 0, 600, 'array', 5, 'string' ) );
+$note_schema = WPCPM_Ability_Answers::input_schema( 'mentor_note' );
+ck( 'the note\'s input schema: an object that requires text of 3 to 2,000 characters and takes nothing else',
+	array( $note_schema['type'], $note_schema['required'], array_keys( $note_schema['properties'] ), $note_schema['properties']['text']['minLength'], $note_schema['properties']['text']['maxLength'], $note_schema['additionalProperties'] ),
+	array( 'object', array( 'text' ), array( 'text' ), 3, 2000, false ) );
+$send_out = WPCPM_Ability_Answers::output_schema( 'student_message' );
+$note_out = WPCPM_Ability_Answers::output_schema( 'mentor_note' );
+ck( 'the output schemas are closed objects with exactly the answers\' keys, all required',
+	array( array_keys( $send_out['properties'] ), $send_out['required'], $send_out['additionalProperties'], array_keys( $note_out['properties'] ), $note_out['required'], $note_out['additionalProperties'] ),
+	array( array( 'question_id', 'student_record_id', 'mentor_record_id', 'state', 'sent_at' ), array( 'question_id', 'student_record_id', 'mentor_record_id', 'state', 'sent_at' ), false, array( 'note_id', 'student_record_id', 'state', 'written_at' ), array( 'note_id', 'student_record_id', 'state', 'written_at' ), false ) );
+ck( 'the states are sent, limit, duplicate and written, limit, duplicate, the times a date-time or null',
+	array( $send_out['properties']['state']['enum'], $note_out['properties']['state']['enum'], $send_out['properties']['sent_at']['type'], $note_out['properties']['written_at']['type'] ),
+	array( array( 'sent', 'limit', 'duplicate' ), array( 'written', 'limit', 'duplicate' ), array( 'string', 'null' ), array( 'string', 'null' ) ) );
+
+echo "\n=== A read builder never returns an error ===\n";
 foreach ( array( 'program_counts', 'waiting', 'engagement', 'institutions', 'students', 'mentor', 'applications', 'guides' ) as $method ) {
 	foreach ( array( 'no input' => null, 'an empty list' => array(), 'text' => 'x', 'a number' => 7 ) as $label => $input ) {
 		$built = build( $method, $input );
@@ -2179,6 +2259,8 @@ $strings_of = static function ( $code ) {
 $matcher_pattern = '/\n\tprivate static function people_matching\(.*?\n\t\}\n/s';
 $matcher         = preg_match( $matcher_pattern, $source, $found_matcher ) ? $found_matcher[0] : '';
 $elsewhere       = (string) preg_replace( $matcher_pattern, "\n", $source, 1 );
+// The two writes of a student take the student's own words (a question, a line they add) and answer with none of them.
+$elsewhere       = (string) preg_replace( '/\n\t(?:public|private) static function (?:student_message|mentor_note)(?:_input)?\(.*?\n\t\}\n/s', "\n", $elsewhere );
 $never           = array( 'contact_person', 'contact_email', 'accepted_by', 'progress', 'note', 'screen', 'user_email', 'user_login', 'display_name', 'email', 'username', 'mentor_name', 'email_key', 'tutor', 'website', 'profile', 'login', 'slack', 'field_of_study', 'import_key', 'nicename', 'github', 'avatar', 'jobline', 'location', 'website_label', 'accessibility', 'wpcpm_student_program' );
 ck( 'the one method that compares a roster row with what was asked is there', '' !== $matcher, true );
 ck( 'the code never so much as names a field that holds a person (the comments may), but in that method', array_values( array_intersect( $strings_of( $elsewhere ), $never ) ), array() );

@@ -52,7 +52,7 @@ Step by step: [[Change the signature and footer of every email]]; [[Set the cont
 
 #### Templates
 
-The **Templates** tab has a table for each of ten areas. Its columns are **Email**, **Who receives it**, **What sends it**, **State** and **Last edited**, with an **Edit** link. **Last edited** says who saved the edit, and when.
+The **Templates** tab has a table for each of eleven areas. Its columns are **Email**, **Who receives it**, **What sends it**, **State** and **Last edited**, with an **Edit** link. **Last edited** says who saved the edit, and when.
 
 Where an email goes to Administrators, a setting decides which addresses get it. With no address set, every Administrator account gets it.
 
@@ -235,11 +235,18 @@ The area **Quiet students** sends mail only while **Daily list** is *On* (`Setti
 | **Quiet students, to the mentor** | The mentor | At most once a day, listing the students just reminded |
 | **Quiet students this week, to the Administrator** | Each Administrator with a quiet student at an institution assigned to them | The first daily run of each Monday |
 
+The area **Need help?** holds one email, a student's question to their mentor. It is sent only while **Send to mentors** is switched on (`Tools > Need help?`, section **Settings**).
+
+| Email | Who gets it | When |
+|---|---|---|
+| **A student's question, to the mentor** | The student's mentor | A student whose question Need help? could not answer sends it to their mentor. Its subject names the student's first name and says they sent you a question from Need help?. A reply goes to the student. |
+
 Reply addresses:
 
 - Some emails reply to **Contact address in emails**, while it holds an address. They are the emails to mentor applicants, the student registration emails and **Student interest received, to the student**.
 - A **Mentor calls** email replies to the other person on the call. The mentor's copies of a group session moved, canceled or reminded have no reply address.
 - Some reply to the Administrator who acted. They are a question to an applicant, an agreement returned with a note, and a sponsor's agreement taken out of force. So are an event returned or canceled with a note.
+- **A student's question, to the mentor** replies to the student.
 - A colleague's invitation replies to the inviter. A code problem replies to the person who reported it.
 
 Editing an email:
@@ -713,6 +720,7 @@ At the top of the screen, with its own **Save settings**. Since 1.123.101 the pr
 - **Model**: typed. Default: `gemini-flash-latest`. Leave it as is. The provider is asked for this model by name, and a model it does not offer is never swapped for another.
 - **Who can ask**: Choices: **Mentors and administrators**, **Students, institutions and sponsors as well**, **Anybody logged in to this site**, **Administrators only**. Default: **Mentors and administrators**.
 - **Questions per person per hour**: 0 to 200, where 0 removes this limit. Default: 20.
+- **Send to mentors**: the box **Let a student send a question to their mentor**. A student with a mentor can send a question Need help? could not answer to that mentor, who gets an email and sees it on the Mentor Report Card. Default: off. Leave it off until mentors are told: the Student and Mentor guides' text about it is published in a later docs release, and turning this on goes with publishing that text. While it is off, no student is offered the choice, and the three example questions in the box still show.
 
 Limits and rules:
 

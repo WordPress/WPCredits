@@ -1538,7 +1538,7 @@ ck( 'Administrators are told through the student_interest_notify setting, with t
 	array( 1, 'student-interest-notice', 'student_interest_notify', '[WordPress Credits] New interest from a student: ' . WPCPM_Student_Interest::reference_of( $row ), true, 0 ) );
 ck( 'the registry holds the two, after the Student registrations\' and before the Quiet students\', each with what sends it, and the catalog files them under Student interests, for an applicant and for Administrators',
 	array(
-		array_slice( array_keys( $templates ), -5, 2 ),
+		array_slice( array_keys( $templates ), -6, 2 ),
 		$templates['student-interest-received']['trigger'],
 		$templates['student-interest-notice']['trigger'],
 		WPCPM_Mail_Catalog::modules()[ WPCPM_Mail_Catalog::MODULE_STUDENT_INTS ],

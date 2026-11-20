@@ -67,6 +67,7 @@ final class WPCPM_Mail_Templates {
 		WPCPM_Mail_Catalog::MODULE_STUDENT_REGS => 'student-registrations',
 		WPCPM_Mail_Catalog::MODULE_STUDENT_INTS => 'student-interests',
 		WPCPM_Mail_Catalog::MODULE_STUDENTS     => 'students',
+		WPCPM_Mail_Catalog::MODULE_NEED_HELP    => 'need-help',
 	);
 
 	/** What a placeholder looks like: a word in braces. */

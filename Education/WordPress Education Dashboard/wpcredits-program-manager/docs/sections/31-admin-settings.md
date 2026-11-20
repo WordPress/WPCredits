@@ -495,7 +495,7 @@ Rules for the log:
 - One run deletes at most 10,000 calls, and the next day's run deletes the rest.
 - `wp wpcredits mcp_log` lists up to 1,000 calls, newest first: `--limit` (1 to 1,000, default 100) and `--format` (`table`, `json` or `csv`). JSON and CSV also give what was asked and the IDs of the records that went out.
 
-Claude can ask eight questions. The answers come from the site's own records, never from Airtable or WordPress.org. Since 1.123.101 **Search the guides** reads the index Need help? answers from: this site's guides, the FAQ and the copy of the WordPress Credits handbook the site reads each day. It calls no AI model.
+Claude can ask eight questions. The answers come from the site's own records, never from Airtable or WordPress.org. Since 1.123.103 the site registers ten abilities. Eight are the questions below. The other two are writes a signed-in student makes for themselves, **Send a question to the student's mentor** and **Write a note for the student's mentor**, and no Claude connection can call them: they are refused to every Administrator, they act only for the student who is signed in, and only while **Send to mentors** is on and that student has a mentor. They exist for a later release of the program's tools. Since 1.123.101 **Search the guides** reads the index Need help? answers from: this site's guides, the FAQ and the copy of the WordPress Credits handbook the site reads each day. It calls no AI model.
 
 | Question | What it gives |
 | --- | --- |

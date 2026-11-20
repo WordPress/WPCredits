@@ -999,6 +999,7 @@ final class WPCPM_Duplicate_Finder_Screen {
 			'wpcpm_mentor_note' => __( 'a mentor call note', 'wpcredits-program-manager' ),
 			'wpcpm_mentor_call' => __( 'a booked call', 'wpcredits-program-manager' ),
 			'wpcpm_audit_entry' => __( 'an audit log entry', 'wpcredits-program-manager' ),
+			'wpcpm_question'    => __( 'a question to a mentor', 'wpcredits-program-manager' ),
 		);
 
 		return isset( $labels[ $kind ] ) ? $labels[ $kind ] : $kind;

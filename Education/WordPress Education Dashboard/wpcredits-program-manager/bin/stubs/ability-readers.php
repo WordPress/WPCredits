@@ -528,6 +528,18 @@ function readers_reset() {
 		'recTEAM0000000008' => 'Training',
 	);
 
+	// The student side (AI Mentor R2): who may send, by account (an array is `mentor_of()`'s answer, a string the
+	// code of its refusal), and what `send()` and `add_need_help_note()` answer once the account may.
+	$GLOBALS['readers']['student_who'] = array(
+		70 => array( 'student_record' => 'recSTUD0000000070', 'mentor_record' => 'recMENT0000000070' ),
+		71 => array( 'student_record' => 'recSTUD0000000071', 'mentor_record' => 'recMENT0000000071' ),
+		72 => 'wpcpm_past',
+		73 => 'wpcpm_no_mentor',
+		74 => 'wpcpm_not_student',
+	);
+	$GLOBALS['readers']['sent']        = array( 'question_id' => 901, 'emailed' => true, 'state' => 'sent', 'sent_at' => 1792825200 );
+	$GLOBALS['readers']['written']     = array( 'note_id' => 902, 'state' => 'written', 'written_at' => 1792825260 );
+
 	foreach ( array(
 		701 => array( 'alpha', WPCPM_Mentor_Application::STATE_NEW, 2, array( 'events' => array( array( WPCPM_Mentor_Application::EVENT_REOPENED, 1 ) ), 'signals' => array( WPCPM_Mentor_Application_Form::SIGNAL_DUPLICATE ), 'verified' => true, 'fields' => array( 'country' => 'Poland', 'teacher' => 'No', 'languages' => array( 'Polish', 'English' ), 'expertise' => array( 'Training' ), 'hours' => '3' ) ) ),
 		702 => array( 'beta', WPCPM_Mentor_Application::STATE_HELD, 9, array( 'signals' => array( WPCPM_Mentor_Application_Form::SIGNAL_HONEYPOT, WPCPM_Mentor_Application_Form::SIGNAL_DWELL ), 'fields' => array( 'country' => 'Kenya', 'teacher' => 'Yes', 'languages' => array( 'Swahili', 'English' ), 'expertise' => array( 'Polyglots', 'Community' ), 'hours' => '2.5' ) ) ),
@@ -1626,5 +1638,95 @@ class WPCPM_Mentors_Sync {
 		}
 
 		return 1 === preg_match( '#(?:^|/)@?' . preg_quote( $login, '#' ) . '(?:[/?\#]|$)#i', $typed ) ? $login : '';
+	}
+}
+
+if ( ! class_exists( 'WP_Error', false ) ) {
+	/** Core's WP_Error, as far as the two write builders read one: a code and a message. */
+	class WP_Error {
+		private $code;
+		private $message;
+
+		public function __construct( $code = '', $message = '' ) {
+			$this->code    = $code;
+			$this->message = $message;
+		}
+
+		public function get_error_code() {
+			return $this->code;
+		}
+
+		public function get_error_message() {
+			return $this->message;
+		}
+	}
+
+	function is_wp_error( $thing ) {
+		return $thing instanceof WP_Error;
+	}
+}
+
+/**
+ * The student side the two write abilities call, as stand-ins: `mentor_of()` answers from `readers['student_who']`
+ * by account, `send()` and `add_need_help_note()` answer what the fixture says once the account may and the words
+ * are three characters or more. Every call is noted. bin/test-ability-answers.php checks the real class holds each
+ * method and each code.
+ */
+class WPCPM_Student_Questions {
+	const ERROR_SHORT = 'wpcpm_question_short';
+
+	public static function mentor_of( $student_user_id ) {
+		readers_note( 'mentor_of', array( (int) $student_user_id ) );
+
+		$who = isset( $GLOBALS['readers']['student_who'][ (int) $student_user_id ] ) ? $GLOBALS['readers']['student_who'][ (int) $student_user_id ] : 'wpcpm_not_student';
+
+		return is_array( $who ) ? $who : new WP_Error( $who, 'Not allowed.' );
+	}
+
+	public static function send( $student_user_id, $question, $note = '', $links = array() ) {
+		readers_note( 'send', array( (int) $student_user_id, $question, $note, $links ) );
+
+		$who = self::mentor_of( $student_user_id );
+
+		if ( is_wp_error( $who ) ) {
+			return $who;
+		}
+
+		if ( mb_strlen( trim( (string) $question ) ) < 3 ) {
+			return new WP_Error( self::ERROR_SHORT, 'Nothing was sent - the question was too short.' );
+		}
+
+		return array_merge(
+			array(
+				'student_record_id' => $who['student_record'],
+				'mentor_record_id'  => $who['mentor_record'],
+			),
+			$GLOBALS['readers']['sent']
+		);
+	}
+}
+
+class WPCPM_Mentor_Notes {
+	public static function add_need_help_note( $student_user_id, $text ) {
+		readers_note( 'need_help_note', array( (int) $student_user_id, $text ) );
+
+		$who = WPCPM_Student_Questions::mentor_of( $student_user_id );
+
+		if ( is_wp_error( $who ) ) {
+			return $who;
+		}
+
+		if ( mb_strlen( trim( (string) $text ) ) < 3 ) {
+			return new WP_Error( 'wpcpm_note_short', 'Nothing was saved - the note was too short.' );
+		}
+
+		return array_merge( array( 'student_record_id' => $who['student_record'] ), $GLOBALS['readers']['written'] );
+	}
+}
+
+// The signed-in account, which the two write builders act for: `$GLOBALS['uid']`.
+if ( ! function_exists( 'get_current_user_id' ) ) {
+	function get_current_user_id() {
+		return isset( $GLOBALS['uid'] ) ? (int) $GLOBALS['uid'] : 0;
 	}
 }

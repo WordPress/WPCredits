@@ -161,7 +161,7 @@ class WPCPM_MCP {
 				self::ROUTE_NAMESPACE,
 				self::ROUTE,
 				__( 'WPCredits Program', 'wpcredits-program-manager' ),
-				__( 'Read-only answers from the WPCredits Program Manager\'s own records.', 'wpcredits-program-manager' ),
+				__( 'Answers from the WPCredits Program Manager\'s own records, and two writes a signed-in student makes for themselves.', 'wpcredits-program-manager' ),
 				WPCPM_VERSION,
 				array( 'WP\MCP\Transport\HttpTransport' ),
 				'WP\MCP\Infrastructure\ErrorHandling\ErrorLogMcpErrorHandler',

@@ -32,7 +32,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * through the plugin's own server and from PHP (design spec of 24 October 2026, decision 2).
  *
  * Nothing here touches Airtable, WordPress.org or any other address. An answer reads what the site
- * already holds, and says when it was read.
+ * already holds and says when it was read. The two abilities in `WRITES` are the exception: they record a
+ * student's question or a note on the site, for the signed-in student alone, and call no outside address
+ * either.
  */
 class WPCPM_Abilities {
 
@@ -68,10 +70,23 @@ class WPCPM_Abilities {
 		'wpcpm/mentor-students',
 		'wpcpm/mentor-applications',
 		'wpcpm/search-guides',
+		'wpcpm/post-student-message',
+		'wpcpm/add-mentor-note',
 	);
 
 	/**
-	 * The abilities that look people up: three of the eight in `NAMES`, after Phase A's four and before
+	 * The two abilities that write, for the signed-in student and nobody else (AI Mentor R2, 1.123.103),
+	 * the last two of `NAMES`. They have their own permission callback, `student_permitted()`, and the
+	 * annotations of a write; their log row holds no input, since the input is the words a student wrote.
+	 * Every other ability is read-only and an Administrator's.
+	 */
+	const WRITES = array(
+		'wpcpm/post-student-message',
+		'wpcpm/add-mentor-note',
+	);
+
+	/**
+	 * The abilities that look people up: three of the ten in `NAMES`, after Phase A's four and before
 	 * `wpcpm/search-guides`. They answer by record id and never by name, and they share a third ceiling,
 	 * `mcp_people_per_hour`, claimed in `answer()` after the answers' hour and day.
 	 */
@@ -129,6 +144,25 @@ class WPCPM_Abilities {
 	}
 
 	/**
+	 * Whether the signed-in account may call one of the two writes (`WRITES`): the switch is on, the account
+	 * does not hold the Administrators' capability, and it is a student who may send a question to their mentor, which is what
+	 * `WPCPM_Student_Questions::mentor_of()` decides for the Need help? control, the send, the notes and
+	 * these two. With Send to mentors off, an Administrator, a mentor, a past student or a student with no
+	 * mentor, it is an error and so, here, a no. The account is always the signed-in one: no ability takes
+	 * another student's.
+	 *
+	 * @return bool
+	 */
+	public static function student_permitted() {
+		// An Administrator, Claude's connection included, is refused, even one who is also a student.
+		if ( ! WPCPM_Settings::get_value( 'mcp_enabled' ) || current_user_can( WPCPM_Roles::CAP_MANAGE ) || ! class_exists( 'WPCPM_Student_Questions' ) ) {
+			return false;
+		}
+
+		return ! is_wp_error( WPCPM_Student_Questions::mentor_of( get_current_user_id() ) );
+	}
+
+	/**
 	 * Register the category the abilities sit in, on `wp_abilities_api_categories_init`.
 	 */
 	public static function register_category() {
@@ -140,7 +174,7 @@ class WPCPM_Abilities {
 			self::CATEGORY,
 			array(
 				'label'       => __( 'WPCredits Program', 'wpcredits-program-manager' ),
-				'description' => __( 'Read-only answers from the WPCredits Program Manager\'s own records.', 'wpcredits-program-manager' ),
+				'description' => __( 'Answers from the WPCredits Program Manager\'s own records, and two writes a signed-in student makes for themselves.', 'wpcredits-program-manager' ),
 			)
 		);
 	}
@@ -170,7 +204,7 @@ class WPCPM_Abilities {
 	 *
 	 * The abilities come in the order of `NAMES`. A name that has no words here, or whose builder
 	 * `WPCPM_Ability_Answers` does not have, is left out, so that an ability is registered only once all of
-	 * it exists; all eight have both, and the suite checks that `definitions()` holds every name of `NAMES`
+	 * it exists; all ten have both, and the suite checks that `definitions()` holds every name of `NAMES`
 	 * in its order, so a name can never be left out unseen.
 	 *
 	 * @return array[] Name => the arguments.
@@ -219,6 +253,16 @@ class WPCPM_Abilities {
 				__( 'The passages of this site\'s guides, its FAQ and the WordPress Credits handbook that best match English search words, best first, each with its page, section and address, and when the index was last built.', 'wpcredits-program-manager' ),
 				'guides',
 			),
+			'wpcpm/post-student-message'      => array(
+				__( 'Send a question to the student\'s mentor', 'wpcredits-program-manager' ),
+				__( 'Sends a question from the signed-in student to their mentor and keeps it for the Mentor Report Card, with a line the student adds and the guide addresses the answer showed. It acts only for the signed-in student, and only while Send to mentors is on and the student has a mentor. A fourth question in a day, or the same question twice in a day, is not sent: the answer says so. The answer gives the question\'s ID and the student\'s and the mentor\'s record IDs, never a name or an address.', 'wpcredits-program-manager' ),
+				'student_message',
+			),
+			'wpcpm/add-mentor-note'           => array(
+				__( 'Write a note for the student\'s mentor', 'wpcredits-program-manager' ),
+				__( 'Writes a note about the signed-in student for their mentor to read on the Mentor Report Card. It acts only for the signed-in student, and only while Send to mentors is on and the student has a mentor. An eleventh note in a day, or the same note twice in a day, is not written: the answer says so. The answer gives the note\'s ID and the student\'s record ID, never a name or the text written.', 'wpcredits-program-manager' ),
+				'mentor_note',
+			),
 		);
 
 		$definitions = array();
@@ -251,16 +295,20 @@ class WPCPM_Abilities {
 
 			$definitions[ $name ]['output_schema'] = $output_schema;
 
+			// The two writes are a student's own: their permission is `student_permitted()` and they say they
+			// write. The other eight are an Administrator's and read-only.
+			$write = in_array( $name, self::WRITES, true );
+
 			$definitions[ $name ] += array(
 				'execute_callback'    => static function ( $input = null ) use ( $name, $method, $output_schema ) {
 					return self::answer( $name, $input, array( 'WPCPM_Ability_Answers', $method ), self::checked_schema( $name, $output_schema ) );
 				},
-				'permission_callback' => array( __CLASS__, 'permitted' ),
+				'permission_callback' => array( __CLASS__, $write ? 'student_permitted' : 'permitted' ),
 				'meta'                => array(
 					'annotations'  => array(
-						'readonly'    => true,
+						'readonly'    => ! $write,
 						'destructive' => false,
-						'idempotent'  => true,
+						'idempotent'  => ! $write,
 					),
 					'show_in_rest' => false,
 				),
@@ -326,6 +374,10 @@ class WPCPM_Abilities {
 	 * A failure also leaves one line in PHP's error log, at most one an hour (`trace()`), with the ability
 	 * and the exception's class, `not_an_answer` or `invalid_output`, so that a person who finds failed rows
 	 * on the Security tab can find why.
+	 *
+	 * A build may also return an error of the student module (`is_refusal()`): that is the refusal itself, logged
+	 * `refused` with the error's code as the reason and returned with its code and sentence, so that a caller can
+	 * tell a question too short from a refusal of the account. A write (`WRITES`) logs no input on any path.
 	 *
 	 * The log row says what was asked and what went out, never what the answer held: the ability, the
 	 * outcome, the input with every string cleaned, how many rows went out and their record ids (at most
@@ -420,6 +472,19 @@ class WPCPM_Abilities {
 			$why   = $e;
 		}
 
+		// A write that the student's module refused (a refusal of `mentor_of()`, a question or a note too short) is
+		// the refusal itself, with its code and its sentence, so that a caller can tell it from a failure; any
+		// other error is a failure like the rest, and says nothing of what it held.
+		if ( $built instanceof WP_Error && self::is_refusal( $built ) ) {
+			$code = (string) $built->get_error_code();
+
+			if ( self::refusal_room( $user ) ) {
+				self::log( $ability, $input, 'refused', $code, $begin );
+			}
+
+			return new WP_Error( $code, $built->get_error_message() );
+		}
+
 		if ( ! is_array( $built ) || ! isset( $built['answer'] ) || ! is_array( $built['answer'] ) ) {
 			self::log( $ability, $input, 'failed', 'error', $begin );
 			self::trace( 'answer', $why, $ability );
@@ -437,6 +502,22 @@ class WPCPM_Abilities {
 		self::log( $ability, $input, 'answered', '', $begin, isset( $built['records'] ) ? $built['records'] : array() );
 
 		return $built['answer'];
+	}
+
+	/**
+	 * Whether an error a build returned is one of the student module's own refusals, whose code and sentence
+	 * are fixed words and may go out: `WPCPM_Student_Questions::mentor_of()`'s six, a question too short and a
+	 * note too short.
+	 *
+	 * @param WP_Error $error The error.
+	 * @return bool
+	 */
+	private static function is_refusal( WP_Error $error ) {
+		return in_array(
+			$error->get_error_code(),
+			array( 'wpcpm_send_off', 'wpcpm_not_student', 'wpcpm_no_record', 'wpcpm_no_mentor', 'wpcpm_mentor_gone', 'wpcpm_past', 'wpcpm_question_short', 'wpcpm_note_short' ),
+			true
+		);
 	}
 
 	/**
@@ -653,7 +734,8 @@ class WPCPM_Abilities {
 			'ability'     => (string) $ability,
 			'outcome'     => $outcome,
 			'reason'      => $reason,
-			'input'       => null === $input ? array() : self::clean_input( $input ),
+			// A write's input is the words a student wrote: never the log's, on any outcome.
+			'input'       => null === $input || in_array( $ability, self::WRITES, true ) ? array() : self::clean_input( $input ),
 			'rows'        => count( $ids ),
 			'records'     => array_slice( $ids, 0, self::LIST_MAX ),
 			'ms'          => null === $begin ? 0 : max( 0, (int) round( ( microtime( true ) - $begin ) * 1000 ) ),

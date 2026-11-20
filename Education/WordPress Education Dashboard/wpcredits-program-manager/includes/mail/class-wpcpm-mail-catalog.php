@@ -39,6 +39,7 @@ final class WPCPM_Mail_Catalog {
 	const MODULE_STUDENT_REGS = 'student-registrations';
 	const MODULE_STUDENT_INTS = 'student-interests';
 	const MODULE_STUDENTS     = 'students';
+	const MODULE_NEED_HELP    = 'need-help';
 	const MODULE_WORDPRESS    = 'wordpress';
 	const MODULE_TWO_FACTOR   = 'two-factor';
 	const MODULE_OTHER        = 'other';
@@ -71,6 +72,7 @@ final class WPCPM_Mail_Catalog {
 			self::MODULE_STUDENT_REGS => __( 'Student registrations', 'wpcredits-program-manager' ),
 			self::MODULE_STUDENT_INTS => __( 'Student interests', 'wpcredits-program-manager' ),
 			self::MODULE_STUDENTS     => __( 'Quiet students', 'wpcredits-program-manager' ),
+			self::MODULE_NEED_HELP    => __( 'Need help?', 'wpcredits-program-manager' ),
 			self::MODULE_WORDPRESS    => __( 'WordPress', 'wpcredits-program-manager' ),
 			self::MODULE_TWO_FACTOR   => __( 'Two Factor', 'wpcredits-program-manager' ),
 			self::MODULE_OTHER        => __( 'Other', 'wpcredits-program-manager' ),
@@ -278,6 +280,8 @@ final class WPCPM_Mail_Catalog {
 			'student-quiet-student'              => array( __( 'Quiet student reminder, to the student', 'wpcredits-program-manager' ), $q, self::TYPE_STUDENT ),
 			'student-quiet-mentor'               => array( __( 'Quiet students, to the mentor', 'wpcredits-program-manager' ), $q, self::TYPE_MENTOR ),
 			'student-quiet-weekly'               => array( __( 'Quiet students this week, to the Administrator', 'wpcredits-program-manager' ), $q, self::TYPE_ADMIN ),
+			// Need help? (1.123.103): a student's question, sent to their mentor to answer by replying.
+			'student-question-mentor'            => array( __( 'A student\'s question, to the mentor', 'wpcredits-program-manager' ), self::MODULE_NEED_HELP, self::TYPE_MENTOR ),
 			// WordPress's own.
 			'wp-password-reset'                  => array( __( 'Password reset', 'wpcredits-program-manager' ), $w, '' ),
 			'wp-password-changed'                => array( __( 'Password changed', 'wpcredits-program-manager' ), $w, '' ),

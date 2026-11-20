@@ -114,7 +114,7 @@ class WPCPM_Handbook_Answer {
 	 * @param string $audience The audience of the dashboard it was asked from, or ''. One the asker may
 	 *                         not read is ignored.
 	 * @return array `question`, `text`, `sources` (each `title`, `link`, `extract`), `generated`,
-	 *               `notice`, `unsourced`, `found`.
+	 *               `notice`, `unsourced`, `found`, `nothing`.
 	 */
 	public static function ask( $question, $user_id = 0, $audience = '' ) {
 		$question = trim( (string) $question );
@@ -126,6 +126,8 @@ class WPCPM_Handbook_Answer {
 			'notice'    => '',
 			'unsourced' => false,
 			'found'     => false,
+			// True only on the sentence a question nothing answers is given (`nothing()`).
+			'nothing'   => false,
 		);
 
 		if ( '' === $question ) {
@@ -225,7 +227,12 @@ class WPCPM_Handbook_Answer {
 			? __( 'Nothing in this site\'s guides or the WordPress Credits handbook answers that. Ask your mentor, or in the program\'s Slack channel.', 'wpcredits-program-manager' )
 			: __( 'Nothing in this site\'s guides or the WordPress Credits handbook answers that. Ask in the program\'s Slack channel.', 'wpcredits-program-manager' );
 
-		return self::without_answer( $answer );
+		$answer = self::without_answer( $answer );
+
+		// The one answer that says nothing answers it: the reply links the channel after it.
+		$answer['nothing'] = true;
+
+		return $answer;
 	}
 
 	/**

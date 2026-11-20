@@ -255,6 +255,23 @@ foreach ( $questions as $n => $q ) {
 	}
 }
 
+// Every example Need help? offers (AI Mentor R2, section 7) is a row of the test set, asked by the role it is
+// offered to, so the fifteen are checked above against the passage that answers each.
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-assistant.php';
+
+$offered = 0;
+
+foreach ( array( 'student', 'mentor', 'institution', 'sponsor', 'administrator' ) as $role ) {
+	foreach ( WPCPM_Handbook_Assistant::examples( $role ) as $example ) {
+		$offered++;
+		$rows = array_filter( $questions, static function ( $q ) use ( $role, $example ) { return $q[0] === $role && $q[1] === $example && array() !== $q[3]; } );
+
+		ck( sprintf( 'the %s\'s example "%s" is a row with an expected section', $role, $example ), count( $rows ), 1 );
+	}
+}
+
+ck( 'fifteen examples are offered', $offered, 15 );
+
 ck( 'some questions are in Spanish and Italian', $languages >= 8, true );
 
 /* ---- nothing above the asker's level ----------------------------------------- */

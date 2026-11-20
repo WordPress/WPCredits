@@ -837,7 +837,7 @@ set_transient( 'feed_example', 'kept', HOUR_IN_SECONDS );
 
 // One post of every type the clean-up removes, private as the modules keep them; an offer is found
 // through its sponsor, and every offer has one.
-$plugin_types = array( 'wpcpm_notice', 'wpcpm_dup_copy', 'wpcpm_track', 'wpcpm_inst_report', 'wpcpm_inst_request', 'wpcpm_inst_app', 'wpcpm_agreement', 'wpcpm_sponsor_app', 'wpcpm_audit_entry', 'wpcpm_import_batch', 'wpcpm_offer', 'wpcpm_mentor_call', 'wpcpm_mentor_note', 'wpcpm_inst_invite', 'wpcpm_sponsor_agr', 'wpcpm_sponsor_co', 'wpcpm_handbook', 'wpcpm_sponsor_report', 'wpcpm_sponsor_event', 'wpcpm_ment_app', 'wpcpm_inst_record', 'wpcpm_inst_note', 'wpcpm_inst_lead', 'wpcpm_stu_reg', 'wpcpm_student_int' );
+$plugin_types = array( 'wpcpm_notice', 'wpcpm_dup_copy', 'wpcpm_track', 'wpcpm_inst_report', 'wpcpm_inst_request', 'wpcpm_inst_app', 'wpcpm_agreement', 'wpcpm_sponsor_app', 'wpcpm_audit_entry', 'wpcpm_import_batch', 'wpcpm_offer', 'wpcpm_mentor_call', 'wpcpm_mentor_note', 'wpcpm_question', 'wpcpm_inst_invite', 'wpcpm_sponsor_agr', 'wpcpm_sponsor_co', 'wpcpm_handbook', 'wpcpm_sponsor_report', 'wpcpm_sponsor_event', 'wpcpm_ment_app', 'wpcpm_inst_record', 'wpcpm_inst_note', 'wpcpm_inst_lead', 'wpcpm_stu_reg', 'wpcpm_student_int' );
 
 foreach ( $plugin_types as $type ) {
 	a_post( $type, 'private', 'wpcpm_offer' === $type ? array( '_wpcpm_offer_sponsor' => 'recSEED0000000003' ) : array() );
@@ -1317,6 +1317,7 @@ $names = array(
 	'WPCPM_Sponsor_Offers::POST_TYPE'               => 'wpcpm_offer',
 	'WPCPM_Mentor_Calls::POST_TYPE'                 => 'wpcpm_mentor_call',
 	'WPCPM_Mentor_Notes::POST_TYPE'                 => 'wpcpm_mentor_note',
+	'WPCPM_Student_Questions::POST_TYPE'            => 'wpcpm_question',
 	'WPCPM_Institution_Invite::POST_TYPE'           => 'wpcpm_inst_invite',
 	'WPCPM_Sponsor_Agreement::POST_TYPE'            => 'wpcpm_sponsor_agr',
 	'WPCPM_Sponsor_Offers::META_SPONSOR'            => '_wpcpm_offer_sponsor',

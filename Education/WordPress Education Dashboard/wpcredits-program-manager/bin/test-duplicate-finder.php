@@ -827,6 +827,14 @@ foreach ( array( 'includes/tools/class-wpcpm-duplicate-finder.php', 'includes/to
 	ck( 'no dash but the plain hyphen in ' . $file, 1 === preg_match( '/\x{2013}|\x{2014}/u', (string) file_get_contents( WPCPM_PLUGIN_DIR . $file ) ), false );
 }
 
+// A question sent to a mentor is named in words, not by its type.
+ck( 'a reference held by a question to a mentor reads in words, and twice as a count',
+    array(
+        WPCPM_Duplicate_Finder_Screen::refs( array( array( 'kind' => 'wpcpm_question', 'key' => '_wpcpm_student_record_id' ) ) ),
+        WPCPM_Duplicate_Finder_Screen::refs( array( array( 'kind' => 'wpcpm_question', 'key' => 'a' ), array( 'kind' => 'wpcpm_question', 'key' => 'b' ) ) ),
+    ),
+    array( 'a question to a mentor', '2 × a question to a mentor' ) );
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );

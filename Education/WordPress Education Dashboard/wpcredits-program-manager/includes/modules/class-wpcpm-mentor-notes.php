@@ -72,6 +72,25 @@ class WPCPM_Mentor_Notes {
 	 */
 	const AUDIENCE_INSTITUTION = 'institution';
 
+	/**
+	 * Who wrote the note: the mentor, as every note so far, or Need help? on the student's behalf.
+	 *
+	 * **Absent means the mentor.** `is_mentors()` is the one place that is written down. A Need help? note
+	 * is written by `add_need_help_note()` alone, with `post_author` the student it is about, so no count
+	 * of what a mentor wrote, and no row of the engagement figures (which group notes by `post_author`),
+	 * reads it as theirs.
+	 */
+	const META_SOURCE = '_wpcpm_note_source';
+
+	/** Source: a note Need help? wrote about the student, for their mentor to read. */
+	const SOURCE_NEED_HELP = 'need_help';
+
+	/** Longest Need help? note kept: longer words are cut, never refused for length. */
+	const NEED_HELP_MAX = 2000;
+
+	/** How many Need help? notes one student's account may have written a UTC day. */
+	const NEED_HELP_PER_DAY = 10;
+
 	const ACTION_ADD    = 'wpcpm_add_note';
 	const ACTION_DELETE = 'wpcpm_delete_note';
 
@@ -255,6 +274,35 @@ class WPCPM_Mentor_Notes {
 	}
 
 	/**
+	 * Whether the mentor wrote this note.
+	 *
+	 * The one place "absent means the mentor's" is written down for the source, as `audience_of()` is for
+	 * the audience, and the only reader of `META_SOURCE` that decides whose a note is. Absent is the
+	 * mentor's, and *only* absent: a Need help? note is not, and a value this class did not write is not
+	 * either, so a hand-edited row fails closed and is counted as nobody's.
+	 *
+	 * @param int|WP_Post $note The note, or its ID.
+	 * @return bool
+	 */
+	public static function is_mentors( $note ) {
+		$note_id = $note instanceof WP_Post ? (int) $note->ID : (int) $note;
+
+		return '' === sanitize_key( (string) get_post_meta( $note_id, self::META_SOURCE, true ) );
+	}
+
+	/**
+	 * Whether Need help? wrote this note.
+	 *
+	 * @param int|WP_Post $note The note, or its ID.
+	 * @return bool
+	 */
+	private static function is_need_help( $note ) {
+		$note_id = $note instanceof WP_Post ? (int) $note->ID : (int) $note;
+
+		return self::SOURCE_NEED_HELP === sanitize_key( (string) get_post_meta( $note_id, self::META_SOURCE, true ) );
+	}
+
+	/**
 	 * Every note about a student for one audience, newest first.
 	 *
 	 * **The audience is required and has no default.** A mentor's notes and a school's (a row an
@@ -267,11 +315,17 @@ class WPCPM_Mentor_Notes {
 	 * and one pass over one student's notes keeps that default in `audience_of()` alone.
 	 * The ceiling spans both audiences, which for a student with two mentors is nowhere near it.
 	 *
-	 * @param string $student_record Airtable record ID of the student.
-	 * @param string $audience       One of `audiences()`. Required: see above.
+	 * **Need help? notes are left out unless asked for.** They are a note about the student, not one the
+	 * mentor wrote, so the default keeps every caller (`count_notes()`, the card's "N notes" line, the
+	 * triage's "Need a call") meaning the mentor's notes. `render()` alone passes `true`, to draw them in
+	 * a list of their own.
+	 *
+	 * @param string $student_record  Airtable record ID of the student.
+	 * @param string $audience        One of `audiences()`. Required: see above.
+	 * @param bool   $with_need_help  Whether to add the Need help? notes to the mentor's. Default false.
 	 * @return WP_Post[]
 	 */
-	public static function get_notes( $student_record, $audience ) {
+	public static function get_notes( $student_record, $audience, $with_need_help = false ) {
 		if ( ! WPCPM_Mentors_Sync::is_record_id( $student_record ) ) {
 			return array();
 		}
@@ -302,7 +356,11 @@ class WPCPM_Mentor_Notes {
 		$notes = array();
 
 		foreach ( $posts as $note ) {
-			if ( $note instanceof WP_Post && self::audience_of( $note ) === $audience ) {
+			if ( ! $note instanceof WP_Post || self::audience_of( $note ) !== $audience ) {
+				continue;
+			}
+
+			if ( self::is_mentors( $note ) || ( $with_need_help && self::is_need_help( $note ) ) ) {
 				$notes[] = $note;
 			}
 		}
@@ -628,6 +686,12 @@ class WPCPM_Mentor_Notes {
 
 		$is_author = ( get_current_user_id() === (int) $note->post_author );
 
+		// A Need help? note is about the student, written for them: the mentor reads it and does not
+		// remove it, and its author is the student, who has no business here. Administrators alone delete one.
+		if ( self::is_need_help( $note ) && ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			wp_die( esc_html__( 'You cannot change notes for that student.', 'wpcredits-program-manager' ), 403 );
+		}
+
 		if ( ! $is_author && ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
 			wp_die( esc_html__( 'You can only delete your own notes.', 'wpcredits-program-manager' ), 403 );
 		}
@@ -708,17 +772,35 @@ class WPCPM_Mentor_Notes {
 	 * @param string $student_record Airtable record ID.
 	 * @param string $student_name   Student's name, stored with any new note.
 	 * @param int    $mentor_id      Mentor whose page is being viewed.
+	 * @param string $before         Markup already escaped by its maker, printed first inside the container: the
+	 *                               questions sent from Need help?, which the theme's grid can only place inside
+	 *                               this block. It carries none of the classes the card's script reads.
 	 */
-	public static function render( $student_record, $student_name, $mentor_id = 0 ) {
+	public static function render( $student_record, $student_name, $mentor_id = 0, $before = '' ) {
 		if ( ! self::user_can_access( $student_record ) ) {
 			return;
 		}
 
-		$notes   = self::get_notes( $student_record, self::AUDIENCE_MENTOR );
+		// The mentor's notes and, apart from them, the ones Need help? wrote. The heading's count and the
+		// list the card's script reads are the mentor's alone.
+		$all       = self::get_notes( $student_record, self::AUDIENCE_MENTOR, true );
+		$notes     = array();
+		$need_help = array();
+
+		foreach ( $all as $one ) {
+			if ( self::is_mentors( $one ) ) {
+				$notes[] = $one;
+			} else {
+				$need_help[] = $one;
+			}
+		}
+
 		$focused = ( self::focused_student() === $student_record );
 		$status = $focused ? sanitize_key( (string) WPCPM_Flash::take( 'note' ) ) : '';
 
 		echo '<section class="wpcpm-notes">';
+
+		echo $before; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped where it is built.
 
 		printf(
 			'<h4 class="wpcpm-notes__title">%1$s <span class="wpcpm-notes__count">%2$s</span></h4>',
@@ -755,6 +837,16 @@ class WPCPM_Mentor_Notes {
 			echo '<ol class="wpcpm-notes__list">';
 			foreach ( $notes as $note ) {
 				self::render_note( $note, $mentor_id );
+			}
+			echo '</ol>';
+		}
+
+		// In a list of their own, with none of the classes the card's script counts and reads
+		// (`wpcpm-note`, `wpcpm-note__meta`): see render_need_help_note().
+		if ( ! empty( $need_help ) ) {
+			echo '<ol class="wpcpm-need-help-notes">';
+			foreach ( $need_help as $note ) {
+				self::render_need_help_note( $note, $mentor_id );
 			}
 			echo '</ol>';
 		}
@@ -827,6 +919,52 @@ class WPCPM_Mentor_Notes {
 	}
 
 	/**
+	 * Render one Need help? note.
+	 *
+	 * **Drawn without the card's classes.** `assets/js/triage.js` counts `.wpcpm-notes__list .wpcpm-note`
+	 * and reads the first `.wpcpm-note__meta time[datetime]` of a card as the date of the last note, so
+	 * a note drawn with either would reach the browser's "Need a call" and last-note date as the mentor's.
+	 * This one is an `li.wpcpm-need-help-note` in an `ol.wpcpm-need-help-notes`, its date is plain text with
+	 * no `datetime`, and an Administrator alone has a delete control, through the existing action.
+	 *
+	 * @param WP_Post $note      Note post.
+	 * @param int     $mentor_id Mentor whose page is being viewed.
+	 */
+	private static function render_need_help_note( WP_Post $note, $mentor_id ) {
+		echo '<li class="wpcpm-need-help-note">';
+
+		echo '<div class="wpcpm-need-help-note__meta">';
+		printf(
+			'<span class="wpcpm-need-help-note__label">%1$s</span> <span class="wpcpm-need-help-note__date">%2$s</span>',
+			esc_html__( 'Need help?', 'wpcredits-program-manager' ),
+			esc_html( get_post_time( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), false, $note ) )
+		);
+		echo '</div>';
+
+		echo '<div class="wpcpm-need-help-note__body">' . wp_kses_post( wpautop( esc_html( $note->post_content ) ) ) . '</div>';
+
+		if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			printf(
+				'<form class="wpcpm-need-help-note__delete" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+				esc_url( admin_url( 'admin-post.php' ) ),
+				esc_attr__( 'Deleting the note', 'wpcredits-program-manager' )
+			);
+			wp_nonce_field( self::ACTION_DELETE . '_' . $note->ID );
+			echo '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_DELETE ) . '" />';
+			printf( '<input type="hidden" name="note_id" value="%d" />', (int) $note->ID );
+			printf( '<input type="hidden" name="mentor" value="%d" />', (int) $mentor_id );
+			printf(
+				'<button type="submit" class="wpcpm-need-help-note__delete-button" data-wpcpm-confirm="%1$s">%2$s</button>',
+				esc_attr__( 'Delete this note? This cannot be undone.', 'wpcredits-program-manager' ),
+				esc_html__( 'Delete', 'wpcredits-program-manager' )
+			);
+			echo '</form>';
+		}
+
+		echo '</li>';
+	}
+
+	/**
 	 * Render the add-note form.
 	 *
 	 * @param string $student_record Airtable record ID.
@@ -868,6 +1006,150 @@ class WPCPM_Mentor_Notes {
 		);
 
 		echo '</form>';
+	}
+
+	/**
+	 * Write a note about a student, as Need help? (AI Mentor R2, 1.123.103).
+	 *
+	 * For the student's own account, while `WPCPM_Student_Questions::mentor_of()` lets them through: its
+	 * refusal comes back unchanged. The row is a mentor-audience note with `post_author` the student, the
+	 * source `need_help` and the student's record, cut at `NEED_HELP_MAX`, so it shows in the mentor's list
+	 * apart from their own notes and no count reads it as theirs.
+	 *
+	 * Two limits answer rather than fail: the same words written for the student in the last 24 hours are
+	 * `duplicate` (the earlier note's ID and time come back), and an eleventh in a UTC day is `limit`, which
+	 * claims nothing. The repeat is judged first, so words that are not written spend no place of the day.
+	 *
+	 * @param int    $student_user_id The student's account.
+	 * @param string $text            The words.
+	 * @return array|WP_Error `note_id`, `student_record_id`, `state` (`written`, `limit` or `duplicate`), `written_at`.
+	 */
+	public static function add_need_help_note( $student_user_id, $text ) {
+		$who = WPCPM_Student_Questions::mentor_of( (int) $student_user_id );
+
+		if ( is_wp_error( $who ) ) {
+			return $who;
+		}
+
+		$text = trim( mb_substr( trim( sanitize_textarea_field( (string) $text ) ), 0, self::NEED_HELP_MAX ) );
+
+		if ( mb_strlen( $text ) < 3 ) {
+			return new WP_Error( 'wpcpm_note_short', __( 'Nothing was saved - the note was too short.', 'wpcredits-program-manager' ) );
+		}
+
+		$student = $who['student'];
+		$record  = (string) $who['student_record'];
+		$answer  = array(
+			'note_id'           => 0,
+			'student_record_id' => $record,
+			'state'             => 'written',
+			'written_at'        => 0,
+		);
+
+		$earlier = self::need_help_repeat_of( (int) $student->ID, $text );
+
+		if ( $earlier instanceof WP_Post ) {
+			$answer['note_id']    = (int) $earlier->ID;
+			$answer['state']      = 'duplicate';
+			$answer['written_at'] = (int) get_post_time( 'U', true, $earlier );
+
+			return $answer;
+		}
+
+		$key = WPCPM_Ceiling::key( 'need_help_day_' . (int) $student->ID );
+
+		if ( ! WPCPM_Ceiling::claim( $key, self::NEED_HELP_PER_DAY, DAY_IN_SECONDS ) ) {
+			$answer['state'] = 'limit';
+
+			return $answer;
+		}
+
+		$now     = time();
+		$post_id = wp_insert_post(
+			wp_slash(
+				array(
+					'post_type'    => self::POST_TYPE,
+					'post_status'  => 'private',
+					'post_author'  => (int) $student->ID,
+					'post_content' => $text,
+					'post_title'   => sprintf(
+						/* translators: %s: date and time. */
+						__( 'Need help? note - %s', 'wpcredits-program-manager' ),
+						wp_date( 'Y-m-d H:i' )
+					),
+				)
+			),
+			true
+		);
+
+		if ( is_wp_error( $post_id ) ) {
+			WPCPM_Ceiling::release( $key, DAY_IN_SECONDS );
+
+			return $post_id;
+		}
+
+		update_post_meta( $post_id, self::META_STUDENT, $record );
+		update_post_meta( $post_id, self::META_AUDIENCE, self::AUDIENCE_MENTOR );
+		update_post_meta( $post_id, self::META_SOURCE, self::SOURCE_NEED_HELP );
+
+		if ( '' !== (string) $student->display_name ) {
+			update_post_meta( $post_id, self::META_STUDENT_NAME, wp_slash( (string) $student->display_name ) );
+		}
+
+		$answer['note_id']    = (int) $post_id;
+		$answer['written_at'] = $now;
+
+		return $answer;
+	}
+
+	/**
+	 * The Need help? note written for this student in the last `DAY_IN_SECONDS` with these very words, or null.
+	 *
+	 * Narrowed by author and source in the query and judged here as well, by the note's own time and by
+	 * `WPCPM_Typed_Text::same_lines()` (kses may have stored an `&` as `&amp;`, and a break may be CR LF).
+	 *
+	 * @param int    $student_user_id The student's account, the notes' author.
+	 * @param string $text            The words, as they would be saved.
+	 * @return WP_Post|null
+	 */
+	private static function need_help_repeat_of( int $student_user_id, string $text ) {
+		$since = time() - DAY_IN_SECONDS;
+		$posts = get_posts(
+			array(
+				'post_type'        => self::POST_TYPE,
+				'post_status'      => 'private',
+				'author'           => $student_user_id,
+				'numberposts'      => 50,
+				'orderby'          => 'date',
+				'order'            => 'DESC',
+				'suppress_filters' => false,
+				'date_query'       => array(
+					array(
+						'column'    => 'post_date_gmt',
+						'after'     => gmdate( 'Y-m-d H:i:s', $since ),
+						'inclusive' => true,
+					),
+				),
+				'meta_query'       => array(
+					array(
+						'key'   => self::META_SOURCE,
+						'value' => self::SOURCE_NEED_HELP,
+					),
+				),
+			)
+		);
+
+		foreach ( $posts as $post ) {
+			if ( ! $post instanceof WP_Post || (int) $post->post_author !== $student_user_id || (int) get_post_time( 'U', true, $post ) < $since ) {
+				continue;
+			}
+
+			if ( WPCPM_Typed_Text::same_lines( $text, (string) $post->post_content ) ) {
+				return $post;
+			}
+		}
+
+		return null;
 	}
 
 	/**

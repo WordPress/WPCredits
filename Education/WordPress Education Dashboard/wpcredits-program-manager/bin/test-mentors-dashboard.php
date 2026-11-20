@@ -156,12 +156,17 @@ class WPCPM_Handbook_Assistant {
 class WPCPM_Call_Calendar {
 	public static function render_mentor( $mentor ) {}
 }
+/** The questions: how many wait per record (`$GLOBALS['waiting']`), and a marker for the list. */
+class WPCPM_Student_Questions {
+	public static function waiting_count( $record ) { return (int) ( $GLOBALS['waiting'][ $record ] ?? 0 ); }
+	public static function render_for( $record, $mentor_id ) { return '<!-- questions ' . $record . ' -->'; }
+}
 class WPCPM_Mentor_Notes {
 	const AUDIENCE_MENTOR = 'mentor';
 	public static function focused_student() { return ''; }
 	public static function anchor( $record ) { return 'student-' . $record; }
-	public static function count_notes( $record, $audience = '' ) { return 0; }
-	public static function render( $record, $name, $mentor_id ) {}
+	public static function count_notes( $record, $audience = '' ) { return (int) ( $GLOBALS['notes'][ $record ] ?? 0 ); }
+	public static function render( $record, $name, $mentor_id, $before = '' ) { echo '<section class="wpcpm-notes">' . $before . '<h4 class="wpcpm-notes__title">Notes</h4></section>'; }
 }
 
 /**
@@ -258,6 +263,25 @@ ck( 'and left as the calendar registered it when one has, so the handle stays on
     array( $GLOBALS['registered']['wpcpm-forms']['src'] ?? null, in_array( 'wpcpm-forms', $GLOBALS['scripts'], true ) ),
     array( 'registered-earlier', true ) );
 
+echo "\n=== A waiting question tags the row ===\n";
+
+/**
+ * One student's card as drawn, by the name its heading prints, or '' when the page has none.
+ *
+ * @param string $html The page.
+ * @param string $name The student's name.
+ * @return string
+ */
+function card_of( $html, $name ) {
+	foreach ( explode( '<article class="wpcpm-mentee"', $html ) as $card ) {
+		if ( false !== strpos( $card, '<h3 class="wpcpm-mentee__name">' . $name . '</h3>' ) ) {
+			return $card;
+		}
+	}
+
+	return '';
+}
+
 echo "\n=== A student's row shows the hours they logged ===\n";
 
 /**
@@ -330,6 +354,22 @@ $GLOBALS['accounts']['recREP00000000005']                    = 45;
 $GLOBALS['umeta'][45][ WPCPM_Students_Sync::META_PROGRAM ] = array( 'program' => 'In Sensei', 'hours' => '99' );
 
 $page = page_for( 30 );
+
+$GLOBALS['waiting'] = array();
+$none               = card_of( page_for( 30 ), 'Ada Example' );
+ck( 'with no question waiting, the row carries no tag', false === strpos( $none, 'Question waiting' ) );
+$GLOBALS['waiting'] = array( 'recREP00000000001' => 2 );
+$tagged             = card_of( page_for( 30 ), 'Ada Example' );
+ck( 'a student with a question waiting has one tag "Question waiting", its own wpcpm-question-tag and no wpcpm-badge (the theme hides the badges in the summary on wide screens)', 1 === substr_count( $tagged, '<span class="wpcpm-question-tag">Question waiting</span>' ) && false === strpos( $tagged, 'wpcpm-badge--question' ) );
+$css_dash = (string) file_get_contents( dirname( __DIR__ ) . '/assets/css/dashboard.css' );
+ck( 'the stylesheet draws the tag with its own rule, not grouped with .wpcpm-badge', 1 === preg_match( '/^\.wpcpm-question-tag \{[^}]*border-radius: var\( --wpc-radius-control \);[^}]*white-space: nowrap;[^}]*\}/m', $css_dash ) && 1 !== preg_match( '/\.wpcpm-badge[^{]*\.wpcpm-question-tag|\.wpcpm-question-tag[^{]*\.wpcpm-badge/', $css_dash ) );
+ck( 'right after the status chip, in the summary, before the details', strpos( $tagged, 'wpcpm-badge--sensei' ) < strpos( $tagged, 'Question waiting' ) && strpos( $tagged, 'Question waiting' ) < strpos( $tagged, '</summary>' ) );
+ck( 'and another student\'s row carries none', false === strpos( card_of( page_for( 30 ), 'Bo Example' ), 'Question waiting' ) );
+ck( 'the list is drawn once, inside the notes container (the theme\'s grid places that block), first, before the notes heading', 1 === substr_count( $tagged, '<!-- questions recREP00000000001 -->' ) && 1 === substr_count( $tagged, '<section class="wpcpm-notes"><!-- questions recREP00000000001 --><h4 class="wpcpm-notes__title">' ) && strpos( $tagged, '</summary>' ) < strpos( $tagged, '<!-- questions' ) );
+$GLOBALS['notes'] = array( 'recREP00000000001' => 2 );
+ck( 'a waiting question leaves the row\'s "N notes" as the notes make it', 1 === substr_count( card_of( page_for( 30 ), 'Ada Example' ), '2 notes' ) );
+$GLOBALS['notes'] = array();
+$GLOBALS['waiting'] = array();
 
 ck( 'a track with a target shows the hours against it', hours_row( $page, 'Ada Example' ), '12 of 150' );
 ck( 'a track with no target shows the hours alone', hours_row( $page, 'Bo Example' ), '7.5 h' );

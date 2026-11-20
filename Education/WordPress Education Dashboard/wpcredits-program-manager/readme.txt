@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.102
+Stable tag: 1.123.103
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,16 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.103 =
+
+* Need help? shows three questions to try, chosen for the reader's role, in the box on every dashboard and on the Need help? page. Pressing one asks it.
+* When nothing in the guides answers a question, Need help? links the WordPress Credits Slack channel.
+* Send to mentors, a new setting on the Need help? screen, lets a student with a mentor send a question Need help? could not answer to that mentor. The mentor gets an email and can reply to the student directly, and the question waits on the Mentor Report Card, tagged Question waiting, until the mentor presses Mark as answered. A student can send three questions a day, and a student without a mentor is pointed to the Slack channel instead. The setting is off, so nobody sees any of this until an Administrator turns it on.
+* Tools > Emails: a new email, A student's question, to the mentor.
+* Export Personal Data and Erase Personal Data now cover a student's questions to a mentor and the notes Need help? writes for them.
+* Claude access: two new abilities, wpcpm/post-student-message and wpcpm/add-mentor-note, for the program's own tools. Each acts only for the signed-in student and is refused to every Administrator, so no Claude connection can call them. Their calls are logged with record IDs and none of the text.
+* Administrator guide: the Send to mentors setting, the new email and the ten abilities. Student guide: the questions to try.
 
 = 1.123.102 =
 

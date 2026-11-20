@@ -1161,6 +1161,12 @@ class WPCPM_Mentors_Dashboard {
 			);
 		}
 
+		// A question the student sent from Need help? and the mentor has not marked answered: a tag
+		// right after the status chip, so it shows while the row is closed. Never counted as a note.
+		if ( '' !== $record && WPCPM_Student_Questions::waiting_count( $record ) > 0 ) {
+			echo '<span class="wpcpm-question-tag">' . esc_html__( 'Question waiting', 'wpcredits-program-manager' ) . '</span>';
+		}
+
 		// Enough to identify a student while collapsed, so the list is useful
 		// without opening every row.
 		$note_count = ( '' !== $record ) ? WPCPM_Mentor_Notes::count_notes( $record, WPCPM_Mentor_Notes::AUDIENCE_MENTOR ) : 0;
@@ -1318,7 +1324,11 @@ class WPCPM_Mentors_Dashboard {
 		// The mentor's own notes on this student, beside the table. Rendered before the report so
 		// that the source order matches what the grid draws - table and notes side by side, the
 		// report underneath both - and so the single-column layout on a phone reads the same way.
-		WPCPM_Mentor_Notes::render( $record, $name, $mentor_id );
+		// The questions sent from Need help? are drawn first inside the notes block: the theme's grid
+		// places the table, the notes block and the report, and nothing else.
+		$questions = ( '' !== $record ) ? WPCPM_Student_Questions::render_for( $record, $mentor_id ) : '';
+
+		WPCPM_Mentor_Notes::render( $record, $name, $mentor_id, $questions );
 
 		// The student's own report form, **read only**, in a disclosure of its own. The route it is
 		// fetched from renders it as a record rather than as something to change, whoever is

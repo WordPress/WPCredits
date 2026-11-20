@@ -209,9 +209,10 @@ $GLOBALS['requests'] = array();
 function wp_json_encode( $v ) { return json_encode( $v ); }
 
 class WP_REST_Response {
-	public $data;
-	public function __construct( $data, $status = 200 ) { $this->data = $data; }
+	public $data, $status;
+	public function __construct( $data, $status = 200 ) { $this->data = $data; $this->status = $status; }
 	public function get_data() { return $this->data; }
+	public function get_status() { return $this->status; }
 }
 class WP_REST_Request {
 	private $params = array();
@@ -281,6 +282,36 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-admin.php';
 
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
+
+if ( ! class_exists( 'WPCPM_Student_Questions' ) ) {
+	// The rule itself is the suite of its own; here only what the reply does with its answer.
+	class WPCPM_Student_Questions {
+		const NOTE_MAX         = 600;
+		const ERROR_SHORT      = 'wpcpm_question_short';
+		const ERROR_NO_RECORD   = 'wpcpm_no_record';
+		const ERROR_NO_MENTOR   = 'wpcpm_no_mentor';
+		const ERROR_MENTOR_GONE = 'wpcpm_mentor_gone';
+		const ERROR_PAST        = 'wpcpm_past';
+		// The switch, and the code mentor_of() refuses with while `$may` is false.
+		public static $on   = true;
+		public static $code = 'wpcpm_send_off';
+		public static function switched_on() { return self::$on; }
+		public static $may      = true;
+		// The accounts that hold the student role and have a mentor: mentor_of() refuses everybody else.
+		public static $students = array( 3 );
+		// What send() was asked, in order, and what it gives back (null: a sent question).
+		public static $sends = array();
+		public static $next  = null;
+		public static function mentor_of( $id ) {
+			return ( self::$may && in_array( (int) $id, self::$students, true ) ) ? array( 'student' => $GLOBALS['users'][ (int) $id ] ?? null ) : new WP_Error( self::$code );
+		}
+		public static function send( $id, $question, $note = '', $links = array() ) {
+			self::$sends[] = array( $id, $question, $note, $links );
+
+			return null !== self::$next ? self::$next : array( 'question_id' => 77, 'student_record_id' => 'recSTU', 'mentor_record_id' => 'recMEN', 'state' => 'sent', 'emailed' => true, 'sent_at' => 1 );
+		}
+	}
+}
 
 /* ---- runner ------------------------------------------------------------- */
 $fail = 0;
@@ -1655,9 +1686,9 @@ ck( 'the tool reports itself off rather than unsynced',
     array( $tool->status_line(), $tool->is_ready() ), array( 'Switched off.', false ) );
 
 // Its settings are drawn and saved on its own screen, in its Settings section, under its own scope.
-ck( 'it keeps four settings of its own, the switch among them, saved under its own scope: the provider and its key are Settings > Connectors\'',
+ck( 'it keeps five settings of its own, the switch among them, saved under its own scope: the provider and its key are Settings > Connectors\'',
     array( method_exists( $tool, 'settings_keys' ) ? $tool->settings_keys() : null, method_exists( $tool, 'settings_scope' ) ? $tool->settings_scope() : null ),
-    array( array( 'handbook_enabled', 'handbook_model', 'handbook_access', 'handbook_limit' ), 'tool:handbook' ) );
+    array( array( 'handbook_enabled', 'handbook_model', 'handbook_access', 'handbook_limit', 'handbook_to_mentors' ), 'tool:handbook' ) );
 
 // A page announcing a switched-off feature is worse than a blank one; a manager still needs
 // to know why the page they are looking at is empty.
@@ -3785,6 +3816,809 @@ ck( 'the answer instructions set "found" to false only when no passage says anyt
 ck( 'the answer instructions tell the model to write plain hyphens, never em or en dashes, and are free of those dashes themselves',
     array( false !== strpos( $answer_rules, 'Write plain hyphens, never em or en dashes.' ), 1 === preg_match( '/\x{2014}|\x{2013}/u', $answer_rules ) ),
     array( true, false ) );
+
+echo "\n=== Examples, the channel and the reply's new keys (AI Mentor R2, Task 6) ===\n";
+
+// What this block pins, and why:
+//
+// - **Three examples per role.** The spec's section 7 table, word for word, and the student's three for an
+//   audience nobody knows, so the box is never empty.
+// - **The reply says what it is.** `found`, `nothing`, `channel` and `may_send`, which the Send to my mentor
+//   control reads: `may_send` only for the student's own box, and only while `mentor_of()` allows it.
+// - **The channel.** After the nothing sentence, the box's audience's Slack channel as a link, in the panel and
+//   on the page, and on no other answer.
+
+// A passage to answer from, at the public level, and the FAQ published.
+$GLOBALS['status'][2746] = 'publish';
+write_page( 'page:2746', 'faq', 'public', 'Frequently asked questions', $site . 'faq/', array(
+	array( 'heading' => 'When is the weekly report due?', 'anchor' => 'report-due', 'body' => 'The weekly report is due every Friday, and your mentor reads it before your weekly call.' ),
+) );
+
+$wanted_examples = array(
+	'student'       => array( 'How do I book a call with my mentor?', 'My status says Pending graduation. Am I still on the program?', 'Do I need to know how to code?' ),
+	'mentor'        => array( 'How do I set my availability so students can book calls?', 'What should I talk about in the first check-in with a new student?', 'How do I check that a student\'s contributions are genuine?' ),
+	'institution'   => array( 'How do we enroll our students?', 'When do we get the semester report, and who writes it?', 'How do we record that a student dropped out?' ),
+	'sponsor'       => array( 'How do I create an offer for students?', 'What happens when our discount codes run low?', 'Who approves our posts before they are published?' ),
+	'administrator' => array( 'How do I approve a mentor application?', 'How does a student get their certificate?', 'What is needed to sign up an institution?' ),
+);
+
+foreach ( $wanted_examples as $role => $three ) {
+	ck( "the $role's three examples are the spec's, word for word", WPCPM_Handbook_Assistant::examples( $role ), $three );
+}
+
+ck( 'an audience nobody knows gets the student\'s three',
+    array( WPCPM_Handbook_Assistant::examples( '' ) === $wanted_examples['student'], WPCPM_Handbook_Assistant::examples( 'public' ) === $wanted_examples['student'] ), array( true, true ) );
+
+// The five guides' pages, published at their levels, and the accounts that read them: a box that names no card
+// stands for the asker's own, which is the guide `home_for()` finds. A student (3), a mentor (2), an
+// institution's member (6), a sponsor (7) and an Administrator (4) each read their own.
+$GLOBALS['users'][6] = new WP_User( 6, 'Institution', array( WPCPM_Roles::ROLE_INSTITUTION ) );
+$GLOBALS['users'][7] = new WP_User( 7, 'Sponsor', array( WPCPM_Roles::ROLE_SPONSOR ) );
+foreach ( array(
+	4701 => array( 'student-guide', WPCPM_Roles::ROLE_STUDENT ),
+	4702 => array( 'mentor-guide', WPCPM_Roles::ROLE_MENTOR ),
+	4703 => array( 'institution-guide', WPCPM_Roles::ROLE_INSTITUTION ),
+	4704 => array( 'sponsor-guide', WPCPM_Roles::ROLE_SPONSOR ),
+	4705 => array( 'administrator-guide', WPCPM_Roles::ROLE_ADMIN ),
+) as $guide_id => $guide_at ) {
+	$guide_post              = new WP_Post();
+	$guide_post->ID          = $guide_id;
+	$guide_post->post_type   = 'page';
+	$guide_post->post_status = 'publish';
+	$GLOBALS['pages'][ $guide_at[0] ]                              = $guide_post;
+	$GLOBALS['pmeta'][ $guide_id ][ WPCPM_Content_Access::META_KEY ] = $guide_at[1];
+}
+$GLOBALS['grants'][3] = array( WPCPM_Roles::CAP_VIEW_STUDENT );
+$GLOBALS['grants'][2] = array( WPCPM_Roles::CAP_VIEW_MENTOR );
+$GLOBALS['grants'][6] = array( WPCPM_Roles::CAP_VIEW_INSTITUTION );
+$GLOBALS['grants'][7] = array( WPCPM_Roles::CAP_VIEW_SPONSOR );
+$GLOBALS['manage']    = array( 4 );
+
+$settings = WPCPM_Settings::defaults();
+$settings['handbook_access']  = 'program';
+$settings['handbook_enabled'] = true;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
+set_providers( $google );
+$GLOBALS['uid'] = 3;
+$GLOBALS['localized'] = array();
+WPCPM_Handbook_Assistant::enqueue();
+$localized = $GLOBALS['localized']['wpcpmHandbook'] ?? array();
+
+ck( 'the panel is handed the five audiences\' examples',
+    array( $localized['examples'] ?? null ), array( $wanted_examples ) );
+
+// The answers' new key.
+$GLOBALS['uid'] = 2;
+script( words_reply( 'English', array( 'zzz' ) ) );
+$none_answer = WPCPM_Handbook_Answer::ask( 'Where do I go?', 0, 'mentor' );
+script( words_reply( 'English', array( 'weekly', 'report', 'due', 'friday' ) ), answer_reply( 'Every Friday.', array( 1 ) ) );
+$written_answer = WPCPM_Handbook_Answer::ask( 'When is the weekly report due?', 0, 'mentor' );
+script( client_error( 'prompt_client_error', 503 ) );
+$fallback_answer = WPCPM_Handbook_Answer::ask( 'When is the weekly report due?', 0, 'mentor' );
+$blank_answer    = WPCPM_Handbook_Answer::ask( '   ', 0, 'mentor' );
+ck( 'only the nothing answer says nothing: a written answer, a fallback and an empty question do not',
+    array( $none_answer['nothing'], $written_answer['nothing'], $fallback_answer['nothing'], $blank_answer['nothing'] ),
+    array( true, false, false, false ) );
+ck( 'and an index not read yet is not "nothing" either',
+    array( 1 === preg_match( '/function not_ready.*?without_answer/s', file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php' ) ), false !== strpos( file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php' ), "'nothing'   => false" ) ),
+    array( true, true ) );
+
+// The reply.
+$slack_student = 'https://wordpress.slack.com/archives/C0959D2M3T8';
+$slack_mentor  = 'https://wordpress.slack.com/archives/C09KYQLS7F1';
+$label_student = 'Ask in the WordPress Credits Slack channel';
+$label_mentor  = 'Ask in the mentors Slack channel';
+$reply_for     = static function ( $uid, $audience, $question = 'Where do I go?' ) {
+	$GLOBALS['uid'] = $uid;
+	$args           = array( 'question' => $question );
+
+	if ( null !== $audience ) {
+		$args['audience'] = $audience;
+	}
+
+	return WPCPM_Handbook_Assistant::rest_ask( new WP_REST_Request( $args ) )->get_data();
+};
+$keys = static function ( $data ) {
+	return array( $data['found'] ?? 'missing', $data['nothing'] ?? 'missing', $data['channel'] ?? 'missing', $data['may_send'] ?? 'missing' );
+};
+
+WPCPM_Student_Questions::$may = true;
+script( words_reply( 'English', array( 'weekly', 'report', 'due', 'friday' ) ), answer_reply( 'Every Friday.', array( 1 ) ) );
+$r_written = $reply_for( 3, 'student', 'When is the weekly report due?' );
+script( client_error( 'prompt_client_error', 503 ) );
+$r_fallback = $reply_for( 3, 'student', 'When is the weekly report due?' );
+script( words_reply( 'English', array( 'zzz' ) ) );
+$r_nothing = $reply_for( 3, 'student' );
+script( words_reply( 'English', array( 'zzz' ) ) );
+$r_admin = $reply_for( 4, 'administrator' );
+script( words_reply( 'English', array( 'zzz' ) ) );
+$r_mentor = $reply_for( 2, 'mentor' );
+script( words_reply( 'English', array( 'zzz' ) ) );
+$r_unknown = $reply_for( 3, 'whatever' );
+script( words_reply( 'English', array( 'zzz' ) ) );
+$r_none = $reply_for( 3, null );
+script( words_reply( 'English', array( 'zzz' ) ) );
+$r_student_on_mentor_box = $reply_for( 3, 'mentor' );
+script( words_reply( 'English', array( 'zzz' ) ) );
+$r_none_mentor = $reply_for( 2, null );
+WPCPM_Student_Questions::$may = false;
+script( words_reply( 'English', array( 'zzz' ) ) );
+$r_no_mentor = $reply_for( 3, 'student' );
+$channel_student = array( 'url' => $slack_student, 'label' => $label_student );
+$channel_mentor  = array( 'url' => $slack_mentor, 'label' => $label_mentor );
+
+ck( 'a written answer: found, not nothing, the channel, and a student with a mentor may send',
+    $keys( $r_written ), array( true, false, $channel_student, true ) );
+ck( 'the passages without a written answer: found, not nothing, and still the student\'s to send',
+    array( $r_fallback['found'], $r_fallback['nothing'], $r_fallback['may_send'] ), array( true, false, true ) );
+WPCPM_Student_Questions::$may = false;
+script( client_error( 'prompt_client_error', 503 ) );
+$r_fallback_off = $reply_for( 3, 'student', 'When is the weekly report due?' );
+ck( 'but with the switch off or no mentor, the same fallback may not',
+    array( $r_fallback_off['found'], $r_fallback_off['nothing'], $r_fallback_off['may_send'] ), array( true, false, false ) );
+WPCPM_Student_Questions::$may = true;
+ck( 'a nothing answer to a student with a mentor: not found, nothing, the Slack channel, may send',
+    $keys( $r_nothing ), array( false, true, $channel_student, true ) );
+ck( 'an Administrator\'s box: the same channel as the student\'s, and nothing to send',
+    $keys( $r_admin ), array( false, true, $channel_student, false ) );
+ck( 'a mentor\'s box: the mentors\' channel, and nothing to send',
+    $keys( $r_mentor ), array( false, true, $channel_mentor, false ) );
+ck( 'an unknown audience and none: the asker\'s own box, so a student with a mentor reads the student\'s channel and may send',
+    array( $r_unknown['channel'], $r_none['channel'], $r_unknown['may_send'], $r_none['may_send'] ), array( $channel_student, $channel_student, true, true ) );
+ck( 'from the header (no card) a mentor\'s nothing answer links the mentors\' channel, a student\'s the students\'',
+    array( $r_none_mentor['channel'], $r_none['channel'] ), array( $channel_mentor, $channel_student ) );
+ck( 'a student\'s account on the mentors\' box may not send: it is the student\'s own box alone',
+    array( $r_student_on_mentor_box['may_send'], $r_student_on_mentor_box['channel'] ), array( false, $channel_mentor ) );
+ck( 'a student with no mentor, or the switch off, may not send',
+    array( $r_no_mentor['may_send'], $r_no_mentor['nothing'] ), array( false, true ) );
+ck( 'the empty question still answers, with no key a reader needs',
+    array( isset( $reply_for( 3, 'student', '   ' )['text'] ) ), array( true ) );
+WPCPM_Student_Questions::$may = true;
+
+// The panel: the channel's link after a nothing answer, examples in the empty state, a press asks it.
+ck( 'the panel draws the examples of the card it was opened from, and asks the one pressed at once',
+    array(
+        false !== strpos( $handbook_js, 'config.examples' ),
+        false !== strpos( $handbook_js, 'data-wpcpm-handbook-example' ),
+        1 === preg_match( '/example[^\n]*\n[^\n]*input\.value\s*=/s', $handbook_js ) || 1 === preg_match( '/input\.value\s*=\s*[a-z.\-\[\]\' ]*;\s*ask\(/s', $handbook_js ),
+        false !== strpos( $handbook_js, 'data.channel' ),
+        false !== strpos( $handbook_js, 'data.nothing' ),
+    ),
+    array( true, true, true, true, true ) );
+ck( 'the channel\'s link is made with createElement and textContent, opened in a new tab without an opener',
+    array(
+        1 === preg_match( '/function channelLink.*?createElement\( \'a\' \).*?textContent = [^;]*label.*?target = \'_blank\'.*?rel = \'noopener noreferrer\'/s', $handbook_js ),
+        false !== strpos( $handbook_js, 'channelLink( data.channel )' ),
+    ),
+    array( true, true ) );
+
+// The page.
+$GLOBALS['uid'] = 2;
+$_GET = array();
+$page_none = WPCPM_Handbook_Assistant::render();
+ck( 'the page\'s empty box shows the asker\'s own three (a mentor\'s here) as links when no card is named',
+    array_map( static function ( $e ) use ( $page_none ) { return false !== strpos( $page_none, '>' . esc_html( $e ) . '</a>' ); }, $wanted_examples['mentor'] ),
+    array( true, true, true ) );
+$_GET = array( 'wpcpm_ask_for' => 'mentor' );
+$page_for = WPCPM_Handbook_Assistant::render();
+ck( 'and the named card\'s three, and none of the student\'s',
+    array(
+        array_map( static function ( $e ) use ( $page_for ) { return false !== strpos( $page_for, '>' . esc_html( $e ) . '</a>' ); }, $wanted_examples['mentor'] ),
+        false !== strpos( $page_for, $wanted_examples['student'][0] ),
+    ),
+    array( array( true, true, true ), false ) );
+
+$_GET = array( 'wpcpm_ask' => 'Where do I go?', 'wpcpm_ask_for' => 'mentor' );
+script( words_reply( 'English', array( 'zzz' ) ) );
+$page_nothing = WPCPM_Handbook_Assistant::render();
+ck( 'a nothing answer on the page ends with the box\'s channel as a link, the sentence unchanged',
+    array(
+        false !== strpos( $page_nothing, esc_html( 'Ask in the program\'s Slack channel.' ) ),
+        false !== strpos( $page_nothing, '<a class="wpcpm-handbook__channel" href="' . $slack_mentor . '" target="_blank" rel="noopener noreferrer">' . $label_mentor . '</a>' ),
+    ),
+    array( true, true ) );
+$_GET = array( 'wpcpm_ask' => 'Where do I go?' );
+$GLOBALS['uid'] = 3;
+script( words_reply( 'English', array( 'zzz' ) ) );
+ck( 'with no card named it is the asker\'s own channel: a student\'s the students\'',
+    array( false !== strpos( WPCPM_Handbook_Assistant::render(), 'href="' . $slack_student . '"' ) ), array( true ) );
+$GLOBALS['uid'] = 2;
+$_GET = array( 'wpcpm_ask' => 'When is the weekly report due?', 'wpcpm_ask_for' => 'mentor' );
+script( words_reply( 'English', array( 'weekly', 'report', 'due', 'friday' ) ), answer_reply( 'Every Friday.', array( 1 ) ) );
+ck( 'a written answer on the page draws no channel link',
+    array( false !== strpos( WPCPM_Handbook_Assistant::render(), 'wpcpm-handbook__channel' ) ), array( false ) );
+$_GET = array();
+$GLOBALS['uid'] = 2;
+
+echo "\n=== Send to my mentor, in the box and on the page (AI Mentor R2, Task 7) ===\n";
+
+// What this block pins, and why:
+//
+// - **Only the student.** The route, the page's form and its handler answer for a signed-in student whose
+//   `mentor_of()` allows it, and for nobody else: an Administrator, a mentor, an institution's member, a
+//   sponsor, a subscriber, a signed-out visitor, a student with no mentor, the switch off. The handler checks
+//   the account before the nonce, so a refused account learns nothing from the nonce.
+// - **The route's reply** is `state` and the sentence, for a sent question, a limit, a repeat and a refusal
+//   (403 for who may not send, 400 for a question too short).
+// - **A double press or a stale page.** The form carries `data-wpcpm-once`, the panel's Send disables itself
+//   and keeps one request in flight; an expired nonce is refused with the core message and sends nothing.
+// - **The control by case.** The primary button after a nothing answer, the small link after any other, the
+//   preview with the question as text, the note's field at 600 characters, and the sentence in its place.
+function wp_get_referer() { return $GLOBALS['referer'] ?? false; }
+function wp_validate_redirect( $location, $fallback = '' ) { return 'example.test' === ( parse_url( (string) $location, PHP_URL_HOST ) ?: '' ) ? (string) $location : $fallback; }
+function wp_referer_field( $echo = true ) { $f = '<input type="hidden" name="_wp_http_referer" value="' . esc_attr( $GLOBALS['referer'] ?? '' ) . '" />'; if ( $echo ) { echo $f; } return $f; }
+function sanitize_textarea_field( $s ) { return trim( strip_tags( (string) $s ) ); }
+function remove_query_arg( $key, $url = '' ) { return preg_replace( '/[?&]' . preg_quote( $key, '/' ) . '=[^&#]*/', '', (string) $url ); }
+function wp_script_is( $handle, $list = 'enqueued' ) { return isset( $GLOBALS['scripts'][ $handle ][ $list ] ); }
+function wp_register_script( $handle, $src = '', $deps = array(), $ver = false, $in_footer = false ) { $GLOBALS['scripts'][ $handle ]['registered'] = $src; return true; }
+
+$sentence = array(
+	'sent'      => 'Sent. Your mentor gets an email and can reply to you directly.',
+	'limit'     => 'You have sent your mentor three questions today. Ask in the WordPress Credits Slack channel, or try again tomorrow.',
+	'duplicate' => 'You sent your mentor this question in the last day. They will reply by email.',
+	'refused'   => 'This question cannot be sent to a mentor from here.',
+);
+
+$settings = WPCPM_Settings::defaults();
+$settings['handbook_access']  = 'program';
+$settings['handbook_enabled'] = true;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
+$GLOBALS['users'][6] = new WP_User( 6, 'Institution', array( WPCPM_Roles::ROLE_INSTITUTION ) );
+$GLOBALS['users'][7] = new WP_User( 7, 'Sponsor', array( WPCPM_Roles::ROLE_SPONSOR ) );
+WPCPM_Student_Questions::$may      = true;
+WPCPM_Student_Questions::$students = array( 3 );
+WPCPM_Student_Questions::$sends    = array();
+WPCPM_Student_Questions::$next     = null;
+set_providers( $google );
+
+// The route.
+$GLOBALS['routes'] = array();
+WPCPM_Handbook_Assistant::register_route();
+$send_route = $GLOBALS['routes']['wpcpm/v1/handbook/send'] ?? array();
+$send_args  = $send_route['args'] ?? array();
+
+ck( 'the send route is a POST with the question (required), the note and the links',
+    array( $send_route['methods'] ?? null, $send_args['question']['type'] ?? null, ! empty( $send_args['question']['required'] ), $send_args['note']['type'] ?? null, ! empty( $send_args['note']['required'] ), $send_args['links']['type'] ?? null ),
+    array( 'POST', 'string', true, 'string', false, 'array' ) );
+
+$may_use = static function ( $uid ) use ( $send_route ) {
+	$GLOBALS['uid'] = $uid;
+
+	return (bool) call_user_func( $send_route['permission_callback'] );
+};
+
+ck( 'a student with a mentor may use it',
+    array( $may_use( 3 ) ), array( true ) );
+ck( 'and nobody else: an Administrator, a mentor, an institution\'s member, a sponsor, a subscriber, a visitor',
+    array( $may_use( 4 ), $may_use( 2 ), $may_use( 6 ), $may_use( 7 ), $may_use( 5 ), $may_use( 0 ) ),
+    array( false, false, false, false, false, false ) );
+WPCPM_Student_Questions::$may = false;
+ck( 'not even the student, with the switch off or no mentor or a past student: the rule says no',
+    array( $may_use( 3 ) ), array( false ) );
+WPCPM_Student_Questions::$may = true;
+$settings['handbook_access'] = 'manage';
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
+ck( 'nor a student the box is not open to',
+    array( $may_use( 3 ) ), array( false ) );
+$settings['handbook_access'] = 'program';
+$settings['handbook_enabled'] = false;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
+ck( 'nor anybody while Need help? is off',
+    array( $may_use( 3 ) ), array( false ) );
+$settings['handbook_enabled'] = true;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
+
+// The reply.
+$post_send = static function ( $args, $next = null ) {
+	$GLOBALS['uid']                    = 3;
+	WPCPM_Student_Questions::$sends    = array();
+	WPCPM_Student_Questions::$next     = $next;
+
+	return WPCPM_Handbook_Assistant::rest_send( new WP_REST_Request( $args ) );
+};
+$links_sent = array( 'https://example.test/faq/#report-due' );
+$r_sent     = $post_send( array( 'question' => 'When is the weekly report due?', 'note' => 'It is for Friday.', 'links' => $links_sent ) );
+ck( 'a sent question: the state and the sentence, and what was asked is what is sent for the signed-in student',
+    array( $r_sent->get_data(), $r_sent->get_status(), WPCPM_Student_Questions::$sends ),
+    array( array( 'state' => 'sent', 'message' => $sentence['sent'] ), 200, array( array( 3, 'When is the weekly report due?', 'It is for Friday.', $links_sent ) ) ) );
+$r_limit = $post_send( array( 'question' => 'A fourth one today?' ), array( 'state' => 'limit', 'question_id' => 0 ) );
+ck( 'a fourth question of the day: the limit\'s sentence',
+    array( $r_limit->get_data(), $r_limit->get_status() ), array( array( 'state' => 'limit', 'message' => $sentence['limit'] ), 200 ) );
+$r_dup = $post_send( array( 'question' => 'When is the weekly report due?' ), array( 'state' => 'duplicate', 'question_id' => 77 ) );
+ck( 'the same question within a day: the repeat\'s sentence',
+    array( $r_dup->get_data(), $r_dup->get_status() ), array( array( 'state' => 'duplicate', 'message' => $sentence['duplicate'] ), 200 ) );
+$r_none = $post_send( array( 'question' => 'When is the weekly report due?' ), new WP_Error( 'wpcpm_no_mentor', 'This student has no mentor yet.' ) );
+ck( 'a refusal of who may send: refused, the one sentence (not the rule\'s own words), 403',
+    array( $r_none->get_data(), $r_none->get_status() ), array( array( 'state' => 'refused', 'message' => $sentence['refused'] ), 403 ) );
+$r_short = $post_send( array( 'question' => 'Hi' ), new WP_Error( 'wpcpm_question_short', 'Nothing was sent - the question was too short.' ) );
+ck( 'a question too short: refused, the same sentence, 400',
+    array( $r_short->get_data(), $r_short->get_status() ), array( array( 'state' => 'refused', 'message' => $sentence['refused'] ), 400 ) );
+$r_bare = $post_send( array( 'question' => 'When is the weekly report due?', 'links' => 'not-a-list' ) );
+ck( 'a links value that is not a list is sent as none',
+    array( WPCPM_Student_Questions::$sends[0][3] ), array( array() ) );
+ck( 'the route reuses the ask route\'s nonce and its own permission; the sentences are written once',
+    array(
+        ( $send_route['permission_callback'] ?? null ) === array( 'WPCPM_Handbook_Assistant', 'rest_send_permission' ),
+        substr_count( $assistant_src, 'Sent. Your mentor gets an email and can reply to you directly.' ),
+        substr_count( $assistant_src, 'You have sent your mentor three questions today. Ask in the WordPress Credits Slack channel, or try again tomorrow.' ),
+    ),
+    array( true, 1, 1 ) );
+
+// The panel is handed what it needs.
+$GLOBALS['uid']       = 3;
+$GLOBALS['localized'] = array();
+WPCPM_Handbook_Assistant::enqueue();
+$localized = $GLOBALS['localized']['wpcpmHandbook'] ?? array();
+ck( 'the panel is given the send route, the note\'s limit and the words of the control, the preview and the sentences',
+    array(
+        $localized['sendEndpoint'] ?? null,
+        $localized['noteMax'] ?? null,
+        $localized['strings']['send'] ?? null,
+        $localized['strings']['still'] ?? null,
+        $localized['strings']['previewTitle'] ?? null,
+        $localized['strings']['noteLabel'] ?? null,
+        $localized['strings']['submit'] ?? null,
+        $localized['strings']['cancel'] ?? null,
+        $localized['strings']['refused'] ?? null,
+    ),
+    array( 'https://example.test/wp-json/wpcpm/v1/handbook/send', 600, 'Send to my mentor', 'Still stuck? Send this question to your mentor.', 'Send this to your mentor', 'Anything your mentor should know?', 'Send', 'Cancel', $sentence['refused'] ) );
+
+// The page: the control by case.
+$GLOBALS['uid'] = 3;
+$_GET           = array( 'wpcpm_ask' => 'Where do I go?' );
+script( words_reply( 'English', array( 'zzz' ) ) );
+$page_nothing = WPCPM_Handbook_Assistant::render();
+$GLOBALS['uid'] = 3;
+$_GET           = array( 'wpcpm_ask' => 'When is the weekly report due?' );
+script( client_error( 'prompt_client_error', 503 ) );
+$page_passages = WPCPM_Handbook_Assistant::render();
+$GLOBALS['uid'] = 3;
+script( client_error( 'prompt_client_error', 503 ) );
+$reply_passages = $reply_for( 3, 'student', 'When is the weekly report due?' );
+$source_links   = array_map( static function ( $s ) { return $s['link']; }, $reply_passages['sources'] );
+
+ck( 'on a nothing answer the page draws the disclosure with the primary Send to my mentor',
+    array(
+        1 === preg_match( '#<details class="wpcpm-handbook__send">\s*<summary class="wpcpm-button">Send to my mentor</summary>#', $page_nothing ),
+        1 === substr_count( $page_nothing, '<details' ),
+    ),
+    array( true, true ) );
+ck( 'and after the sources, on any other answer, the small link instead',
+    array(
+        1 === preg_match( '#<summary class="wpcpm-handbook__send-link">Still stuck\? Send this question to your mentor\.</summary>#', $page_passages ),
+        false === strpos( $page_passages, '>Send to my mentor</summary>' ),
+        strpos( $page_passages, '<details' ) > strpos( $page_passages, '</ol>' ),
+        ! empty( $source_links ),
+    ),
+    array( true, true, true, true ) );
+ck( 'the form posts to admin-post.php with its action, its nonce, the question as typed and the sources\' links',
+    array(
+        false !== strpos( $page_passages, '<form class="wpcpm-handbook__send-form" method="post" action="https://example.test/wp-admin/admin-post.php"' ),
+        false !== strpos( $page_passages, '<input type="hidden" name="action" value="wpcpm_send_question" />' ),
+        false !== strpos( $page_passages, '<input type="hidden" name="_wpnonce" value="nonce" />' ),
+        false !== strpos( $page_passages, '<input type="hidden" name="question" value="When is the weekly report due?" />' ),
+        array_map( static function ( $l ) use ( $page_passages ) { return false !== strpos( $page_passages, '<input type="hidden" name="links[]" value="' . $l . '" />' ); }, $source_links ),
+    ),
+    array( true, true, true, true, array_fill( 0, count( $source_links ), true ) ) );
+ck( 'with its preview: the heading, the question as text, the field at 600 characters, and Send',
+    array(
+        false !== strpos( $page_passages, '<h3 class="wpcpm-handbook__send-title">Send this to your mentor</h3>' ),
+        false !== strpos( $page_passages, '<p class="wpcpm-handbook__send-question">When is the weekly report due?</p>' ),
+        false !== strpos( $page_passages, 'Anything your mentor should know?' ),
+        1 === preg_match( '#<textarea[^>]*name="note"[^>]*maxlength="600"#', $page_passages ),
+        1 === preg_match( '#<button type="submit" class="wpcpm-button" data-wpcpm-once>Send</button>#', $page_passages ),
+    ),
+    array( true, true, true, true, true ) );
+ck( 'the form is guarded against a second press: data-wpcpm-once and the working word, and the shared script is loaded',
+    array(
+        1 === preg_match( '#<form class="wpcpm-handbook__send-form"[^>]*data-wpcpm-once data-wpcpm-busy="Sending"#', $page_passages ),
+        isset( $GLOBALS['scripts']['wpcpm-forms']['registered'] ),
+    ),
+    array( true, true ) );
+
+// The question is as typed, escaped, never as markup.
+$_GET = array( 'wpcpm_ask' => 'Where do I "go" & stay?' );
+$GLOBALS['uid'] = 3;
+script( words_reply( 'English', array( 'zzz' ) ) );
+$page_escaped = WPCPM_Handbook_Assistant::render();
+ck( 'a question with quotes and an ampersand is escaped in the preview and in the hidden field',
+    array( false !== strpos( $page_escaped, '<p class="wpcpm-handbook__send-question">Where do I &quot;go&quot; &amp; stay?</p>' ), false !== strpos( $page_escaped, 'name="question" value="Where do I &quot;go&quot; &amp; stay?"' ) ),
+    array( true, true ) );
+
+// Never drawn for anybody else, or without a question, or from another audience's card.
+$never = array();
+foreach ( array( 'an Administrator' => 4, 'a mentor' => 2, 'an institution\'s member' => 6, 'a sponsor' => 7 ) as $who => $uid ) {
+	$GLOBALS['uid'] = $uid;
+	$_GET           = array( 'wpcpm_ask' => 'Where do I go?' );
+	script( words_reply( 'English', array( 'zzz' ) ) );
+	$never[ $who ] = false !== strpos( WPCPM_Handbook_Assistant::render(), 'wpcpm-handbook__send' );
+}
+ck( 'the page draws no control for an Administrator, a mentor, an institution\'s member or a sponsor',
+    array_values( $never ), array( false, false, false, false ) );
+$GLOBALS['uid'] = 3;
+WPCPM_Student_Questions::$may = false;
+$_GET = array( 'wpcpm_ask' => 'Where do I go?' );
+script( words_reply( 'English', array( 'zzz' ) ) );
+$off_page = WPCPM_Handbook_Assistant::render();
+ck( 'nor for the student with the switch off, no mentor or a past student: the sentence and the channel\'s link stay',
+    array( false !== strpos( $off_page, 'wpcpm-handbook__send' ), false !== strpos( $off_page, 'href="' . $slack_student . '"' ) ), array( false, true ) );
+WPCPM_Student_Questions::$may = true;
+$_GET = array();
+$GLOBALS['uid'] = 3;
+ck( 'nor before anything is asked',
+    array( false !== strpos( WPCPM_Handbook_Assistant::render(), 'wpcpm-handbook__send' ) ), array( false ) );
+$_GET = array( 'wpcpm_ask' => 'Where do I go?', 'wpcpm_ask_for' => 'mentor' );
+script( words_reply( 'English', array( 'zzz' ) ) );
+ck( 'nor for the student\'s account asking from the mentors\' card',
+    array( false !== strpos( WPCPM_Handbook_Assistant::render(), 'wpcpm-handbook__send' ) ), array( false ) );
+
+// The handler.
+class_exists( 'WPCPM_Flash' );
+$GLOBALS['actions'] = array();
+WPCPM_Handbook_Assistant::init();
+ck( 'the handler is hooked on the logged-in admin-post action alone: there is no nopriv twin',
+    array( isset( $GLOBALS['actions']['admin_post_wpcpm_send_question'] ), isset( $GLOBALS['actions']['admin_post_nopriv_wpcpm_send_question'] ), $GLOBALS['actions']['admin_post_wpcpm_send_question'][0][0] ?? null ),
+    array( true, false, array( 'WPCPM_Handbook_Assistant', 'handle_send' ) ) );
+
+$press_send = static function ( $uid, $post, $nonce = 'nonce', $referer = 'https://example.test/handbook-assistant/?wpcpm_ask=Where+do+I+go%3F' ) {
+	$GLOBALS['uid']                  = $uid;
+	$GLOBALS['nonce_checks']         = array();
+	$GLOBALS['died_status']          = null;
+	$GLOBALS['flash']                = array();
+	$GLOBALS['referer']              = $referer;
+	WPCPM_Student_Questions::$sends  = array();
+	$_POST                           = $post;
+	$_REQUEST                        = null === $nonce ? $post : array_merge( $post, array( '_wpnonce' => $nonce ) );
+	$_SERVER['REQUEST_METHOD']       = 'POST';
+
+	try {
+		WPCPM_Handbook_Assistant::handle_send();
+	} catch ( HbRedirect $r ) {
+		return array( 'redirect', $r->getMessage() );
+	} catch ( HbDie $d ) {
+		return array( 'died', $GLOBALS['died_status'], $d->getMessage() );
+	}
+
+	return array( 'returned' );
+};
+$posted = array( 'question' => 'Where do I go?', 'note' => 'Friday.', 'links' => array( 'https://example.test/faq/#report-due', 'https://elsewhere.test/', array( 'x' ) ) );
+
+WPCPM_Student_Questions::$next = null;
+$went = $press_send( 3, $posted );
+ck( 'a student\'s press sends the question, the note and the links they posted, as themselves',
+    array( WPCPM_Student_Questions::$sends, $GLOBALS['nonce_checks'] ),
+    array( array( array( 3, 'Where do I go?', 'Friday.', array( 'https://example.test/faq/#report-due', 'https://elsewhere.test/' ) ) ), array( 'wpcpm_send_question' ) ) );
+ck( 'and comes back to the page with the question in the address, and the sentence flashed',
+    array( $went, $GLOBALS['flash']['handbook_send'] ?? null ),
+    array( array( 'redirect', 'https://example.test/handbook-assistant/?wpcpm_ask=Where%20do%20I%20go%3F' ), array( 'state' => 'sent', 'message' => $sentence['sent'] ) ) );
+
+$GLOBALS['flash'] = array();
+$went_limit_next = array( 'state' => 'limit', 'question_id' => 0 );
+WPCPM_Student_Questions::$next = $went_limit_next;
+$press_send( 3, $posted );
+$flash_limit = $GLOBALS['flash']['handbook_send'] ?? null;
+WPCPM_Student_Questions::$next = array( 'state' => 'duplicate', 'question_id' => 77 );
+$press_send( 3, $posted );
+$flash_dup = $GLOBALS['flash']['handbook_send'] ?? null;
+WPCPM_Student_Questions::$next = new WP_Error( 'wpcpm_question_short', 'short' );
+$went_short = $press_send( 3, array( 'question' => 'Hi' ) );
+$flash_short = $GLOBALS['flash']['handbook_send'] ?? null;
+ck( 'a limit, a repeat and a question too short are flashed as the same sentences the route gives, and each still returns to the page',
+    array( $flash_limit, $flash_dup, $flash_short, $went_short[0] ),
+    array( array( 'state' => 'limit', 'message' => $sentence['limit'] ), array( 'state' => 'duplicate', 'message' => $sentence['duplicate'] ), array( 'state' => 'refused', 'message' => $sentence['refused'] ), 'redirect' ) );
+WPCPM_Student_Questions::$next = null;
+
+$no_nonce = $press_send( 3, $posted, null );
+ck( 'a press with no nonce is refused with the core message, sends nothing and flashes nothing',
+    array( $no_nonce[0], $no_nonce[2] ?? '', WPCPM_Student_Questions::$sends, $GLOBALS['flash'] ), array( 'died', 'The link you followed has expired.', array(), array() ) );
+$stale = $press_send( 3, $posted, 'a-nonce-from-yesterday' );
+ck( 'and so is a page whose nonce has expired: nothing is sent',
+    array( $stale[0], $stale[2] ?? '', WPCPM_Student_Questions::$sends ), array( 'died', 'The link you followed has expired.', array() ) );
+
+$refused_who = array();
+foreach ( array( 'Administrator' => 4, 'mentor' => 2, 'institution' => 6, 'sponsor' => 7, 'subscriber' => 5 ) as $who => $uid ) {
+	$out = $press_send( $uid, $posted );
+	$refused_who[ $who ] = array( $out[0], $out[1] ?? null, count( WPCPM_Student_Questions::$sends ), $GLOBALS['nonce_checks'] );
+}
+ck( 'nobody but a student with a mentor can send through the handler: a 403 before the nonce is read, nothing sent',
+    array_values( $refused_who ), array_fill( 0, 5, array( 'died', 403, 0, array() ) ) );
+WPCPM_Student_Questions::$may = false;
+$off = $press_send( 3, $posted );
+ck( 'and once the switch has gone off a student\'s stale page is refused the same way',
+    array( $off[0], $off[1], WPCPM_Student_Questions::$sends, $GLOBALS['flash'] ), array( 'died', 403, array(), array() ) );
+WPCPM_Student_Questions::$may = true;
+
+$GLOBALS['opts']['wpcpm_handbook_page_id'] = 2746;
+$GLOBALS['status'][2746]                    = 'publish';
+$elsewhere = $press_send( 3, $posted, 'nonce', 'https://elsewhere.test/page/' );
+ck( 'a referer on another site is not followed: back to the Need help? page',
+    array( $elsewhere[0], 0 === strpos( $elsewhere[1] ?? '', 'https://example.test/handbook-assistant/?wpcpm_ask=' ) ), array( 'redirect', true ) );
+$no_referer = $press_send( 3, $posted, 'nonce', false );
+ck( 'and a press that names no page goes to the Need help? page too',
+    array( $no_referer[0], 0 === strpos( $no_referer[1] ?? '', 'https://example.test/handbook-assistant/?wpcpm_ask=' ) ), array( 'redirect', true ) );
+
+// The page after the handler: the sentence and the answer together, and no second control.
+$GLOBALS['uid'] = 3;
+$_GET           = array( 'wpcpm_ask' => 'Where do I go?' );
+$GLOBALS['flash'] = array( 'handbook_send' => array( 'state' => 'sent', 'message' => $sentence['sent'] ) );
+script( words_reply( 'English', array( 'zzz' ) ) );
+$page_sent = WPCPM_Handbook_Assistant::render();
+ck( 'after a send the page shows the sentence and the answer, and no control to send it again',
+    array(
+        false !== strpos( $page_sent, '<p class="wpcpm-handbook__sent" role="status">' . esc_html( $sentence['sent'] ) . '</p>' ),
+        false !== strpos( $page_sent, 'wpcpm-handbook__answer' ),
+        false !== strpos( $page_sent, 'wpcpm-handbook__send' ) && false !== strpos( str_replace( 'wpcpm-handbook__sent', '', $page_sent ), 'wpcpm-handbook__send' ),
+        false !== strpos( $page_sent, '<details' ),
+    ),
+    array( true, true, false, false ) );
+$GLOBALS['flash'] = array( 'handbook_send' => array( 'state' => 'limit', 'message' => $sentence['limit'] ) );
+script( words_reply( 'English', array( 'zzz' ) ) );
+$page_limit = WPCPM_Handbook_Assistant::render();
+ck( 'a limit\'s sentence comes with the channel\'s link, and is taken once',
+    array(
+        false !== strpos( $page_limit, esc_html( $sentence['limit'] ) ),
+        1 === substr_count( $page_limit, 'href="' . $slack_student . '"' ),
+        isset( $GLOBALS['flash']['handbook_send'] ),
+    ),
+    array( true, true, false ) );
+$GLOBALS['flash'] = array( 'handbook_send' => array( 'state' => 'sent', 'message' => $sentence['sent'] ) );
+script( words_reply( 'English', array( 'zzz' ) ) );
+ck( 'a sent question after a nothing answer keeps the one channel link of the answer',
+    array( 1 === substr_count( WPCPM_Handbook_Assistant::render(), 'href="' . $slack_student . '"' ) ), array( true ) );
+// A mentor, from the page with no card named: the nothing answer links the mentors' channel, once.
+$GLOBALS['uid'] = 2;
+$GLOBALS['flash'] = array();
+script( words_reply( 'English', array( 'zzz' ) ) );
+$page_mentor = WPCPM_Handbook_Assistant::render();
+ck( 'a mentor\'s nothing answer on the page links the mentors\' channel and not the students\'',
+    array( substr_count( $page_mentor, 'href="' . $slack_mentor . '"' ), substr_count( $page_mentor, 'href="' . $slack_student . '"' ) ), array( 1, 0 ) );
+$GLOBALS['flash'] = array( 'handbook_send' => array( 'state' => 'limit', 'message' => $sentence['limit'] ) );
+script( words_reply( 'English', array( 'zzz' ) ) );
+$page_mentor_limit = WPCPM_Handbook_Assistant::render();
+ck( 'and a limit sentence after it, one mentors\' link and no students\' link',
+    array( substr_count( $page_mentor_limit, 'href="' . $slack_mentor . '"' ), substr_count( $page_mentor_limit, 'href="' . $slack_student . '"' ) ), array( 1, 0 ) );
+$_GET = array();
+$GLOBALS['uid'] = 2;
+
+// The script.
+$send_js = substr( $handbook_js, (int) strpos( $handbook_js, 'function sendControl' ) );
+ck( 'the script draws the control from the reply: the button after a nothing answer, the link after the sources, only when the reply says may_send',
+    array(
+        false !== strpos( $handbook_js, 'data.may_send' ),
+        1 === preg_match( '/function sendControl.*?strings\.send\b.*?strings\.still\b/s', $handbook_js ),
+        1 === preg_match( '/data\.nothing.*?channelLink\( data\.channel \).*?sendControl\(.*?\).*?data\.sources/s', $handbook_js ),
+    ),
+    array( true, true, true ) );
+ck( 'the preview is made with createElement and textContent: the question as text, a field of 600 characters, Send and Cancel',
+    array(
+        1 === preg_match( '/function sendPreview.*?createElement\( \'h3\' \).*?strings\.previewTitle.*?textContent = question.*?createElement\( \'textarea\' \).*?maxLength = config\.noteMax.*?strings\.submit.*?strings\.cancel/s', $handbook_js ),
+        0 === preg_match( '/innerHTML\s*=(?!\s*\'\';)/', substr( $handbook_js, (int) strpos( $handbook_js, 'function sendControl' ), (int) strpos( $handbook_js, 'Ask, and draw' ) - (int) strpos( $handbook_js, 'function sendControl' ) ) ),
+        false !== strpos( $handbook_js, 'config.noteMax' ),
+    ),
+    array( true, true, true ) );
+ck( 'Send posts the question asked, the note and the reply\'s source links, with the nonce, and disables itself while one request is in flight',
+    array(
+        false !== strpos( $handbook_js, 'config.sendEndpoint' ),
+        1 === preg_match( '/JSON\.stringify\( \{ question: question, note: [^}]*links: links/s', $handbook_js ),
+        1 === preg_match( '/sending\s*=\s*true.*?submit\.disabled\s*=\s*true/s', $handbook_js ),
+        1 === preg_match( '/if \( sending \) \{\s*return;/s', $handbook_js ),
+        1 === preg_match( '/sendReply|function showSent/', $handbook_js ),
+    ),
+    array( true, true, true, true, true ) );
+ck( 'after a nothing answer, whose own channel link is already on screen, the limit, repeat and refused sentences add none',
+    array(
+        1 === preg_match( '/function showSent\( host, state, message, channel, nothing \).*?\'sent\' !== state && ! nothing/s', $handbook_js ),
+        1 === substr_count( $handbook_js, 'showSent( host, result.reply.state, result.reply.message, data.channel, data.nothing )' ),
+        1 === substr_count( $handbook_js, 'showSent( host, \'refused\', strings.refused || \'\', data.channel, data.nothing )' ),
+    ),
+    array( true, true, true ) );
+ck( 'the limit, repeat and refused sentences are shown with the channel\'s link, and Cancel brings the control back',
+    array(
+        1 === preg_match( '/function showSent.*?textContent = [^;]*message.*?channelLink\( channel \)/s', $handbook_js ),
+        1 === preg_match( '/cancel\.addEventListener\( \'click\'.*?sendControl/s', $handbook_js ) || 1 === preg_match( '/cancel[^\n]*\n.*?function \(\) \{.*?drawSendControl/s', $handbook_js ),
+    ),
+    array( true, true ) );
+ck( 'the panel keeps the Tab trap over the preview\'s field',
+    array( false !== strpos( $handbook_js, 'a[href], button:not([disabled]), input, textarea,' ) ), array( true ) );
+
+$handbook_css = file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/handbook.css' );
+ck( 'the stylesheet styles the control, the preview, the small link and the page\'s disclosure',
+    array_map( static function ( $c ) use ( $handbook_css ) { return false !== strpos( $handbook_css, $c ); },
+        array( '.wpcpm-hb-panel__send', '.wpcpm-hb-panel__still', '.wpcpm-hb-panel__preview', '.wpcpm-handbook__send', '.wpcpm-handbook__send-link', '.wpcpm-handbook__sent' ) ),
+    array_fill( 0, 6, true ) );
+
+echo "\n=== A student without a mentor is pointed to the channel (AI Mentor R2, Task 7 fix 1) ===\n";
+
+// The design's section 4, "When there is no mentor": the control is replaced by the Slack channel's link. While
+// the switch is on, a student whose mentor cannot be reached (no record, no mentor, a list that lost them, a
+// past student) gets `channel_only` in the reply and, after a written answer or the passages, the line "Still
+// stuck? Ask in the WordPress Credits Slack channel." in place of the small link. A nothing answer keeps its one
+// channel link; everybody else, and the switch off, get neither.
+$only = static function ( $uid, $audience = 'student' ) use ( $reply_for ) {
+	script( words_reply( 'English', array( 'zzz' ) ) );
+
+	return $reply_for( $uid, $audience )['channel_only'] ?? 'missing';
+};
+$only_codes = array( 'wpcpm_no_record', 'wpcpm_no_mentor', 'wpcpm_mentor_gone', 'wpcpm_past' );
+$got_only   = array();
+WPCPM_Student_Questions::$may = false;
+foreach ( $only_codes as $code ) {
+	WPCPM_Student_Questions::$code = $code;
+	$got_only[ $code ] = $only( 3 );
+}
+ck( 'channel_only is true for a student with no record, no mentor, a list that lost them, or a past student',
+    array_values( $got_only ), array( true, true, true, true ) );
+WPCPM_Student_Questions::$code = 'wpcpm_no_mentor';
+ck( 'and for none of: an Administrator, a mentor (who holds no student role), or another audience\'s box',
+    array( $only( 4 ), $only( 2 ), $only( 3, 'mentor' ) ), array( false, false, false ) );
+WPCPM_Student_Questions::$on = false;
+ck( 'nor with the switch off, whatever the reason',
+    array( $only( 3 ) ), array( false ) );
+WPCPM_Student_Questions::$on   = true;
+WPCPM_Student_Questions::$code = 'wpcpm_send_off';
+ck( 'nor for a student who may send, nor on any other refusal',
+    array( $only( 3 ) ), array( false ) );
+WPCPM_Student_Questions::$may = true;
+ck( 'a student who may send: channel_only false',
+    array( $only( 3 ) ), array( false ) );
+
+// The page.
+$line = 'Still stuck? Ask in the WordPress Credits Slack channel.';
+$page_for_student = static function ( $nothing ) {
+	$GLOBALS['uid'] = 3;
+	$_GET           = array( 'wpcpm_ask' => $nothing ? 'Where do I go?' : 'When is the weekly report due?' );
+	script( $nothing ? words_reply( 'English', array( 'zzz' ) ) : client_error( 'prompt_client_error', 503 ) );
+	$html = WPCPM_Handbook_Assistant::render();
+	$_GET = array();
+
+	return $html;
+};
+WPCPM_Student_Questions::$may  = false;
+WPCPM_Student_Questions::$code = 'wpcpm_no_mentor';
+$no_mentor_passages = $page_for_student( false );
+$no_mentor_nothing  = $page_for_student( true );
+$link_html          = '<a class="wpcpm-handbook__channel" href="' . $slack_student . '" target="_blank" rel="noopener noreferrer">' . $line . '</a>';
+ck( 'after the passages the page draws the channel line after the sources, and no control to send',
+    array(
+        false !== strpos( $no_mentor_passages, $link_html ),
+        strpos( $no_mentor_passages, $link_html ) > strpos( $no_mentor_passages, '</ol>' ),
+        false !== strpos( $no_mentor_passages, 'Send this question to your mentor' ),
+        false !== strpos( $no_mentor_passages, '<details' ),
+    ),
+    array( true, true, false, false ) );
+ck( 'after a nothing answer it adds no second link: the one channel link and the sentence stay',
+    array( false !== strpos( $no_mentor_nothing, 'Still stuck?' ), substr_count( $no_mentor_nothing, 'href="' . $slack_student . '"' ) ), array( false, 1 ) );
+WPCPM_Student_Questions::$on = false;
+ck( 'with the switch off the page draws neither',
+    array( false !== strpos( $page_for_student( false ), 'Still stuck?' ) ), array( false ) );
+WPCPM_Student_Questions::$on = true;
+WPCPM_Student_Questions::$code = 'wpcpm_send_off';
+WPCPM_Student_Questions::$may  = true;
+$may_page = $page_for_student( false );
+ck( 'a student who may send keeps the small link to the mentor and gets no channel line',
+    array( false !== strpos( $may_page, 'Send this question to your mentor.' ), false !== strpos( $may_page, $line ) ), array( true, false ) );
+$GLOBALS['uid'] = 4;
+$_GET = array( 'wpcpm_ask' => 'When is the weekly report due?' );
+script( client_error( 'prompt_client_error', 503 ) );
+$admin_page = WPCPM_Handbook_Assistant::render();
+$_GET = array();
+ck( 'an Administrator gets neither line',
+    array( false !== strpos( $admin_page, 'Still stuck?' ) ), array( false ) );
+
+// The panel.
+ck( 'the panel is given the line\'s words',
+    array( ( function () { $GLOBALS['uid'] = 3; $GLOBALS['localized'] = array(); WPCPM_Handbook_Assistant::enqueue(); return $GLOBALS['localized']['wpcpmHandbook']['strings']['stillChannel'] ?? null; } )() ),
+    array( $line ) );
+ck( 'the panel draws it after a written answer\'s sources, from the reply\'s channel_only and channel, and not after a nothing answer',
+    array(
+        false !== strpos( $handbook_js, 'data.channel_only' ),
+        1 === preg_match( '/data\.channel_only\s*&&\s*! data\.nothing/', $handbook_js ),
+        1 === preg_match( '/function channelLink\( channel, text \)/', $handbook_js ),
+        1 === preg_match( '/channelLink\( data\.channel, strings\.stillChannel \)/', $handbook_js ),
+    ),
+    array( true, true, true, true ) );
+$GLOBALS['uid'] = 2;
+
+echo "\n=== A box opened without a card takes the asker's own role (AI Mentor R2, final fix, I-1 and I-2) ===\n";
+
+// An empty audience resolves through `WPCPM_Guide_Sources::home_for()`, as the answers do: the examples in the
+// panel and on the page, `may_send` and `channel_only` in the reply, and the page's control and channel line.
+$own_role = array( 3 => 'student', 2 => 'mentor', 6 => 'institution', 7 => 'sponsor', 4 => 'administrator' );
+WPCPM_Student_Questions::$may   = true;
+WPCPM_Student_Questions::$on    = true;
+WPCPM_Student_Questions::$code  = 'wpcpm_send_off';
+$settings = WPCPM_Settings::defaults();
+$settings['handbook_access']  = 'program';
+$settings['handbook_enabled'] = true;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
+
+$got_panel = array();
+$got_page  = array();
+foreach ( $own_role as $uid => $role ) {
+	$GLOBALS['uid']       = $uid;
+	$GLOBALS['localized'] = array();
+	WPCPM_Handbook_Assistant::enqueue();
+	$loc = $GLOBALS['localized']['wpcpmHandbook'] ?? array();
+	$got_panel[ $role ] = ( $loc['examples'] ?? array() )[ $loc['defaultAudience'] ?? '' ] ?? null;
+
+	$_GET = array();
+	$html = WPCPM_Handbook_Assistant::render();
+	$got_page[ $role ] = array_map( static function ( $e ) use ( $html ) { return false !== strpos( $html, '>' . esc_html( $e ) . '</a>' ); }, $wanted_examples[ $role ] );
+}
+ck( 'the panel is handed the signed-in account\'s own audience, and its three examples are that role\'s',
+    $got_panel, array( 'student' => $wanted_examples['student'], 'mentor' => $wanted_examples['mentor'], 'institution' => $wanted_examples['institution'], 'sponsor' => $wanted_examples['sponsor'], 'administrator' => $wanted_examples['administrator'] ) );
+ck( 'the page\'s empty box with no card named shows the asker\'s own three, for each of the five roles',
+    $got_page, array_fill_keys( array( 'student', 'mentor', 'institution', 'sponsor', 'administrator' ), array( true, true, true ) ) );
+ck( 'the script uses that audience when the clicked button names none, before the student\'s three',
+    array( 1 === preg_match( '/all\[ audience \]\s*\|\|\s*all\[ config\.defaultAudience \]\s*\|\|\s*all\.student/', $handbook_js ) ), array( true ) );
+
+// The reply.
+WPCPM_Student_Questions::$may = true;
+script( words_reply( 'English', array( 'zzz' ) ) );
+$r_header_student = $reply_for( 3, null );
+script( words_reply( 'English', array( 'zzz' ) ) );
+$r_header_admin = $reply_for( 4, null );
+script( words_reply( 'English', array( 'zzz' ) ) );
+$r_header_mentor = $reply_for( 2, '' );
+ck( 'a student who may send, asking with no audience, may send; an Administrator and a mentor may not',
+    array( $r_header_student['may_send'], $r_header_admin['may_send'], $r_header_mentor['may_send'] ), array( true, false, false ) );
+ck( 'a student with a mentor asking with no audience has no channel_only',
+    array( $r_header_student['channel_only'] ), array( false ) );
+WPCPM_Student_Questions::$may  = false;
+WPCPM_Student_Questions::$code = 'wpcpm_no_mentor';
+ck( 'channel_only is true for a student without a mentor asking with no audience (switch on), and for no Administrator or mentor',
+    array( $only( 3, null ), $only( 4, null ), $only( 2, null ), $only( 3, '' ) ), array( true, false, false, true ) );
+WPCPM_Student_Questions::$on = false;
+ck( 'and not with the switch off',
+    array( $only( 3, null ) ), array( false ) );
+WPCPM_Student_Questions::$on = true;
+
+// The page: the control and the channel line with no card named.
+WPCPM_Student_Questions::$may  = true;
+WPCPM_Student_Questions::$code = 'wpcpm_send_off';
+$page_no_card = static function ( $uid ) {
+	$GLOBALS['uid'] = $uid;
+	$_GET           = array( 'wpcpm_ask' => 'Where do I go?' );
+	script( words_reply( 'English', array( 'zzz' ) ) );
+	$html = WPCPM_Handbook_Assistant::render();
+	$_GET = array();
+
+	return false !== strpos( $html, 'wpcpm-handbook__send' );
+};
+ck( 'the page offers Send to my mentor with no card named to a student who may send, and to no other role',
+    array( $page_no_card( 3 ), $page_no_card( 4 ), $page_no_card( 2 ), $page_no_card( 6 ), $page_no_card( 7 ) ), array( true, false, false, false, false ) );
+WPCPM_Student_Questions::$may  = false;
+WPCPM_Student_Questions::$code = 'wpcpm_no_mentor';
+$GLOBALS['uid'] = 3;
+$_GET = array( 'wpcpm_ask' => 'When is the weekly report due?' );
+script( client_error( 'prompt_client_error', 503 ) );
+$no_card_html = WPCPM_Handbook_Assistant::render();
+$_GET = array();
+ck( 'and the channel line with no card named to a student without a mentor, as the panel does',
+    array( false !== strpos( $no_card_html, 'Still stuck? Ask in the WordPress Credits Slack channel.' ) ), array( true ) );
+WPCPM_Student_Questions::$may  = true;
+WPCPM_Student_Questions::$code = 'wpcpm_send_off';
+$GLOBALS['uid'] = 2;
+
+echo "\n=== A question whose email did not go out says where the mentor will see it (AI Mentor R2, final fix, F-2) ===\n";
+
+$on_card   = 'Sent. Your mentor will see it on their Mentor Report Card.';
+$unemailed = array( 'question_id' => 78, 'student_record_id' => 'recSTU', 'mentor_record_id' => 'recMEN', 'state' => 'sent', 'emailed' => false, 'sent_at' => 1 );
+WPCPM_Student_Questions::$may = true;
+$r_unemailed = $post_send( array( 'question' => 'When is the weekly report due?' ), $unemailed );
+ck( 'the route: saved but not emailed reads the Mentor Report Card sentence, state still sent',
+    array( $r_unemailed->get_data(), $r_unemailed->get_status() ), array( array( 'state' => 'sent', 'message' => $on_card ), 200 ) );
+$r_emailed = $post_send( array( 'question' => 'When is the weekly report due?' ), array_merge( $unemailed, array( 'emailed' => true ) ) );
+ck( 'the route: saved and emailed keeps the email sentence',
+    array( $r_emailed->get_data()['message'] ), array( $sentence['sent'] ) );
+WPCPM_Student_Questions::$next = $unemailed;
+$press_send( 3, $posted );
+$flash_unemailed = $GLOBALS['flash']['handbook_send'] ?? null;
+WPCPM_Student_Questions::$next = null;
+ck( 'the page: the flash holds the same sentence',
+    array( $flash_unemailed ), array( array( 'state' => 'sent', 'message' => $on_card ) ) );
+ck( 'the sentence is written once, and says nothing of an email',
+    array( substr_count( $assistant_src, $on_card ), false === strpos( $on_card, 'email' ) ), array( 1, true ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

@@ -40,6 +40,10 @@ class WPCPM_Handbook_Assistant {
 	 */
 	const ARG_FOR = 'wpcpm_ask_for';
 
+	/** The page's form to send a question to a mentor: the `admin-post.php` action and nonce action, and the channel of the sentence shown after it. */
+	const ACTION_SEND = 'wpcpm_send_question';
+	const FLASH_SEND  = 'handbook_send';
+
 	/** The audiences a question can be asked from, one per dashboard. */
 	const AUDIENCES = array( 'student', 'mentor', 'institution', 'sponsor', 'administrator' );
 
@@ -80,6 +84,8 @@ class WPCPM_Handbook_Assistant {
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'register' ) );
 		add_action( 'rest_api_init', array( __CLASS__, 'register_route' ) );
+		// Logged in only: there is no `nopriv` twin, so a visitor never reaches it.
+		add_action( 'admin_post_' . self::ACTION_SEND, array( __CLASS__, 'handle_send' ) );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue' ) );
 		// The panel is printed once per page, at the end, for anybody who may use it. The
 		// launcher that opens it is somewhere else entirely - in the theme's header - and
@@ -121,15 +127,31 @@ class WPCPM_Handbook_Assistant {
 			self::SCRIPT,
 			'wpcpmHandbook',
 			array(
-				'endpoint' => esc_url_raw( rest_url( 'wpcpm/v1/handbook/ask' ) ),
-				'nonce'    => wp_create_nonce( 'wp_rest' ),
-				'strings'  => array(
-					'thinking'  => __( 'Searching the guides…', 'wpcredits-program-manager' ),
-					'slow'      => __( 'That took too long and was given up on. Trying again, or asking something narrower, usually works.', 'wpcredits-program-manager' ),
-					'failed'    => __( 'That did not work. Try again in a moment.', 'wpcredits-program-manager' ),
-					'sources'   => __( 'Sources', 'wpcredits-program-manager' ),
-					'unsourced' => __( 'This answer does not point to a passage of the guides, so it could not be checked against them. Treat it as unconfirmed.', 'wpcredits-program-manager' ),
-					'empty'     => __( 'Type a question first.', 'wpcredits-program-manager' ),
+				'endpoint'        => esc_url_raw( rest_url( 'wpcpm/v1/handbook/ask' ) ),
+				// Where Send to my mentor posts, with the same nonce, and the longest line a student may add.
+				'sendEndpoint'    => esc_url_raw( rest_url( 'wpcpm/v1/handbook/send' ) ),
+				'noteMax'         => (int) WPCPM_Student_Questions::NOTE_MAX,
+				'nonce'           => wp_create_nonce( 'wp_rest' ),
+				// Three questions per role, for the panel's empty state.
+				'examples'        => self::all_examples(),
+				// The signed-in account's own audience, for a button that names no card (the header's).
+				'defaultAudience' => self::own_audience( '' ),
+				'strings'         => array(
+					'send'         => __( 'Send to my mentor', 'wpcredits-program-manager' ),
+					'stillChannel' => self::still_channel_line(),
+					'still'        => __( 'Still stuck? Send this question to your mentor.', 'wpcredits-program-manager' ),
+					'previewTitle' => __( 'Send this to your mentor', 'wpcredits-program-manager' ),
+					'noteLabel'    => __( 'Anything your mentor should know?', 'wpcredits-program-manager' ),
+					'submit'       => __( 'Send', 'wpcredits-program-manager' ),
+					'cancel'       => __( 'Cancel', 'wpcredits-program-manager' ),
+					'sending'      => __( 'Sending', 'wpcredits-program-manager' ),
+					'refused'      => self::send_sentence( 'refused' ),
+					'thinking'     => __( 'Searching the guides…', 'wpcredits-program-manager' ),
+					'slow'         => __( 'That took too long and was given up on. Trying again, or asking something narrower, usually works.', 'wpcredits-program-manager' ),
+					'failed'       => __( 'That did not work. Try again in a moment.', 'wpcredits-program-manager' ),
+					'sources'      => __( 'Sources', 'wpcredits-program-manager' ),
+					'unsourced'    => __( 'This answer does not point to a passage of the guides, so it could not be checked against them. Treat it as unconfirmed.', 'wpcredits-program-manager' ),
+					'empty'        => __( 'Type a question first.', 'wpcredits-program-manager' ),
 				),
 			)
 		);
@@ -158,25 +180,297 @@ class WPCPM_Handbook_Assistant {
 		// the guide of an audience the asker may read.
 		$audience = self::audience_of( $request->get_param( 'audience' ) );
 		$answer   = WPCPM_Handbook_Answer::ask( $question, 0, $audience );
+		$own      = self::own_audience( $audience );
+		$may_send = 'student' === $own && ! is_wp_error( WPCPM_Student_Questions::mentor_of( get_current_user_id() ) );
+		// A student whose mentor cannot be reached is pointed to the channel instead (the design's section 4).
+		$channel_only = 'student' === $own && self::lacks_mentor();
 
 		return new WP_REST_Response(
 			array(
 				// Rendered here rather than in the browser: the same Markdown pass, `wpautop`
 				// then `wp_kses_post` the page uses, so the panel cannot be the one place
 				// where a provider's output reaches the DOM unfiltered.
-				'html'      => wp_kses_post( wpautop( WPCPM_Handbook_Answer::to_html( $answer['text'] ) ) ),
+				'html'         => wp_kses_post( wpautop( WPCPM_Handbook_Answer::to_html( $answer['text'] ) ) ),
 				// The provider's own words are for whoever can fix the provider; everybody else is told the
 				// sentence in `html` and nothing more.
-				'notice'    => self::may_see_notice() ? $answer['notice'] : '',
-				'generated' => (bool) $answer['generated'],
+				'notice'       => self::may_see_notice() ? $answer['notice'] : '',
+				'generated'    => (bool) $answer['generated'],
 				// The reader is told when an answer cites no passage it was given: a model told
 				// to cite that cited nothing is the one most likely to have written something
 				// the guides do not say, so the answer is shown marked as unconfirmed.
-				'unsourced' => ! empty( $answer['unsourced'] ),
-				'sources'   => $answer['sources'],
+				'unsourced'    => ! empty( $answer['unsourced'] ),
+				'sources'      => $answer['sources'],
+				// What the reply is, for the control that sends a question to a mentor: whether a passage
+				// answered it, whether nothing did, where else to ask, and whether this student may send.
+				'found'        => (bool) $answer['found'],
+				'nothing'      => (bool) $answer['nothing'],
+				'channel'      => self::channel( $own ),
+				'may_send'     => $may_send,
+				'channel_only' => $channel_only,
 			),
 			200
 		);
+	}
+
+	/**
+	 * The audience a box stands for: the card it was opened from, or, when it names none, the signed-in
+	 * account's own, as `WPCPM_Guide_Sources::home_for()` decides (the way the answers already read it). An
+	 * account that reads no guide gets '' back.
+	 *
+	 * @param string $audience One of the five, or ''.
+	 * @return string
+	 */
+	public static function own_audience( $audience ) {
+		return '' === $audience ? WPCPM_Guide_Sources::home_for( wp_get_current_user(), '' ) : (string) $audience;
+	}
+
+	/**
+	 * Whether the signed-in account may send a question to its mentor: asks Need help?, and
+	 * `WPCPM_Student_Questions::mentor_of()` finds a mentor for it. The one rule the control, the route
+	 * and the page's handler share.
+	 *
+	 * @return bool
+	 */
+	public static function may_send() {
+		return self::user_can_ask() && ! is_wp_error( WPCPM_Student_Questions::mentor_of( get_current_user_id() ) );
+	}
+
+	/**
+	 * The line that replaces the small link for a student without a mentor.
+	 *
+	 * @return string
+	 */
+	public static function still_channel_line() {
+		return __( 'Still stuck? Ask in the WordPress Credits Slack channel.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * Whether the signed-in account is a student whom Send to my mentor cannot serve because no mentor can be
+	 * reached: the switch is on, the account holds the student role, and `mentor_of()` refuses with no record,
+	 * no mentor, a mentor whose list lost the student, or a past student. Everybody else, and the switch off,
+	 * is false. Such a student is pointed to the Slack channel in place of the control.
+	 *
+	 * @return bool
+	 */
+	public static function lacks_mentor() {
+		if ( ! WPCPM_Student_Questions::switched_on() ) {
+			return false;
+		}
+
+		$user = wp_get_current_user();
+
+		if ( ! $user instanceof WP_User || ! WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_STUDENT ) ) {
+			return false;
+		}
+
+		$who = WPCPM_Student_Questions::mentor_of( get_current_user_id() );
+
+		return is_wp_error( $who ) && in_array(
+			$who->get_error_code(),
+			array(
+				WPCPM_Student_Questions::ERROR_NO_RECORD,
+				WPCPM_Student_Questions::ERROR_NO_MENTOR,
+				WPCPM_Student_Questions::ERROR_MENTOR_GONE,
+				WPCPM_Student_Questions::ERROR_PAST,
+			),
+			true
+		);
+	}
+
+	/**
+	 * Who may call the send route.
+	 *
+	 * A wrapper for the same reason `rest_permission()` is one: REST hands the callback the request.
+	 *
+	 * @return bool
+	 */
+	public static function rest_send_permission() {
+		return self::may_send();
+	}
+
+	/**
+	 * The sentence a send ends in.
+	 *
+	 * @param string $state   `sent`, `limit`, `duplicate` or `refused`.
+	 * @param bool   $emailed Whether the mentor's email went out; a saved question whose email did not says
+	 *                        where the mentor will see it instead.
+	 * @return string
+	 */
+	public static function send_sentence( $state, $emailed = true ) {
+		switch ( $state ) {
+			case 'sent':
+				if ( ! $emailed ) {
+					return __( 'Sent. Your mentor will see it on their Mentor Report Card.', 'wpcredits-program-manager' );
+				}
+
+				return __( 'Sent. Your mentor gets an email and can reply to you directly.', 'wpcredits-program-manager' );
+			case 'limit':
+				return __( 'You have sent your mentor three questions today. Ask in the WordPress Credits Slack channel, or try again tomorrow.', 'wpcredits-program-manager' );
+			case 'duplicate':
+				return __( 'You sent your mentor this question in the last day. They will reply by email.', 'wpcredits-program-manager' );
+		}
+
+		return __( 'This question cannot be sent to a mentor from here.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * What `WPCPM_Student_Questions::send()` gave back, as the route replies and the page flashes it.
+	 *
+	 * @param array|WP_Error $result `send()`'s answer.
+	 * @return array `state` (`sent`, `limit`, `duplicate` or `refused`), `message` and `status`, the HTTP
+	 *               status: 403 for a refusal of who may send, 400 for a question too short.
+	 */
+	private static function send_outcome( $result ) {
+		if ( is_wp_error( $result ) ) {
+			return array(
+				'state'   => 'refused',
+				'message' => self::send_sentence( 'refused' ),
+				'status'  => WPCPM_Student_Questions::ERROR_SHORT === $result->get_error_code() ? 400 : 403,
+			);
+		}
+
+		$state = isset( $result['state'] ) && in_array( $result['state'], array( 'limit', 'duplicate' ), true ) ? (string) $result['state'] : 'sent';
+
+		return array(
+			'state'   => $state,
+			'message' => self::send_sentence( $state, ! empty( $result['emailed'] ) ),
+			'status'  => 200,
+		);
+	}
+
+	/**
+	 * Send the question a student asked to their mentor, from the Need help? box.
+	 *
+	 * @param WP_REST_Request $request The request.
+	 * @return WP_REST_Response `state` and `message`.
+	 */
+	public static function rest_send( $request ) {
+		$links = $request->get_param( 'links' );
+		$out   = self::send_outcome(
+			WPCPM_Student_Questions::send(
+				get_current_user_id(),
+				(string) $request->get_param( 'question' ),
+				(string) $request->get_param( 'note' ),
+				is_array( $links ) ? $links : array()
+			)
+		);
+
+		return new WP_REST_Response(
+			array(
+				'state'   => $out['state'],
+				'message' => $out['message'],
+			),
+			$out['status']
+		);
+	}
+
+	/**
+	 * The page's form: send the question to the mentor, then back to the page with the sentence.
+	 *
+	 * The account first, then the nonce: an account that may not send is refused on a 403 whatever it posts,
+	 * and a page whose nonce has expired is refused with the core message and sends nothing. The way back is
+	 * the page the form was posted from, kept only on this site, and the question rides in the address so the
+	 * answer and the sentence show together.
+	 */
+	public static function handle_send() {
+		if ( ! self::may_send() ) {
+			wp_die( esc_html( self::send_sentence( 'refused' ) ), 403 );
+		}
+
+		check_admin_referer( self::ACTION_SEND );
+
+		$question = WPCPM_Request::posted_lines( 'question' );
+		$out      = self::send_outcome(
+			WPCPM_Student_Questions::send(
+				get_current_user_id(),
+				$question,
+				WPCPM_Request::posted_lines( 'note' ),
+				WPCPM_Request::posted_list( 'links', '/^\S{1,2000}$/' )
+			)
+		);
+
+		WPCPM_Flash::set(
+			self::FLASH_SEND,
+			array(
+				'state'   => $out['state'],
+				'message' => $out['message'],
+			)
+		);
+
+		$page = self::page_url();
+		$back = wp_validate_redirect( WPCPM_Request::back( $page ), '' !== $page ? $page : home_url( '/' ) );
+
+		wp_safe_redirect( add_query_arg( self::ARG, rawurlencode( trim( mb_substr( $question, 0, self::MAX_LENGTH ) ) ), remove_query_arg( self::ARG, $back ) ) );
+		exit;
+	}
+
+	/**
+	 * Where else to ask: the Slack channel of a dashboard's audience, and the words that link it.
+	 *
+	 * @param string $audience One of the five, or '' for the student's.
+	 * @return array `url` and `label`.
+	 */
+	public static function channel( $audience ) {
+		$guides = self::guides();
+		$guide  = isset( $guides[ $audience ] ) ? $guides[ $audience ] : ( isset( $guides['student'] ) ? $guides['student'] : array() );
+
+		return array(
+			'url'   => isset( $guide['slack'] ) ? esc_url_raw( (string) $guide['slack'] ) : '',
+			'label' => isset( $guide['chat'] ) ? (string) $guide['chat'] : '',
+		);
+	}
+
+	/**
+	 * The three example questions of a role, asked from that role's dashboard.
+	 *
+	 * @param string $audience One of the five; anything else gets the student's.
+	 * @return string[]
+	 */
+	public static function examples( $audience ) {
+		$all = array(
+			'student'       => array(
+				__( 'How do I book a call with my mentor?', 'wpcredits-program-manager' ),
+				__( 'My status says Pending graduation. Am I still on the program?', 'wpcredits-program-manager' ),
+				__( 'Do I need to know how to code?', 'wpcredits-program-manager' ),
+			),
+			'mentor'        => array(
+				__( 'How do I set my availability so students can book calls?', 'wpcredits-program-manager' ),
+				__( 'What should I talk about in the first check-in with a new student?', 'wpcredits-program-manager' ),
+				__( 'How do I check that a student\'s contributions are genuine?', 'wpcredits-program-manager' ),
+			),
+			'institution'   => array(
+				__( 'How do we enroll our students?', 'wpcredits-program-manager' ),
+				__( 'When do we get the semester report, and who writes it?', 'wpcredits-program-manager' ),
+				__( 'How do we record that a student dropped out?', 'wpcredits-program-manager' ),
+			),
+			'sponsor'       => array(
+				__( 'How do I create an offer for students?', 'wpcredits-program-manager' ),
+				__( 'What happens when our discount codes run low?', 'wpcredits-program-manager' ),
+				__( 'Who approves our posts before they are published?', 'wpcredits-program-manager' ),
+			),
+			'administrator' => array(
+				__( 'How do I approve a mentor application?', 'wpcredits-program-manager' ),
+				__( 'How does a student get their certificate?', 'wpcredits-program-manager' ),
+				__( 'What is needed to sign up an institution?', 'wpcredits-program-manager' ),
+			),
+		);
+
+		return isset( $all[ $audience ] ) ? $all[ $audience ] : $all['student'];
+	}
+
+	/**
+	 * Every role's examples, for the panel.
+	 *
+	 * @return array<string, string[]>
+	 */
+	private static function all_examples() {
+		$out = array();
+
+		foreach ( self::AUDIENCES as $audience ) {
+			$out[ $audience ] = self::examples( $audience );
+		}
+
+		return $out;
 	}
 
 	/**
@@ -212,6 +506,34 @@ class WPCPM_Handbook_Assistant {
 						'type'              => 'string',
 						'required'          => false,
 						'sanitize_callback' => 'sanitize_key',
+					),
+				),
+			)
+		);
+
+		// Send a question Need help? could not answer to the asker's mentor. The nonce is the ask route's.
+		register_rest_route(
+			'wpcpm/v1',
+			'/handbook/send',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( __CLASS__, 'rest_send' ),
+				'permission_callback' => array( __CLASS__, 'rest_send_permission' ),
+				'args'                => array(
+					'question' => array(
+						'type'              => 'string',
+						'required'          => true,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'note'     => array(
+						'type'              => 'string',
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_textarea_field',
+					),
+					'links'    => array(
+						'type'     => 'array',
+						'required' => false,
+						'items'    => array( 'type' => 'string' ),
 					),
 				),
 			)
@@ -433,10 +755,21 @@ class WPCPM_Handbook_Assistant {
 		$out  = '<div class="wpcpm-handbook">';
 		$out .= self::render_form( $question );
 
-		if ( '' === $question ) {
-			$out .= self::render_empty();
+		// What a press of Send to my mentor ended in, said once, above the answer it was pressed under.
+		$sent = WPCPM_Flash::take( self::FLASH_SEND );
+		$for  = self::audience_of( WPCPM_Request::text( self::ARG_FOR ) );
+
+		if ( is_array( $sent ) && ! empty( $sent['message'] ) ) {
+			$out .= self::render_sent( $sent, $for );
 		} else {
-			$out .= self::render_answer( WPCPM_Handbook_Answer::ask( $question, 0, self::audience_of( WPCPM_Request::text( self::ARG_FOR ) ) ) );
+			$sent = array();
+		}
+
+		if ( '' === $question ) {
+			$out .= self::render_empty( $for );
+		} else {
+			// A limit, a repeat and a refusal bring the channel's link with their sentence: one link, not two.
+			$out .= self::render_answer( WPCPM_Handbook_Answer::ask( $question, 0, $for ), $for, $question, empty( $sent ), empty( $sent['state'] ) || 'sent' === $sent['state'] );
 		}
 
 		$out .= self::render_footnote();
@@ -803,9 +1136,10 @@ class WPCPM_Handbook_Assistant {
 	/**
 	 * What to show before anything has been asked.
 	 *
+	 * @param string $audience The dashboard the box is on, or ''.
 	 * @return string
 	 */
-	private static function render_empty() {
+	private static function render_empty( $audience = '' ) {
 		$out = sprintf( '<p class="wpcpm-handbook__hint">%s</p>', esc_html( self::hint() ) );
 
 		// Said to an Administrator alone: they can set the provider up, and for everybody else the
@@ -820,18 +1154,19 @@ class WPCPM_Handbook_Assistant {
 			}
 		}
 
-		$examples = array(
-			__( 'What does a mentor do in the first week?', 'wpcredits-program-manager' ),
-			__( 'How does a student get their certificate?', 'wpcredits-program-manager' ),
-			__( 'What is needed to sign up an institution?', 'wpcredits-program-manager' ),
-		);
-
 		$out .= '<ul class="wpcpm-handbook__examples">';
 
-		foreach ( $examples as $example ) {
+		foreach ( self::examples( self::own_audience( $audience ) ) as $example ) {
+			$link = add_query_arg( self::ARG, rawurlencode( $example ), self::current_url() );
+
+			// Asked from the same dashboard, so the answer is the one that dashboard's guide gives.
+			if ( '' !== $audience ) {
+				$link = add_query_arg( self::ARG_FOR, rawurlencode( $audience ), $link );
+			}
+
 			$out .= sprintf(
 				'<li><a href="%1$s">%2$s</a></li>',
-				esc_url( add_query_arg( self::ARG, rawurlencode( $example ), self::current_url() ) ),
+				esc_url( $link ),
 				esc_html( $example )
 			);
 		}
@@ -842,10 +1177,15 @@ class WPCPM_Handbook_Assistant {
 	/**
 	 * The answer, and the sections it came from.
 	 *
-	 * @param array $answer From `WPCPM_Handbook_Answer::ask()`.
+	 * @param array  $answer       From `WPCPM_Handbook_Answer::ask()`.
+	 * @param string $audience     The dashboard the question was asked from, or ''.
+	 * @param string $question     The question asked, for the control that sends it to a mentor.
+	 * @param bool   $offer        Whether the control may be drawn: not under a sentence a send has just ended in.
+	 * @param bool   $channel_line Whether a nothing answer draws the channel's link: not when the sentence above
+	 *                             it (a limit, a repeat, a refusal) has drawn it already.
 	 * @return string
 	 */
-	private static function render_answer( array $answer ) {
+	private static function render_answer( array $answer, $audience = '', $question = '', $offer = true, $channel_line = true ) {
 		$out = '<div class="wpcpm-handbook__answer">';
 
 		// The provider's own words are an Administrator's to read; the sentence below is everybody's.
@@ -870,10 +1210,45 @@ class WPCPM_Handbook_Assistant {
 			);
 		}
 
+		// After the nothing sentence, where else to ask: the dashboard's Slack channel.
+		if ( ! empty( $answer['nothing'] ) && $channel_line ) {
+			$channel = self::channel( self::own_audience( $audience ) );
+
+			if ( '' !== $channel['url'] && '' !== $channel['label'] ) {
+				$out .= sprintf(
+					'<p class="wpcpm-handbook__channel-line"><a class="wpcpm-handbook__channel" href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a></p>',
+					esc_url( $channel['url'] ),
+					esc_html( $channel['label'] )
+				);
+			}
+		}
+
 		$out .= '</div>';
 
+		$control = $offer ? self::render_send( $answer, $audience, $question ) : '';
+
+		// A student whose mentor cannot be reached: the channel's link in place of the control, after a written
+		// answer or the passages. A nothing answer already ends with the channel's link.
+		if ( $offer && '' === $control && empty( $answer['nothing'] ) && '' !== $question && 'student' === self::own_audience( $audience ) && self::lacks_mentor() ) {
+			$channel = self::channel( $audience );
+
+			if ( '' !== $channel['url'] ) {
+				$control = sprintf(
+					'<p class="wpcpm-handbook__channel-line"><a class="wpcpm-handbook__channel" href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a></p>',
+					esc_url( $channel['url'] ),
+					esc_html( self::still_channel_line() )
+				);
+			}
+		}
+
+		// The primary button right after the nothing sentence and the channel's link.
+		if ( ! empty( $answer['nothing'] ) ) {
+			$out    .= $control;
+			$control = '';
+		}
+
 		if ( empty( $answer['sources'] ) ) {
-			return $out;
+			return $out . $control;
 		}
 
 		$out .= sprintf(
@@ -897,7 +1272,81 @@ class WPCPM_Handbook_Assistant {
 			$out .= '</li>';
 		}
 
-		return $out . '</ol>';
+		// The small link after the sources, on any other answer.
+		return $out . '</ol>' . $control;
+	}
+
+	/**
+	 * The sentence a send ended in, above the answer.
+	 *
+	 * @param array  $sent     `state` and `message`, from the handler.
+	 * @param string $audience The dashboard the question was asked from, or ''.
+	 * @return string
+	 */
+	private static function render_sent( array $sent, $audience ) {
+		$out = sprintf( '<p class="wpcpm-handbook__sent" role="status">%s</p>', esc_html( (string) $sent['message'] ) );
+
+		// A limit, a repeat and a refusal say where else to ask.
+		if ( isset( $sent['state'] ) && 'sent' !== $sent['state'] ) {
+			$channel = self::channel( self::own_audience( $audience ) );
+
+			if ( '' !== $channel['url'] && '' !== $channel['label'] ) {
+				$out .= sprintf(
+					'<p class="wpcpm-handbook__channel-line"><a class="wpcpm-handbook__channel" href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a></p>',
+					esc_url( $channel['url'] ),
+					esc_html( $channel['label'] )
+				);
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Send to my mentor, as a disclosure holding the form that works without JavaScript: the primary button
+	 * after a nothing answer, the small link under the sources after any other. Drawn only for a student who
+	 * may send, from the student's own box.
+	 *
+	 * @param array  $answer   From `WPCPM_Handbook_Answer::ask()`.
+	 * @param string $audience The dashboard the question was asked from, or ''.
+	 * @param string $question The question asked.
+	 * @return string Escaped markup, or '' when this reader may not send.
+	 */
+	private static function render_send( array $answer, $audience, $question ) {
+		if ( '' === $question || 'student' !== self::own_audience( $audience ) || ! self::may_send() ) {
+			return '';
+		}
+
+		if ( ! wp_script_is( 'wpcpm-forms', 'registered' ) ) {
+			wp_register_script( 'wpcpm-forms', WPCPM_PLUGIN_URL . 'assets/js/forms.js', array(), WPCPM_VERSION, true );
+		}
+
+		wp_enqueue_script( 'wpcpm-forms' );
+
+		$nothing = ! empty( $answer['nothing'] );
+		$links   = '';
+
+		foreach ( (array) $answer['sources'] as $source ) {
+			$links .= sprintf( '<input type="hidden" name="links[]" value="%s" />', esc_attr( (string) $source['link'] ) );
+		}
+
+		return sprintf(
+			'<details class="wpcpm-handbook__send"><summary class="%1$s">%2$s</summary><form class="wpcpm-handbook__send-form" method="post" action="%3$s" data-wpcpm-once data-wpcpm-busy="%4$s"><input type="hidden" name="_wpnonce" value="%5$s" />%6$s<input type="hidden" name="action" value="%7$s" /><input type="hidden" name="question" value="%8$s" />%9$s<h3 class="wpcpm-handbook__send-title">%10$s</h3><p class="wpcpm-handbook__send-question">%11$s</p><label class="wpcpm-handbook__send-label" for="wpcpm-send-note">%12$s</label><textarea id="wpcpm-send-note" name="note" rows="3" maxlength="%13$d"></textarea><button type="submit" class="wpcpm-button" data-wpcpm-once>%14$s</button></form></details>',
+			$nothing ? 'wpcpm-button' : 'wpcpm-handbook__send-link',
+			$nothing ? esc_html__( 'Send to my mentor', 'wpcredits-program-manager' ) : esc_html__( 'Still stuck? Send this question to your mentor.', 'wpcredits-program-manager' ),
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Sending', 'wpcredits-program-manager' ),
+			esc_attr( wp_create_nonce( self::ACTION_SEND ) ),
+			wp_referer_field( false ),
+			esc_attr( self::ACTION_SEND ),
+			esc_attr( $question ),
+			$links,
+			esc_html__( 'Send this to your mentor', 'wpcredits-program-manager' ),
+			esc_html( $question ),
+			esc_html__( 'Anything your mentor should know?', 'wpcredits-program-manager' ),
+			(int) WPCPM_Student_Questions::NOTE_MAX,
+			esc_html__( 'Send', 'wpcredits-program-manager' )
+		);
 	}
 
 	/**

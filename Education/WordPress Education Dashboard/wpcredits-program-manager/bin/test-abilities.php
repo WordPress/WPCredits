@@ -456,14 +456,18 @@ $NOTICE = 'Names and labels in the answer were typed by people or copied from th
 $NAMES  = array( 'wpcpm/program-counts', 'wpcpm/waiting-for-decision', 'wpcpm/mentor-engagement-summary', 'wpcpm/institution-summary' );
 $PEOPLE = array( 'wpcpm/find-student', 'wpcpm/mentor-students', 'wpcpm/mentor-applications' );
 $GUIDES = array( 'wpcpm/search-guides' );
-// What registers: all eight, Phase A's four, the three that look people up and the one that searches the guides, in the order of NAMES.
-$REGISTERED = array_merge( $NAMES, $PEOPLE, $GUIDES );
+// The two writes a signed-in student makes for themselves (AI Mentor R2, Ruling 11).
+$WRITES = array( 'wpcpm/post-student-message', 'wpcpm/add-mentor-note' );
+// What registers: all ten, Phase A's four, the three that look people up, the one that searches the guides and the two writes, in the order of NAMES.
+$REGISTERED = array_merge( $NAMES, $PEOPLE, $GUIDES, $WRITES );
 
 echo "=== The constants ===\n";
 ck( 'the category', WPCPM_Abilities::CATEGORY, 'wpcredits-program' );
 ck( 'a short text stops at 120 characters', WPCPM_Abilities::TEXT_MAX, 120 );
 ck( 'a list stops at 25 rows', WPCPM_Abilities::LIST_MAX, 25 );
-ck( 'the abilities, named by the plugin\'s prefix: the four, the three that look people up, then the one that searches the guides', WPCPM_Abilities::NAMES, array_merge( $NAMES, $PEOPLE, $GUIDES ) );
+ck( 'the abilities, named by the plugin\'s prefix: the four, the three that look people up, the one that searches the guides, then the two writes of a student: ten', WPCPM_Abilities::NAMES, array_merge( $NAMES, $PEOPLE, $GUIDES, $WRITES ) );
+ck( 'the two writes are the ones in WRITES, and both are in NAMES, after the guide search', array( WPCPM_Abilities::WRITES, array_diff( WPCPM_Abilities::WRITES, WPCPM_Abilities::NAMES ), array_slice( WPCPM_Abilities::NAMES, 8 ) ), array( $WRITES, array(), $WRITES ) );
+ck( 'and none of the eight read-only abilities is a write', array_intersect( WPCPM_Abilities::WRITES, array_merge( $NAMES, $PEOPLE, $GUIDES ) ), array() );
 ck( 'the three that look people up, which share a ceiling', WPCPM_Abilities::PEOPLE, $PEOPLE );
 ck( 'a lookup of people stops at 10 people', WPCPM_Abilities::PEOPLE_MAX, 10 );
 ck( 'the people abilities are all in NAMES, and none of the four is among them', array( array_diff( WPCPM_Abilities::PEOPLE, WPCPM_Abilities::NAMES ), array_intersect( WPCPM_Abilities::PEOPLE, $NAMES ) ), array( array(), array() ) );
@@ -530,23 +534,33 @@ WPCPM_Abilities::register();
 ck( 'the one category, with its label and description', $GLOBALS['categories'], array(
 	'wpcredits-program' => array(
 		'label'       => 'WPCredits Program',
-		'description' => 'Read-only answers from the WPCredits Program Manager\'s own records.',
+		'description' => 'Answers from the WPCredits Program Manager\'s own records, and two writes a signed-in student makes for themselves.',
 	),
 ) );
-ck( 'exactly the eight abilities: Phase A\'s four, wpcpm/find-student, wpcpm/mentor-students, wpcpm/mentor-applications and wpcpm/search-guides', array_keys( $GLOBALS['registered'] ), $REGISTERED );
+ck( 'exactly the ten abilities: Phase A\'s four, wpcpm/find-student, wpcpm/mentor-students, wpcpm/mentor-applications, wpcpm/search-guides, wpcpm/post-student-message and wpcpm/add-mentor-note', array_keys( $GLOBALS['registered'] ), $REGISTERED );
 ck( 'what register() passes is what definitions() holds', array_keys( WPCPM_Abilities::definitions() ), $REGISTERED );
-ck( 'the standing guard: every name of NAMES has its words and its builder, so definitions() holds all eight, in the order of NAMES; one left out would be a quiet omission', array_keys( WPCPM_Abilities::definitions() ) === WPCPM_Abilities::NAMES, true );
-ck( 'and there are eight, the people abilities fifth to seventh and the guide search last', array( count( WPCPM_Abilities::NAMES ), count( WPCPM_Abilities::definitions() ), array_slice( array_keys( WPCPM_Abilities::definitions() ), 4 ) ), array( 8, 8, array_merge( $PEOPLE, $GUIDES ) ) );
+ck( 'the standing guard: every name of NAMES has its words and its builder, so definitions() holds all ten, in the order of NAMES; one left out would be a quiet omission', array_keys( WPCPM_Abilities::definitions() ) === WPCPM_Abilities::NAMES, true );
+ck( 'and there are ten, the people abilities fifth to seventh, the guide search eighth and the two writes last', array( count( WPCPM_Abilities::NAMES ), count( WPCPM_Abilities::definitions() ), array_slice( array_keys( WPCPM_Abilities::definitions() ), 4 ) ), array( 10, 10, array_merge( $PEOPLE, $GUIDES, $WRITES ) ) );
 ck( 'every name of NAMES has its builder on the answers class, and a schema of each kind', array_map( static function ( $name ) { return $name; }, array_values( array_filter( WPCPM_Abilities::NAMES, static function ( $name ) { $definition = WPCPM_Abilities::definitions()[ $name ]; return ! isset( $definition['output_schema'], $definition['execute_callback'] ); } ) ) ), array() );
+
+// What each name is expected to carry: the eight read-only abilities the Administrators' permission and the read-only
+// annotations, the two writes of a student their own permission and the write annotations (Ruling 11).
+$EXPECTED_PERMISSION  = array();
+$EXPECTED_ANNOTATIONS = array();
+foreach ( $REGISTERED as $name ) {
+	$write                          = in_array( $name, $WRITES, true );
+	$EXPECTED_PERMISSION[ $name ]   = $write ? array( 'WPCPM_Abilities', 'student_permitted' ) : array( 'WPCPM_Abilities', 'permitted' );
+	$EXPECTED_ANNOTATIONS[ $name ]  = $write ? array( 'readonly' => false, 'destructive' => false, 'idempotent' => false ) : array( 'readonly' => true, 'destructive' => false, 'idempotent' => true );
+}
 
 foreach ( $REGISTERED as $name ) {
 	$args = isset( $GLOBALS['registered'][ $name ] ) ? $GLOBALS['registered'][ $name ] : array();
 	$meta = isset( $args['meta'] ) ? $args['meta'] : array();
 
 	ck( "$name: in the plugin's category", isset( $args['category'] ) ? $args['category'] : null, 'wpcredits-program' );
-	ck( "$name: its permission callback is the frame's own", isset( $args['permission_callback'] ) ? $args['permission_callback'] : null, array( 'WPCPM_Abilities', 'permitted' ) );
+	ck( "$name: its permission callback is the frame's own" . ( in_array( $name, $WRITES, true ) ? ' for a student, student_permitted()' : ', permitted()' ), isset( $args['permission_callback'] ) ? $args['permission_callback'] : null, $EXPECTED_PERMISSION[ $name ] );
 	ck( "$name: an answer to call", isset( $args['execute_callback'] ) && is_callable( $args['execute_callback'] ), true );
-	ck( "$name: read-only, not destructive, idempotent", isset( $meta['annotations'] ) ? $meta['annotations'] : null, array( 'readonly' => true, 'destructive' => false, 'idempotent' => true ) );
+	ck( "$name: " . ( in_array( $name, $WRITES, true ) ? 'not read-only, not destructive, not idempotent' : 'read-only, not destructive, idempotent' ), isset( $meta['annotations'] ) ? $meta['annotations'] : null, $EXPECTED_ANNOTATIONS[ $name ] );
 	ck( "$name: not on core's REST route", array_key_exists( 'show_in_rest', $meta ) ? $meta['show_in_rest'] : 'missing', false );
 	ck( "$name: neither public nor on the adapter's default server", array( array_key_exists( 'public', $meta ), array_key_exists( 'mcp', $meta ), array_keys( $meta ) ), array( false, false, array( 'annotations', 'show_in_rest' ) ) );
 	ck( "$name: its description ends with the data warning", substr( (string) ( isset( $args['description'] ) ? $args['description'] : '' ), -strlen( $NOTICE ) ), $NOTICE );
@@ -563,6 +577,8 @@ $words = array(
 	'wpcpm/mentor-students'           => array( 'A mentor\'s students', 'A mentor\'s students as the Mentor Report Card lists them, by record id, with each one\'s status, hours and start, and the mentor\'s own record id, whether active, the dates of the last sign-in and the last visit and the Engagement view. People are given by record id, never by name: look the name up on the site.' ),
 	'wpcpm/mentor-applications'       => array( 'Mentor applications', 'Mentor applications in one state, newest first, by reference: the day received, days in the state, country, languages, hours a week, contribution areas, the teacher answer and whether the address is confirmed, with the totals per state. Applicants are given by reference, never by name: look the name up on the site.' ),
 	'wpcpm/search-guides'             => array( 'Search the guides', 'The passages of this site\'s guides, its FAQ and the WordPress Credits handbook that best match English search words, best first, each with its page, section and address, and when the index was last built.' ),
+	'wpcpm/post-student-message'      => array( 'Send a question to the student\'s mentor', 'Sends a question from the signed-in student to their mentor and keeps it for the Mentor Report Card, with a line the student adds and the guide addresses the answer showed. It acts only for the signed-in student, and only while Send to mentors is on and the student has a mentor. A fourth question in a day, or the same question twice in a day, is not sent: the answer says so. The answer gives the question\'s ID and the student\'s and the mentor\'s record IDs, never a name or an address.' ),
+	'wpcpm/add-mentor-note'           => array( 'Write a note for the student\'s mentor', 'Writes a note about the signed-in student for their mentor to read on the Mentor Report Card. It acts only for the signed-in student, and only while Send to mentors is on and the student has a mentor. An eleventh note in a day, or the same note twice in a day, is not written: the answer says so. The answer gives the note\'s ID and the student\'s record ID, never a name or the text written.' ),
 );
 ck( 'every registered ability has its words here', array_keys( $words ), $REGISTERED );
 foreach ( $words as $name => $pair ) {
@@ -613,6 +629,14 @@ ck( 'search-guides: an object that requires words and takes an audience besides'
 ck( 'words is a string of 2 to 200 characters', array( isset( $in['properties']['words']['type'] ) ? $in['properties']['words']['type'] : null, isset( $in['properties']['words']['minLength'] ) ? $in['properties']['words']['minLength'] : null, isset( $in['properties']['words']['maxLength'] ) ? $in['properties']['words']['maxLength'] : null ), array( 'string', 2, 200 ) );
 ck( 'the audience is a string, one of the five guides\' audiences and not public', array( isset( $in['properties']['audience']['type'] ) ? $in['properties']['audience']['type'] : null, isset( $in['properties']['audience']['enum'] ) ? $in['properties']['audience']['enum'] : null ), array( 'string', array( 'student', 'mentor', 'institution', 'sponsor', 'administrator' ) ) );
 ck( 'no other key is let through, and none is declared that nobody reads', array( isset( $in['additionalProperties'] ) ? $in['additionalProperties'] : 'missing', loose_ends( $in ) ), array( false, array() ) );
+
+$in = isset( $GLOBALS['registered']['wpcpm/post-student-message']['input_schema'] ) ? $GLOBALS['registered']['wpcpm/post-student-message']['input_schema'] : array();
+ck( 'post-student-message: an object that requires question, takes note and links besides, and lets no other key through', array( isset( $in['type'] ) ? $in['type'] : null, isset( $in['required'] ) ? $in['required'] : null, isset( $in['properties'] ) ? array_keys( $in['properties'] ) : null, isset( $in['additionalProperties'] ) ? $in['additionalProperties'] : 'missing' ), array( 'object', array( 'question' ), array( 'question', 'note', 'links' ), false ) );
+ck( 'the question is 3 to 400 characters, the note at most 600, the links at most five strings', array( $in['properties']['question']['minLength'], $in['properties']['question']['maxLength'], $in['properties']['note']['maxLength'], $in['properties']['links']['maxItems'], $in['properties']['links']['items']['type'] ), array( 3, 400, 600, 5, 'string' ) );
+ck( 'and none is declared that nobody reads', loose_ends( $in ), array() );
+$in = isset( $GLOBALS['registered']['wpcpm/add-mentor-note']['input_schema'] ) ? $GLOBALS['registered']['wpcpm/add-mentor-note']['input_schema'] : array();
+ck( 'add-mentor-note: an object that requires text of 3 to 2,000 characters, and lets no other key through', array( isset( $in['type'] ) ? $in['type'] : null, isset( $in['required'] ) ? $in['required'] : null, isset( $in['properties'] ) ? array_keys( $in['properties'] ) : null, $in['properties']['text']['minLength'], $in['properties']['text']['maxLength'], isset( $in['additionalProperties'] ) ? $in['additionalProperties'] : 'missing' ), array( 'object', array( 'text' ), array( 'text' ), 3, 2000, false ) );
+ck( 'and none is declared that nobody reads', loose_ends( $in ), array() );
 
 // A small real index: a guide, the FAQ and the handbook, each written when its own time says.
 $GLOBALS['wpdb']->create_guide_tables();
@@ -673,7 +697,11 @@ $inputs = array(
 	'wpcpm/mentor-students'           => array( 'mentor', array( 'mentor' => 'recMENT0000000001' ) ),
 	'wpcpm/mentor-applications'       => array( 'applications', array( 'state' => 'open' ) ),
 	'wpcpm/search-guides'             => array( 'guides', array( 'words' => 'book a call calendar' ) ),
+	'wpcpm/post-student-message'      => array( 'student_message', array( 'question' => 'How do I book a call?', 'note' => 'It is urgent.', 'links' => array( 'https://example.test/student-guide/' ) ) ),
+	'wpcpm/add-mentor-note'           => array( 'mentor_note', array( 'text' => 'I do not understand the report month.' ) ),
 );
+// The two writes act for the signed-in student: the builders are asked as account 70, who may send (the stand-in in bin/stubs/ability-readers.php).
+$GLOBALS['uid'] = 70;
 $answers = array();
 foreach ( $inputs as $name => $pair ) {
 	$schema            = isset( $GLOBALS['registered'][ $name ]['output_schema'] ) ? $GLOBALS['registered'][ $name ]['output_schema'] : array();
@@ -1352,6 +1380,8 @@ readers_reset();
 $definitions = WPCPM_Abilities::definitions();
 $seen        = array();
 foreach ( $inputs as $name => $pair ) {
+	// A write acts for the signed-in student, so it is called as one; the rest as the manager.
+	$GLOBALS['uid']       = in_array( $name, $WRITES, true ) ? 70 : 31;
 	$rows                 = row_count();
 	$GLOBALS['validated'] = array();
 	$result               = call_user_func( $definitions[ $name ]['execute_callback'], $pair[1] );
@@ -1364,10 +1394,11 @@ foreach ( $inputs as $name => $pair ) {
 	ck( "$name: answers what WPCPM_Ability_Answers::{$pair[0]}() builds for it", json_encode( $result ), json_encode( $direct['answer'] ) );
 	ck( "$name: and writes one row that names the ability and the outcome", array( row_count(), $row['data']['ability'], $row['data']['outcome'] ), array( $rows + 1, $name, 'answered' ) );
 	ck( "$name: the row lists the records of the rows that went out, and nothing else", array( $row['data']['rows'], $row['data']['records'] ), array( count( $direct['records'] ), $direct['records'] ) );
-	ck( "$name: the row holds the input as given, cleaned", $row['data']['input'], null === $pair[1] ? array() : $pair[1] );
+	ck( "$name: the row holds the input as given, cleaned" . ( in_array( $name, $WRITES, true ) ? ' - for a write, no input at all: the words a student wrote are not the log\'s' : '' ), $row['data']['input'], null === $pair[1] || in_array( $name, $WRITES, true ) ? array() : $pair[1] );
 	$seen[] = json_encode( $result );
 }
-ck( 'the eight answers differ, so no ability answers with another\'s builder', count( array_unique( $seen ) ), 8 );
+ck( 'the ten answers differ, so no ability answers with another\'s builder', count( array_unique( $seen ) ), 10 );
+$GLOBALS['uid'] = 31;
 ck( 'the two with no input are called with none', array(
 	json_encode( call_user_func( $definitions['wpcpm/program-counts']['execute_callback'] ) ) === $seen[0],
 	json_encode( call_user_func( $definitions['wpcpm/waiting-for-decision']['execute_callback'] ) ) === $seen[1],
@@ -1382,6 +1413,97 @@ unset( $GLOBALS['readers']['throw'] );
 sign_in( 32, false );
 ck( 'an account without the capability is refused by the permission check the ability carries, before any builder runs', call_user_func( $definitions['wpcpm/program-counts']['permission_callback'] ), false );
 sign_in( 31 );
+
+echo "\n=== The two writes of a student: who may call them, and what their rows keep ===\n";
+WPCPM_Settings::patch( array( 'mcp_enabled' => true, 'mcp_calls_per_hour' => 120, 'mcp_calls_per_day' => 600 ) );
+readers_reset();
+$definitions = WPCPM_Abilities::definitions();
+
+// student_permitted(): the switch on, and mentor_of() of the signed-in account not an error. An Administrator, a mentor,
+// a past student and an account with no mentor are refused by mentor_of() (the stand-in's fixtures); the Send to mentors
+// switch off refuses by the same door.
+foreach ( array(
+	'a student who may send'                          => array( 70, true ),
+	'another student who may send'                    => array( 71, true ),
+	'an Administrator (not a student)'                => array( 31, false ),
+	'a mentor (not a student)'                        => array( 74, false ),
+	'a past student'                                  => array( 72, false ),
+	'a student with no mentor'                        => array( 73, false ),
+	'no account at all'                               => array( 0, false ),
+) as $label => $pair ) {
+	$GLOBALS['uid'] = $pair[0];
+	ck( "student_permitted(): $label", WPCPM_Abilities::student_permitted(), $pair[1] );
+}
+// An account that holds the management capability is an Administrator's, even when it is also a student with a record and a mentor.
+$GLOBALS['readers']['student_who'][75] = array( 'student_record' => 'recSTUD0000000075', 'mentor_record' => 'recMENT0000000075' );
+sign_in( 75 );
+ck( 'student_permitted(): an Administrator who is also a student with a mentor is refused (the design: an Administrator is refused)', array( WPCPM_Abilities::student_permitted(), is_wp_error( WPCPM_Student_Questions::mentor_of( 75 ) ) ), array( false, false ) );
+$GLOBALS['manage'] = array_values( array_diff( $GLOBALS['manage'], array( 75 ) ) );
+ck( 'and without the capability the same account is permitted', WPCPM_Abilities::student_permitted(), true );
+$GLOBALS['uid'] = 70;
+$GLOBALS['readers']['student_who'][70] = 'wpcpm_send_off';
+ck( 'with Send to mentors off, mentor_of() refuses and so does student_permitted(), for the student who could send', WPCPM_Abilities::student_permitted(), false );
+readers_reset();
+WPCPM_Settings::patch( array( 'mcp_enabled' => false ) );
+ck( 'with Claude access off, a student who may send is refused all the same', WPCPM_Abilities::student_permitted(), false );
+WPCPM_Settings::patch( array( 'mcp_enabled' => true, 'mcp_calls_per_hour' => 120, 'mcp_calls_per_day' => 600 ) );
+ck( 'and back on, permitted again', WPCPM_Abilities::student_permitted(), true );
+ck( 'student_permitted() is a plain bool, as the adapter reads it', is_bool( WPCPM_Abilities::student_permitted() ), true );
+ck( 'the registered permission callbacks of the two are student_permitted(), through the definitions too', array( $definitions['wpcpm/post-student-message']['permission_callback'], $definitions['wpcpm/add-mentor-note']['permission_callback'] ), array( array( 'WPCPM_Abilities', 'student_permitted' ), array( 'WPCPM_Abilities', 'student_permitted' ) ) );
+$GLOBALS['uid'] = 31;
+ck( 'an Administrator is refused by the write\'s permission callback, and the manager\'s permitted() still lets them into the read-only ones', array( call_user_func( $definitions['wpcpm/post-student-message']['permission_callback'] ), call_user_func( $definitions['wpcpm/program-counts']['permission_callback'] ) ), array( false, true ) );
+$GLOBALS['uid'] = 70;
+ck( 'a student is refused by permitted(): the read-only abilities stay the Administrators\'', array( call_user_func( $definitions['wpcpm/program-counts']['permission_callback'] ), WPCPM_Abilities::permitted() ), array( false, false ) );
+
+// The audit row: no input on any path that logs, the records the student's and the mentor's.
+$GLOBALS['uid'] = 70;
+$rows   = row_count();
+$result = call_user_func( $definitions['wpcpm/post-student-message']['execute_callback'], array( 'question' => 'Where do I find my report?', 'note' => 'Thanks a lot', 'links' => array( 'https://example.test/' ) ) );
+$row    = last_row();
+ck( 'post-student-message answered: five keys, and one row written', array( array_keys( $result ), row_count() ), array( array( 'question_id', 'student_record_id', 'mentor_record_id', 'state', 'sent_at' ), $rows + 1 ) );
+ck( 'its row: answered, the student\'s and the mentor\'s record IDs, two rows, and an empty input', array( $row['data']['ability'], $row['data']['outcome'], $row['data']['records'], $row['data']['rows'], $row['data']['input'], $row['actor'] ), array( 'wpcpm/post-student-message', 'answered', array( 'recSTUD0000000070', 'recMENT0000000070' ), 2, array(), 70 ) );
+ck( 'and nothing the student typed is anywhere in the row', array( false !== strpos( json_encode( $row ), 'report' ), false !== strpos( json_encode( $row ), 'Thanks' ), false !== strpos( json_encode( $row ), 'example.test' ) ), array( false, false, false ) );
+$result = call_user_func( $definitions['wpcpm/add-mentor-note']['execute_callback'], array( 'text' => 'My mentor said to ask here.' ) );
+$row    = last_row();
+ck( 'add-mentor-note answered: its row is answered, with the student\'s record ID then the mentor\'s and an empty input', array( array_keys( $result ), $row['data']['ability'], $row['data']['outcome'], $row['data']['records'], $row['data']['input'], false !== strpos( json_encode( $row ), 'ask here' ) ), array( array( 'note_id', 'student_record_id', 'state', 'written_at' ), 'wpcpm/add-mentor-note', 'answered', array( 'recSTUD0000000070', 'recMENT0000000070' ), array(), false ) );
+
+// A refusal by the module: the error comes back with its code, a refused row with that code and no input, and the
+// call is counted, as every call is.
+$hour_was = WPCPM_Ceiling::count( WPCPM_Ceiling::key( 'mcp-hour', 70 ), HOUR_IN_SECONDS );
+$rows     = row_count();
+$short    = call_user_func( $definitions['wpcpm/post-student-message']['execute_callback'], array( 'question' => 'ab', 'note' => 'a private line' ) );
+$row      = last_row();
+ck( 'a question too short: the error with its own code and the module\'s sentence, so a caller can tell it from a refusal', array( code_of( $short ), is_wp_error( $short ) ? $short->get_error_message() : '' ), array( 'wpcpm_question_short', 'Nothing was sent - the question was too short.' ) );
+ck( 'its row is refused, with the code as the reason, no records and no input, and the call took a place of the hour', array( row_count() - $rows, $row['data']['outcome'], $row['data']['reason'], $row['data']['records'], $row['data']['input'], WPCPM_Ceiling::count( WPCPM_Ceiling::key( 'mcp-hour', 70 ), HOUR_IN_SECONDS ) - $hour_was, false !== strpos( json_encode( $row ), 'private line' ) ), array( 1, 'refused', 'wpcpm_question_short', array(), array(), 1, false ) );
+$short = call_user_func( $definitions['wpcpm/add-mentor-note']['execute_callback'], array( 'text' => 'x' ) );
+$row   = last_row();
+ck( 'a note too short: wpcpm_note_short, a refused row of that reason', array( code_of( $short ), $row['data']['outcome'], $row['data']['reason'], $row['data']['input'] ), array( 'wpcpm_note_short', 'refused', 'wpcpm_note_short', array() ) );
+foreach ( array( 'wpcpm_past', 'wpcpm_no_mentor', 'wpcpm_not_student', 'wpcpm_send_off', 'wpcpm_no_record', 'wpcpm_mentor_gone' ) as $code ) {
+	$GLOBALS['readers']['student_who'][70] = $code;
+	$refused = call_user_func( $definitions['wpcpm/add-mentor-note']['execute_callback'], array( 'text' => 'Please look at this.' ) );
+	$row     = last_row();
+	ck( "mentor_of()'s $code reaches the caller as it is, in a refused row with no input", array( code_of( $refused ), $row['data']['outcome'], $row['data']['reason'], $row['data']['input'] ), array( $code, 'refused', $code, array() ) );
+}
+readers_reset();
+
+// An error the module does not name (a database's, say) is the fixed sentence, never its words, and a failed row.
+$GLOBALS['readers']['student_who'][70] = 'wpcpm_db_trouble';
+$odd = call_user_func( $definitions['wpcpm/post-student-message']['execute_callback'], array( 'question' => 'A fair question here' ) );
+$row = last_row();
+ck( 'an error code the abilities do not know is the fixed failure sentence, logged failed, with no input', array( code_of( $odd ), is_wp_error( $odd ) ? $odd->get_error_message() : '', $row['data']['outcome'], $row['data']['reason'], $row['data']['input'] ), array( 'wpcpm_mcp_failed', 'The site could not answer this time.', 'failed', 'error', array() ) );
+readers_reset();
+
+// A failed build and an invalid answer log no input either.
+$failed = WPCPM_Abilities::answer( 'wpcpm/add-mentor-note', array( 'text' => 'secret words typed by a student' ), static function () { throw new RuntimeException( 'boom' ); } );
+$row    = last_row();
+ck( 'a write whose build throws: failed, and the words typed are not in the row', array( code_of( $failed ), $row['data']['outcome'], $row['data']['input'], false !== strpos( json_encode( $row ), 'secret words' ) ), array( 'wpcpm_mcp_failed', 'failed', array(), false ) );
+$invalid = WPCPM_Abilities::answer( 'wpcpm/add-mentor-note', array( 'text' => 'secret words typed by a student' ), static function () { return array( 'answer' => array( 'x' => 1 ), 'records' => array() ); }, array( 'type' => 'object', 'properties' => array( 'y' => array( 'type' => 'integer' ) ), 'required' => array( 'y' ), 'additionalProperties' => false ) );
+$row     = last_row();
+ck( 'a write whose answer does not fit: failed, invalid_output, and no input', array( code_of( $invalid ), $row['data']['reason'], $row['data']['input'] ), array( 'wpcpm_mcp_failed', 'invalid_output', array() ) );
+$read = WPCPM_Abilities::answer( 'wpcpm/program-counts', array( 'as_of' => '2026-03-15' ), static function () { throw new RuntimeException( 'boom' ); } );
+$row  = last_row();
+ck( 'while a read-only ability that fails still logs the input it was given', $row['data']['input'], array( 'as_of' => '2026-03-15' ) );
+$GLOBALS['uid'] = 31;
 
 echo "\n=== refusal(): the row of a door or a fence that turned a signed-in account away ===\n";
 WPCPM_Settings::patch( array( 'mcp_enabled' => true, 'mcp_calls_per_hour' => 120, 'mcp_calls_per_day' => 600 ) );

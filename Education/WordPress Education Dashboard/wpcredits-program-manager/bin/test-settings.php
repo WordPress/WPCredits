@@ -712,6 +712,16 @@ ck( 'a boolean can be switched off', array( $saved['handbook_enabled'] ), array(
 $saved = WPCPM_Settings::save( array( 'handbook_enabled' => '1' ) );
 ck( 'and on again', array( $saved['handbook_enabled'] ), array( true ) );
 
+// Send to mentors (AI Mentor R2): off by default, on the Need help? screen's scope, read as `handbook_enabled` is.
+ck( 'Send to mentors ships off', array( WPCPM_Settings::defaults()['handbook_to_mentors'] ?? null ), array( false ) );
+ck( 'and belongs to the Need help? screen\'s scope', array( in_array( 'handbook_to_mentors', WPCPM_Settings::scope_keys( 'tool:handbook' ), true ) ), array( true ) );
+$saved = WPCPM_Settings::save( array( 'handbook_to_mentors' => '1' ) );
+ck( 'it can be switched on', array( $saved['handbook_to_mentors'] ), array( true ) );
+$saved = WPCPM_Settings::save( array( 'handbook_limit' => '35' ) );
+ck( 'a save that does not name it leaves it as it was', array( $saved['handbook_to_mentors'] ), array( true ) );
+$saved = WPCPM_Settings::save( array( 'handbook_to_mentors' => '' ) );
+ck( 'and it can be switched off again', array( $saved['handbook_to_mentors'] ), array( false ) );
+
 // The plugin stores no AI key and chooses no provider (version 4: Settings > Connectors does), so a
 // key or a provider posted is not a setting, is not saved, and no mask of one exists to post back.
 $saved = WPCPM_Settings::save( array( 'handbook_key' => 'AQ.the-real-key', 'handbook_provider' => 'gemini', 'handbook_limit' => '33' ) );
@@ -2037,9 +2047,9 @@ $sorted = static function ( array $map ) {
 	return $map;
 };
 
-ck( 'each scope holds the settings the design gives its tab or tool, fifteen for the Mentor Status Checker (its Slack webhook and channel since 1.122.4, Stop checking mentors in Airtable since 1.122.33) and four for Need help? (its provider and key are in Settings > Connectors since version 4)',
+ck( 'each scope holds the settings the design gives its tab or tool, fifteen for the Mentor Status Checker (its Slack webhook and channel since 1.122.4, Stop checking mentors in Airtable since 1.122.33) and five for Need help? (its provider and key are in Settings > Connectors since version 4; Send to mentors since 1.123.103)',
     array( $sorted( $scopes ), count( $by_design['tool:mentor-status-checker'] ), count( $by_design['tool:handbook'] ) ),
-    array( $sorted( $by_design ), 15, 4 ) );
+    array( $sorted( $by_design ), 15, 5 ) );
 
 // Every setting stored at its default with every switch on, and a save handed the round-trip probe
 // with every switch off: every setting the save may write shows as a change.
@@ -2253,7 +2263,7 @@ $queued = $GLOBALS['umeta'][1][ WPCPM_Flash::META ] ?? array();
 // screen has no tab for them.
 ck( 'a tool\'s settings save under the tool\'s scope the same way, and go back to the tool\'s own screen, where its Settings section is',
     array( settings_changed_since( $switched_on ), $queued['settings-scope'] ?? null, $GLOBALS['redirected_to'] ),
-    array( array( 'handbook_enabled', 'handbook_model' ), 'tool:handbook', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-handbook' ) );
+    array( array( 'handbook_enabled', 'handbook_model', 'handbook_to_mentors' ), 'tool:handbook', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-handbook' ) );
 
 // A tab this version does not have is refused whole: the save does not guess which settings the
 // form held, and writes none of them.
@@ -4160,6 +4170,20 @@ ck( 'the Security row offers the second factor to Administrators, by the name ev
 foreach ( array_keys( $keeping ) as $id ) {
 	$states[ 'tool: ' . $id ] = draw_tool_settings( $id );
 }
+
+// Send to mentors (AI Mentor R2): the row follows Questions per person per hour, its box named for the
+// setting, its help one sentence outside the fold and the second inside it.
+$row = $states['tool: handbook'];
+ck( 'Need help? draws Send to mentors after Questions per person per hour, its box named handbook_to_mentors',
+    array( false !== strpos( $row, 'Send to mentors' ), strpos( $row, 'Questions per person per hour' ) < strpos( $row, 'Send to mentors' ), false !== strpos( $row, 'name="handbook_to_mentors" value="1"' ), false !== strpos( $row, 'Let a student send a question to their mentor' ) ),
+    array( true, true, true, true ) );
+ck( 'with its first sentence outside the row\'s fold and Leave it off until mentors are told inside it',
+    array(
+        false !== strpos( $row, 'A student with a mentor can send a question Need help? could not answer to their mentor, who gets an email and sees it on the Mentor Report Card.</p>' ),
+        false !== strpos( $row, 'Leave it off until mentors are told.' ),
+        false !== strpos( $row, 'Mentor Report Card. Leave it off' ),
+    ),
+    array( true, true, false ) );
 
 // And Need help?'s Who can ask names them so too, beside the mentors or alone.
 preg_match_all( '#<label><input type="radio" name="handbook_access" value="([^"]*)"[^>]*> ([^<]*)</label>#', $states['tool: handbook'], $asking, PREG_SET_ORDER );

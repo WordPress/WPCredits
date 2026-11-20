@@ -151,7 +151,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 	 * @return string[]
 	 */
 	public function settings_keys() {
-		return array( 'handbook_enabled', 'handbook_model', 'handbook_access', 'handbook_limit' );
+		return array( 'handbook_enabled', 'handbook_model', 'handbook_access', 'handbook_limit', 'handbook_to_mentors' );
 	}
 
 	/**
@@ -249,6 +249,17 @@ class WPCPM_Handbook extends WPCPM_Tool {
 			esc_html__( 'How many questions one person may have answered in an hour; 0 removes this limit.', 'wpcredits-program-manager' )
 		);
 		WPCPM_Settings_Rows::close_row( $limit, __( 'Past the limit they get the parts of the guides that match their question, without a written answer. Whatever this says, the site writes at most 300 answers a day.', 'wpcredits-program-manager' ) );
+
+		$to_mentors = __( 'Send to mentors', 'wpcredits-program-manager' );
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="handbook_to_mentors" value="1"%2$s> %3$s</label><p class="description">%4$s</p>',
+			esc_html( $to_mentors ),
+			checked( ! empty( $settings['handbook_to_mentors'] ), true, false ),
+			esc_html__( 'Let a student send a question to their mentor', 'wpcredits-program-manager' ),
+			esc_html__( 'A student with a mentor can send a question Need help? could not answer to their mentor, who gets an email and sees it on the Mentor Report Card.', 'wpcredits-program-manager' )
+		);
+		WPCPM_Settings_Rows::close_row( $to_mentors, __( 'Leave it off until mentors are told.', 'wpcredits-program-manager' ) );
 	}
 
 	/**

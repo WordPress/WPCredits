@@ -261,10 +261,135 @@
 	font-style: italic;
 }
 
+/* Three example questions in the panel's empty state: text links in the page's own colour, each a button. */
+.wpcpm-hb-panel__examples {
+	list-style: none;
+	margin: 0.75em 0 0;
+	padding: 0;
+}
+
+.wpcpm-hb-panel__examples li {
+	margin-bottom: 0.4em;
+}
+
+.wpcpm-hb-panel__example {
+	background: none;
+	border: 0;
+	color: inherit;
+	cursor: pointer;
+	font: inherit;
+	padding: 0.2em 0;
+	text-align: left;
+	text-decoration: underline;
+}
+
+.wpcpm-hb-panel__example:hover,
+.wpcpm-hb-panel__example:focus {
+	text-decoration-thickness: 2px;
+}
+
+/* Where else to ask, after the nothing sentence. */
+.wpcpm-hb-panel__channel-line,
+.wpcpm-handbook__channel-line {
+	margin: 0.75em 0 0;
+}
+
 .wpcpm-hb-panel__foot {
 	border-top: 1px solid rgba( 0, 0, 0, 0.1 );
 	margin: 0;
 	padding: 0.9em 1.25em;
+}
+
+/* Send to my mentor: the primary button after a nothing answer, or one small link after the sources. */
+.wpcpm-hb-panel__send,
+.wpcpm-handbook__send {
+	margin: 1em 0 0;
+}
+
+.wpcpm-hb-panel__still,
+.wpcpm-handbook__send-link {
+	background: none;
+	border: 0;
+	cursor: pointer;
+	display: inline;
+	font: inherit;
+	font-size: 0.9em;
+	padding: 0;
+	text-decoration: underline;
+}
+
+.wpcpm-hb-panel__still:hover,
+.wpcpm-hb-panel__still:focus,
+.wpcpm-handbook__send-link:hover,
+.wpcpm-handbook__send-link:focus {
+	text-decoration-thickness: 2px;
+}
+
+/* What will be sent: the question, the student's own line, Send and Cancel. */
+.wpcpm-hb-panel__preview-title,
+.wpcpm-handbook__send-title {
+	font-size: 1em;
+	margin: 0 0 0.5em;
+}
+
+.wpcpm-hb-panel__preview-question,
+.wpcpm-handbook__send-question {
+	border-left: 3px solid rgba( 0, 0, 0, 0.2 );
+	margin: 0 0 0.9em;
+	overflow-wrap: anywhere;
+	padding-left: 0.8em;
+}
+
+.wpcpm-hb-panel__preview-label,
+.wpcpm-handbook__send-label {
+	display: block;
+	font-size: 0.9em;
+	margin: 0 0 0.3em;
+}
+
+.wpcpm-hb-panel__preview-note,
+.wpcpm-handbook__send-form textarea {
+	box-sizing: border-box;
+	display: block;
+	font: inherit;
+	margin: 0 0 0.8em;
+	width: 100%;
+}
+
+.wpcpm-hb-panel__preview-actions {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.8em;
+}
+
+.wpcpm-hb-panel__cancel {
+	background: none;
+	border: 0;
+	cursor: pointer;
+	font: inherit;
+	font-size: 0.9em;
+	padding: 0.2em 0;
+	text-decoration: underline;
+}
+
+.wpcpm-hb-panel__sent,
+.wpcpm-handbook__sent {
+	margin: 0;
+}
+
+/* The page's disclosure: its summary is the button, or the small link, and the form opens under it. */
+.wpcpm-handbook__send > summary {
+	cursor: pointer;
+	display: inline-block;
+}
+
+.wpcpm-handbook__send > summary.wpcpm-button {
+	list-style: none;
+}
+
+.wpcpm-handbook__send-form {
+	margin: 0.9em 0 0;
 }
 
 /* The page behind must not scroll while the panel is over it. */

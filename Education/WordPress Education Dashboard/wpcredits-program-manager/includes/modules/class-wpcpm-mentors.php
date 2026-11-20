@@ -133,6 +133,7 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 		WPCPM_Mentors_Sync::register_cron();
 		WPCPM_Mentors_Dashboard::init();
 		WPCPM_Mentor_Notes::init();
+		WPCPM_Student_Questions::init();
 		WPCPM_Mentor_Availability::init();
 		WPCPM_Mentor_Calls::init();
 		WPCPM_Call_Calendar::init();
@@ -194,6 +195,7 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	 */
 	public function uninstall() {
 		WPCPM_Mentor_Notes::delete_all();
+		WPCPM_Student_Questions::delete_all();
 		WPCPM_Mentor_Calls::delete_all();
 		// The applications to mentor (1.122.31): every row, the deletion log, what deleted rows counted
 		// for the feed and the daily run, and the form's page ID. The page itself stays, as every page

@@ -18,13 +18,17 @@ if ( ! defined( 'ABSPATH' ) ) {
  * the attention strip and the syncs' health, the Engagement tab's report, the institutions and roster
  * indexes, the sponsors store, the mentor application feed, the published outcome figures and the cards the
  * students sync keeps on the students' accounts. Nothing here calls Airtable, WordPress.org or any other
- * address, and nothing writes. Every answer says when its sources were read, so "as of" is always known.
+ * address. Every builder reads, except the two that write for the signed-in student and nobody else
+ * (`student_message()` and `mentor_note()`), which hand the words to the student questions module. Every
+ * answer says when its sources were read, so "as of" is always known.
  *
  * A builder returns what `WPCPM_Abilities::answer()` takes: `answer`, the array the caller gets, and
  * `records`, the record ID of every record-shaped row the answer carries and nothing else (never a name,
- * never a stage). A builder never returns an error: nothing found is an answer with an empty list, and input
- * it cannot read is ignored as if it were absent, since core's schema check has already refused malformed
- * input before the build runs. A reader that throws is `answer()`'s to turn into its one fixed sentence.
+ * never a stage). The two writing builders return the module's `WP_Error` when its rule refuses the account,
+ * which `answer()` turns into one of its known refusal sentences; every other builder never returns an
+ * error: nothing found is an answer with an empty list, and input it cannot read is ignored as if it were absent, since core's schema check has
+ * already refused malformed input before the build runs. A reader that throws is `answer()`'s to turn into
+ * its one fixed sentence.
  *
  * A lookup of the mentor applications (`applications()`) points to an applicant by the application's
  * reference and gives five of the closed answers the form keeps (country, the teacher question, languages,
@@ -168,6 +172,99 @@ class WPCPM_Ability_Answers {
 				'indexed_at' => $indexed_at,
 			),
 			'records' => array(),
+		);
+	}
+
+	/**
+	 * `wpcpm/post-student-message`: send the signed-in student's question to their mentor.
+	 *
+	 * It acts for the signed-in account and for nobody else: the module decides whether that account may send
+	 * (`WPCPM_Student_Questions::mentor_of()`) and refuses with its own error, which comes back as it is. A
+	 * limit or a repeat is an answer with that state, not an error. The answer holds the question's ID, the
+	 * student's and the mentor's record IDs, the state and the time, and never a name, an address, whether an
+	 * email went or any of the words written. The text is the module's to clean and cut.
+	 *
+	 * @param mixed $input `question` and, optionally, `note` and `links`.
+	 * @return array|WP_Error `answer` (`question_id`, `student_record_id`, `mentor_record_id`, `state`, `sent_at`)
+	 *                        and `records` (the student's, then the mentor's), or the module's error.
+	 */
+	public static function student_message( $input = null ) {
+		$input = is_array( $input ) ? $input : array();
+		$sent  = WPCPM_Student_Questions::send(
+			get_current_user_id(),
+			isset( $input['question'] ) && is_string( $input['question'] ) ? $input['question'] : '',
+			isset( $input['note'] ) && is_string( $input['note'] ) ? $input['note'] : '',
+			isset( $input['links'] ) && is_array( $input['links'] ) ? $input['links'] : array()
+		);
+
+		if ( is_wp_error( $sent ) ) {
+			return $sent;
+		}
+
+		$student = isset( $sent['student_record_id'] ) ? WPCPM_Abilities::text( $sent['student_record_id'] ) : '';
+		$mentor  = isset( $sent['mentor_record_id'] ) ? WPCPM_Abilities::text( $sent['mentor_record_id'] ) : '';
+
+		return array(
+			'answer'  => array(
+				'question_id'       => isset( $sent['question_id'] ) ? (int) $sent['question_id'] : 0,
+				'student_record_id' => $student,
+				'mentor_record_id'  => $mentor,
+				'state'             => isset( $sent['state'] ) ? (string) $sent['state'] : '',
+				'sent_at'           => WPCPM_Abilities::time( isset( $sent['sent_at'] ) ? $sent['sent_at'] : 0 ),
+			),
+			'records' => array_values(
+				array_filter(
+					array( $student, $mentor ),
+					static function ( $value ) {
+						return '' !== $value;
+					}
+				)
+			),
+		);
+	}
+
+	/**
+	 * `wpcpm/add-mentor-note`: write a note for the signed-in student's mentor, as Need help? notes are written.
+	 *
+	 * As `student_message()`: the signed-in account only, the module's refusal unchanged, a limit or a repeat an
+	 * answer, and no name, address or text in what goes out.
+	 *
+	 * @param mixed $input `text`.
+	 * @return array|WP_Error `answer` (`note_id`, `student_record_id`, `state`, `written_at`) and `records` (the
+	 *                        student's, then the mentor's), or the module's error.
+	 */
+	public static function mentor_note( $input = null ) {
+		$input   = is_array( $input ) ? $input : array();
+		$written = WPCPM_Mentor_Notes::add_need_help_note(
+			get_current_user_id(),
+			isset( $input['text'] ) && is_string( $input['text'] ) ? $input['text'] : ''
+		);
+
+		if ( is_wp_error( $written ) ) {
+			return $written;
+		}
+
+		$student = isset( $written['student_record_id'] ) ? WPCPM_Abilities::text( $written['student_record_id'] ) : '';
+
+		// The log row names the mentor's record too (Ruling 11); the answer holds none.
+		$who    = WPCPM_Student_Questions::mentor_of( get_current_user_id() );
+		$mentor = is_array( $who ) && isset( $who['mentor_record'] ) ? WPCPM_Abilities::text( $who['mentor_record'] ) : '';
+
+		return array(
+			'answer'  => array(
+				'note_id'           => isset( $written['note_id'] ) ? (int) $written['note_id'] : 0,
+				'student_record_id' => $student,
+				'state'             => isset( $written['state'] ) ? (string) $written['state'] : '',
+				'written_at'        => WPCPM_Abilities::time( isset( $written['written_at'] ) ? $written['written_at'] : 0 ),
+			),
+			'records' => array_values(
+				array_filter(
+					array( $student, $mentor ),
+					static function ( $value ) {
+						return '' !== $value;
+					}
+				)
+			),
 		);
 	}
 
@@ -1473,7 +1570,7 @@ class WPCPM_Ability_Answers {
 	 * an empty list, as the engagement summary's is.
 	 *
 	 * @param string $method The builder's name: `program_counts`, `waiting`, `engagement`, `institutions`,
-	 *                       `students`, `mentor`, `applications` or `guides`.
+	 *                       `students`, `mentor`, `applications`, `guides`, `student_message` or `mentor_note`.
 	 * @return array|null The schema, or null for an ability that takes no input.
 	 */
 	public static function input_schema( $method ) {
@@ -1596,6 +1693,14 @@ class WPCPM_Ability_Answers {
 			);
 		}
 
+		if ( 'student_message' === $method ) {
+			return self::student_message_input();
+		}
+
+		if ( 'mentor_note' === $method ) {
+			return self::mentor_note_input();
+		}
+
 		return null;
 	}
 
@@ -1636,6 +1741,12 @@ class WPCPM_Ability_Answers {
 
 			case 'guides':
 				return self::guides_schema();
+
+			case 'student_message':
+				return self::student_message_schema();
+
+			case 'mentor_note':
+				return self::mentor_note_schema();
 		}
 
 		return array();
@@ -2059,6 +2170,105 @@ class WPCPM_Ability_Answers {
 					'items'       => $item,
 				),
 				'indexed_at' => self::text_of( __( 'When the index was last built, as ISO 8601 in UTC; empty when it holds nothing yet.', 'wpcredits-program-manager' ) ),
+			)
+		);
+	}
+
+	/**
+	 * The input schema of `student_message()`: what the student's question, the line they add and the guide
+	 * addresses may be.
+	 *
+	 * @return array
+	 */
+	private static function student_message_input() {
+		return array(
+			'type'                 => 'object',
+			'properties'           => array(
+				'question' => array(
+					'type'        => 'string',
+					'minLength'   => 3,
+					'maxLength'   => 400,
+					'description' => __( 'The question to send the student\'s mentor, 3 to 400 characters.', 'wpcredits-program-manager' ),
+				),
+				'note'     => array(
+					'type'        => 'string',
+					'maxLength'   => 600,
+					'description' => __( 'A line the student adds for their mentor, at most 600 characters. Leave it out for none.', 'wpcredits-program-manager' ),
+				),
+				'links'    => array(
+					'type'        => 'array',
+					'maxItems'    => 5,
+					'items'       => array( 'type' => 'string' ),
+					'description' => __( 'The addresses of the guides the answer showed, at most five. Only addresses of this site and of the WordPress Credits handbook are kept; any other is dropped.', 'wpcredits-program-manager' ),
+				),
+			),
+			'required'             => array( 'question' ),
+			'additionalProperties' => false,
+		);
+	}
+
+	/**
+	 * The input schema of `mentor_note()`.
+	 *
+	 * @return array
+	 */
+	private static function mentor_note_input() {
+		return array(
+			'type'                 => 'object',
+			'properties'           => array(
+				'text' => array(
+					'type'        => 'string',
+					'minLength'   => 3,
+					'maxLength'   => 2000,
+					'description' => __( 'The note for the student\'s mentor, 3 to 2,000 characters.', 'wpcredits-program-manager' ),
+				),
+			),
+			'required'             => array( 'text' ),
+			'additionalProperties' => false,
+		);
+	}
+
+	/**
+	 * The schema of `student_message()`.
+	 *
+	 * @return array
+	 */
+	private static function student_message_schema() {
+		return self::object(
+			array(
+				'question_id'       => self::integer( __( 'The question\'s ID on this site; the earlier question\'s when the state is duplicate, 0 when it is limit.', 'wpcredits-program-manager' ) ),
+				'student_record_id' => self::text_of( __( 'The student\'s Students record ID.', 'wpcredits-program-manager' ) ),
+				'mentor_record_id'  => self::text_of( __( 'The mentor\'s Mentors record ID; empty when the mentor has none.', 'wpcredits-program-manager' ) ),
+				'state'             => self::described(
+					array(
+						'type' => 'string',
+						'enum' => array( 'sent', 'limit', 'duplicate' ),
+					),
+					__( 'sent: the question was kept and the mentor emailed. limit: the student already sent three questions today and nothing was sent. duplicate: the same question was sent in the last day and nothing was sent.', 'wpcredits-program-manager' )
+				),
+				'sent_at'           => self::when( __( 'When the question was sent, or when the earlier one was, as ISO 8601 in UTC; null when nothing was sent.', 'wpcredits-program-manager' ) ),
+			)
+		);
+	}
+
+	/**
+	 * The schema of `mentor_note()`.
+	 *
+	 * @return array
+	 */
+	private static function mentor_note_schema() {
+		return self::object(
+			array(
+				'note_id'           => self::integer( __( 'The note\'s ID on this site; the earlier note\'s when the state is duplicate, 0 when it is limit.', 'wpcredits-program-manager' ) ),
+				'student_record_id' => self::text_of( __( 'The student\'s Students record ID.', 'wpcredits-program-manager' ) ),
+				'state'             => self::described(
+					array(
+						'type' => 'string',
+						'enum' => array( 'written', 'limit', 'duplicate' ),
+					),
+					__( 'written: the note was kept for the mentor. limit: the student already wrote ten notes today and nothing was written. duplicate: the same note was written in the last day and nothing was written.', 'wpcredits-program-manager' )
+				),
+				'written_at'        => self::when( __( 'When the note was written, or when the earlier one was, as ISO 8601 in UTC; null when nothing was written.', 'wpcredits-program-manager' ) ),
 			)
 		);
 	}

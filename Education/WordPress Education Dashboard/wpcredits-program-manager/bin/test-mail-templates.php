@@ -244,7 +244,7 @@ echo "=== The registry ===\n";
 $all = WPCPM_Mail_Templates::all();
 
 ck(
-	'the registry holds the Invitations, the four invitations and the institution\'s second one, then the Mentor calls, the Institutions, the Semester reports and the Sponsors, the Sponsor events, the Mentor applications, the Student registrations, the Student interests (1.123.64) and the Quiet students, in that order',
+	'the registry holds the Invitations, the four invitations and the institution\'s second one, then the Mentor calls, the Institutions, the Semester reports and the Sponsors, the Sponsor events, the Mentor applications, the Student registrations, the Student interests (1.123.64), the Quiet students and Need help? (1.123.103), in that order',
 	array_keys( $all ),
 	array(
 		'invite-student',
@@ -360,6 +360,7 @@ ck(
 		'student-quiet-student',
 		'student-quiet-mentor',
 		'student-quiet-weekly',
+		'student-question-mentor',
 	)
 );
 
@@ -626,6 +627,8 @@ $shape = array(
 	'student-quiet-student'         => array( "\n", array( 'dashboard_link' ), array() ),
 	'student-quiet-mentor'          => array( "\n", array( 'count', 'students_list', 'dashboard_link' ), array( 'students_list' ) ),
 	'student-quiet-weekly'          => array( "\n", array( 'count', 'students_list', 'card_link' ), array( 'students_list' ) ),
+	// Need help? (1.123.103): the question and the card's link each needed, and the question, the student's line and the links in the body alone, what the student typed and where it looked.
+	'student-question-mentor'       => array( "\n", array( 'question', 'student_card_url' ), array( 'question', 'student_note', 'links' ) ),
 );
 $want_whole = array();
 foreach ( $shape as $id => $want ) {

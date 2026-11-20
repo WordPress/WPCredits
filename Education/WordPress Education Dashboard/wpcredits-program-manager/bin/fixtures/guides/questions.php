@@ -55,4 +55,6 @@ return array(
 
 	// The Administrator guide, for an Administrator.
 	array( 'administrator', 'How do I approve a mentor application?', 'approve mentor application decision', array( 'administrator-guide/#a-mentor-applied', 'administrator-guide/#decisions-on-a-mentor-application', 'administrator-guide/#from-application-to-mentoring-the-whole-path' ), array( 'administrator-guide/' ), false ),
+	array( 'administrator', 'How does a student get their certificate?', 'student certificate graduation date approve quiz', array( 'administrator-guide/#a-student-is-waiting-to-graduate', 'administrator-guide/#from-first-interest-to-graduation-the-whole-path' ), array( 'administrator-guide/' ), false ),
+	array( 'administrator', 'What is needed to sign up an institution?', 'institution application approve school enroll students', array( 'administrator-guide/#from-application-to-first-students-the-whole-path', 'administrator-guide/#a-school-applied', 'administrator-guide/#open-the-institution-application-form' ), array( 'administrator-guide/' ), false ),
 );

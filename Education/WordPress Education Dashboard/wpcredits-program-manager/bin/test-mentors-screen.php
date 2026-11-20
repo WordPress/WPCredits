@@ -129,6 +129,9 @@ class WPCPM_Mentors_Dashboard {
 class WPCPM_Mentor_Notes {
 	public static function init() {}
 }
+class WPCPM_Student_Questions {
+	public static function init() {}
+}
 class WPCPM_Mentor_Availability {
 	public static function init() {}
 }

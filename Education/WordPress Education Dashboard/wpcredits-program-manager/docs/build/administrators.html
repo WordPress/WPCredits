@@ -10943,7 +10943,7 @@
 <!-- /wp:list -->
 
 <!-- wp:paragraph -->
-<p>Claude can ask eight questions. The answers come from the site's own records, never from Airtable or WordPress.org. Since 1.123.101 <strong>Search the guides</strong> reads the index Need help? answers from: this site's guides, the FAQ and the copy of the WordPress Credits handbook the site reads each day. It calls no AI model.</p>
+<p>Claude can ask eight questions. The answers come from the site's own records, never from Airtable or WordPress.org. Since 1.123.103 the site registers ten abilities. Eight are the questions below. The other two are writes a signed-in student makes for themselves, <strong>Send a question to the student's mentor</strong> and <strong>Write a note for the student's mentor</strong>, and no Claude connection can call them: they are refused to every Administrator, they act only for the student who is signed in, and only while <strong>Send to mentors</strong> is on and that student has a mentor. They exist for a later release of the program's tools. Since 1.123.101 <strong>Search the guides</strong> reads the index Need help? answers from: this site's guides, the FAQ and the copy of the WordPress Credits handbook the site reads each day. It calls no AI model.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:table -->
@@ -11327,7 +11327,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>The <strong>Templates</strong> tab has a table for each of ten areas. Its columns are <strong>Email</strong>, <strong>Who receives it</strong>, <strong>What sends it</strong>, <strong>State</strong> and <strong>Last edited</strong>, with an <strong>Edit</strong> link. <strong>Last edited</strong> says who saved the edit, and when.</p>
+<p>The <strong>Templates</strong> tab has a table for each of eleven areas. Its columns are <strong>Email</strong>, <strong>Who receives it</strong>, <strong>What sends it</strong>, <strong>State</strong> and <strong>Last edited</strong>, with an <strong>Edit</strong> link. <strong>Last edited</strong> says who saved the edit, and when.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -11443,6 +11443,14 @@
 <!-- /wp:table -->
 
 <!-- wp:paragraph -->
+<p>The area <strong>Need help?</strong> holds one email, a student's question to their mentor. It is sent only while <strong>Send to mentors</strong> is switched on (<code>Tools &gt; Need help?</code>, section <strong>Settings</strong>).</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Email</th><th>Who gets it</th><th>When</th></tr></thead><tbody><tr><td><strong>A student's question, to the mentor</strong></td><td>The student's mentor</td><td>A student whose question Need help? could not answer sends it to their mentor. Its subject names the student's first name and says they sent you a question from Need help?. A reply goes to the student.</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:paragraph -->
 <p>Reply addresses:</p>
 <!-- /wp:paragraph -->
 
@@ -11456,6 +11464,9 @@
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>Some reply to the Administrator who acted. They are a question to an applicant, an agreement returned with a note, and a sponsor's agreement taken out of force. So are an event returned or canceled with a note.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>A student's question, to the mentor</strong> replies to the student.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>A colleague's invitation replies to the inviter. A code problem replies to the person who reported it.</li>
@@ -12484,6 +12495,9 @@
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Questions per person per hour</strong>: 0 to 200, where 0 removes this limit. Default: 20.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Send to mentors</strong>: the box <strong>Let a student send a question to their mentor</strong>. A student with a mentor can send a question Need help? could not answer to that mentor, who gets an email and sees it on the Mentor Report Card. Default: off. Leave it off until mentors are told: the Student and Mentor guides' text about it is published in a later docs release, and turning this on goes with publishing that text. While it is off, no student is offered the choice, and the three example questions in the box still show.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->

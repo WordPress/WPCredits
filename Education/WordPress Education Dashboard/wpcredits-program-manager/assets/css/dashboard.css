@@ -567,6 +567,20 @@
 	border-color: rgba( 217, 119, 6, 0.35 );
 }
 
+/* A question a student sent from Need help? that the mentor has not marked answered: the waiting tint of the
+   pending badge, a word and never the color alone. It has its own class, not wpcpm-badge, because the theme
+   hides the badges in a row's summary on wide screens and this tag must stay. */
+.wpcpm-question-tag {
+	background: rgba( 217, 119, 6, 0.12 );
+	border: 0;
+	border-radius: var( --wpc-radius-control );
+	flex: none;
+	font: 500 12px/18px var( --wpc-font );
+	letter-spacing: 0.02em;
+	padding: 2px 7px;
+	white-space: nowrap;
+}
+
 /* The mark beside a test institution's name on the dashboards (1.123.55): the neutral gray of the
    paused badge, since a test institution is neither a program figure nor a warning. Without a fill
    the badge's padding reads as a stray space before the comma that follows the name. */
@@ -733,6 +747,141 @@
 
 .wpcpm-note__delete-button:hover,
 .wpcpm-note__delete-button:focus {
+	opacity: 1;
+}
+
+/* The questions students sent from Need help?, above the notes: a list of their own, with none of the
+   classes the card's script counts and reads. */
+.wpcpm-questions-block {
+	margin: 0 0 0.75em;
+}
+
+.wpcpm-questions__title {
+	font-size: 1em;
+	margin: 0 0 0.75em;
+}
+
+.wpcpm-questions__message {
+	margin: 0 0 0.75em;
+}
+
+.wpcpm-questions {
+	display: grid;
+	gap: 0.75em;
+	list-style: none;
+	margin: 0 0 1.25em;
+	padding: 0;
+}
+
+.wpcpm-question {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+	padding: 0.85em 1em;
+}
+
+.wpcpm-question > p,
+.wpcpm-question > ul {
+	margin: 0 0 0.5em;
+}
+
+.wpcpm-question > :last-child {
+	margin-bottom: 0;
+}
+
+.wpcpm-question__date,
+.wpcpm-question__state {
+	font-size: 0.82em;
+	opacity: 0.72;
+}
+
+.wpcpm-question__text {
+	font-weight: 600;
+	overflow-wrap: anywhere;
+}
+
+.wpcpm-question__added {
+	overflow-wrap: anywhere;
+}
+
+.wpcpm-question__links {
+	list-style: none;
+	padding: 0;
+}
+
+.wpcpm-question__links a {
+	overflow-wrap: anywhere;
+}
+
+.wpcpm-question--answered {
+	background: var( --wpcpm-surface );
+	opacity: 0.72;
+}
+
+/* Mark as answered: one small secondary button, drawn here because the dashboard's stylesheet does not
+   carry the student pages' secondary rule. Scoped to the question's own form, so no other button changes. */
+.wpcpm-question__answer .wpcpm-button--secondary {
+	background: none;
+	color: inherit;
+	cursor: pointer;
+	font-size: 0.8em;
+	font-weight: 500;
+	padding: 0.3em 0.75em;
+}
+
+/* Notes Need help? wrote about the student: a list of their own, apart from the mentor's. */
+.wpcpm-need-help-notes {
+	display: grid;
+	gap: 0.75em;
+	list-style: none;
+	margin: 0 0 1.25em;
+	padding: 0;
+}
+
+.wpcpm-need-help-note {
+	background: var( --wpcpm-surface );
+	border-radius: var( --wpcpm-radius );
+	padding: 0.85em 1em;
+}
+
+.wpcpm-need-help-note__meta {
+	font-size: 0.82em;
+	margin-bottom: 0.35em;
+	opacity: 0.72;
+}
+
+.wpcpm-need-help-note__label {
+	font-weight: 600;
+}
+
+.wpcpm-need-help-note__date::before {
+	content: '· ';
+}
+
+.wpcpm-need-help-note__body > p {
+	margin: 0 0 0.5em;
+}
+
+.wpcpm-need-help-note__body > p:last-child {
+	margin-bottom: 0;
+}
+
+.wpcpm-need-help-note__delete {
+	margin-top: 0.4em;
+}
+
+.wpcpm-need-help-note__delete-button {
+	background: none;
+	border: 0;
+	color: inherit;
+	cursor: pointer;
+	font-size: 0.82em;
+	opacity: 0.7;
+	padding: 0;
+	text-decoration: underline;
+}
+
+.wpcpm-need-help-note__delete-button:hover,
+.wpcpm-need-help-note__delete-button:focus {
 	opacity: 1;
 }
 
