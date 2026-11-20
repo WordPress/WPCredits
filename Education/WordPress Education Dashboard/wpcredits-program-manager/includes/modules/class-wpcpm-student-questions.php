@@ -457,7 +457,7 @@ class WPCPM_Student_Questions {
 			return $who;
 		}
 
-		$question = trim( mb_substr( trim( sanitize_textarea_field( (string) $question ) ), 0, (int) WPCPM_Handbook_Assistant::MAX_LENGTH ) );
+		$question = self::clean_question( $question );
 
 		if ( mb_strlen( $question ) < self::QUESTION_MIN ) {
 			return new WP_Error( self::ERROR_SHORT, __( 'Nothing was sent - the question was too short.', 'wpcredits-program-manager' ) );
@@ -530,6 +530,18 @@ class WPCPM_Student_Questions {
 		$answer['emailed']     = self::email_mentor( $who, $question, $note, $links );
 
 		return $answer;
+	}
+
+	/**
+	 * A question as `send()` keeps it: sanitized as a textarea, trimmed, and cut to Need help?'s longest
+	 * question (`WPCPM_Handbook_Assistant::MAX_LENGTH`) in characters. The AI Mentor's route gives its
+	 * card the same, so the card's preview holds exactly what the mentor gets.
+	 *
+	 * @param string $question The question as typed.
+	 * @return string
+	 */
+	public static function clean_question( $question ) {
+		return trim( mb_substr( trim( sanitize_textarea_field( (string) $question ) ), 0, (int) WPCPM_Handbook_Assistant::MAX_LENGTH ) );
 	}
 
 	/**

@@ -57,6 +57,11 @@ final class WPCPM_Administrators_Dashboard {
 	 */
 	const VIEW_TALKS = 'talks';
 	/**
+	 * The AI Mentor transcripts view (AI Mentor R3): what the AI Mentor said to each account, at `?wpcpm_view=ai-mentor`, which
+	 * the Student Report Card's manager line links to with the student's record.
+	 */
+	const VIEW_AI_MENTOR = 'ai-mentor';
+	/**
 	 * The cards each view but the Overview holds, by their anchor's key: a link to a card goes to the view
 	 * that draws it (`card_url()`), and every other card is the Overview's.
 	 */
@@ -132,6 +137,11 @@ final class WPCPM_Administrators_Dashboard {
 		// The Upcoming cohorts card and the cohort timeline view it opens (1.123.68).
 		if ( class_exists( 'WPCPM_Cohort_Timeline_View' ) ) {
 			WPCPM_Cohort_Timeline_View::register_assets();
+		}
+
+		// The AI Mentor transcripts view (AI Mentor R3).
+		if ( class_exists( 'WPCPM_Tutor_Transcripts_View' ) ) {
+			WPCPM_Tutor_Transcripts_View::register_assets();
 		}
 	}
 
@@ -294,6 +304,10 @@ final class WPCPM_Administrators_Dashboard {
 			wp_enqueue_style( WPCPM_Cohort_Timeline_View::STYLE );
 		}
 
+		if ( class_exists( 'WPCPM_Tutor_Transcripts_View' ) ) {
+			wp_enqueue_style( WPCPM_Tutor_Transcripts_View::STYLE );
+		}
+
 		// Every form on this page prints `data-wpcpm-once`; the guard is inert without the
 		// script, and the Institution Dashboard shipped once that way.
 		if ( ! wp_script_is( 'wpcpm-forms', 'registered' ) ) {
@@ -354,6 +368,8 @@ final class WPCPM_Administrators_Dashboard {
 
 			if ( 'cohort-timeline' === $view ) {
 				WPCPM_Cohort_Timeline_View::render_view( ! empty( $data['cohort_timeline'] ) ? (array) $data['cohort_timeline'] : WPCPM_Cohort_Timeline::report(), self::page_name() );
+			} elseif ( self::VIEW_AI_MENTOR === $view ) {
+				WPCPM_Tutor_Transcripts_View::render_view( self::page_name() );
 			} elseif ( self::VIEW_REFERENCE === $view ) {
 				self::render_reference( $data, $viewer );
 			} elseif ( self::VIEW_WATCH === $view ) {
@@ -378,11 +394,15 @@ final class WPCPM_Administrators_Dashboard {
 	 * Which of the page's views this request asks for: the Overview, the cohort timeline (1.123.68) or the
 	 * Reference view (1.123.69), each at the page's own address with `?wpcpm_view=`.
 	 *
-	 * @return string `overview`, `cohort-timeline` or `reference`.
+	 * @return string `overview`, `cohort-timeline`, `ai-mentor` or `reference`.
 	 */
 	private static function view() {
 		if ( class_exists( 'WPCPM_Cohort_Timeline_View' ) && WPCPM_Cohort_Timeline_View::is_requested() ) {
 			return 'cohort-timeline';
+		}
+
+		if ( class_exists( 'WPCPM_Tutor_Transcripts_View' ) && WPCPM_Tutor_Transcripts_View::is_requested() ) {
+			return self::VIEW_AI_MENTOR;
 		}
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- A view to read, which changes nothing.
@@ -408,7 +428,7 @@ final class WPCPM_Administrators_Dashboard {
 	/**
 	 * A view's address: the page's own, with `?wpcpm_view=` for any view but the Overview.
 	 *
-	 * @param string $view `overview`, `watch`, `cohort-timeline` or `reference`.
+	 * @param string $view `overview`, `watch`, `cohort-timeline`, `ai-mentor` or `reference`.
 	 * @return string '' while the page has no address.
 	 */
 	public static function view_url( $view = 'overview' ) {
@@ -758,6 +778,11 @@ final class WPCPM_Administrators_Dashboard {
 
 		if ( class_exists( 'WPCPM_Cohort_Timeline_View' ) ) {
 			$items[] = WPCPM_Dashboard_Frame::item( __( 'Cohort timeline', 'wpcredits-program-manager' ), self::view_url( 'cohort-timeline' ), 'timeline', array( 'current' => 'cohort-timeline' === $view ) );
+		}
+
+		// AI Mentor transcripts (AI Mentor R3), after Cohort timeline: while the setting lists a login or a conversation is kept.
+		if ( class_exists( 'WPCPM_Tutor_Transcripts_View' ) && WPCPM_Tutor_Transcripts_View::shown() ) {
+			$items[] = WPCPM_Dashboard_Frame::item( __( 'AI Mentor transcripts', 'wpcredits-program-manager' ), self::view_url( self::VIEW_AI_MENTOR ), 'inbox', array( 'current' => self::VIEW_AI_MENTOR === $view ) );
 		}
 
 		$items[] = WPCPM_Dashboard_Frame::item( __( 'The program', 'wpcredits-program-manager' ), self::view_url( self::VIEW_REFERENCE ), 'chart', array( 'current' => self::VIEW_REFERENCE === $view ) );

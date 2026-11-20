@@ -288,6 +288,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-search.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-sources.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-ai-call.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php';
 // The rows every settings form is drawn with, the Settings screen, and the three tools that draw their
 // own settings on their own screens, as the plugin's loader requires them.
@@ -298,6 +299,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-mentor-checker.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-duplicate-finder.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-tutor.php';
 
 /** The dashboards whose pages the landing-page rows link to. */
 class WPCPM_Mentors_Dashboard {
@@ -1674,7 +1676,14 @@ foreach ( array( 'connection', 'people', 'institutions', 'sponsors', 'advanced',
 	sort( $own );
 
 	$drawn_scopes[ $tab ] = names_of( form_for( $tab ) );
-	$want_scopes[ $tab ]  = $own;
+
+	// Need help?'s form also posts the AI Mentor persona, kept in its own option and no setting.
+	if ( 'tool:handbook' === $tab ) {
+		$own[] = 'tutor_persona';
+		sort( $own );
+	}
+
+	$want_scopes[ $tab ] = $own;
 }
 
 ck( 'with every list drawn, each tab\'s form and each tool\'s Settings section still holds exactly the settings its Save writes, nothing posted under another name',

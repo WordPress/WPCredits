@@ -380,6 +380,9 @@ ck( 'it is answered by nobody yet', array( $meta( '_wpcpm_question_answered_at' 
 
 $cut = WPCPM_Student_Questions::send( 10, str_repeat( 'é', 450 ), str_repeat( 'ü', 700 ) );
 ck( 'a long question is cut to 400 and its line to 600, never refused', array( mb_strlen( $GLOBALS['posts'][ $cut['question_id'] ]->post_content ), mb_strlen( get_post_meta( $cut['question_id'], '_wpcpm_question_note', true ) ) ), array( 400, 600 ) );
+ck( 'clean_question() is the cleaning send() keeps a question by, which the AI Mentor\'s preview shows: what it gives is what send() kept',
+	is_callable( array( 'WPCPM_Student_Questions', 'clean_question' ) ) ? array( WPCPM_Student_Questions::clean_question( "  How do I start\nthe final project?  " ) === $post->post_content, WPCPM_Student_Questions::clean_question( str_repeat( 'é', 450 ) ) === $GLOBALS['posts'][ $cut['question_id'] ]->post_content, WPCPM_Student_Questions::clean_question( ' <b>a</b> ' ) ) : null,
+	array( true, true, 'a' ) );
 
 echo "\n=== Sending: the email ===\n";
 

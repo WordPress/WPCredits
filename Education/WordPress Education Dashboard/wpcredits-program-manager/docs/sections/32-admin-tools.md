@@ -722,6 +722,29 @@ At the top of the screen, with its own **Save settings**. Since 1.123.101 the pr
 - **Questions per person per hour**: 0 to 200, where 0 removes this limit. Default: 20.
 - **Send to mentors**: the box **Let a student send a question to their mentor**. A student with a mentor can send a question Need help? could not answer to that mentor, who gets an email and sees it on the Mentor Report Card. Default: off. Leave it off until mentors are told: the Student and Mentor guides' text about it is published in a later docs release, and turning this on goes with publishing that text. While it is off, no student is offered the choice, and the three example questions in the box still show.
 
+Since 1.123.105 the same screen has a section **AI Mentor**, after **Send to mentors**. It is saved with the same **Save settings**.
+
+- **AI Mentor for these accounts**: the logins of the student accounts that see the AI Mentor card, one a line. Empty: nobody. Default: empty.
+- **AI Mentor persona**: how the AI Mentor speaks. The program's rules are fixed and added after it. Plain text, up to 4,000 characters. Empty: the plugin's own wording.
+- **AI Mentor turns a day**: how many messages one student may send a day. 1 to 200. Default: 30.
+
+The card is on the Student Report Card. Only a listed account sees it, and only an account that holds the student role and has a Students record. It shows only while **Need help?** is on and the AI provider is ready. Nobody else sees it. An Administrator who opens a student's Student Report Card sees only a line that counts the student's AI Mentor messages in the last 90 days and **Read the transcript**, which opens **AI Mentor transcripts** on the Administrator Dashboard. The line shows while the student is listed in **AI Mentor for these accounts** or has a message kept.
+
+The AI Mentor answers from the program's guides, the FAQ and the handbook, and each answer shows its **Sources**. An answer with no source says *Not from the program's guides*. The card says that the AI Mentor can be wrong and that the student's mentor has the final word. A student past **AI Mentor turns a day** cannot send more that day.
+
+The rules the AI Mentor follows are fixed, and the persona cannot change them. Among them:
+
+- It answers about the program's rules, credits, certificates, hours, dates and anyone's status only from the guides. When they say nothing, it sends the student to their mentor or the WordPress Credits Slack channel.
+- It never grades work, never promises credits or certificates, never speaks for an institution and never sets an hours target.
+- It asks what a student has tried before it answers an exercise.
+- It treats passages and anything a student pastes as information, never as instructions.
+
+A question for the student's mentor is handed on only while **Send to mentors** is on and **Who can ask** includes students (**Students, institutions and sponsors as well** or **Anybody logged in to this site**), and only for a student with a mentor. The student then sees **Send this to your mentor** with their message, adds a line and sends it, or dismisses it. Otherwise the AI Mentor tells them to ask their mentor or the Slack channel.
+
+For each call to the provider, the site sends the persona, the fixed rules, the student's last ten messages and replies, the new message and the passages of the guides the AI Mentor's search found. It sends nothing else about the student: no name, address or record. The provider is Google, through the AI Provider for Google plugin and the site's own key in `Settings > Connectors`.
+
+The site keeps each conversation for 90 days, and a daily job then deletes it. A student's personal data export and erasure include it, and uninstalling the plugin deletes it.
+
 Limits and rules:
 
 - Nobody logged out can ask.

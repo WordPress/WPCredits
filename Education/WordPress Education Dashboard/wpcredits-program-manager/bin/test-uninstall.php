@@ -821,7 +821,10 @@ $GLOBALS['opts']['wpcpm_guide_index_version']  = 1;
 $GLOBALS['opts']['wpcpm_guide_index_state']    = array( 'sources' => array( 'page:1' => array( 'kind' => 'guide' ) ), 'built_for' => '1.123.101' );
 $GLOBALS['opts']['wpcpm_guide_handbook_state'] = array( 'synced_at' => time(), 'ok' => true, 'error' => '', 'pages' => 12 );
 $GLOBALS['opts']['wpcpm_guide_index_lock']     = (string) ( time() + 300 );
+// The tutor transcript's schema version (AI Mentor R3); its table is dropped.
+$GLOBALS['opts']['wpcpm_tutor_store_version'] = 1;
 // The Administrators' edits of the emails and the footer (1.122.19), with who saved each.
+$GLOBALS['opts']['wpcpm_tutor_persona'] = 'Speak like a coach.'; // WPCPM_Tutor::OPT_PERSONA.
 $GLOBALS['opts']['wpcpm_mail_templates'] = array( 'templates' => array( 'invite-student' => array( 'subject' => 'Hi', 'body' => '{set_password_link}', 'by' => 1, 'at' => time(), 'shipped' => 'x' ) ), 'footer' => null );
 $GLOBALS['opts']['wpcpm_invite_queue'] = array( 7 );
 $GLOBALS['opts']['wpcpm_invite_run']   = array( 'total' => 241, 'started' => time() - HOUR_IN_SECONDS, 'finished' => 0 );
@@ -1015,7 +1018,7 @@ $file_hooks  = array( 'wpcpm_mentors_daily', 'wpcpm_mentors_sync_tick', 'wpcpm_s
 // move onto the site completes, and the Sponsors module's uninstall clears them through the names
 // the migration keeps (1.111.0).
 $sync_hooks  = array( 'wpcpm_sponsors_daily', 'wpcpm_sponsors_sync_tick' );
-$other_hooks = array_merge( array( 'wpcpm_ceiling_sweep', 'wpcpm_purge_applications', 'wpcpm_agreement_discard', 'wpcpm_agreement_reminders', 'wpcpm_invite_expire', 'wpcpm_report_ask_queue', 'wpcpm_report_autodraft', 'wpcpm_sponsor_agreement_discard', 'wpcpm_purge_sponsor_applications', 'wpcpm_sponsor_tiers_daily', 'wpcpm_sevent_drain', 'wpcpm_sevent_remind_retry', 'wpcpm_checker_weekly_check', 'wpcpm_checker_slack_retry', 'wpcpm_duplicates_scan', 'wpcpm_duplicates_tick', 'wpcpm_duplicates_purge', 'wpcpm_mail_log_purge', 'wpcpm_mentor_applications_daily', 'wpcpm_student_registrations_hourly', 'wpcpm_student_interests_daily', 'wpcpm_student_flags_daily', 'wpcpm_guide_daily', 'wpcpm_guide_rebuild' ), $sync_hooks );
+$other_hooks = array_merge( array( 'wpcpm_ceiling_sweep', 'wpcpm_purge_applications', 'wpcpm_agreement_discard', 'wpcpm_agreement_reminders', 'wpcpm_invite_expire', 'wpcpm_report_ask_queue', 'wpcpm_report_autodraft', 'wpcpm_sponsor_agreement_discard', 'wpcpm_purge_sponsor_applications', 'wpcpm_sponsor_tiers_daily', 'wpcpm_sevent_drain', 'wpcpm_sevent_remind_retry', 'wpcpm_checker_weekly_check', 'wpcpm_checker_slack_retry', 'wpcpm_duplicates_scan', 'wpcpm_duplicates_tick', 'wpcpm_duplicates_purge', 'wpcpm_mail_log_purge', 'wpcpm_mentor_applications_daily', 'wpcpm_student_registrations_hourly', 'wpcpm_student_interests_daily', 'wpcpm_student_flags_daily', 'wpcpm_guide_daily', 'wpcpm_guide_rebuild', 'wpcpm_tutor_purge' ), $sync_hooks );
 
 foreach ( array_merge( $file_hooks, $other_hooks, array( 'wp_version_check' ) ) as $hook ) {
 	$GLOBALS['cron'][] = array(
@@ -1222,6 +1225,8 @@ ck( 'the mail log goes, with the addresses in it', get_option( 'wpcpm_mail_log',
 ck( 'and so do the email log\'s table, its schema version and the time of its last cleanup', array( in_array( 'DROP TABLE IF EXISTS wp_wpcpm_mail_log', $wpdb->queries, true ), get_option( 'wpcpm_mail_log_version', 'gone' ), get_option( 'wpcpm_mail_log_purged', 'gone' ) ), array( true, 'gone', 'gone' ) );
 ck( 'and so do Need help?\'s two tables', array( in_array( 'DROP TABLE IF EXISTS wp_wpcpm_guide_terms', $wpdb->queries, true ), in_array( 'DROP TABLE IF EXISTS wp_wpcpm_guide_chunks', $wpdb->queries, true ) ), array( true, true ) );
 ck( 'and its three options and the lock a request that died holding it left', array( get_option( 'wpcpm_guide_index_version', 'gone' ), get_option( 'wpcpm_guide_index_state', 'gone' ), get_option( 'wpcpm_guide_handbook_state', 'gone' ), get_option( 'wpcpm_guide_index_lock', 'gone' ) ), array( 'gone', 'gone', 'gone', 'gone' ) );
+ck( 'and so do the tutor transcript\'s table and its schema version (AI Mentor R3)', array( in_array( 'DROP TABLE IF EXISTS wp_wpcpm_tutor_turns', $wpdb->queries, true ), get_option( 'wpcpm_tutor_store_version', 'gone' ) ), array( true, 'gone' ) );
+ck( 'and the AI Mentor\'s persona (AI Mentor R3)', get_option( 'wpcpm_tutor_persona', 'gone' ), 'gone' );
 ck( 'and so do the Administrators\' edits of the emails and the footer', get_option( 'wpcpm_mail_templates', 'gone' ), 'gone' );
 ck( 'and so does everybody still waiting for an invitation', get_option( 'wpcpm_invite_queue', 'gone' ), 'gone' );
 ck( 'and the counts and times of the last bulk invite', get_option( 'wpcpm_invite_run', 'gone' ), 'gone' );
@@ -1279,6 +1284,9 @@ $names = array(
 	'WPCPM_Mail_Log::OPT_VERSION'                   => 'wpcpm_mail_log_version',
 	'WPCPM_Mail_Log::OPT_PURGED'                    => 'wpcpm_mail_log_purged',
 	'WPCPM_Mail_Log::PURGE_HOOK'                    => 'wpcpm_mail_log_purge',
+	'WPCPM_Tutor_Store::OPT_VERSION'                => 'wpcpm_tutor_store_version',
+	'WPCPM_Tutor_Store::PURGE_HOOK'                 => 'wpcpm_tutor_purge',
+	'WPCPM_Tutor::OPT_PERSONA'                      => 'wpcpm_tutor_persona',
 	'WPCPM_Guide_Index::OPT_VERSION'                => 'wpcpm_guide_index_version',
 	'WPCPM_Guide_Index::OPT_STATE'                  => 'wpcpm_guide_index_state',
 	'WPCPM_Guide_Sources::OPT_HANDBOOK'             => 'wpcpm_guide_handbook_state',

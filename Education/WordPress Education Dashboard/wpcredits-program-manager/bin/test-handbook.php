@@ -271,8 +271,11 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-search.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-sources.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-ai-call.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-assistant.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-tutor.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook.php';
 
@@ -1686,9 +1689,9 @@ ck( 'the tool reports itself off rather than unsynced',
     array( $tool->status_line(), $tool->is_ready() ), array( 'Switched off.', false ) );
 
 // Its settings are drawn and saved on its own screen, in its Settings section, under its own scope.
-ck( 'it keeps five settings of its own, the switch among them, saved under its own scope: the provider and its key are Settings > Connectors\'',
+ck( 'it keeps seven settings of its own, the switch among them, saved under its own scope: the provider and its key are Settings > Connectors\'',
     array( method_exists( $tool, 'settings_keys' ) ? $tool->settings_keys() : null, method_exists( $tool, 'settings_scope' ) ? $tool->settings_scope() : null ),
-    array( array( 'handbook_enabled', 'handbook_model', 'handbook_access', 'handbook_limit', 'handbook_to_mentors' ), 'tool:handbook' ) );
+    array( array( 'handbook_enabled', 'handbook_model', 'handbook_access', 'handbook_limit', 'handbook_to_mentors', 'tutor_accounts', 'tutor_turns' ), 'tool:handbook' ) );
 
 // A page announcing a switched-off feature is worse than a blank one; a manager still needs
 // to know why the page they are looking at is empty.
@@ -3313,6 +3316,7 @@ function wp_nonce_field( $action = -1, $name = '_wpnonce', $referer = true, $dis
 function submit_button( $text = '', $type = 'primary', $name = 'submit', $wrap = true, $other = '' ) { echo '<button class="button button-' . $type . '">' . $text . '</button>'; }
 function wp_next_scheduled( $hook, $args = array() ) { return false; }
 function wp_clear_scheduled_hook( $hook, $args = array() ) { return 0; }
+function wp_schedule_event( $time, $recurrence, $hook, $args = array() ) { $GLOBALS['scheduled_events'][ $hook ] = $recurrence; return true; }
 class HbRedirect extends Exception {}
 class HbDie extends Exception {}
 function wp_safe_redirect( $location ) { throw new HbRedirect( (string) $location ); }
@@ -3556,6 +3560,20 @@ ck( 'the handler is hooked on admin-post under the button\'s action, whether Nee
         return array( $off, isset( $GLOBALS['actions']['admin_post_wpcpm_guide_rebuild'] ) );
     } )() ),
     array( array( true, true ) ) );
+
+ck( 'the AI Mentor boots with Need help? and only then: its Ceiling sweep is hooked and scheduled daily when it is on, and neither when it is off',
+    array( ( function () {
+        $GLOBALS['actions']          = array();
+        $GLOBALS['scheduled_events'] = array();
+        WPCPM_Settings::patch( array( 'handbook_enabled' => false ) );
+        ( new WPCPM_Handbook() )->boot();
+        $off = array( isset( $GLOBALS['actions']['wpcpm_ceiling_sweep'] ), $GLOBALS['scheduled_events']['wpcpm_ceiling_sweep'] ?? null );
+        $GLOBALS['actions'] = array();
+        WPCPM_Settings::patch( array( 'handbook_enabled' => true ) );
+        ( new WPCPM_Handbook() )->boot();
+        return array( $off, array( isset( $GLOBALS['actions']['wpcpm_ceiling_sweep'] ), $GLOBALS['scheduled_events']['wpcpm_ceiling_sweep'] ?? null ) );
+    } )() ),
+    array( array( array( false, null ), array( true, 'daily' ) ) ) );
 
 ck( 'the Tools card describes where answers come from, and the Settings section\'s sentence and its fold say what the box is and where each question goes',
     array( ( function () {
@@ -4619,6 +4637,91 @@ ck( 'the page: the flash holds the same sentence',
     array( $flash_unemailed ), array( array( 'state' => 'sent', 'message' => $on_card ) ) );
 ck( 'the sentence is written once, and says nothing of an email',
     array( substr_count( $assistant_src, $on_card ), false === strpos( $on_card, 'email' ) ), array( 1, true ) );
+
+echo "\n=== What the tutor borrows: find(), source_of() and passages_reply() (AI Mentor R3) ===\n";
+
+// Seven passages of one public page that share a word, one page only a mentor reads, and one row whose
+// address does not survive esc_url_raw(): the tutor is given what Need help? is given.
+$GLOBALS['status'][2746] = 'publish';
+$GLOBALS['status'][7701] = 'publish';
+unset( $GLOBALS['pmeta'][2746] );
+$zebra = array();
+
+for ( $i = 1; $i <= 7; $i++ ) {
+	$zebra[] = array( 'heading' => 'Zebrafish tank ' . $i, 'anchor' => 'tank-' . $i, 'body' => 'Zebrafish need a clean tank, and zebrafish are fed twice a day. Note ' . $i . '.' );
+}
+
+write_page( 'page:7701', 'faq', 'public', 'Aquarium care', $site . 'aquarium/', $zebra );
+write_page( 'page:2746', 'faq', 'public', 'Frequently asked questions', $site . 'faq/', array(
+	array( 'heading' => 'When is the weekly report due?', 'anchor' => 'report-due', 'body' => 'The weekly report is due every Friday, and your mentor reads it before your weekly call.' ),
+) );
+write_page( 'handbook:7702', 'handbook', 'mentor', 'Mentor guide', $hb . 'mentor-guide/', array(
+	array( 'heading' => 'Zebrafish', 'anchor' => 'zebrafish', 'body' => 'Mentors may read this zebrafish passage, and students may not.' ),
+) );
+$wpdb->insert(
+	WPCPM_Guide_Index::chunks_table(),
+	array( 'source' => 'page:7703', 'kind' => 'faq', 'audience' => 'public', 'post_id' => 0, 'title' => 'Planted', 'heading' => 'Zebrafish', 'url' => 'javascript:alert(1)', 'body' => 'Zebrafish, zebrafish, zebrafish, zebrafish.', 'words' => 4, 'hash' => md5( 'planted-zebra' ), 'modified' => '2026-11-19 00:00:00' )
+);
+$wpdb->insert( WPCPM_Guide_Index::terms_table(), array( 'term' => 'zebrafish', 'chunk_id' => $wpdb->insert_id, 'tf' => 4 ) );
+$planted_zebra = (int) $wpdb->insert_id;
+
+$GLOBALS['users'][31]  = new WP_User( 31, 'Student', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['grants'][31] = array( WPCPM_Roles::CAP_VIEW_STUDENT );
+$GLOBALS['users'][32]  = new WP_User( 32, 'Administrator', array( 'administrator' ) );
+$GLOBALS['manage']     = array( 32 );
+$GLOBALS['users'][33]  = new WP_User( 33, 'Mentor', array( WPCPM_Roles::ROLE_MENTOR ) );
+$GLOBALS['grants'][33] = array( WPCPM_Roles::CAP_VIEW_MENTOR );
+$student_a = $GLOBALS['users'][31];
+$found     = WPCPM_Handbook_Answer::find( array( 'zebrafish tank' ), $student_a );
+ck( 'find() gives a student at most five passages, each with a title, heading, url and body, none of them the mentors\' page or the planted address',
+    array(
+        count( $found ),
+        array_keys( $found[0] ),
+        in_array( 'Mentor guide', array_column( $found, 'title' ), true ),
+        in_array( 'Planted', array_column( $found, 'title' ), true ),
+        array_unique( array_column( $found, 'title' ) ),
+    ),
+    array( WPCPM_Handbook_Answer::PASSAGES, array_keys( $found[0] ), false, false, array( 'Aquarium care' ) ) );
+ck( 'and the keys are the four the tutor reads',
+    array( isset( $found[0]['title'], $found[0]['heading'], $found[0]['url'], $found[0]['body'] ) ), array( true ) );
+
+$mentor_gets = array_column( WPCPM_Handbook_Answer::find( array( 'mentors may read this passage' ), $GLOBALS['users'][33] ), 'title' );
+ck( 'a mentor is given the mentors\' page that a student is not: the rule is audiences_for(), as ask() applies it',
+    array( in_array( 'Mentor guide', array_column( WPCPM_Handbook_Answer::find( array( 'mentors may read this passage' ), $student_a ), 'title' ), true ), in_array( 'Mentor guide', $mentor_gets, true ), WPCPM_Guide_Sources::audiences_for( $GLOBALS['users'][33] ) ),
+    array( false, true, WPCPM_Guide_Sources::audiences_for( $GLOBALS['users'][33] ) ) );
+
+$weekly      = array( 'weekly report due' );
+$with_faq    = array_column( WPCPM_Handbook_Answer::find( $weekly, $student_a ), 'url' );
+$GLOBALS['pmeta'][2746][ WPCPM_Content_Access::META_KEY ] = 'administrator';
+$without_faq = array_column( WPCPM_Handbook_Answer::find( $weekly, $student_a ), 'url' );
+$admin_faq   = array_column( WPCPM_Handbook_Answer::find( $weekly, $GLOBALS['users'][32] ), 'url' );
+unset( $GLOBALS['pmeta'][2746] );
+ck( 'find() leaves out what excluded_for() names: a public page gated to Administrators stops feeding a student, and still feeds an Administrator',
+    array( in_array( $site . 'faq/#report-due', $with_faq, true ), in_array( $site . 'faq/#report-due', $without_faq, true ), in_array( $site . 'faq/#report-due', $admin_faq, true ) ),
+    array( true, false, true ) );
+
+ck( 'source_of() names a passage as Need help? does, page and section, with its address and no extract',
+    WPCPM_Handbook_Answer::source_of( array( 'title' => 'Aquarium care', 'heading' => 'Zebrafish tank 1', 'url' => $site . 'aquarium/#tank-1', 'body' => 'Long body.' ) ),
+    array( 'title' => 'Aquarium care: Zebrafish tank 1', 'link' => $site . 'aquarium/#tank-1', 'extract' => '' ) );
+ck( 'and a passage with no heading is its page alone',
+    WPCPM_Handbook_Answer::source_of( array( 'title' => 'Aquarium care', 'heading' => '', 'url' => $site . 'aquarium/', 'body' => 'B.' ) )['title'],
+    'Aquarium care' );
+
+$sentence = 'The tutor is not available just now. These parts of the guides match.';
+$reply    = WPCPM_Handbook_Answer::passages_reply( 'zebrafish tank', $student_a, $sentence );
+ck( 'passages_reply() with matches: the sentence over three sources, found, written by nobody',
+    array( $reply['text'], count( $reply['sources'] ), $reply['found'], $reply['generated'], $reply['nothing'], $reply['sources'][0]['title'], '' !== $reply['sources'][0]['extract'] ),
+    array( $sentence, WPCPM_Handbook_Answer::FALLBACK, true, false, false, 'Aquarium care: Zebrafish tank 1', true ) );
+ck( 'and it is the answer shape ask() returns',
+    array_keys( $reply ), array_keys( asked( 'anything', 31 ) ) );
+
+$nothing = WPCPM_Handbook_Answer::passages_reply( 'qqqq xxxx', $student_a, $sentence );
+ck( 'passages_reply() with no match: the nothing sentence a student is given, with its mentor and Slack way out, and no sources',
+    array( $nothing['text'], $nothing['sources'], $nothing['found'], $nothing['nothing'] ),
+    array( 'Nothing in this site\'s guides or the WordPress Credits handbook answers that. Ask your mentor, or in the program\'s Slack channel.', array(), false, true ) );
+
+$wpdb->query( $wpdb->prepare( 'DELETE FROM ' . WPCPM_Guide_Index::chunks_table() . ' WHERE id = %d', $planted_zebra ) );
+$wpdb->query( $wpdb->prepare( 'DELETE FROM ' . WPCPM_Guide_Index::terms_table() . ' WHERE chunk_id = %d', $planted_zebra ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

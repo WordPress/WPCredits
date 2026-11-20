@@ -189,6 +189,16 @@ class WPCPM_Sponsor_Tools {
 	public static function render( $a, $u ) { echo '<section class="wpcpm-student__section wpcpm-tools"><!-- tools --></section>'; }
 	public static function render_count_line( $u ) { echo '<p class="wpcpm-tools__count"><!-- tools-count --></p>'; }
 }
+// The AI Mentor card (bin/test-tutor.php draws the real one): what `$GLOBALS['tutor_card']` holds, '' by default as for
+// the many students the card is not for, and it keeps what it was asked about.
+$GLOBALS['tutor_card']  = '';
+$GLOBALS['tutor_asked'] = array();
+class WPCPM_Tutor {
+	public static function render_card( WP_User $student, WP_User $viewer, bool $can_manage ): string {
+		$GLOBALS['tutor_asked'][] = array( $student->ID, $viewer->ID, $can_manage );
+		return $GLOBALS['tutor_card'];
+	}
+}
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 // The switch of the shared parts, which each screen and dashboard names itself to while it draws, as the plugin
@@ -235,12 +245,13 @@ function module_ids( $html ) {
 echo "=== The order ===\n";
 $default = array( 'updates', 'course', 'forms', 'calls', 'tools' );
 // The first-weeks card leads the default order (Release B); a saved order that does not know it gets it at the end.
-$fresh = array_merge( array( 'start' ), $default );
+// The AI Mentor joins last (AI Mentor R3), as every new module does.
+$fresh = array_merge( array( 'start' ), $default, array( 'tutor' ) );
 ck( 'nothing saved: the default order, the first weeks, then the updates', WPCPM_Students_Dashboard::module_order( 30 ), $fresh );
 $GLOBALS['umeta'][30]['wpcpm_student_modules'] = array( 'calls', 'course' );
-ck( 'a partial order: the rest joins at the end in default order', WPCPM_Students_Dashboard::module_order( 30 ), array( 'calls', 'course', 'start', 'updates', 'forms', 'tools' ) );
+ck( 'a partial order: the rest joins at the end in default order', WPCPM_Students_Dashboard::module_order( 30 ), array( 'calls', 'course', 'start', 'updates', 'forms', 'tools', 'tutor' ) );
 $GLOBALS['umeta'][30]['wpcpm_student_modules'] = array( 'forms', 'bogus', 'forms', 7, 'updates', 'course', 'calls', 'tools' );
-ck( 'unknown keys and duplicates are dropped', WPCPM_Students_Dashboard::module_order( 30 ), array( 'forms', 'updates', 'course', 'calls', 'tools', 'start' ) );
+ck( 'unknown keys and duplicates are dropped', WPCPM_Students_Dashboard::module_order( 30 ), array( 'forms', 'updates', 'course', 'calls', 'tools', 'start', 'tutor' ) );
 $GLOBALS['umeta'][30]['wpcpm_student_modules'] = 'course,forms';
 ck( 'a value that is not a list is the default', WPCPM_Students_Dashboard::module_order( 30 ), $fresh );
 unset( $GLOBALS['umeta'][30]['wpcpm_student_modules'] );
@@ -326,15 +337,15 @@ ck( 'and nothing was written', isset( $GLOBALS['umeta'][30]['wpcpm_student_modul
 $GLOBALS['uid'] = 30;
 $_POST          = array( 'wpcpm_module' => 'course', 'wpcpm_direction' => 'up', 'wpcpm_student' => '31' );
 ck( 'a student arranges their own page whatever the form says, and lands back on it at the module', ran( 'handle_move' ), 'redirect|https://example.test/student-dashboard/#wpcpm-module-course' );
-ck( 'their own order is saved, and the other student\'s is untouched', array( $GLOBALS['umeta'][30]['wpcpm_student_modules'], isset( $GLOBALS['umeta'][31]['wpcpm_student_modules'] ) ), array( array( 'start', 'course', 'updates', 'forms', 'calls', 'tools' ), false ) );
+ck( 'their own order is saved, and the other student\'s is untouched', array( $GLOBALS['umeta'][30]['wpcpm_student_modules'], isset( $GLOBALS['umeta'][31]['wpcpm_student_modules'] ) ), array( array( 'start', 'course', 'updates', 'forms', 'calls', 'tools', 'tutor' ), false ) );
 $_POST = array( 'wpcpm_module' => 'tools', 'wpcpm_direction' => 'up', 'wpcpm_student' => '30', 'wpcpm_async' => '1' );
-ck( 'the script gets the kept order back as JSON instead of a redirect', ran( 'handle_move' ), 'json|{"order":["start","course","updates","forms","tools","calls"]}' );
+ck( 'the script gets the kept order back as JSON instead of a redirect', ran( 'handle_move' ), 'json|{"order":["start","course","updates","forms","tools","calls","tutor"]}' );
 
 $GLOBALS['uid']  = 1;
 $GLOBALS['caps'] = true;
 $_POST           = array( 'wpcpm_module' => 'calls', 'wpcpm_direction' => 'up', 'wpcpm_student' => '31' );
 ck( 'a manager arranges the student the form names, and lands on that student', ran( 'handle_move' ), 'redirect|https://example.test/student-dashboard/?wpcpm_student_view=31#wpcpm-module-calls' );
-ck( 'saved on that student', $GLOBALS['umeta'][31]['wpcpm_student_modules'], array( 'start', 'updates', 'course', 'calls', 'forms', 'tools' ) );
+ck( 'saved on that student', $GLOBALS['umeta'][31]['wpcpm_student_modules'], array( 'start', 'updates', 'course', 'calls', 'forms', 'tools', 'tutor' ) );
 $_POST = array( 'wpcpm_module' => 'calls', 'wpcpm_direction' => 'up', 'wpcpm_student' => '999' );
 ck( 'a manager naming nobody who is a student, and being none themself, is refused', ran( 'handle_move' ), 'die|403' );
 $saved = $GLOBALS['umeta'][31]['wpcpm_student_modules'];
@@ -350,14 +361,14 @@ ck( 'an unknown direction saves nothing', $GLOBALS['umeta'][31]['wpcpm_student_m
 $GLOBALS['umeta'][31]['wpcpm_student_modules'] = $default;
 $_POST = array( 'wpcpm_module' => 'calls', 'wpcpm_direction' => 'up', 'wpcpm_student' => '31', 'wpcpm_drawn' => 'updates,calls,tools' );
 ran( 'handle_move' );
-ck( 'a move passes the modules the page does not draw: My mentor call goes above Program updates and resources, and the two hidden ones keep their places', $GLOBALS['umeta'][31]['wpcpm_student_modules'], array( 'calls', 'course', 'forms', 'updates', 'tools', 'start' ) );
+ck( 'a move passes the modules the page does not draw: My mentor call goes above Program updates and resources, and the two hidden ones keep their places', $GLOBALS['umeta'][31]['wpcpm_student_modules'], array( 'calls', 'course', 'forms', 'updates', 'tools', 'start', 'tutor' ) );
 $GLOBALS['umeta'][31]['wpcpm_student_modules'] = $default;
 $_POST = array( 'wpcpm_module' => 'updates', 'wpcpm_direction' => 'down', 'wpcpm_student' => '31', 'wpcpm_drawn' => 'updates,calls,tools', 'wpcpm_async' => '1' );
-ck( 'and the script gets that order back', ran( 'handle_move' ), 'json|{"order":["calls","course","forms","updates","tools","start"]}' );
+ck( 'and the script gets that order back', ran( 'handle_move' ), 'json|{"order":["calls","course","forms","updates","tools","start","tutor"]}' );
 $GLOBALS['umeta'][31]['wpcpm_student_modules'] = $default;
 $_POST = array( 'wpcpm_module' => 'calls', 'wpcpm_direction' => 'up', 'wpcpm_student' => '31' );
 ran( 'handle_move' );
-ck( 'a form that says nothing of what was drawn (a page an older version drew, left open in a tab) is moved through the whole order, as before', $GLOBALS['umeta'][31]['wpcpm_student_modules'], array( 'updates', 'course', 'calls', 'forms', 'tools', 'start' ) );
+ck( 'a form that says nothing of what was drawn (a page an older version drew, left open in a tab) is moved through the whole order, as before', $GLOBALS['umeta'][31]['wpcpm_student_modules'], array( 'updates', 'course', 'calls', 'forms', 'tools', 'start', 'tutor' ) );
 $GLOBALS['umeta'][31]['wpcpm_student_modules'] = $saved;
 $_POST = array();
 
@@ -483,6 +494,40 @@ ck( 'and left as the calendar registered it when one has, so the handle stays on
 	array( 'registered-earlier', true ) );
 
 $_GET = array();
+
+echo "\n=== The AI Mentor module (AI Mentor R3) ===\n";
+
+ck( 'the module\'s key is tutor, and it is the last module, named AI Mentor',
+	array( defined( 'WPCPM_Students_Dashboard::MODULE_TUTOR' ) ? WPCPM_Students_Dashboard::MODULE_TUTOR : null, array_slice( WPCPM_Students_Dashboard::modules(), -1, 1, true ) ),
+	array( 'tutor', array( 'tutor' => 'AI Mentor' ) ) );
+$GLOBALS['tutor_card']  = '';
+$GLOBALS['tutor_asked'] = array();
+$out                    = page_for( 30, false );
+ck( 'a card that draws nothing, as for a student it is not for, leaves the module out; the card was asked about the student, by the student',
+	array( in_array( 'tutor', module_ids( $out ), true ), $GLOBALS['tutor_asked'] ), array( false, array( array( 30, 30, false ) ) ) );
+$GLOBALS['tutor_card']  = '<section class="wpcpm-student__section wpcpm-tutor"><!-- tutor --></section>';
+$GLOBALS['tutor_asked'] = array();
+$out                    = page_for( 30, false );
+ck( 'a card with something to say is the last module on the page, in its own wrapper, with its arrows naming it',
+	array(
+		array_slice( module_ids( $out ), -1 ),
+		1 === preg_match( '#<div class="wpcpm-module wpcpm-module--tutor" id="wpcpm-module-tutor">.*?<section class="wpcpm-student__section wpcpm-tutor"><!-- tutor --></section></div>#s', $out ),
+		substr_count( $out, 'aria-label="Move AI Mentor up"' ),
+		1 === preg_match( '/id="wpcpm-module-tutor">.*?wpcpm-module__move--down[^>]* disabled>/s', $out ),
+		$GLOBALS['tutor_asked'],
+	),
+	array( array( 'tutor' ), true, 1, true, array( array( 30, 30, false ) ) ) );
+$GLOBALS['tutor_asked'] = array();
+page_for( 1, true );
+ck( 'on a manager\'s view the card is asked about the student, by the manager, who manages the program',
+	$GLOBALS['tutor_asked'], array( array( 30, 1, true ) ) );
+$GLOBALS['tutor_card']  = '';
+$GLOBALS['tutor_asked'] = array();
+$_GET                   = array();
+$tutor_page_src         = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php' );
+ck( 'the page asks WPCPM_Tutor behind class_exists(), so it draws without the module',
+	1 === preg_match( "/case self::MODULE_TUTOR:.*?if \\( class_exists\\( 'WPCPM_Tutor' \\) \\) \\{\\s*echo WPCPM_Tutor::render_card\\( \\\$student, \\\$viewer, \\(bool\\) \\\$can_manage \\);/s", $tutor_page_src ),
+	true );
 
 echo "\n=== The hours box on a track with no course (TRACKS-3) ===\n";
 

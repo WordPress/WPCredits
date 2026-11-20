@@ -82,6 +82,9 @@ class WPCPM_Handbook extends WPCPM_Tool {
 		add_action( 'init', array( 'WPCPM_Handbook_Assistant', 'apply_visibility' ), 20 );
 
 		WPCPM_Handbook_Assistant::init();
+
+		// The AI Mentor, the tutor chat on the Student Report Card (AI Mentor R3): only with Need help? on.
+		WPCPM_Tutor::init();
 	}
 
 	/**
@@ -151,7 +154,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 	 * @return string[]
 	 */
 	public function settings_keys() {
-		return array( 'handbook_enabled', 'handbook_model', 'handbook_access', 'handbook_limit', 'handbook_to_mentors' );
+		return array( 'handbook_enabled', 'handbook_model', 'handbook_access', 'handbook_limit', 'handbook_to_mentors', 'tutor_accounts', 'tutor_turns' );
 	}
 
 	/**
@@ -260,6 +263,41 @@ class WPCPM_Handbook extends WPCPM_Tool {
 			esc_html__( 'A student with a mentor can send a question Need help? could not answer to their mentor, who gets an email and sees it on the Mentor Report Card.', 'wpcredits-program-manager' )
 		);
 		WPCPM_Settings_Rows::close_row( $to_mentors, __( 'Leave it off until mentors are told.', 'wpcredits-program-manager' ) );
+
+		// The AI Mentor: who sees it, how it speaks and how much one student may use it. The persona is
+		// saved with this form's other settings but kept in its own option (`WPCPM_Tutor::save_persona()`).
+		printf( '<tr><td colspan="2"><h3>%s</h3></td></tr>', esc_html__( 'AI Mentor', 'wpcredits-program-manager' ) );
+
+		WPCPM_Settings_Rows::textarea_row(
+			'tutor_accounts',
+			__( 'AI Mentor for these accounts', 'wpcredits-program-manager' ),
+			WPCPM_Tutor::accounts_as_typed(),
+			__( 'Logins of the student accounts that see the AI Mentor card, one a line.', 'wpcredits-program-manager' ),
+			'',
+			__( 'Empty: nobody.', 'wpcredits-program-manager' )
+		);
+
+		WPCPM_Settings_Rows::textarea_row(
+			'tutor_persona',
+			__( 'AI Mentor persona', 'wpcredits-program-manager' ),
+			explode( "\n", (string) get_option( WPCPM_Tutor::OPT_PERSONA, '' ) ),
+			__( 'How the AI Mentor speaks.', 'wpcredits-program-manager' ),
+			'',
+			__( 'The program\'s rules are fixed and added after it.', 'wpcredits-program-manager' ),
+			'',
+			'',
+			// While none is saved the box is empty and the default speaks: shown, never as the value.
+			WPCPM_Tutor::default_persona()
+		);
+
+		WPCPM_Settings_Rows::number_row(
+			'tutor_turns',
+			__( 'AI Mentor turns a day', 'wpcredits-program-manager' ),
+			(int) $settings['tutor_turns'],
+			1,
+			200,
+			__( 'How many messages one student may send a day.', 'wpcredits-program-manager' )
+		);
 	}
 
 	/**

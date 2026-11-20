@@ -509,6 +509,7 @@ The page sits in the dashboards' frame: a top bar, a menu down the side and a ma
 | **Watch** | Cards to keep an eye on this week | Amber: how many of **Offers running low**, **Duplicated students**, **Syncs and health** and **Students gone quiet** hold something |
 | **Talks** | The talks with the schools and the leads, once the site keeps the record of institutions | Amber: your own follow-ups due |
 | **Cohort timeline** | The next twelve months of students against the mentor places | None |
+| **AI Mentor transcripts** | The students who talked to the AI Mentor in the last 90 days, and each one's transcript | None |
 | **The program** | Three cards of numbers, then **Tools from our sponsors** with every live offer | None |
 | **Program updates** | The newest update for Administrators, while there is one | None |
 
@@ -647,6 +648,17 @@ The **Cohort timeline** view shows the next twelve months, the current one first
 Under each month of the timeline's chart, a plus sign gives the students starting and a minus sign those finishing. A short or tight month carries a flag with how many students are over. In **Month by month**, **Balance** compares the places with every student, in review included.
 
 Step by step: [[Read the cohort timeline: do we need more mentors?]].
+
+### AI Mentor transcripts
+
+The **AI Mentor transcripts** view, after **Cohort timeline**, is for Administrators. It shows while `Tools > Need help?`, **AI Mentor for these accounts**, lists a login, or while the site keeps a conversation.
+
+- The list holds each account with messages in the last 90 days: **Record**, **Messages** and **Last message**, newest first.
+- A record opens that account's transcript: **Time**, **From** (*Student*, *AI Mentor* or *Tool call*) and **Message**. A reply lists its sources. A tool call shows its name and what it was given and returned.
+- **All AI Mentor transcripts** goes back to the list.
+- Each time you open a transcript, the site writes a row to the audit log. **Read by** under the transcript lists the last five readers with the time.
+- If the row cannot be written, the transcript does not open. The list shows *This transcript could not be opened just now. Try again in a moment.*
+- The site keeps a conversation for 90 days and a daily job then deletes it. With no conversation, the list says *No AI Mentor conversations in the last 90 days.*
 
 ### The quiet-students card
 

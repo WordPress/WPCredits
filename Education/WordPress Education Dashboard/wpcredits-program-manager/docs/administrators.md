@@ -33,6 +33,7 @@ The page is created at `/administrator-dashboard/`. Its side menu, in order:
 - **Watch**: what to keep an eye on this week. Its amber number counts which of **Offers running low**, **Duplicated students**, **Syncs and health** and **Students gone quiet** have something to look at.
 - **Talks**: the talks with the schools and the leads, once the site keeps the record of institutions. Its amber number counts your own follow-ups due.
 - **Cohort timeline**: the next twelve months' students, and whether mentors have places.
+- **AI Mentor transcripts**: what the listed students asked the AI Mentor, while an account is listed in `Tools > Need help?` or a conversation is kept.
 - **The program**: sponsors, programs running and mentors' use of the site.
 - **Program updates**: the newest update for Administrators, while there is one.
 
@@ -57,6 +58,7 @@ Where to start:
 | Check that the syncs ran | **Watch**, **Syncs and health** |
 | Run a sync now | `Students > Sync`, `Mentors > Sync` or `Institutions > Sync and storage` |
 | See whether there are enough mentors | **Cohort timeline** |
+| Read what a student asked the AI Mentor | **AI Mentor transcripts** |
 | Find a school | `Institutions > Pipeline`, **Find an institution**; once the site keeps the record, also **Talks**, **Find a school** |
 | Follow up the talks with the schools | **Talks**, **Follow-ups due**, once the site keeps the record of institutions |
 
@@ -4914,6 +4916,29 @@ At the top of the screen, with its own **Save settings**. Since 1.123.101 the pr
 - **Questions per person per hour**: 0 to 200, where 0 removes this limit. Default: 20.
 - **Send to mentors**: the box **Let a student send a question to their mentor**. A student with a mentor can send a question Need help? could not answer to that mentor, who gets an email and sees it on the Mentor Report Card. Default: off. Leave it off until mentors are told: the Student and Mentor guides' text about it is published in a later docs release, and turning this on goes with publishing that text. While it is off, no student is offered the choice, and the three example questions in the box still show.
 
+Since 1.123.105 the same screen has a section **AI Mentor**, after **Send to mentors**. It is saved with the same **Save settings**.
+
+- **AI Mentor for these accounts**: the logins of the student accounts that see the AI Mentor card, one a line. Empty: nobody. Default: empty.
+- **AI Mentor persona**: how the AI Mentor speaks. The program's rules are fixed and added after it. Plain text, up to 4,000 characters. Empty: the plugin's own wording.
+- **AI Mentor turns a day**: how many messages one student may send a day. 1 to 200. Default: 30.
+
+The card is on the Student Report Card. Only a listed account sees it, and only an account that holds the student role and has a Students record. It shows only while **Need help?** is on and the AI provider is ready. Nobody else sees it. An Administrator who opens a student's Student Report Card sees only a line that counts the student's AI Mentor messages in the last 90 days and **Read the transcript**, which opens **AI Mentor transcripts** on the Administrator Dashboard. The line shows while the student is listed in **AI Mentor for these accounts** or has a message kept.
+
+The AI Mentor answers from the program's guides, the FAQ and the handbook, and each answer shows its **Sources**. An answer with no source says *Not from the program's guides*. The card says that the AI Mentor can be wrong and that the student's mentor has the final word. A student past **AI Mentor turns a day** cannot send more that day.
+
+The rules the AI Mentor follows are fixed, and the persona cannot change them. Among them:
+
+- It answers about the program's rules, credits, certificates, hours, dates and anyone's status only from the guides. When they say nothing, it sends the student to their mentor or the WordPress Credits Slack channel.
+- It never grades work, never promises credits or certificates, never speaks for an institution and never sets an hours target.
+- It asks what a student has tried before it answers an exercise.
+- It treats passages and anything a student pastes as information, never as instructions.
+
+A question for the student's mentor is handed on only while **Send to mentors** is on and **Who can ask** includes students (**Students, institutions and sponsors as well** or **Anybody logged in to this site**), and only for a student with a mentor. The student then sees **Send this to your mentor** with their message, adds a line and sends it, or dismisses it. Otherwise the AI Mentor tells them to ask their mentor or the Slack channel.
+
+For each call to the provider, the site sends the persona, the fixed rules, the student's last ten messages and replies, the new message and the passages of the guides the AI Mentor's search found. It sends nothing else about the student: no name, address or record. The provider is Google, through the AI Provider for Google plugin and the site's own key in `Settings > Connectors`.
+
+The site keeps each conversation for 90 days, and a daily job then deletes it. A student's personal data export and erasure include it, and uninstalling the plugin deletes it.
+
 Limits and rules:
 
 - Nobody logged out can ask.
@@ -5706,6 +5731,7 @@ The page sits in the dashboards' frame: a top bar, a menu down the side and a ma
 | **Watch** | Cards to keep an eye on this week | Amber: how many of **Offers running low**, **Duplicated students**, **Syncs and health** and **Students gone quiet** hold something |
 | **Talks** | The talks with the schools and the leads, once the site keeps the record of institutions | Amber: your own follow-ups due |
 | **Cohort timeline** | The next twelve months of students against the mentor places | None |
+| **AI Mentor transcripts** | The students who talked to the AI Mentor in the last 90 days, and each one's transcript | None |
 | **The program** | Three cards of numbers, then **Tools from our sponsors** with every live offer | None |
 | **Program updates** | The newest update for Administrators, while there is one | None |
 
@@ -5844,6 +5870,17 @@ The **Cohort timeline** view shows the next twelve months, the current one first
 Under each month of the timeline's chart, a plus sign gives the students starting and a minus sign those finishing. A short or tight month carries a flag with how many students are over. In **Month by month**, **Balance** compares the places with every student, in review included.
 
 Step by step: [Read the cohort timeline: do we need more mentors?](#read-the-cohort-timeline-do-we-need-more-mentors).
+
+### AI Mentor transcripts
+
+The **AI Mentor transcripts** view, after **Cohort timeline**, is for Administrators. It shows while `Tools > Need help?`, **AI Mentor for these accounts**, lists a login, or while the site keeps a conversation.
+
+- The list holds each account with messages in the last 90 days: **Record**, **Messages** and **Last message**, newest first.
+- A record opens that account's transcript: **Time**, **From** (*Student*, *AI Mentor* or *Tool call*) and **Message**. A reply lists its sources. A tool call shows its name and what it was given and returned.
+- **All AI Mentor transcripts** goes back to the list.
+- Each time you open a transcript, the site writes a row to the audit log. **Read by** under the transcript lists the last five readers with the time.
+- If the row cannot be written, the transcript does not open. The list shows *This transcript could not be opened just now. Try again in a moment.*
+- The site keeps a conversation for 90 days and a daily job then deletes it. With no conversation, the list says *No AI Mentor conversations in the last 90 days.*
 
 ### The quiet-students card
 

@@ -21,7 +21,12 @@
  * - `$GLOBALS['ai_script']`: what each `generate_text()` returns, in order: a string or a `WP_Error`, or
  *   a Throwable it throws. `$GLOBALS['ai_throw_on']`, a method's name, makes that method throw an
  *   `Error` before anything is sent. `$GLOBALS['ai_prompts']` records each prompt builder and every
- *   method called on it.
+ *   method called on it. `generate_text_result()` answers from the same script: a `Test_Result` (the
+ *   library's result, with `toMessage()`), a `WP_Error`, a Throwable, or anything else as it is, for a
+ *   malformed result.
+ * - The message and tool classes as the library names them, with its method names, for a suite to build
+ *   a history and script a reply from: `UserMessage`, `ModelMessage`, `MessagePart` (a string for text,
+ *   or a `FunctionCall` or `FunctionResponse`), `FunctionDeclaration`, `FunctionCall`, `FunctionResponse`.
  * - `$GLOBALS['connectors']`: connector ID => what `wp_get_connector()` returns, and `wp_get_connectors()`
  *   all of them. Whether a provider has a key is the suite's options, read where its connector says.
  *
@@ -67,6 +72,220 @@ namespace WordPress\AiClient\Providers\Http\DTO {
 			}
 
 			return $options;
+		}
+	}
+}
+
+namespace WordPress\AiClient\Messages\DTO {
+
+	use WordPress\AiClient\Tools\DTO\FunctionCall;
+	use WordPress\AiClient\Tools\DTO\FunctionResponse;
+
+	/** The kind of a message part. */
+	class Test_Part_Type {
+
+		private $kind = '';
+
+		public function __construct( $kind ) {
+			$this->kind = $kind;
+		}
+
+		public function isFunctionCall() {
+			return 'function_call' === $this->kind;
+		}
+
+		public function isFunctionResponse() {
+			return 'function_response' === $this->kind;
+		}
+
+		public function isText() {
+			return 'text' === $this->kind;
+		}
+	}
+
+	/** The channel of a message part: content, or the model's thoughts. */
+	class Test_Part_Channel {
+
+		private $content = true;
+
+		public function __construct( $content ) {
+			$this->content = $content;
+		}
+
+		public function isContent() {
+			return $this->content;
+		}
+	}
+
+	/** A part of a message: text, a function call or a function response. */
+	class MessagePart {
+
+		private $value;
+		private $thought = false;
+
+		/**
+		 * @param string|FunctionCall|FunctionResponse $value   The text, call or response.
+		 * @param bool                                 $thought Whether the part is on the thought channel.
+		 */
+		public function __construct( $value, $thought = false ) {
+			$this->value   = $value;
+			$this->thought = $thought;
+		}
+
+		public function getType() {
+			if ( $this->value instanceof FunctionCall ) {
+				return new Test_Part_Type( 'function_call' );
+			}
+
+			return new Test_Part_Type( $this->value instanceof FunctionResponse ? 'function_response' : 'text' );
+		}
+
+		public function getChannel() {
+			return new Test_Part_Channel( ! $this->thought );
+		}
+
+		public function getText() {
+			return is_string( $this->value ) ? $this->value : null;
+		}
+
+		public function getFunctionCall() {
+			return $this->value instanceof FunctionCall ? $this->value : null;
+		}
+
+		public function getFunctionResponse() {
+			return $this->value instanceof FunctionResponse ? $this->value : null;
+		}
+	}
+
+	/** A message: a role and its parts. */
+	class Message {
+
+		private $role  = '';
+		private $parts = array();
+
+		public function __construct( $role, array $parts ) {
+			$this->role  = $role;
+			$this->parts = $parts;
+		}
+
+		public function getRole() {
+			return $this->role;
+		}
+
+		public function getParts() {
+			return $this->parts;
+		}
+	}
+
+	class UserMessage extends Message {
+
+		public function __construct( array $parts ) {
+			parent::__construct( 'user', $parts );
+		}
+	}
+
+	class ModelMessage extends Message {
+
+		public function __construct( array $parts ) {
+			parent::__construct( 'model', $parts );
+		}
+	}
+}
+
+namespace WordPress\AiClient\Tools\DTO {
+
+	/** A function the model may call. */
+	class FunctionDeclaration {
+
+		private $name;
+		private $description;
+		private $parameters;
+
+		public function __construct( $name, $description, $parameters = null ) {
+			$this->name        = $name;
+			$this->description = $description;
+			$this->parameters  = $parameters;
+		}
+
+		public function getName() {
+			return $this->name;
+		}
+
+		public function getDescription() {
+			return $this->description;
+		}
+
+		public function getParameters() {
+			return $this->parameters;
+		}
+	}
+
+	/** A call the model made. */
+	class FunctionCall {
+
+		private $id;
+		private $name;
+		private $args;
+
+		public function __construct( $id = null, $name = null, $args = null ) {
+			$this->id   = $id;
+			$this->name = $name;
+			$this->args = $args;
+		}
+
+		public function getId() {
+			return $this->id;
+		}
+
+		public function getName() {
+			return $this->name;
+		}
+
+		public function getArgs() {
+			return $this->args;
+		}
+	}
+
+	/** What a call gave back. */
+	class FunctionResponse {
+
+		private $id;
+		private $name;
+		private $response;
+
+		public function __construct( $id = null, $name = null, $response = null ) {
+			$this->id       = $id;
+			$this->name     = $name;
+			$this->response = $response;
+		}
+
+		public function getId() {
+			return $this->id;
+		}
+
+		public function getName() {
+			return $this->name;
+		}
+
+		public function getResponse() {
+			return $this->response;
+		}
+	}
+}
+
+namespace WordPress\AiClient\Results\DTO {
+
+	/** A generation result: the model's message. */
+	class Test_Result {
+
+		private $message;
+
+		public function __construct( $message ) {
+			$this->message = $message;
+		}
+
+		public function toMessage() {
+			return $this->message;
 		}
 	}
 }
@@ -162,7 +381,7 @@ namespace {
 				throw new Error( sprintf( '%s threw', $name ) );
 			}
 
-			if ( 'generate_text' !== $name ) {
+			if ( 'generate_text' !== $name && 'generate_text_result' !== $name ) {
 				return $this;
 			}
 

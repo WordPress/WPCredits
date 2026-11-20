@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.104
+Stable tag: 1.123.105
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,16 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.105 =
+
+* AI Mentor, a chat on the Student Report Card for the accounts an Administrator lists. A student whose login is in AI Mentor for these accounts, a new setting on the Need help? screen, gets an AI Mentor card. It answers from the program's guides and links the parts it used, answers a general WordPress how-to question marked Not from the program's guides, and asks what the student has tried before it solves an exercise. While Send to mentors is on, it offers to send a question that is for the mentor. A student can send 30 messages a day, set in AI Mentor turns a day. When the model cannot answer, the card shows the parts of the guides that match the message. The list starts empty, so nobody sees the card until an Administrator adds a login.
+* AI Mentor persona, on the Need help? screen, sets how the AI Mentor speaks. The program's rules are fixed and come after it.
+* What the AI Mentor sends to Google for each answer: the persona, the fixed rules, the student's last ten messages and replies, the new message and the guide passages it found. Never the student's name, address or record.
+* AI Mentor transcripts, a new view on the Administrator Dashboard, lists the accounts that wrote to the AI Mentor in the last 90 days and opens one account's conversation with its searches. Each opening is recorded, and the last five readers are listed under Read by. An Administrator viewing a student's Student Report Card sees only how many messages the student sent, with a link to the transcript.
+* Conversations are kept 90 days and then deleted. Export Personal Data and Erase Personal Data cover them, and uninstalling the plugin removes them.
+* A Need help? note about a student who is also a mentor no longer counts toward that mentor's engagement.
+* Administrator guide: the AI Mentor settings and the AI Mentor transcripts view.
 
 = 1.123.104 =
 

@@ -25,6 +25,7 @@ The page is created at `/administrator-dashboard/`. Its side menu, in order:
 - **Watch**: what to keep an eye on this week. Its amber number counts which of **Offers running low**, **Duplicated students**, **Syncs and health** and **Students gone quiet** have something to look at.
 - **Talks**: the talks with the schools and the leads, once the site keeps the record of institutions. Its amber number counts your own follow-ups due.
 - **Cohort timeline**: the next twelve months' students, and whether mentors have places.
+- **AI Mentor transcripts**: what the listed students asked the AI Mentor, while an account is listed in `Tools > Need help?` or a conversation is kept.
 - **The program**: sponsors, programs running and mentors' use of the site.
 - **Program updates**: the newest update for Administrators, while there is one.
 
@@ -49,6 +50,7 @@ Where to start:
 | Check that the syncs ran | **Watch**, **Syncs and health** |
 | Run a sync now | `Students > Sync`, `Mentors > Sync` or `Institutions > Sync and storage` |
 | See whether there are enough mentors | **Cohort timeline** |
+| Read what a student asked the AI Mentor | **AI Mentor transcripts** |
 | Find a school | `Institutions > Pipeline`, **Find an institution**; once the site keeps the record, also **Talks**, **Find a school** |
 | Follow up the talks with the schools | **Talks**, **Follow-ups due**, once the site keeps the record of institutions |
 

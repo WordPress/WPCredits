@@ -646,19 +646,21 @@ final class WPCPM_Settings_Rows {
 	 * @param string|string[] $details     Optional text for the row's Details fold (`details_after()`).
 	 * @param string          $warning     Optional sentence under the help, as a warning (`row_notes()`).
 	 * @param string          $before      Optional markup, escaped, opening the row's cell.
+	 * @param string          $placeholder Optional text the box shows while it is empty, never saved with the form.
 	 */
-	private static function textarea_row( $name, $label, array $lines, $description = '', $fallback = '', $details = '', $warning = '', $before = '' ) {
+	public static function textarea_row( $name, $label, array $lines, $description = '', $fallback = '', $details = '', $warning = '', $before = '', $placeholder = '' ) {
 		$notes = self::control_notes( $name, $label );
 
 		printf(
-			'<tr><th scope="row"><label for="wpcpm-%1$s">%2$s</label></th><td>%6$s<textarea id="wpcpm-%1$s" name="%1$s" rows="%3$d" class="regular-text"%5$s>%4$s</textarea>%7$s',
+			'<tr><th scope="row"><label for="wpcpm-%1$s">%2$s</label></th><td>%6$s<textarea id="wpcpm-%1$s" name="%1$s" rows="%3$d" class="regular-text"%5$s%8$s>%4$s</textarea>%7$s',
 			esc_attr( $name ),
 			esc_html( $label ),
 			(int) max( 3, min( 10, count( $lines ) ) ),
 			esc_textarea( implode( "\n", $lines ) ),
 			$notes['attrs'], // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::attrs().
 			(string) $before, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by its caller.
-			$notes['problem'] // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::problem().
+			$notes['problem'], // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::problem().
+			'' !== (string) $placeholder ? ' placeholder="' . esc_attr( (string) $placeholder ) . '"' : ''
 		);
 
 		self::row_notes( $description, $fallback, $warning );

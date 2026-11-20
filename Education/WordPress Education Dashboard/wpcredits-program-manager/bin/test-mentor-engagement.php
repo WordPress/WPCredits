@@ -89,6 +89,7 @@ class WPCPM_Mentor_Availability {
 	}
 }
 
+function sanitize_key( $key ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $key ) ); }
 function __( $s, $d = null ) { return $s; }
 function _n( $one, $many, $n, $d = null ) { return 1 === (int) $n ? $one : $many; }
 function number_format_i18n( $n ) { return number_format( (float) $n ); }
@@ -337,6 +338,10 @@ $post = function ( $id, $type, $status, $author, $date, array $meta ) use ( $db 
 	}
 };
 $post( 11, 'wpcpm_mentor_note', 'private', 1, '2026-10-10 08:00:00', array( array( '_wpcpm_student_record', 'recSTUDENTA' ), array( '_wpcpm_note_session', '22' ), array( '_wpcpm_note_text_never_read', 'x' ) ) );
+// A Need help? note: written about the student (its author), source need_help. Account 1 is a mentor and also this student.
+$post( 13, 'wpcpm_mentor_note', 'private', 1, '2026-10-11 08:00:00', array( array( '_wpcpm_student_record', 'recSTUDENTA' ), array( WPCPM_Mentor_Notes::META_SOURCE, WPCPM_Mentor_Notes::SOURCE_NEED_HELP ) ) );
+// A hand-edited source nobody wrote: left out too.
+$post( 14, 'wpcpm_mentor_note', 'private', 1, '2026-10-12 08:00:00', array( array( '_wpcpm_student_record', 'recSTUDENTA' ), array( WPCPM_Mentor_Notes::META_SOURCE, 'Other' ) ) );
 $post( 12, 'wpcpm_mentor_note', 'auto-draft', 1, '2026-10-10 08:00:00', array() );
 $post( 21, 'wpcpm_mentor_call', 'private', 900, '2026-10-01 08:00:00', array( array( '_wpcpm_call_mentor', '1' ), array( '_wpcpm_call_start', '1791000000' ), array( '_wpcpm_call_student_record', 'recSTUDENTA' ) ) );
 $post( 22, 'wpcpm_mentor_call', 'trash', 1, '2026-10-01 08:00:00', array( array( '_wpcpm_call_mentor', '1' ), array( '_wpcpm_call_start', '1791100000' ), array( '_wpcpm_call_capacity', '10' ), array( '_wpcpm_call_cancelled_by', '1' ), array( '_wpcpm_call_student_record', 'recSTUDENTA' ), array( '_wpcpm_call_student_record', 'recSTUDENTB' ) ) );
@@ -356,7 +361,8 @@ ck( 'the accounts are the Mentor role and any account holding a non-empty mentor
 ck( 'their users and meta are read in one go', $GLOBALS['cached'], array( 1, 2 ) );
 ck( 'an account\'s facts', $read['accounts'][0], array( 'id' => 1, 'name' => 'Ada', 'login' => 'u1', 'email' => 'u1@example.test', 'roles' => array( 'wpcpm_mentor' ), 'active' => true, 'students_now' => 4, 'students_past' => 1, 'last_sign_in' => 1792000000, 'last_visit' => 1792050000, 'schedule_saved' => true, 'weekly_hours' => true, 'meeting_link' => true ) );
 ck( 'an account with nothing stored reads as not active, nothing saved', array( $read['accounts'][1]['active'], $read['accounts'][1]['schedule_saved'], $read['accounts'][1]['last_sign_in'] ), array( false, false, 0 ) );
-ck( 'the notes: no auto-draft, the student and the session, the time in UTC, nothing else', $read['notes'], array( array( 'id' => 11, 'author' => 1, 'created' => gmmktime( 8, 0, 0, 10, 10, 2026 ), 'records' => array( 'recSTUDENTA' ), 'session' => 22 ) ) );
+ck( 'the notes: no auto-draft, the student and the session, the time in UTC, nothing else', $read['notes'], array( array( 'id' => 11, 'author' => 1, 'created' => gmmktime( 8, 0, 0, 10, 10, 2026 ), 'records' => array( 'recSTUDENTA' ), 'session' => 22, 'source' => '' ) ) );
+ck( 'a Need help? note is on no engagement count: the mentor\'s own note counts, the one about the student (also a mentor) and one with an unknown source do not', array( array_map( function ( $n ) { return $n['id']; }, $read['notes'] ), WPCPM_Mentor_Engagement::compute( $read['accounts'], $read['notes'], $read['calls'], gmmktime( 12, 0, 0, 10, 15, 2026 ) )['rows'][0]['notes'] ), array( array( 11 ), 1 ) );
 ck( 'the calls: a one-to-one call and a cancelled group session with both its students; no other post type', $read['calls'], array(
 	array( 'id' => 21, 'author' => 900, 'mentor' => 1, 'start' => 1791000000, 'cancelled_by' => 0, 'status' => 'private', 'group' => false, 'records' => array( 'recSTUDENTA' ) ),
 	array( 'id' => 22, 'author' => 1, 'mentor' => 1, 'start' => 1791100000, 'cancelled_by' => 1, 'status' => 'trash', 'group' => true, 'records' => array( 'recSTUDENTA', 'recSTUDENTB' ) ),

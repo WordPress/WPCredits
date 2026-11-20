@@ -17,8 +17,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * (`META_SPONSOR`), the rows about the program's own work, an event the program plans
  * itself, under a third (`META_PROGRAM`), and the Claude access rows, one per call to an ability
  * of the program's own, under a fourth (`META_MCP`), and the rows about a lead, a school the program
- * has not talked to yet, under a fifth (`META_LEAD`) until it is promoted: each module's readers ask
- * for their own key, so one log holds the five and none of them lists another's rows.
+ * has not talked to yet, under a fifth (`META_LEAD`) until it is promoted, and the openings of a
+ * student's AI Mentor transcript under a sixth (`META_TUTOR`): each module's readers ask
+ * for their own key, so one log holds the six and none of them lists another's rows.
  *
  * A private post type in the shape of `WPCPM_Mentor_Notes`: applied changes only, one row
  * per save, no count cap, no IP addresses. Membership events (`member_added`,
@@ -79,6 +80,14 @@ class WPCPM_Institution_Audit {
 	 */
 	const META_LEAD = '_wpcpm_log_lead';
 
+	/**
+	 * The student record a row is about when an Administrator opened that account's AI Mentor transcript (AI Mentor R3),
+	 * keyed by the record ID. None of the other keys is on such a row, so no institution, sponsor, program, call or lead
+	 * reader lists it, and only `tutor_reads()` does. The row holds the record ID and the reader, never a word of the
+	 * conversation.
+	 */
+	const META_TUTOR = '_wpcpm_log_tutor';
+
 	/** Post meta: whom or what the row is about - a user ID or a record ID, as a string. */
 	const META_SUBJECT = '_wpcpm_log_subject';
 
@@ -99,6 +108,9 @@ class WPCPM_Institution_Audit {
 
 	/** The kind of every row under `META_MCP`: one call to an ability, answered, refused or failed, or one refusal by the door or the fence. */
 	const KIND_MCP_CALL = 'mcp_call';
+
+	/** The kind of every row under `META_TUTOR`: one opening of a student's AI Mentor transcript. */
+	const KIND_TUTOR_READ = 'tutor_transcript_read';
 
 	const GROUND_MANAGER = 'manager';
 	const GROUND_MEMBER  = 'member';
@@ -296,6 +308,59 @@ class WPCPM_Institution_Audit {
 	}
 
 	/**
+	 * Write one row about an Administrator opening a student's AI Mentor transcript (AI Mentor R3).
+	 *
+	 * Keyed by `META_TUTOR`, so no other reader lists it. The kind is always `tutor_transcript_read`, the ground the
+	 * manager's and the evidence live; the subject is the record ID, and there is no data and no text: who read what is
+	 * the whole fact. The existing `GROUND_TUTOR` is an institution's tutor and has nothing to do with this.
+	 *
+	 * @param string $record The student's record ID.
+	 * @param int    $reader The Administrator who opened the transcript.
+	 * @return int|WP_Error The post ID, or why not.
+	 */
+	public static function record_tutor_read( $record, $reader ) {
+		$record = trim( (string) $record );
+
+		if ( ! self::is_student_record( $record ) ) {
+			return new WP_Error( 'wpcpm_audit_tutor', __( 'An audit row needs the student record it is about.', 'wpcredits-program-manager' ) );
+		}
+
+		return self::write(
+			array(
+				'kind'     => self::KIND_TUTOR_READ,
+				'subject'  => $record,
+				'actor'    => (int) $reader,
+				'ground'   => self::GROUND_MANAGER,
+				'evidence' => self::EVIDENCE_LIVE,
+			),
+			self::META_TUTOR,
+			$record
+		);
+	}
+
+	/**
+	 * The openings of one student's AI Mentor transcript, newest first.
+	 *
+	 * @param string $record A student's record ID.
+	 * @param int    $limit  How many at most; 0 or less for all of them.
+	 * @return array[] As `entries_for()` returns them.
+	 */
+	public static function tutor_reads( $record, $limit = 5 ) {
+		return self::entries_on( self::META_TUTOR, $record, $limit );
+	}
+
+	/**
+	 * Whether a value is a student's record ID, the shape the Students table gives.
+	 *
+	 * @param string $value The value.
+	 * @return bool
+	 */
+	private static function is_student_record( $value ) {
+		// class_exists() first: bin/test-audit.php and the suites that load this file on its own do not all load the sync.
+		return class_exists( 'WPCPM_Mentors_Sync' ) ? WPCPM_Mentors_Sync::is_record_id( $value ) : 1 === preg_match( '/^rec[A-Za-z0-9]{14}\z/', (string) $value );
+	}
+
+	/**
 	 * Give a lead's rows to the record it became: each row is keyed by the record (`META_INSTITUTION`) and
 	 * no longer by the lead, and a row whose subject was the lead is about the record. The query asks for
 	 * `any` status, which core reads as every status but the trash and an auto-draft: a row is written
@@ -381,7 +446,7 @@ class WPCPM_Institution_Audit {
 	}
 
 	/**
-	 * The one writer behind `record()`, `record_sponsor()`, `record_program()`, `record_mcp()` and `record_lead()`.
+	 * The one writer behind `record()`, `record_sponsor()`, `record_program()`, `record_mcp()`, `record_lead()` and `record_tutor_read()`.
 	 *
 	 * Refuses rather than guesses: a row with an unknown ground would be the one row the policy
 	 * did not stand behind. The actor goes on the post as its author for the admin's sake, but
@@ -392,9 +457,9 @@ class WPCPM_Institution_Audit {
 	 * is handed, and a message or data built around a typed note or a name is unslashed.
 	 *
 	 * @param array  $entry    The entry, its record already validated by the caller.
-	 * @param string $meta_key `META_INSTITUTION`, `META_SPONSOR`, `META_PROGRAM`, `META_MCP` or `META_LEAD`.
+	 * @param string $meta_key `META_INSTITUTION`, `META_SPONSOR`, `META_PROGRAM`, `META_MCP`, `META_LEAD` or `META_TUTOR`.
 	 * @param string $record   The record ID the row is about, `program` for the program's own,
-	 *                         `mcp` for a call to an ability, or a lead key.
+	 *                         `mcp` for a call to an ability, a lead key, or a student's record ID.
 	 * @return int|WP_Error
 	 */
 	private static function write( array $entry, $meta_key, $record ) {
@@ -615,8 +680,8 @@ class WPCPM_Institution_Audit {
 	/**
 	 * The rows keyed by one of the record keys, with the case re-check `entries_for()` always made.
 	 *
-	 * @param string $meta_key `META_INSTITUTION`, `META_SPONSOR` or `META_LEAD`.
-	 * @param string $record   An institution's Airtable record ID, a sponsor's key, or a lead key.
+	 * @param string $meta_key `META_INSTITUTION`, `META_SPONSOR`, `META_LEAD` or `META_TUTOR`.
+	 * @param string $record   An institution's Airtable record ID, a sponsor's key, a lead key, or a student's record ID.
 	 * @param int    $limit    How many at most; 0 or less for all of them.
 	 * @return array[]
 	 */
@@ -625,6 +690,10 @@ class WPCPM_Institution_Audit {
 
 		if ( self::META_LEAD === $meta_key ) {
 			if ( ! self::is_lead_key( $record ) ) {
+				return array();
+			}
+		} elseif ( self::META_TUTOR === $meta_key ) {
+			if ( ! self::is_student_record( $record ) ) {
 				return array();
 			}
 		} elseif ( ! ( class_exists( 'WPCPM_Sponsors_Index' ) ? WPCPM_Sponsors_Index::is_key( $record ) : 1 === preg_match( '/^(rec|spo)[A-Za-z0-9]{14}\z/', (string) $record ) ) ) {

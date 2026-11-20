@@ -170,6 +170,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-search.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-sources.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-ai-call.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-mentor-checker.php';

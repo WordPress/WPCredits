@@ -249,7 +249,10 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-search.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-guide-sources.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-ai-call.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php';
+// The AI Mentor's persona, which the Need help? screen draws and its Save keeps (AI Mentor R3).
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-tutor.php';
 // The rows every settings form is drawn with, and the settings screen with its own save handler,
 // pressed for real in the BUILDER-3 section below.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
@@ -568,6 +571,9 @@ $probe = array(
 	'handbook_model'                => 'gemini-2.5-flash',
 	'handbook_access'               => 'program',
 	'handbook_limit'                => '35',
+	// The AI Mentor (AI Mentor R3).
+	'tutor_accounts'                => "student-a\nstudent-b",
+	'tutor_turns'                   => '45',
 	'student_on_inactive'           => 'keep',
 	'checker_source_status'         => 'Probe status',
 	'checker_target_status'         => 'Probe target',
@@ -721,6 +727,22 @@ $saved = WPCPM_Settings::save( array( 'handbook_limit' => '35' ) );
 ck( 'a save that does not name it leaves it as it was', array( $saved['handbook_to_mentors'] ), array( true ) );
 $saved = WPCPM_Settings::save( array( 'handbook_to_mentors' => '' ) );
 ck( 'and it can be switched off again', array( $saved['handbook_to_mentors'] ), array( false ) );
+
+// The AI Mentor's settings (AI Mentor R3): the accounts it is open to and the messages a day, under Need help?'s scope.
+ck( 'the AI Mentor is open to nobody and allows 30 messages a day by default',
+    array( WPCPM_Settings::defaults()['tutor_accounts'] ?? null, WPCPM_Settings::defaults()['tutor_turns'] ?? null ), array( '', 30 ) );
+ck( 'both belong to the Need help? screen\'s scope',
+    array( in_array( 'tutor_accounts', WPCPM_Settings::scope_keys( 'tool:handbook' ), true ), in_array( 'tutor_turns', WPCPM_Settings::scope_keys( 'tool:handbook' ), true ) ), array( true, true ) );
+$saved = WPCPM_Settings::save( array( 'tutor_accounts' => "  student-a \n\nStudent-B\r\n", 'tutor_turns' => '45' ) );
+ck( 'the accounts are saved one a line, trimmed, blank lines gone, and the turns as a number',
+    array( $saved['tutor_accounts'], $saved['tutor_turns'] ), array( "student-a\nStudent-B", 45 ) );
+$saved = WPCPM_Settings::save( array( 'tutor_turns' => '9999' ) );
+ck( 'the turns are capped at 200', array( $saved['tutor_turns'], $saved['tutor_accounts'] ), array( 200, "student-a\nStudent-B" ) );
+$saved = WPCPM_Settings::save( array( 'tutor_turns' => '-5' ) );
+ck( 'and held at 1 at the least', $saved['tutor_turns'], 1 );
+$saved = WPCPM_Settings::save( array( 'tutor_accounts' => '' ) );
+ck( 'an empty box means nobody', $saved['tutor_accounts'], '' );
+WPCPM_Settings::save( array( 'tutor_turns' => '30' ) );
 
 // The plugin stores no AI key and chooses no provider (version 4: Settings > Connectors does), so a
 // key or a provider posted is not a setting, is not saved, and no mask of one exists to post back.
@@ -2034,7 +2056,7 @@ $by_design = array(
 	'advanced'                   => array( 'institutions_on_site', 'institution_new_stage', 'institution_active_stages', 'application_spam_days', 'application_rejected_days', 'application_approved_days', 'application_trusted_proxy', 'agreement_max_mb', 'agreement_uploads_per_day', 'agreement_generations_per_day', 'agreement_discard_days', 'invite_retention_days' ),
 	'tool:mentor-status-checker' => array_values( array_filter( array_keys( $defaults ), static function ( $key ) { return 0 === strpos( $key, 'checker_' ); } ) ),
 	'tool:duplicate-finder'      => array( 'duplicate_delete_enabled' ),
-	'tool:handbook'              => array_values( array_filter( array_keys( $defaults ), static function ( $key ) { return 0 === strpos( $key, 'handbook_' ); } ) ),
+	'tool:handbook'              => array_values( array_filter( array_keys( $defaults ), static function ( $key ) { return 0 === strpos( $key, 'handbook_' ) || 0 === strpos( $key, 'tutor_' ); } ) ),
 	'tool:emails'                => array( 'mail_contact' ),
 );
 
@@ -2047,9 +2069,9 @@ $sorted = static function ( array $map ) {
 	return $map;
 };
 
-ck( 'each scope holds the settings the design gives its tab or tool, fifteen for the Mentor Status Checker (its Slack webhook and channel since 1.122.4, Stop checking mentors in Airtable since 1.122.33) and five for Need help? (its provider and key are in Settings > Connectors since version 4; Send to mentors since 1.123.103)',
+ck( 'each scope holds the settings the design gives its tab or tool, fifteen for the Mentor Status Checker (its Slack webhook and channel since 1.122.4, Stop checking mentors in Airtable since 1.122.33) and seven for Need help? (its provider and key are in Settings > Connectors since version 4; Send to mentors since 1.123.103; the AI Mentor accounts and turns since 1.123.105)',
     array( $sorted( $scopes ), count( $by_design['tool:mentor-status-checker'] ), count( $by_design['tool:handbook'] ) ),
-    array( $sorted( $by_design ), 15, 5 ) );
+    array( $sorted( $by_design ), 15, 7 ) );
 
 // Every setting stored at its default with every switch on, and a save handed the round-trip probe
 // with every switch off: every setting the save may write shows as a change.
@@ -3235,7 +3257,10 @@ foreach ( array_keys( $keeping ) as $id ) {
 		$forms,
 		$button_ids[1],
 	);
-	$want[ $id ]  = array( 1, 'tool:' . $id, $own, array( array( ' method="post" action=""', 'tool:' . $id, true, 1, $own ) ), array( 'wpcpm-save-' . $id ) );
+	// Need help?'s form also posts the AI Mentor persona, which is no setting: it is kept in its own option.
+	$fields       = 'handbook' === $id ? array_merge( $own, array( 'tutor_persona' ) ) : $own;
+	sort( $fields );
+	$want[ $id ]  = array( 1, 'tool:' . $id, $own, array( array( ' method="post" action=""', 'tool:' . $id, true, 1, $fields ) ), array( 'wpcpm-save-' . $id ) );
 }
 
 ck( 'each tool that keeps settings draws them in a Settings section: one form, with the nonce and a Save of its own, posting the tool\'s scope and holding exactly the settings it says it keeps, which a save of that scope writes',
@@ -4185,6 +4210,46 @@ ck( 'with its first sentence outside the row\'s fold and Leave it off until ment
     ),
     array( true, true, false ) );
 
+// The AI Mentor section (AI Mentor R3): after Send to mentors, the accounts, the persona and the turns a day.
+ck( 'Need help? draws an AI Mentor section after Send to mentors, with its three rows in order',
+    array(
+        false !== strpos( $row, '<h3>AI Mentor</h3>' ),
+        strpos( $row, 'Send to mentors' ) < strpos( $row, '<h3>AI Mentor</h3>' ),
+        strpos( $row, '<h3>AI Mentor</h3>' ) < strpos( $row, 'AI Mentor for these accounts' ),
+        strpos( $row, 'AI Mentor for these accounts' ) < strpos( $row, 'AI Mentor persona' ),
+        strpos( $row, 'AI Mentor persona' ) < strpos( $row, 'AI Mentor turns a day' ),
+    ),
+    array( true, true, true, true, true ) );
+ck( 'the accounts are a box named tutor_accounts, its help the plan\'s',
+    array( false !== strpos( $row, 'name="tutor_accounts"' ), false !== strpos( $row, 'Logins of the student accounts that see the AI Mentor card, one a line.</p>' ), false !== strpos( $row, 'Empty: nobody.' ), false !== strpos( $row, 'AI Mentor card, one a line. Empty' ) ), array( true, true, true, false ) );
+ck( 'the persona is a box named tutor_persona, its help the plan\'s',
+    array( false !== strpos( $row, 'name="tutor_persona"' ), false !== strpos( $row, 'How the AI Mentor speaks.</p>' ), false !== strpos( $row, 'The program\'s rules are fixed and added after it.' ), false !== strpos( $row, 'speaks. The program' ) ), array( true, true, true, false ) );
+ck( 'the turns are a number from 1 to 200 named tutor_turns, holding 30, its help the plan\'s',
+    array( false !== strpos( $row, 'name="tutor_turns" value="30" min="1" max="200"' ), false !== strpos( $row, 'How many messages one student may send a day.' ) ), array( true, true ) );
+$GLOBALS['opts']['wpcpm_tutor_persona'] = 'Speak like a coach.';
+ck( 'the persona box holds what is saved, and is empty when nothing is',
+    array( false !== strpos( draw_tool_settings( 'handbook' ), '>Speak like a coach.</textarea>' ), false !== strpos( $row, '></textarea>' ) ), array( true, true ) );
+unset( $GLOBALS['opts']['wpcpm_tutor_persona'] );
+$default_persona = WPCPM_Tutor::default_persona();
+ck( 'while no persona is saved the box shows the default as its placeholder, never as its value, so saving the form never stores it',
+    array( false !== strpos( $row, ' placeholder="' . esc_attr( $default_persona ) . '"' ), false !== strpos( $row, '></textarea>' ), false !== strpos( $row, '>' . $default_persona . '</textarea>' ) ),
+    array( true, true, false ) );
+ck( 'and the other textarea rows draw no placeholder',
+    array( false !== strpos( $row, 'name="tutor_accounts"' ), 1 === substr_count( $row, ' placeholder="' ) ), array( true, true ) );
+
+// Saved by the same form post as the others, behind the same nonce and capability checks.
+press_tab( 'tool:handbook', array( 'tutor_persona' => 'Be kind and brief.', 'tutor_turns' => '40' ) );
+ck( 'Save on the Need help? screen keeps the persona in its own option, with the other settings',
+    array( $GLOBALS['opts']['wpcpm_tutor_persona'] ?? null, WPCPM_Settings::get()['tutor_turns'] ), array( 'Be kind and brief.', 40 ) );
+press_tab( 'tool:handbook', array( 'tutor_turns' => '30' ) );
+ck( 'a save that does not carry the persona leaves it as it was',
+    $GLOBALS['opts']['wpcpm_tutor_persona'] ?? null, 'Be kind and brief.' );
+press_tab( 'sponsors', array( 'tutor_persona' => 'Not for this form.' ) );
+ck( 'and another form\'s save cannot change it',
+    $GLOBALS['opts']['wpcpm_tutor_persona'] ?? null, 'Be kind and brief.' );
+press_tab( 'tool:handbook', array( 'tutor_persona' => '' ) );
+ck( 'an empty box removes it, so the default speaks', array_key_exists( 'wpcpm_tutor_persona', $GLOBALS['opts'] ), false );
+
 // And Need help?'s Who can ask names them so too, beside the mentors or alone.
 preg_match_all( '#<label><input type="radio" name="handbook_access" value="([^"]*)"[^>]*> ([^<]*)</label>#', $states['tool: handbook'], $asking, PREG_SET_ORDER );
 
@@ -4230,7 +4295,7 @@ foreach ( $states as $state => $html ) {
 
 			++$helps;
 
-			if ( sentences_in( $note[1] ) > 1 ) {
+						if ( sentences_in( $note[1] ) > 1 ) {
 				$two_or_more[ $state . ': ' . $row['label'] ][] = $note[1];
 			}
 		}

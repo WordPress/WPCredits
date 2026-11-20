@@ -123,6 +123,10 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentors-dashboard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-notes.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-questions.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-tutor-store.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-tutor.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-tutor-card.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-tutor-transcripts-view.php';
 // The calendar's three classes are required here for one reason: `WPCPM_Mentors`
 // names them in its own `uninstall()`. This file builds its dependencies by hand
 // rather than booting the plugin, so a class the modules reach for and this list
@@ -245,6 +249,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-guide-tex
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-guide-index.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-guide-search.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-guide-sources.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-ai-call.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-handbook-answer.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-handbook-assistant.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-handbook.php';
@@ -458,6 +463,10 @@ wp_clear_scheduled_hook( 'wpcpm_handbook_sync_tick' );
 WPCPM_Mail_Log::uninstall();
 // Need help?'s index: both tables, the schema version, the state, the handbook's state, the lock and both events.
 WPCPM_Guide_Sources::uninstall();
+// The tutor's transcript (AI Mentor R3): its table, its schema version and the daily purge.
+WPCPM_Tutor_Store::uninstall();
+// The AI Mentor's persona (AI Mentor R3).
+delete_option( WPCPM_Tutor::OPT_PERSONA );
 // The Administrators' edits of the emails and of the signature and footer (1.122.19).
 delete_option( WPCPM_Mail_Templates::OPTION );
 // Forced: an uninstall deletes the queue whether or not a request holds its lock, since nothing

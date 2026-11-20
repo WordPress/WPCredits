@@ -60,7 +60,7 @@ class WPCPM_Handbook_Answer {
 	const EXCERPT_CHARS = 240;
 
 	/** Transient keeping, for twelve hours, which provider set up offers the model, keyed by its name. */
-	const MODEL_CHECK = 'wpcpm_handbook_model_check';
+	const MODEL_CHECK = WPCPM_AI_Call::MODEL_CHECK;
 
 	/**
 	 * How long a model lookup the provider refused or could not answer, busy, unreachable or failing with
@@ -68,7 +68,7 @@ class WPCPM_Handbook_Answer {
 	 * a quarter of an hour, so page views do not each wait on the request, and a passing outage or a key
 	 * put right at the provider does not hold answers back for twelve hours.
 	 */
-	const MODEL_RETRY = 900;
+	const MODEL_RETRY = WPCPM_AI_Call::MODEL_RETRY;
 
 	/**
 	 * The most tokens each reply may take. Gemini's Flash models think before they answer, and the
@@ -82,7 +82,7 @@ class WPCPM_Handbook_Answer {
 	const WORD_CHARS = 40;
 
 	/** The model when the setting names none. */
-	const DEFAULT_MODEL = 'gemini-flash-latest';
+	const DEFAULT_MODEL = WPCPM_AI_Call::DEFAULT_MODEL;
 
 	/**
 	 * The failures that mean no question can reach a model yet: no provider set up, the model not offered,
@@ -99,7 +99,7 @@ class WPCPM_Handbook_Answer {
 	const NOT_SENT = array( 'wpcpm_handbook_provider', 'wpcpm_handbook_model', 'prompt_prevented', 'wpcpm_handbook_lookup', 'wpcpm_handbook_client' );
 
 	/** What a lookup of the model found, as the model check keeps it and `provider_state()` says it. */
-	const STATES = array( 'ready', 'not_offered', 'refused', 'unreachable' );
+	const STATES = WPCPM_AI_Call::STATES;
 
 	/*
 	 * Answering
@@ -211,6 +211,59 @@ class WPCPM_Handbook_Answer {
 	 */
 	public static function ready() {
 		return WPCPM_Guide_Index::count() > 0;
+	}
+
+	/**
+	 * The passages some words find among those an asker may read, for the tutor: the asker's audiences
+	 * and gated pages as `ask()` reads them, the Student guide first.
+	 *
+	 * @param string[] $words  Texts to rank by.
+	 * @param WP_User  $asker  Who asks.
+	 * @return array Ranked passages, best first, at most PASSAGES, each `title`, `heading`, `url`, `body`.
+	 */
+	public static function find( array $words, WP_User $asker ): array {
+		return self::passages(
+			$words,
+			WPCPM_Guide_Sources::audiences_for( $asker ),
+			'student',
+			WPCPM_Guide_Sources::excluded_for( $asker )
+		);
+	}
+
+	/**
+	 * A passage as one of an answer's sources, named as Need help? names it.
+	 *
+	 * @param array $passage A passage, as `find()` gives it.
+	 * @return array `title` (the page and its section), `link` and `extract` ('').
+	 */
+	public static function source_of( array $passage ): array {
+		$sources = self::sources( array( $passage ), 0 );
+
+		return $sources[0];
+	}
+
+	/**
+	 * The answer Need help? gives when the model is out: the sentence over the best passages for some
+	 * text, or the sentence that nothing in the guides answers it.
+	 *
+	 * @param string  $text     What was asked.
+	 * @param WP_User $asker    Who asks.
+	 * @param string  $sentence What to say above the passages.
+	 * @return array The answer, as `ask()` returns it.
+	 */
+	public static function passages_reply( string $text, WP_User $asker, string $sentence ): array {
+		$answer = array(
+			'question'  => trim( $text ),
+			'text'      => '',
+			'sources'   => array(),
+			'generated' => false,
+			'notice'    => '',
+			'unsourced' => false,
+			'found'     => false,
+			'nothing'   => false,
+		);
+
+		return self::fallback( $answer, self::find( array( $text ), $asker ), $sentence, 'student' );
 	}
 
 	/**
@@ -838,14 +891,37 @@ class WPCPM_Handbook_Answer {
 	 */
 
 	/**
-	 * The model the setting names.
+	 * The model the setting names. The lookup lives in `WPCPM_AI_Call`, which the tutor shares.
 	 *
 	 * @return string
 	 */
 	public static function model(): string {
-		$model = trim( (string) WPCPM_Settings::get_value( 'handbook_model', self::DEFAULT_MODEL ) );
+		return WPCPM_AI_Call::model();
+	}
 
-		return '' !== $model ? $model : self::DEFAULT_MODEL;
+	/**
+	 * Forget the model check.
+	 */
+	public static function forget_check() {
+		WPCPM_AI_Call::forget_check();
+	}
+
+	/**
+	 * The provider a question goes to.
+	 *
+	 * @return string|WP_Error The provider's ID.
+	 */
+	private static function provider() {
+		return WPCPM_AI_Call::provider();
+	}
+
+	/**
+	 * The model, from the provider that offers it, for one call: a fresh object each time.
+	 *
+	 * @return \WordPress\AiClient\Providers\Models\Contracts\ModelInterface|WP_Error
+	 */
+	private static function model_object() {
+		return WPCPM_AI_Call::model_object();
 	}
 
 	/**
@@ -884,7 +960,7 @@ class WPCPM_Handbook_Answer {
 			return 'not_set_up';
 		}
 
-		return self::state_of( $provider );
+		return WPCPM_AI_Call::state_of( $provider );
 	}
 
 	/**
@@ -896,8 +972,8 @@ class WPCPM_Handbook_Answer {
 	 * @return string
 	 */
 	public static function provider_label() {
-		$set_up   = self::set_up();
-		$check    = self::check();
+		$set_up   = WPCPM_AI_Call::set_up();
+		$check    = WPCPM_AI_Call::check();
 		$provider = null !== $check && in_array( $check['provider'], $set_up, true ) ? $check['provider'] : '';
 
 		if ( '' === $provider ) {
@@ -925,7 +1001,7 @@ class WPCPM_Handbook_Answer {
 		}
 
 		foreach ( wp_get_connectors() as $connector ) {
-			$option = self::key_option( $connector );
+			$option = WPCPM_AI_Call::key_option( $connector );
 
 			if ( '' === $option ) {
 				continue;
@@ -935,379 +1011,6 @@ class WPCPM_Handbook_Answer {
 				add_action( $hook . $option, array( __CLASS__, 'forget_check' ) );
 			}
 		}
-	}
-
-	/**
-	 * Forget the model check.
-	 */
-	public static function forget_check() {
-		delete_transient( self::MODEL_CHECK );
-	}
-
-	/**
-	 * Why no model can be called on this WordPress at all, or null when one can.
-	 *
-	 * @return WP_Error|null
-	 */
-	private static function client_missing() {
-		if ( ! function_exists( 'wp_supports_ai' ) || ! function_exists( 'wp_ai_client_prompt' ) || ! function_exists( 'wp_get_connector' ) || ! class_exists( 'WordPress\AiClient\AiClient' ) || ! class_exists( 'WordPress\AiClient\Providers\Http\DTO\RequestOptions' ) ) {
-			return new WP_Error( 'wpcpm_handbook_provider', __( 'this WordPress has no AI Client', 'wpcredits-program-manager' ) );
-		}
-
-		if ( ! wp_supports_ai() ) {
-			return new WP_Error( 'wpcpm_handbook_provider', __( 'AI support is switched off on this site', 'wpcredits-program-manager' ) );
-		}
-
-		return null;
-	}
-
-	/**
-	 * The providers set up in Connectors, in the registry's order: registered with the AI Client, and
-	 * with an API key in the connector's environment variable, its constant or its option, the three
-	 * places core reads a key from. Makes no request, and keeps nothing of the key but whether there is
-	 * one.
-	 *
-	 * @return string[] Provider IDs.
-	 */
-	private static function set_up() {
-		if ( null !== self::client_missing() ) {
-			return array();
-		}
-
-		$out = array();
-
-		try {
-			$registry = \WordPress\AiClient\AiClient::defaultRegistry();
-
-			foreach ( (array) $registry->getRegisteredProviderIds() as $id ) {
-				$id = (string) $id;
-
-				if ( '' !== $id && $registry->hasProvider( $id ) && self::has_key( $id ) ) {
-					$out[] = $id;
-				}
-			}
-		} catch ( \Throwable $e ) {
-			return $out;
-		}
-
-		return $out;
-	}
-
-	/**
-	 * Whether a provider's connector has an API key: in its environment variable, its constant or its
-	 * option, as `_wp_connectors_get_api_key_source()` reads them.
-	 *
-	 * @param string $id The provider's ID, which is its connector's.
-	 * @return bool
-	 */
-	private static function has_key( $id ) {
-		$connector = wp_get_connector( $id );
-		$option    = self::key_option( $connector );
-
-		if ( '' === $option ) {
-			return false;
-		}
-
-		$auth = $connector['authentication'];
-
-		if ( ! empty( $auth['env_var_name'] ) ) {
-			$env = getenv( (string) $auth['env_var_name'] );
-
-			if ( false !== $env && '' !== $env ) {
-				return true;
-			}
-		}
-
-		if ( ! empty( $auth['constant_name'] ) && defined( (string) $auth['constant_name'] ) ) {
-			$constant = constant( (string) $auth['constant_name'] );
-
-			if ( is_string( $constant ) && '' !== $constant ) {
-				return true;
-			}
-		}
-
-		$stored = get_option( $option, '' );
-
-		return is_string( $stored ) && '' !== $stored;
-	}
-
-	/**
-	 * The option an AI provider's connector keeps its API key in, or '' for another kind of connector.
-	 *
-	 * @param mixed $connector A connector, as Connectors gives it.
-	 * @return string
-	 */
-	private static function key_option( $connector ) {
-		if ( ! is_array( $connector ) || ! isset( $connector['type'], $connector['authentication'] ) || 'ai_provider' !== $connector['type'] || ! is_array( $connector['authentication'] ) ) {
-			return '';
-		}
-
-		$auth = $connector['authentication'];
-
-		if ( ! isset( $auth['method'] ) || 'api_key' !== $auth['method'] || empty( $auth['setting_name'] ) ) {
-			return '';
-		}
-
-		return (string) $auth['setting_name'];
-	}
-
-	/**
-	 * The provider a question goes to: the one the model check names, or, with no check for the model,
-	 * the first set up that offers it, by name.
-	 *
-	 * A lookup's outcome is kept in MODEL_CHECK: that a provider offers the model, or that none does, for
-	 * twelve hours; that the provider refused the request, was busy, unreachable or failed with no status,
-	 * for MODEL_RETRY.
-	 * A key changed in Connectors forgets it (`watch_keys()`), so does a save of the Need help? settings
-	 * (`WPCPM_Settings::save()`), and so does a check naming a provider no longer set up.
-	 *
-	 * @return string|WP_Error The provider's ID.
-	 */
-	private static function provider() {
-		$missing = self::client_missing();
-
-		if ( null !== $missing ) {
-			return $missing;
-		}
-
-		$set_up = self::set_up();
-
-		if ( array() === $set_up ) {
-			return new WP_Error( 'wpcpm_handbook_provider', __( 'no AI provider is set up in Settings > Connectors', 'wpcredits-program-manager' ) );
-		}
-
-		$model = self::model();
-		$check = self::check();
-
-		if ( null !== $check ) {
-			if ( 'not_offered' === $check['state'] ) {
-				return self::not_offered( $model );
-			}
-
-			if ( 'ready' !== $check['state'] ) {
-				return self::lookup_failed( $check['status'], '' );
-			}
-
-			if ( in_array( $check['provider'], $set_up, true ) ) {
-				return $check['provider'];
-			}
-		}
-
-		return self::look_up( $set_up, $model );
-	}
-
-	/**
-	 * Ask the providers set up, in order, for the model, and keep the outcome.
-	 *
-	 * @param string[] $set_up The providers set up.
-	 * @param string   $model  The model.
-	 * @return string|WP_Error The first provider that offers it.
-	 */
-	private static function look_up( array $set_up, $model ) {
-		$registry = \WordPress\AiClient\AiClient::defaultRegistry();
-		$unsure   = null;
-
-		foreach ( $set_up as $id ) {
-			try {
-				$registry->getProviderModel( $id, $model );
-			} catch ( \Throwable $e ) {
-				$error = self::lookup_error( $e, $model );
-
-				if ( 'wpcpm_handbook_model' !== $error->get_error_code() && null === $unsure ) {
-					$unsure = $error;
-				}
-
-				continue;
-			}
-
-			self::keep_check( $model, $id, 'ready', 0 );
-
-			return $id;
-		}
-
-		if ( null !== $unsure ) {
-			self::keep_check( $model, '', self::state_of( $unsure ), self::status_of( $unsure ) );
-
-			return $unsure;
-		}
-
-		self::keep_check( $model, '', 'not_offered', 0 );
-
-		return self::not_offered( $model );
-	}
-
-	/**
-	 * The model, from the provider that offers it, for one call. When the provider the check named no
-	 * longer gives it (a key revoked since, the model withdrawn), every provider set up is asked again
-	 * and that outcome kept, so the next question reads it from the check.
-	 *
-	 * @return \WordPress\AiClient\Providers\Models\Contracts\ModelInterface|WP_Error
-	 */
-	private static function model_object() {
-		$provider = self::provider();
-
-		if ( is_wp_error( $provider ) ) {
-			return $provider;
-		}
-
-		$model    = self::model();
-		$registry = \WordPress\AiClient\AiClient::defaultRegistry();
-
-		try {
-			return $registry->getProviderModel( $provider, $model );
-		} catch ( \Throwable $e ) {
-			self::forget_check();
-		}
-
-		$provider = self::look_up( self::set_up(), $model );
-
-		if ( is_wp_error( $provider ) ) {
-			return $provider;
-		}
-
-		try {
-			return $registry->getProviderModel( $provider, $model );
-		} catch ( \Throwable $e ) {
-			return self::lookup_error( $e, $model );
-		}
-	}
-
-	/**
-	 * The model check for the model the setting names, or null when there is none, or it is not one this
-	 * version wrote.
-	 *
-	 * @return array{provider: string, state: string, status: int}|null The provider that offers the model
-	 *                                                                  ('' for none), what the lookup
-	 *                                                                  found (one of STATES), and the
-	 *                                                                  HTTP status of a lookup that
-	 *                                                                  failed (0 for none).
-	 */
-	private static function check() {
-		$check = get_transient( self::MODEL_CHECK );
-
-		if ( ! is_array( $check ) || ! isset( $check['model'], $check['provider'], $check['state'] ) || self::model() !== $check['model'] || ! in_array( $check['state'], self::STATES, true ) ) {
-			return null;
-		}
-
-		return array(
-			'provider' => (string) $check['provider'],
-			'state'    => (string) $check['state'],
-			'status'   => isset( $check['status'] ) ? (int) $check['status'] : 0,
-		);
-	}
-
-	/**
-	 * Keep a lookup's outcome: for twelve hours when it says something of the model, the provider
-	 * offering it or none offering it; for MODEL_RETRY when the provider refused the request, was busy,
-	 * could not be reached or failed with no status. A refusal is about the key, which can be put right
-	 * at the provider with nothing changing on this site, so it is tried again as soon as an outage is.
-	 *
-	 * @param string $model    The model.
-	 * @param string $provider The provider that offers it, or '' for none.
-	 * @param string $state    What the lookup found: one of STATES.
-	 * @param int    $status   The HTTP status of a lookup that failed, or 0.
-	 */
-	private static function keep_check( $model, $provider, $state, $status ) {
-		set_transient(
-			self::MODEL_CHECK,
-			array(
-				'model'    => $model,
-				'provider' => $provider,
-				'state'    => $state,
-				'status'   => $status,
-			),
-			in_array( $state, array( 'refused', 'unreachable' ), true ) ? self::MODEL_RETRY : 12 * HOUR_IN_SECONDS
-		);
-	}
-
-	/**
-	 * What a failed lookup says: `not_offered`, `refused` (400, 401, 403), or `unreachable` (busy, a
-	 * network failure, any other status or none).
-	 *
-	 * @param WP_Error $error The failure.
-	 * @return string
-	 */
-	private static function state_of( WP_Error $error ) {
-		if ( 'wpcpm_handbook_model' === $error->get_error_code() ) {
-			return 'not_offered';
-		}
-
-		return in_array( self::status_of( $error ), array( 400, 401, 403 ), true ) ? 'refused' : 'unreachable';
-	}
-
-	/**
-	 * A failure's HTTP status, or 0.
-	 *
-	 * @param WP_Error $error The failure.
-	 * @return int
-	 */
-	private static function status_of( WP_Error $error ) {
-		$data = $error->get_error_data();
-
-		return is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 0;
-	}
-
-	/**
-	 * A failed model lookup as a failure: a model the provider does not offer, or the lookup's own
-	 * failure with the status the AI Client gives the same exception, a refused request, an unreachable
-	 * or failing service.
-	 *
-	 * The SDK's refused request is a kind of its invalid argument, so it is told apart first.
-	 *
-	 * @param \Throwable $e     What the lookup threw.
-	 * @param string     $model The model looked up.
-	 * @return WP_Error
-	 */
-	private static function lookup_error( \Throwable $e, $model ) {
-		if ( $e instanceof \WordPress\AiClient\Providers\Http\Exception\ClientException ) {
-			return self::lookup_failed( $e->getCode() > 0 ? (int) $e->getCode() : 400, $e->getMessage() );
-		}
-
-		if ( $e instanceof \WordPress\AiClient\Common\Exception\InvalidArgumentException ) {
-			return self::not_offered( $model );
-		}
-
-		if ( $e instanceof \WordPress\AiClient\Providers\Http\Exception\NetworkException ) {
-			return self::lookup_failed( 503, $e->getMessage() );
-		}
-
-		if ( $e instanceof \WordPress\AiClient\Providers\Http\Exception\ServerException ) {
-			return self::lookup_failed( $e->getCode() > 0 ? (int) $e->getCode() : 500, $e->getMessage() );
-		}
-
-		return self::lookup_failed( 0, $e->getMessage() );
-	}
-
-	/**
-	 * The failure of a model lookup the provider could not answer. Nothing was sent to the model.
-	 *
-	 * @param int    $status  The HTTP status, or 0.
-	 * @param string $message The provider's words, or '' when read from the model check.
-	 * @return WP_Error
-	 */
-	private static function lookup_failed( $status, $message ) {
-		return new WP_Error(
-			'wpcpm_handbook_lookup',
-			'' !== $message ? $message : __( 'the AI provider did not answer a request for its models', 'wpcredits-program-manager' ),
-			$status > 0 ? array( 'status' => $status ) : null
-		);
-	}
-
-	/**
-	 * The failure of a model no provider set up offers.
-	 *
-	 * @param string $model The model.
-	 * @return WP_Error
-	 */
-	private static function not_offered( $model ) {
-		return new WP_Error(
-			'wpcpm_handbook_model',
-			sprintf(
-				/* translators: %s: the AI model's name. */
-				__( 'no AI provider set up in Settings > Connectors offers the model %s', 'wpcredits-program-manager' ),
-				$model
-			)
-		);
 	}
 
 	/*
@@ -1489,6 +1192,6 @@ class WPCPM_Handbook_Answer {
 	public static function clear_limits() {
 		delete_transient( self::day_key() );
 		delete_transient( self::day_key( self::now() - DAY_IN_SECONDS ) );
-		delete_transient( self::MODEL_CHECK );
+		WPCPM_AI_Call::forget_check();
 	}
 }

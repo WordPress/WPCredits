@@ -295,6 +295,10 @@ class WPCPM_Mail_Log {
 	public static function deactivate() {
 	}
 }
+class WPCPM_Tutor_Store {
+	public static function deactivate() {
+	}
+}
 class WPCPM_Guide_Sources {
 	public static function deactivate() {
 	}

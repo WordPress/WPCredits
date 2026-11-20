@@ -222,7 +222,7 @@ final class WPCPM_Mentor_Engagement {
 		global $wpdb;
 
 		$types = array( WPCPM_Mentor_Notes::POST_TYPE, WPCPM_Mentor_Calls::POST_TYPE );
-		$keys  = array( WPCPM_Mentor_Calls::META_MENTOR, WPCPM_Mentor_Calls::META_START, WPCPM_Mentor_Calls::META_CAPACITY, WPCPM_Mentor_Calls::META_CANCELLED_BY, WPCPM_Mentor_Calls::META_RECORD, WPCPM_Mentor_Notes::META_STUDENT, WPCPM_Mentor_Notes::META_SESSION );
+		$keys  = array( WPCPM_Mentor_Calls::META_MENTOR, WPCPM_Mentor_Calls::META_START, WPCPM_Mentor_Calls::META_CAPACITY, WPCPM_Mentor_Calls::META_CANCELLED_BY, WPCPM_Mentor_Calls::META_RECORD, WPCPM_Mentor_Notes::META_STUDENT, WPCPM_Mentor_Notes::META_SESSION, WPCPM_Mentor_Notes::META_SOURCE );
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery -- Two reads of a few hundred rows, on three screens an Administrator opens; nothing to cache across requests.
 		$posts = $wpdb->get_results(
@@ -230,8 +230,8 @@ final class WPCPM_Mentor_Engagement {
 			ARRAY_A
 		);
 		$meta  = $wpdb->get_results(
-			$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- Ten placeholders, filled from one array: the two post types, 'auto-draft' and the seven meta keys.
-				"SELECT pm.post_id, pm.meta_key, pm.meta_value FROM {$wpdb->postmeta} pm INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id WHERE p.post_type IN (%s, %s) AND p.post_status <> %s AND pm.meta_key IN (%s, %s, %s, %s, %s, %s, %s) ORDER BY pm.meta_id",
+			$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- Eleven placeholders, filled from one array: the two post types, 'auto-draft' and the eight meta keys.
+				"SELECT pm.post_id, pm.meta_key, pm.meta_value FROM {$wpdb->postmeta} pm INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id WHERE p.post_type IN (%s, %s) AND p.post_status <> %s AND pm.meta_key IN (%s, %s, %s, %s, %s, %s, %s, %s) ORDER BY pm.meta_id",
 				array_merge( $types, array( 'auto-draft' ), $keys )
 			),
 			ARRAY_A
@@ -255,12 +255,18 @@ final class WPCPM_Mentor_Engagement {
 			};
 
 			if ( WPCPM_Mentor_Notes::POST_TYPE === $p['post_type'] ) {
+				// A note is the mentor's only with no source, as WPCPM_Mentor_Notes::is_mentors() decides: a Need help? note is written about the student, whose account is its author, and a value nobody wrote fails closed.
+				if ( '' !== sanitize_key( (string) $first( WPCPM_Mentor_Notes::META_SOURCE ) ) ) {
+					continue;
+				}
+
 				$notes[] = array(
 					'id'      => $id,
 					'author'  => (int) $p['post_author'],
 					'created' => (int) strtotime( $p['post_date_gmt'] . ' UTC' ),
 					'records' => isset( $m[ WPCPM_Mentor_Notes::META_STUDENT ] ) ? $m[ WPCPM_Mentor_Notes::META_STUDENT ] : array(),
 					'session' => self::int( $first( WPCPM_Mentor_Notes::META_SESSION ) ),
+					'source'  => (string) $first( WPCPM_Mentor_Notes::META_SOURCE ),
 				);
 				continue;
 			}

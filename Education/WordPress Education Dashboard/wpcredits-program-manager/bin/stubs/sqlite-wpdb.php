@@ -58,6 +58,19 @@ class WPCPM_Test_Wpdb {
 		$this->pdo->exec( "CREATE INDEX IF NOT EXISTS {$p}wpcpm_guide_terms_chunk_id ON {$p}wpcpm_guide_terms ( chunk_id )" );
 	}
 
+	/** The tutor transcript's table, in SQLite's dialect (`WPCPM_Tutor_Store::schema()` is MySQL's). */
+	public function create_tutor_turns() {
+		$this->pdo->exec(
+			"CREATE TABLE IF NOT EXISTS {$this->prefix}wpcpm_tutor_turns ( id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL DEFAULT 0, student_record TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT '', body TEXT NOT NULL, sources TEXT NOT NULL, tool TEXT NOT NULL DEFAULT '', created_gmt TEXT NOT NULL )"
+		);
+		$this->pdo->exec( "CREATE INDEX IF NOT EXISTS {$this->prefix}wpcpm_tutor_turns_user_created ON {$this->prefix}wpcpm_tutor_turns ( user_id, created_gmt )" );
+	}
+
+	/** Take the tutor transcript's table away, as a site whose upgrade has not run has none. */
+	public function drop_tutor_turns() {
+		$this->pdo->exec( "DROP TABLE IF EXISTS {$this->prefix}wpcpm_tutor_turns" );
+	}
+
 	/** Take the mail log's table away, as a site whose upgrade has not run has none. */
 	public function drop_mail_log() {
 		$this->pdo->exec( "DROP TABLE IF EXISTS {$this->prefix}wpcpm_mail_log" );

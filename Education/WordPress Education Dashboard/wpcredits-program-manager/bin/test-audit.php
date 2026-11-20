@@ -315,6 +315,28 @@ $listed_after_kill = count( WPCPM_Institution_Audit::entries_for( 'recKEY0000000
 WPCPM_Institution_Audit::record( array( 'kind' => 'member_added', 'institution' => 'recKEY00000000002', 'subject' => '5', 'actor' => 0, 'ground' => 'system', 'evidence' => 'index', 'message' => 'Again.', 'data' => array( 'from' => 'airtable' ) ) );
 ck( 'a kill before the key leaves nothing listed, and the rerun writes one row with its data', array( $died, $listed_after_kill, array_map( static function ( $e ) { return array( $e['message'], $e['data'] ); }, WPCPM_Institution_Audit::entries_for( 'recKEY00000000002', 0 ) ) ), array( true, 0, array( array( 'Again.', array( 'from' => 'airtable' ) ) ) ) );
 
+echo "\n=== A read of a tutor transcript (AI Mentor R3) ===\n";
+
+$T = 'recSTUDENT0000001';
+ck( 'the key, the kind and the methods are the ruling\'s', array( WPCPM_Institution_Audit::META_TUTOR, WPCPM_Institution_Audit::KIND_TUTOR_READ ), array( '_wpcpm_log_tutor', 'tutor_transcript_read' ) );
+$t1 = WPCPM_Institution_Audit::record_tutor_read( $T, 3 );
+$t2 = WPCPM_Institution_Audit::record_tutor_read( $T, 4 );
+$t3 = WPCPM_Institution_Audit::record_tutor_read( 'recSTUDENT0000002', 3 );
+ck( 'a read is written, under the tutor key alone', is_int( $t1 ) ? array( get_post_meta( $t1, WPCPM_Institution_Audit::META_TUTOR, true ), isset( $GLOBALS['pmeta'][ $t1 ][ WPCPM_Institution_Audit::META_INSTITUTION ] ), isset( $GLOBALS['pmeta'][ $t1 ][ WPCPM_Institution_Audit::META_SPONSOR ] ), isset( $GLOBALS['pmeta'][ $t1 ][ WPCPM_Institution_Audit::META_MCP ] ), isset( $GLOBALS['pmeta'][ $t1 ][ WPCPM_Institution_Audit::META_LEAD ] ), $GLOBALS['posts'][ $t1 ]->post_status ) : 'no row', array( $T, false, false, false, false, 'private' ) );
+ck( 'its kind, subject, reader, ground and evidence, with no data and no text', array( get_post_meta( $t1, WPCPM_Institution_Audit::META_KIND, true ), get_post_meta( $t1, WPCPM_Institution_Audit::META_SUBJECT, true ), get_post_meta( $t1, WPCPM_Institution_Audit::META_ACTOR, true ), get_post_meta( $t1, WPCPM_Institution_Audit::META_GROUND, true ), get_post_meta( $t1, WPCPM_Institution_Audit::META_EVIDENCE, true ), get_post_meta( $t1, WPCPM_Institution_Audit::META_DATA, true ), $GLOBALS['posts'][ $t1 ]->post_content ), array( 'tutor_transcript_read', $T, 3, 'manager', 'live', array(), '' ) );
+ck( 'a malformed record ID is refused with its own code, and a record that is a lead\'s or a sponsor\'s is no student\'s', array( ( static function () { $r = WPCPM_Institution_Audit::record_tutor_read( 'not-a-record', 3 ); return is_wp_error( $r ) ? $r->get_error_code() : ''; } )(), ( static function () { $r = WPCPM_Institution_Audit::record_tutor_read( 'lead-41', 3 ); return is_wp_error( $r ) ? $r->get_error_code() : ''; } )(), ( static function () { $r = WPCPM_Institution_Audit::record_tutor_read( '', 3 ); return is_wp_error( $r ) ? $r->get_error_code() : ''; } )() ), array( 'wpcpm_audit_tutor', 'wpcpm_audit_tutor', 'wpcpm_audit_tutor' ) );
+ck( 'tutor_reads() lists the record\'s reads, newest first, and no other record\'s', array_column( WPCPM_Institution_Audit::tutor_reads( $T, 0 ), 'id' ), array( $t2, $t1 ) );
+ck( 'its limit is five by default', ( static function () use ( $T ) { for ( $n = 0; $n < 6; $n++ ) { WPCPM_Institution_Audit::record_tutor_read( $T, 5 + $n ); } return array( count( WPCPM_Institution_Audit::tutor_reads( $T ) ), count( WPCPM_Institution_Audit::tutor_reads( $T, 2 ) ), count( WPCPM_Institution_Audit::tutor_reads( $T, 0 ) ) ); } )(), array( 5, 2, 8 ) );
+ck( 'a malformed record asks for nothing', array( WPCPM_Institution_Audit::tutor_reads( 'not-a-record' ), WPCPM_Institution_Audit::tutor_reads( 'RECSTUDENT0000001', 0 ) ), array( array(), array() ) );
+ck( 'no institution, sponsor, lead or call reader lists a read', array(
+	in_array( $t1, array_column( WPCPM_Institution_Audit::entries_for( $T, 0 ), 'id' ), true ),
+	in_array( $t1, array_column( WPCPM_Institution_Audit::entries_for_sponsor( $T, 0 ), 'id' ), true ),
+	in_array( $t1, array_column( WPCPM_Institution_Audit::sponsor_entries( '', 0 ), 'id' ), true ),
+	in_array( $t1, array_column( WPCPM_Institution_Audit::mcp_entries( 0 ), 'id' ), true ),
+	in_array( $t1, array_column( WPCPM_Institution_Audit::entries_for_lead( 'lead-41', 0 ), 'id' ), true ),
+), array( false, false, false, false, false ) );
+ck( 'and the institution reader, asked for the same record ID, lists none of them', WPCPM_Institution_Audit::entries_for( $T, 0 ), array() );
+
 echo "\n=== House rules ===\n";
 ck( 'no em or en dash in the class', preg_match( '/\x{2013}|\x{2014}/u', (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-institution-audit.php' ) ), 0 );
 

@@ -1,0 +1,279 @@
+/**
+ * The AI Mentor card on the Student Report Card (AI Mentor R3).
+ *
+ * Loaded only on a page that draws the panel. The section, its heading, its notes and the button are the
+ * card's own (`wpcpm-student__section`, `wpcpm-student__heading`, `wpcpm-student__note`, `wpcpm-button`),
+ * dressed by student.css and the theme as every other card is; this file carries only what the chat adds.
+ * Colors come from the dashboards' tokens (dashboard.css) and, where the WPCredits theme sets them, its
+ * brand and status tokens, with DESIGN.md's values behind them: Blueberry for focus, its tint for what the
+ * student said, the red and amber tints with their borders and ink text for the two notices.
+ */
+
+.wpcpm-tutor .wpcpm-tutor__intro {
+	margin: 0 0 16px;
+}
+
+/* The conversation: one hairline panel that scrolls, so thirty turns do not push the box off the page.
+   Positioned, so the screen-reader names inside it are held by it and never widen the page. */
+.wpcpm-tutor__log {
+	border: 1px solid var( --wpc-line-card, var( --wpcpm-border ) );
+	border-radius: var( --wpc-radius-panel, 4px );
+	max-height: min( 32rem, 70vh );
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding: 16px;
+	position: relative;
+}
+
+.wpcpm-tutor__log[hidden],
+.wpcpm-tutor__turn[hidden] {
+	display: none;
+}
+
+.wpcpm-tutor__log:focus-visible,
+.wpcpm-tutor__turn:focus-visible,
+.wpcpm-tutor__earlier:focus-visible,
+.wpcpm-tutor__cancel:focus-visible,
+.wpcpm-tutor__input:focus-visible,
+.wpcpm-tutor__preview-note:focus-visible,
+.wpcpm-tutor .wpcpm-button:focus-visible {
+	outline: 2px solid var( --wpc-brand, #3858e9 );
+	outline-offset: 2px;
+}
+
+.wpcpm-tutor__more {
+	margin: 0 0 16px;
+	text-align: center;
+}
+
+/* Link-shaped, as R2's secondary controls are: one small control, not a second button. */
+.wpcpm-tutor__earlier,
+.wpcpm-tutor__cancel {
+	background: none;
+	border: 0;
+	color: inherit;
+	cursor: pointer;
+	font: inherit;
+	font-size: 14px;
+	padding: 0;
+	text-decoration: underline;
+}
+
+.wpcpm-tutor__earlier:hover,
+.wpcpm-tutor__cancel:hover {
+	text-decoration-thickness: 2px;
+}
+
+.wpcpm-tutor__turns {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-tutor__turn + .wpcpm-tutor__turn {
+	border-top: 1px solid var( --wpc-line-soft, var( --wpcpm-border ) );
+	margin-top: 16px;
+	padding-top: 16px;
+}
+
+/* What the student said sits on the right, in the brand's tint; the reply is the page's own text. */
+.wpcpm-tutor__message {
+	background: var( --wpc-brand-tint, #eff2ff );
+	border-radius: var( --wpc-radius-panel, 4px );
+	box-sizing: border-box;
+	margin: 0 0 12px auto;
+	max-width: 85%;
+	padding: 8px 12px;
+	width: fit-content;
+}
+
+/* The text is a pre, which core's texturizing skips, so a "--" or a "..." stays as typed; it is dressed to look
+   as the paragraph did: the page's font and size, wrapping, no margin, box or colour of its own. */
+.wpcpm-tutor .wpcpm-tutor__text {
+	background: none;
+	border: 0;
+	color: inherit;
+	font: inherit;
+	letter-spacing: inherit;
+	margin: 0;
+	overflow: visible;
+	overflow-wrap: anywhere;
+	padding: 0;
+	white-space: pre-wrap;
+}
+
+.wpcpm-tutor__sources-title {
+	color: var( --wpc-ink-60, var( --wpcpm-ink-muted ) );
+	font-size: 13px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	margin: 12px 0 8px;
+	text-transform: uppercase;
+}
+
+/* Numbered, since source i is the reply's marker [i]. */
+.wpcpm-tutor__sources {
+	font-size: 14px;
+	list-style: decimal;
+	margin: 0;
+	padding: 0 0 0 20px;
+}
+
+.wpcpm-tutor__sources li + li {
+	margin-top: 4px;
+}
+
+/* A fallback's source: the start of the passage under its link, as Need help? shows it (a pre, which core's
+   texturizing skips, dressed as text). */
+.wpcpm-tutor .wpcpm-tutor__extract {
+	background: none;
+	border: 0;
+	color: var( --wpc-ink-60, var( --wpcpm-ink-muted ) );
+	font: inherit;
+	font-size: 14px;
+	margin: 4px 0 0;
+	overflow: visible;
+	overflow-wrap: anywhere;
+	padding: 0;
+	white-space: pre-wrap;
+}
+
+.wpcpm-tutor .wpcpm-tutor__unsourced {
+	margin: 12px 0 0;
+}
+
+.wpcpm-tutor__channel {
+	font-size: 14px;
+	margin: 12px 0 0;
+}
+
+/* The lines between the conversation and the box: the working line, then a notice when one is due. */
+.wpcpm-tutor .wpcpm-tutor__working {
+	margin: 12px 0 0;
+}
+
+.wpcpm-tutor__failed,
+.wpcpm-tutor__limit,
+.wpcpm-tutor__preview-failed {
+	border: 1px solid;
+	border-radius: var( --wpc-radius-panel, 4px );
+	color: var( --wpc-ink, inherit );
+	font-size: 14px;
+	margin: 12px 0 0;
+	padding: 8px 12px;
+}
+
+.wpcpm-tutor__failed,
+.wpcpm-tutor__preview-failed {
+	background: var( --wpc-red-tint, #fff6f5 );
+	border-color: var( --wpc-red-border, #daa39b );
+}
+
+.wpcpm-tutor__limit {
+	background: var( --wpc-amber-tint, #fff7e1 );
+	border-color: var( --wpc-amber-border, #d0b481 );
+}
+
+.wpcpm-tutor__failed[hidden],
+.wpcpm-tutor__limit[hidden],
+.wpcpm-tutor .wpcpm-tutor__working[hidden] {
+	display: none;
+}
+
+.wpcpm-tutor__form {
+	margin: 16px 0 0;
+}
+
+.wpcpm-tutor__input,
+.wpcpm-tutor__preview-note {
+	border: 1px solid var( --wpc-control-border, var( --wpcpm-control-border ) );
+	border-radius: var( --wpc-radius-control, 2px );
+	box-sizing: border-box;
+	display: block;
+	font: inherit;
+	padding: 8px 12px;
+	resize: vertical;
+	width: 100%;
+}
+
+.wpcpm-tutor__input[disabled] {
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+.wpcpm-tutor__actions {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin: 12px 0 0;
+}
+
+.wpcpm-tutor__actions .wpcpm-button[disabled] {
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+.wpcpm-tutor .wpcpm-tutor__left {
+	margin: 0;
+}
+
+/* Under the box: where the messages go. */
+.wpcpm-tutor .wpcpm-tutor__footnote {
+	margin: 12px 0 0;
+}
+
+/* R2's preview, under the reply that offered it: what goes to the mentor, a line to add, Send and Cancel. */
+.wpcpm-tutor__send {
+	margin: 16px 0 0;
+}
+
+.wpcpm-tutor__preview {
+	border: 1px solid var( --wpc-line-card, var( --wpcpm-border ) );
+	border-radius: var( --wpc-radius-panel, 4px );
+	padding: 16px;
+}
+
+.wpcpm-tutor__preview-title {
+	font-size: 16px;
+	margin: 0 0 8px;
+}
+
+.wpcpm-tutor__preview-question {
+	background: var( --wpc-surface-band, var( --wpcpm-surface ) );
+	border-radius: var( --wpc-radius-panel, 4px );
+	margin: 0 0 14px;
+	overflow-wrap: anywhere;
+	padding: 8px 12px;
+}
+
+.wpcpm-tutor__preview-label {
+	display: block;
+	font-size: 14px;
+	font-weight: 500;
+	margin: 0 0 4px;
+}
+
+.wpcpm-tutor__preview-actions {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin: 12px 0 0;
+}
+
+.wpcpm-tutor__sent {
+	margin: 0;
+}
+
+@media ( max-width: 600px ) {
+
+	.wpcpm-tutor__log {
+		max-height: 70vh;
+		padding: 12px;
+	}
+
+	.wpcpm-tutor__message {
+		max-width: 100%;
+	}
+}

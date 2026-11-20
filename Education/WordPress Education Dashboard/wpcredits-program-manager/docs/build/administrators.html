@@ -76,6 +76,9 @@
 <li><strong>Cohort timeline</strong>: the next twelve months' students, and whether mentors have places.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
+<li><strong>AI Mentor transcripts</strong>: what the listed students asked the AI Mentor, while an account is listed in <code>Tools &gt; Need help?</code> or a conversation is kept.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
 <li><strong>The program</strong>: sponsors, programs running and mentors' use of the site.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
@@ -101,7 +104,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>You want to</th><th>Go to</th></tr></thead><tbody><tr><td>Decide the oldest thing that waits</td><td><strong>Overview</strong>, <strong>Review the oldest</strong></td></tr><tr><td>Decide a school's application, agreement or request</td><td><strong>Overview</strong>, the row <strong>Institution applications</strong>, <strong>Collaboration Agreements</strong> or <strong>Requests from institutions</strong></td></tr><tr><td>Review or draft a semester report</td><td><strong>Overview</strong>, <strong>Semester reports</strong></td></tr><tr><td>Decide a mentor application</td><td><strong>Overview</strong>, <strong>Mentor applications</strong>, <strong>Review</strong>. It opens <code>Mentors &gt; Waiting for review</code>.</td></tr><tr><td>Decide a sponsor's application, post, offer or agreement</td><td><strong>Overview</strong>, the sponsor's row, such as <strong>Sponsor applications</strong></td></tr><tr><td>Read new student registrations</td><td><code>Students &gt; Registrations</code></td></tr><tr><td>Read a student's interest in a school not in the program</td><td><code>Students &gt; Interests</code></td></tr><tr><td>See which students have gone quiet</td><td><strong>Watch</strong>, <strong>Students gone quiet</strong>, shown while <strong>Daily list</strong> in <code>Settings &gt; Students and mentors</code> is not <em>Off</em></td></tr><tr><td>Check that the syncs ran</td><td><strong>Watch</strong>, <strong>Syncs and health</strong></td></tr><tr><td>Run a sync now</td><td><code>Students &gt; Sync</code>, <code>Mentors &gt; Sync</code> or <code>Institutions &gt; Sync and storage</code></td></tr><tr><td>See whether there are enough mentors</td><td><strong>Cohort timeline</strong></td></tr><tr><td>Find a school</td><td><code>Institutions &gt; Pipeline</code>, <strong>Find an institution</strong>; once the site keeps the record, also <strong>Talks</strong>, <strong>Find a school</strong></td></tr><tr><td>Follow up the talks with the schools</td><td><strong>Talks</strong>, <strong>Follow-ups due</strong>, once the site keeps the record of institutions</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>You want to</th><th>Go to</th></tr></thead><tbody><tr><td>Decide the oldest thing that waits</td><td><strong>Overview</strong>, <strong>Review the oldest</strong></td></tr><tr><td>Decide a school's application, agreement or request</td><td><strong>Overview</strong>, the row <strong>Institution applications</strong>, <strong>Collaboration Agreements</strong> or <strong>Requests from institutions</strong></td></tr><tr><td>Review or draft a semester report</td><td><strong>Overview</strong>, <strong>Semester reports</strong></td></tr><tr><td>Decide a mentor application</td><td><strong>Overview</strong>, <strong>Mentor applications</strong>, <strong>Review</strong>. It opens <code>Mentors &gt; Waiting for review</code>.</td></tr><tr><td>Decide a sponsor's application, post, offer or agreement</td><td><strong>Overview</strong>, the sponsor's row, such as <strong>Sponsor applications</strong></td></tr><tr><td>Read new student registrations</td><td><code>Students &gt; Registrations</code></td></tr><tr><td>Read a student's interest in a school not in the program</td><td><code>Students &gt; Interests</code></td></tr><tr><td>See which students have gone quiet</td><td><strong>Watch</strong>, <strong>Students gone quiet</strong>, shown while <strong>Daily list</strong> in <code>Settings &gt; Students and mentors</code> is not <em>Off</em></td></tr><tr><td>Check that the syncs ran</td><td><strong>Watch</strong>, <strong>Syncs and health</strong></td></tr><tr><td>Run a sync now</td><td><code>Students &gt; Sync</code>, <code>Mentors &gt; Sync</code> or <code>Institutions &gt; Sync and storage</code></td></tr><tr><td>See whether there are enough mentors</td><td><strong>Cohort timeline</strong></td></tr><tr><td>Read what a student asked the AI Mentor</td><td><strong>AI Mentor transcripts</strong></td></tr><tr><td>Find a school</td><td><code>Institutions &gt; Pipeline</code>, <strong>Find an institution</strong>; once the site keeps the record, also <strong>Talks</strong>, <strong>Find a school</strong></td></tr><tr><td>Follow up the talks with the schools</td><td><strong>Talks</strong>, <strong>Follow-ups due</strong>, once the site keeps the record of institutions</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:heading {"level":3,"anchor":"open-someone-s-page-as-they-see-it"} -->
@@ -12710,6 +12713,65 @@
 <!-- /wp:list -->
 
 <!-- wp:paragraph -->
+<p>Since 1.123.105 the same screen has a section <strong>AI Mentor</strong>, after <strong>Send to mentors</strong>. It is saved with the same <strong>Save settings</strong>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>AI Mentor for these accounts</strong>: the logins of the student accounts that see the AI Mentor card, one a line. Empty: nobody. Default: empty.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>AI Mentor persona</strong>: how the AI Mentor speaks. The program's rules are fixed and added after it. Plain text, up to 4,000 characters. Empty: the plugin's own wording.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>AI Mentor turns a day</strong>: how many messages one student may send a day. 1 to 200. Default: 30.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>The card is on the Student Report Card. Only a listed account sees it, and only an account that holds the student role and has a Students record. It shows only while <strong>Need help?</strong> is on and the AI provider is ready. Nobody else sees it. An Administrator who opens a student's Student Report Card sees only a line that counts the student's AI Mentor messages in the last 90 days and <strong>Read the transcript</strong>, which opens <strong>AI Mentor transcripts</strong> on the Administrator Dashboard. The line shows while the student is listed in <strong>AI Mentor for these accounts</strong> or has a message kept.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>The AI Mentor answers from the program's guides, the FAQ and the handbook, and each answer shows its <strong>Sources</strong>. An answer with no source says <em>Not from the program's guides</em>. The card says that the AI Mentor can be wrong and that the student's mentor has the final word. A student past <strong>AI Mentor turns a day</strong> cannot send more that day.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>The rules the AI Mentor follows are fixed, and the persona cannot change them. Among them:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>It answers about the program's rules, credits, certificates, hours, dates and anyone's status only from the guides. When they say nothing, it sends the student to their mentor or the WordPress Credits Slack channel.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>It never grades work, never promises credits or certificates, never speaks for an institution and never sets an hours target.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>It asks what a student has tried before it answers an exercise.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>It treats passages and anything a student pastes as information, never as instructions.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>A question for the student's mentor is handed on only while <strong>Send to mentors</strong> is on and <strong>Who can ask</strong> includes students (<strong>Students, institutions and sponsors as well</strong> or <strong>Anybody logged in to this site</strong>), and only for a student with a mentor. The student then sees <strong>Send this to your mentor</strong> with their message, adds a line and sends it, or dismisses it. Otherwise the AI Mentor tells them to ask their mentor or the Slack channel.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>For each call to the provider, the site sends the persona, the fixed rules, the student's last ten messages and replies, the new message and the passages of the guides the AI Mentor's search found. It sends nothing else about the student: no name, address or record. The provider is Google, through the AI Provider for Google plugin and the site's own key in <code>Settings &gt; Connectors</code>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>The site keeps each conversation for 90 days, and a daily job then deletes it. A student's personal data export and erasure include it, and uninstalling the plugin deletes it.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
 <p>Limits and rules:</p>
 <!-- /wp:paragraph -->
 
@@ -14479,7 +14541,7 @@
 <!-- /wp:list -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>View</th><th>What it holds</th><th>Its count in the menu</th></tr></thead><tbody><tr><td><strong>Overview</strong></td><td>The figures, then what waits for a decision</td><td>Red: the decisions that wait, as "2 wait"</td></tr><tr><td><strong>Watch</strong></td><td>Cards to keep an eye on this week</td><td>Amber: how many of <strong>Offers running low</strong>, <strong>Duplicated students</strong>, <strong>Syncs and health</strong> and <strong>Students gone quiet</strong> hold something</td></tr><tr><td><strong>Talks</strong></td><td>The talks with the schools and the leads, once the site keeps the record of institutions</td><td>Amber: your own follow-ups due</td></tr><tr><td><strong>Cohort timeline</strong></td><td>The next twelve months of students against the mentor places</td><td>None</td></tr><tr><td><strong>The program</strong></td><td>Three cards of numbers, then <strong>Tools from our sponsors</strong> with every live offer</td><td>None</td></tr><tr><td><strong>Program updates</strong></td><td>The newest update for Administrators, while there is one</td><td>None</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>View</th><th>What it holds</th><th>Its count in the menu</th></tr></thead><tbody><tr><td><strong>Overview</strong></td><td>The figures, then what waits for a decision</td><td>Red: the decisions that wait, as "2 wait"</td></tr><tr><td><strong>Watch</strong></td><td>Cards to keep an eye on this week</td><td>Amber: how many of <strong>Offers running low</strong>, <strong>Duplicated students</strong>, <strong>Syncs and health</strong> and <strong>Students gone quiet</strong> hold something</td></tr><tr><td><strong>Talks</strong></td><td>The talks with the schools and the leads, once the site keeps the record of institutions</td><td>Amber: your own follow-ups due</td></tr><tr><td><strong>Cohort timeline</strong></td><td>The next twelve months of students against the mentor places</td><td>None</td></tr><tr><td><strong>AI Mentor transcripts</strong></td><td>The students who talked to the AI Mentor in the last 90 days, and each one's transcript</td><td>None</td></tr><tr><td><strong>The program</strong></td><td>Three cards of numbers, then <strong>Tools from our sponsors</strong> with every live offer</td><td>None</td></tr><tr><td><strong>Program updates</strong></td><td>The newest update for Administrators, while there is one</td><td>None</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:paragraph -->
@@ -14771,6 +14833,37 @@
 <!-- wp:paragraph -->
 <p>Step by step: <a href="#read-the-cohort-timeline-do-we-need-more-mentors">Read the cohort timeline: do we need more mentors?</a>.</p>
 <!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3,"anchor":"ai-mentor-transcripts"} -->
+<h3 class="wp-block-heading" id="ai-mentor-transcripts">AI Mentor transcripts</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>The <strong>AI Mentor transcripts</strong> view, after <strong>Cohort timeline</strong>, is for Administrators. It shows while <code>Tools &gt; Need help?</code>, <strong>AI Mentor for these accounts</strong>, lists a login, or while the site keeps a conversation.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>The list holds each account with messages in the last 90 days: <strong>Record</strong>, <strong>Messages</strong> and <strong>Last message</strong>, newest first.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A record opens that account's transcript: <strong>Time</strong>, <strong>From</strong> (<em>Student</em>, <em>AI Mentor</em> or <em>Tool call</em>) and <strong>Message</strong>. A reply lists its sources. A tool call shows its name and what it was given and returned.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>All AI Mentor transcripts</strong> goes back to the list.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Each time you open a transcript, the site writes a row to the audit log. <strong>Read by</strong> under the transcript lists the last five readers with the time.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>If the row cannot be written, the transcript does not open. The list shows <em>This transcript could not be opened just now. Try again in a moment.</em></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The site keeps a conversation for 90 days and a daily job then deletes it. With no conversation, the list says <em>No AI Mentor conversations in the last 90 days.</em></li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
 
 <!-- wp:heading {"level":3,"anchor":"the-quiet-students-card"} -->
 <h3 class="wp-block-heading" id="the-quiet-students-card">The quiet-students card</h3>

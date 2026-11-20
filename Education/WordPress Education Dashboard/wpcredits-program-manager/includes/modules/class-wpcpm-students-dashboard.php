@@ -65,6 +65,7 @@ class WPCPM_Students_Dashboard {
 	const MODULE_FORMS   = 'forms';
 	const MODULE_CALLS   = 'calls';
 	const MODULE_TOOLS   = 'tools';
+	const MODULE_TUTOR   = 'tutor';
 
 	/** The current title revision. Bump this whenever the page's title changes. */
 	const TITLE_VERSION = 3;
@@ -425,6 +426,7 @@ class WPCPM_Students_Dashboard {
 			self::MODULE_FORMS   => __( 'Report form and feedback forms', 'wpcredits-program-manager' ),
 			self::MODULE_CALLS   => __( 'My mentor call', 'wpcredits-program-manager' ),
 			self::MODULE_TOOLS   => __( 'Tools from our sponsors', 'wpcredits-program-manager' ),
+			self::MODULE_TUTOR   => __( 'AI Mentor', 'wpcredits-program-manager' ),
 		);
 	}
 
@@ -630,6 +632,16 @@ class WPCPM_Students_Dashboard {
 					} elseif ( $can_manage ) {
 						WPCPM_Sponsor_Tools::render_count_line( $student );
 					}
+				}
+				break;
+
+			case self::MODULE_TUTOR:
+				// The AI Mentor (AI Mentor R3): the chat on the student's own card while they may chat; on a
+				// manager's view of a student who is listed or has a message kept, one line with the count and
+				// the link to the transcript, never the conversation; for anybody else, and while Need help? is
+				// off, nothing, so the module is left out. Guarded as the sponsors' tools are.
+				if ( class_exists( 'WPCPM_Tutor' ) ) {
+					echo WPCPM_Tutor::render_card( $student, $viewer, (bool) $can_manage ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by WPCPM_Tutor_Card, which escapes every value it prints.
 				}
 				break;
 		}

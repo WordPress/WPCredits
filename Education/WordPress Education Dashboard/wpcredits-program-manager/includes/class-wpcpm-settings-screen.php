@@ -471,6 +471,12 @@ class WPCPM_Settings_Screen {
 			}
 		}
 
+		// The AI Mentor's persona is long text in its own option, drawn on the Need help? screen and saved by
+		// its form, after the nonce and the capability above. A save that does not carry the box leaves it.
+		if ( 'tool:handbook' === $scope && isset( $_POST['tutor_persona'] ) && class_exists( 'WPCPM_Tutor' ) ) {
+			WPCPM_Tutor::save_persona( wp_unslash( $_POST['tutor_persona'] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized in WPCPM_Tutor::save_persona().
+		}
+
 		// What the save did not write, for the page it goes back to (1.123.58): each refused setting's
 		// typing and its sentence, drawn again in its row and summarized at the top of the tab
 		// (`WPCPM_Form_Errors`), and the settings kept as stored because they changed elsewhere since

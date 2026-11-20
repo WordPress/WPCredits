@@ -1,0 +1,34 @@
+/*
+ * The AI Mentor transcripts view (AI Mentor R3): a tool call's arguments and result, as indented JSON, keep their
+ * indentation and wrap inside their cell, what was said reads as the cell's own text, and a reply's sources are a numbered list, as its markers are. Over
+ * administrator.css; everything else is the shared parts'.
+ */
+
+.wpcpm-tutor-transcripts-view .wpcpm-ui-table pre {
+	font: 400 13px/20px var( --wpcpm-f-mono, monospace );
+	margin: 4px 0 0;
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
+}
+
+/* A student's or the AI Mentor's text is a pre too (core's texturizing skips it), but reads as the cell's own text. */
+.wpcpm-tutor-transcripts-view .wpcpm-ui-table pre.wpcpm-tutor__text {
+	background: none;
+	font: inherit;
+	margin: 0;
+	padding: 0;
+	white-space: pre-wrap;
+}
+
+.wpcpm-tutor-transcripts-view .wpcpm-ui-table pre.wpcpm-tutor__extract {
+	background: none;
+	font: inherit;
+	margin: 4px 0 0;
+	padding: 0;
+	white-space: pre-wrap;
+}
+
+.wpcpm-tutor-transcripts-view .wpcpm-ui-table td ol {
+	margin: 8px 0 0;
+	padding-left: 20px;
+}

@@ -2837,6 +2837,44 @@ $talks_member   = WPCPM_Administrators_Dashboard::render( array() );
 ck( 'Talks: an account that is no Administrator asking for the view is told the page has nothing for it, and nothing of it is drawn', array( has( $talks_member, 'data-talks-view' ), has( $talks_member, 'wpcpm-frame' ) ), array( false, false ) );
 list( $GLOBALS['uid'], $GLOBALS['manage'] ) = $talks_kept;
 unset( $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ], $GLOBALS['talks_on'], $GLOBALS['talks_due'], $GLOBALS['talks_due_for'] );
+// The AI Mentor transcripts view (AI Mentor R3, Task 6): its own class draws it (bin/test-tutor-transcripts.php); here the
+// page's part, with the view stood in for at its contract, declared only now so every check above ran without it.
+echo "\n=== The AI Mentor transcripts view in the frame (AI Mentor R3) ===\n";
+if ( ! class_exists( 'WPCPM_Tutor_Transcripts_View' ) ) {
+	class WPCPM_Tutor_Transcripts_View {
+		const STYLE = 'wpcpm-tutor-transcripts';
+		public static function register_assets() { $GLOBALS['tt_registered'] = ( $GLOBALS['tt_registered'] ?? 0 ) + 1; }
+		public static function is_requested() { return isset( $_GET['wpcpm_view'] ) && 'ai-mentor' === $_GET['wpcpm_view']; }
+		public static function shown() { return ! empty( $GLOBALS['tt_shown'] ); }
+		public static function render_view( $eyebrow = '' ) { echo '<p data-ai-mentor-view="' . (int) $GLOBALS['uid'] . '">' . $eyebrow . '</p>'; }
+	}
+}
+$tt_kept        = array( $GLOBALS['uid'], $GLOBALS['manage'] );
+$GLOBALS['uid'] = 3;
+$GLOBALS['manage'] = array( 3 );
+$GLOBALS['tt_shown'] = false;
+$tt_off = menu_items( WPCPM_Administrators_Dashboard::render( array() ) );
+ck( 'AI Mentor transcripts: with no listed login and no turn kept, the menu has no item', isset( $tt_off['AI Mentor transcripts'] ), false );
+$GLOBALS['tt_shown'] = true;
+$tt_nav = menu_items( WPCPM_Administrators_Dashboard::render( array() ) );
+$tt_keys = array_keys( $tt_nav );
+ck( 'AI Mentor transcripts: while an account is listed or a turn kept, the item is there for a manager, after Watch and before The program, to the view\'s address, not current on the Overview', array( isset( $tt_nav['AI Mentor transcripts'] ), array_search( 'AI Mentor transcripts', $tt_keys, true ) > array_search( 'Watch', $tt_keys, true ), array_search( 'AI Mentor transcripts', $tt_keys, true ) < array_search( 'The program', $tt_keys, true ), $tt_nav['AI Mentor transcripts']['url'] ?? null, $tt_nav['AI Mentor transcripts']['current'] ?? null ), array( true, true, true, WPCPM_Administrators_Dashboard::page_url() . '?wpcpm_view=ai-mentor', false ) );
+$_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] = 'ai-mentor';
+$tt_on = WPCPM_Administrators_Dashboard::render( array() );
+ck( 'AI Mentor transcripts: ?wpcpm_view=ai-mentor draws the view in the page\'s root, named ai-mentor, with the page\'s name, and marks the item current', array( has( $tt_on, 'wpcpm-administrator--ai-mentor' ), has( $tt_on, 'data-ai-mentor-view="3"' ), has( $tt_on, 'Administrator Dashboard' ), menu_items( $tt_on )['AI Mentor transcripts']['current'] ?? null, has( $tt_on, 'wpcpm-administrator--overview' ) ), array( true, true, true, true, false ) );
+$GLOBALS['tt_shown'] = false;
+$tt_link = WPCPM_Administrators_Dashboard::render( array() );
+ck( 'AI Mentor transcripts: the address opens the view for a manager though the menu item is not shown (the Student Report Card\'s link needs it)', array( has( $tt_link, 'data-ai-mentor-view="3"' ), isset( menu_items( $tt_link )['AI Mentor transcripts'] ) ), array( true, false ) );
+$GLOBALS['uid'] = 0;
+$tt_out = WPCPM_Administrators_Dashboard::render( array() );
+ck( 'AI Mentor transcripts: a signed-out visitor is asked to log in, and nothing of it is drawn', array( has( $tt_out, 'Log in to see the Administrator Dashboard.' ), has( $tt_out, 'data-ai-mentor-view' ) ), array( true, false ) );
+$GLOBALS['uid'] = 21;
+$tt_member = WPCPM_Administrators_Dashboard::render( array() );
+ck( 'AI Mentor transcripts: an account that is no Administrator is shown nothing of it', array( has( $tt_member, 'data-ai-mentor-view' ), has( $tt_member, 'wpcpm-frame' ) ), array( false, false ) );
+list( $GLOBALS['uid'], $GLOBALS['manage'] ) = $tt_kept;
+unset( $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ], $GLOBALS['tt_shown'] );
+WPCPM_Administrators_Dashboard::register_assets();
+ck( 'AI Mentor transcripts: the page registers the view\'s stylesheet', ( $GLOBALS['tt_registered'] ?? 0 ) > 0, true );
 // The Reference view, at the page's own address with ?wpcpm_view=reference, and the Overview with every
 // queue holding something but the Events card's, which is no queue while Sponsor tiers is off: the one
 // sponsor offer waiting for review the fixture read above is put back for it, and a student waiting to graduate

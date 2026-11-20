@@ -144,6 +144,11 @@ class WPCPM_Settings {
 			// Whether a student may send a question Need help? could not answer to their mentor
 			// (AI Mentor R2). Off until mentors are told.
 			'handbook_to_mentors'           => false,
+			// The AI Mentor, the tutor chat on the Student Report Card (AI Mentor R3): the logins it is
+			// open to, one a line, and nobody while the box is empty; and how many messages one student
+			// may send a day. Its persona is long text and lives in its own option.
+			'tutor_accounts'                => '',
+			'tutor_turns'                   => 30,
 			// On by default: a mentor logging in otherwise lands on a wp-admin
 			// screen that shows them nothing they can use.
 			'mentor_home'                   => true,
@@ -482,6 +487,8 @@ class WPCPM_Settings {
 				'handbook_access',
 				'handbook_limit',
 				'handbook_to_mentors',
+				'tutor_accounts',
+				'tutor_turns',
 			),
 			'tool:emails'                => array(
 				'mail_contact',
@@ -920,6 +927,28 @@ class WPCPM_Settings {
 
 		if ( isset( $input['handbook_limit'] ) ) {
 			$clean['handbook_limit'] = max( 0, min( 200, (int) $input['handbook_limit'] ) );
+		}
+
+		// One login a line, trimmed, blank lines left out; what a login must match is the account's own, and
+		// `WPCPM_Tutor::may_chat()` compares without regard to case.
+		if ( isset( $input['tutor_accounts'] ) && is_string( $input['tutor_accounts'] ) ) {
+			$logins = array_filter(
+				array_map(
+					static function ( $line ) {
+						return sanitize_text_field( $line );
+					},
+					preg_split( '/\R/', $input['tutor_accounts'] )
+				),
+				static function ( $line ) {
+					return '' !== $line;
+				}
+			);
+
+			$clean['tutor_accounts'] = implode( "\n", $logins );
+		}
+
+		if ( isset( $input['tutor_turns'] ) ) {
+			$clean['tutor_turns'] = max( 1, min( 200, (int) $input['tutor_turns'] ) );
 		}
 
 		// Every boolean of the form arrives from the handler on every save, because an unchecked
