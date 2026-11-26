@@ -2,7 +2,7 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.123.106\n"
+"Project-Id-Version: WPCredits Program Manager 1.123.107\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -34036,4 +34036,12 @@ msgstr ""
 #: blocks/student-registration/block.json
 msgctxt "block keyword"
 msgid "register"
+msgstr ""
+
+#: includes/modules/class-wpcpm-institution-roster-view.php:1443
+msgid "No hours logged yet"
+msgstr ""
+
+#: includes/modules/class-wpcpm-institution-roster-view.php:1444
+msgid "Hours not tracked on this track"
 msgstr ""

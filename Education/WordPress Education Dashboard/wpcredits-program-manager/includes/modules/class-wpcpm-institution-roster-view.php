@@ -884,7 +884,7 @@ class WPCPM_Institution_Roster_View {
 			'reports|Personal Website URL'   => array( self::website_cell( (string) $values['website'] ), '' ),
 			'students|Your field of study'   => array( esc_html( (string) $values['field_of_study'] ), '' ),
 			'students|Tutor '                => array( esc_html( (string) $values['tutor'] ), '' ),
-			'reports|Hours'                  => array( self::hours_cell( (string) $values['hours'], (string) $values['track'] ), '' ),
+			'reports|Hours'                  => self::hours_parts( (string) $values['hours'], (string) $values['track'] ),
 		);
 	}
 
@@ -1408,6 +1408,58 @@ class WPCPM_Institution_Roster_View {
 		// Escaped whichever branch wrote it: a value that is not a number reaches here as it
 		// stands, and a field type changed in the base can put anything in it.
 		return esc_html( $text );
+	}
+
+	/**
+	 * The hours cell on the parts: the count where one is logged, otherwise why there is none.
+	 *
+	 * **An empty Hours column is three different statements** (WordPress/WPCredits#291). Hours
+	 * are the student's to type, nothing computes them, and the report record starts empty, so a
+	 * student on a track who has not typed a number yet reads "No hours logged yet". A track
+	 * published without the Hours question gives its students no hours box at all, so its empty
+	 * cell reads "Hours not tracked on this track" rather than blaming the student. Anybody on no
+	 * track (a lead, a student who left or graduated, a row with no status) keeps the card's
+	 * ordinary "Not recorded". None of the three is a 0: a logged 0 still reads "0 of 150".
+	 *
+	 * @param string $hours  The value as the base holds it, or ''.
+	 * @param string $status The status the track is read from, as `values()` resolved it.
+	 * @return array{0: string, 1: string} Cell markup and kind, as `cells_parts()` returns each.
+	 */
+	private static function hours_parts( $hours, $status ) {
+		$cell = self::hours_cell( $hours, $status );
+
+		if ( '' !== $cell ) {
+			return array( $cell, '' );
+		}
+
+		$track = WPCPM_Program::track( $status );
+
+		// On no track: the gap is the card's own, which the row prints for itself.
+		if ( '' === $track ) {
+			return array( '', '' );
+		}
+
+		$words = self::track_asks_hours( $track )
+			? __( 'No hours logged yet', 'wpcredits-program-manager' )
+			: __( 'Hours not tracked on this track', 'wpcredits-program-manager' );
+
+		return array( esc_html( $words ), 'empty' );
+	}
+
+	/**
+	 * Whether a track's report form asks the Hours question, the one the hours box draws.
+	 *
+	 * Read off the same filter `WPCPM_Student_Report_Form::fields()` answers from, so the roster and
+	 * the Student Report Card cannot disagree about whether a student was ever shown the box.
+	 * Not memoized here: `WPCPM_Tracks::form()` already reads each compiled form once a request.
+	 *
+	 * @param string $track Track key, never ''.
+	 * @return bool
+	 */
+	private static function track_asks_hours( $track ) {
+		$fields = (array) apply_filters( 'wpcpm_report_form_fields', array(), $track );
+
+		return isset( $fields[ WPCPM_Track_Definition::HOURS_COLUMN ] );
 	}
 
 	/**
