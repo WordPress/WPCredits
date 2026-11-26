@@ -730,14 +730,14 @@ preg_match( '#<div class="wpcpm-emails__preview"><p><strong>Subject:</strong> ([
 ck(
 	'the mentor\'s booking confirmation says who receives it and what sends it, and marks the call\'s time and the meeting link required',
 	array( false !== strpos( words_of( $booking ), 'To: Mentor. ' . WPCPM_Mail_Templates::get( 'call-booked-mentor' )['trigger'] ), array_map( function ( $mark ) { return $mark[1] . ( empty( $mark[2] ) ? '' : ' (required)' ); }, $marks ) ),
-	array( true, array( 'site_name', 'student_name', 'when (required)', 'time_zone', 'meeting_place (required)', 'topic', 'dashboard_link' ) )
+	array( true, array( 'site_name', 'student_name', 'when (required)', 'time_zone', 'their_name', 'their_when', 'meeting_place (required)', 'topic', 'dashboard_link' ) )
 );
 ck(
 	'and its preview is the email as a mentor reads it, the call tomorrow at 3 pm on the Administrator\'s own clock, the Mentor Report Card named once, and the footer',
 	array( html_entity_decode( $booked[1] ?? '', ENT_QUOTES ), html_entity_decode( $booked[2] ?? '', ENT_QUOTES ) ),
 	array(
 		'[WordPress Credits] Call booked with Ada Okonjo',
-		'Ada Okonjo booked a call with you on ' . wp_date( 'F j, Y', $tomorrow, $tokyo ) . " 3:00 pm to 3:30 pm.\n\nTimes are shown in Asia / Tokyo.\n\nWhere you will meet:\nhttps://meet.example.test/ben-lindqvist\n\nWhat the student would like to discuss:\nMy first plugin, and how to get it reviewed\n\nhttps://example.test/mentor-report-card/\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nThis email comes from the WordPress Credits program.",
+		'Ada Okonjo booked a call with you on ' . wp_date( 'F j, Y', $tomorrow, $tokyo ) . " 3:00 pm to 3:30 pm.\n\nTimes are shown in Asia / Tokyo. For Ada Okonjo, that is " . wp_date( 'F j, Y', $tomorrow, $tokyo ) . " 11:30 am to 12:00 pm (Asia / Kolkata).\n\nWhere you will meet:\nhttps://meet.example.test/ben-lindqvist\n\nWhat the student would like to discuss:\nMy first plugin, and how to get it reviewed\n\nhttps://example.test/mentor-report-card/\n\n-- \nWordPress Credits, WordPress Education\nhttps://example.test/\nThis email comes from the WordPress Credits program.",
 	)
 );
 

@@ -228,6 +228,7 @@ require_once __DIR__ . '/stubs/cleaners.php';
 require_once __DIR__ . '/stubs/mail-since-1-123-24.php';
 require_once __DIR__ . '/stubs/mail-since-1-123-27.php';
 require_once __DIR__ . '/stubs/mail-since-owner-decisions.php';
+require_once __DIR__ . '/stubs/mail-since-311.php';
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
@@ -951,6 +952,9 @@ foreach ( array( array( $cases, $recorded ), array( added_cases(), $more ) ) as 
 
 		ck( $name . ': the same emails, to the same people, in the same order' . $as, array_column( $got, 'to' ), array_column( $want, 'to' ) );
 
+		// As #311 sends a one-to-one booking's confirmations: the other person's clock after the reader's.
+		$since_311 = wpcpm_mail_since_311( $want );
+
 		foreach ( $want as $n => $mail ) {
 			$now = isset( $got[ $n ] ) ? $got[ $n ] : array_fill_keys( array_keys( $mail ), null );
 
@@ -959,6 +963,16 @@ foreach ( array( array( $cases, $recorded ), array( added_cases(), $more ) ) as 
 			// brackets, and a one-to-one call's cancellation closing with a sentence true for every one.
 			$since = wpcpm_mail_since_owner_decisions( wpcpm_mail_since_1_123_27( array( 'body' => wpcpm_mail_since_1_123_24( body_as( $name, $mail['body'] ) ) ) + $mail, array( 'name' => $case['site'] ) ) );
 
+			// The #311 sentence, when the case's confirmations carry it, put into the body the stubs gave.
+			if ( $since_311[ $n ]['body'] !== $mail['body'] ) {
+				$plain_line = preg_match( '/Times are shown in [^\n]+?\./', $mail['body'], $plain ) ? $plain[0] : '';
+				$with_line  = preg_match( '/Times are shown in [^\n]+/', $since_311[ $n ]['body'], $with ) ? $with[0] : '';
+
+				if ( '' !== $plain_line && '' !== $with_line ) {
+					$since['body'] = str_replace( $plain_line, $with_line, $since['body'] );
+				}
+			}
+
 			ck( $name . ' #' . $n . ': logged under its own id' . $as, $now['context'], sent_as( $name, $n, $mail['context'] ) );
 			ck( $name . ' #' . $n . ': the subject, byte for byte' . $as, $now['subject'], $since['subject'] );
 			ck( $name . ' #' . $n . ( body_as( $name, $mail['body'] ) === $mail['body'] ? ': the body, byte for byte, the signature and footer included' : ': the body, byte for byte, the signature and footer included, but the blank line the recording doubles above the footer' ) . $as, $now['body'], $since['body'] );
@@ -966,6 +980,8 @@ foreach ( array( array( $cases, $recorded ), array( added_cases(), $more ) ) as 
 		}
 	}
 }
+
+ck( '#311: every one-to-one booking confirmation whose other person saved a different time zone says the call on their clock, and none other', $GLOBALS['wpcpm_since_311']['added'], 13 );
 
 ck( 'every change listed is made, to a case of one of the two recordings, and changes what its recording holds', array( $GLOBALS['stale'], array_values( array_diff( $listed, $changed ) ) ), array( array(), array() ) );
 
@@ -1056,7 +1072,7 @@ $two_roles                   = emails_of( $cases['booked-call'] );
 ck(
 	'a mentor who is also a student is sent the mentor\'s booking as a mentor: the Mentor Report Card once, in the body, and no Student Report Card in the footer',
 	array( isset( $two_roles[0] ) ? $two_roles[0]['body'] : null, WPCPM_Mail_Capture::type_of( $GLOBALS['users'][20], WPCPM_Mail_Catalog::get( isset( $two_roles[0] ) ? $two_roles[0]['context'] : '' )['audience'] ?? '' ) ),
-	array( wpcpm_mail_since_1_123_24( $recorded['cases']['booked-call'][0]['body'] ?? '' ), WPCPM_Mail_Catalog::TYPE_MENTOR )
+	array( wpcpm_mail_since_1_123_24( wpcpm_mail_since_311( $recorded['cases']['booked-call'] )[0]['body'] ?? '' ), WPCPM_Mail_Catalog::TYPE_MENTOR )
 );
 $GLOBALS['users'][20]->roles = array( WPCPM_Roles::ROLE_MENTOR );
 

@@ -70,6 +70,19 @@ $wpcpm_placeholders = static function ( $audience ) use ( $wpcpm_example ) {
 				return WPCPM_Mentor_Calls::format_range( $call['start'], $call['end'], $call['zone'] );
 			},
 		),
+		'their_name'          => array(
+			'means'   => __( 'The other person\'s name, beside their clock\'s time; empty, with it, while that time is.', 'wpcredits-program-manager' ),
+			'example' => 'student' === $audience ? 'Ben Lindqvist' : 'Ada Okonjo',
+		),
+		'their_when'          => array(
+			'means'   => __( 'When the call is on the other person\'s clock, with that clock\'s name, while they have saved a time zone and it is not the recipient\'s (#311). Empty leaves its sentence out.', 'wpcredits-program-manager' ),
+			'example' => static function () use ( $wpcpm_example ) {
+				$call  = $wpcpm_example();
+				$other = new DateTimeZone( 'Asia/Kolkata' === $call['zone']->getName() ? 'Europe/Madrid' : 'Asia/Kolkata' );
+
+				return WPCPM_Mentor_Calls::format_range( $call['start'], $call['end'], $other ) . ' (' . WPCPM_Mentor_Availability::zone_label( $other->getName() ) . ')';
+			},
+		),
 		'was_when'            => array(
 			'means'   => __( 'When the session was before it moved, on the recipient\'s own clock.', 'wpcredits-program-manager' ),
 			'example' => static function () use ( $wpcpm_example ) {
@@ -238,9 +251,26 @@ $wpcpm_student = WPCPM_Mail_Catalog::TYPE_STUDENT;
 // A booking or a join, as the mentor's copy says it: the opening, the time zone, where to meet (or, for
 // `$no_link`, that the mentor has set no link), what the student would like to discuss or what the
 // session is about, and the mentor's dashboard.
-$wpcpm_booked_mentor = static function ( $opening, $topic, $no_link ) use ( $wpcpm_body, $wpcpm_times, $wpcpm_where, $wpcpm_no_link ) {
-	return $wpcpm_body( array( $opening, $wpcpm_times, $no_link ? $wpcpm_no_link : $wpcpm_where, $topic, '{dashboard_link}' ) );
+$wpcpm_booked_mentor = static function ( $opening, $topic, $no_link, $times = null ) use ( $wpcpm_body, $wpcpm_times, $wpcpm_where, $wpcpm_no_link ) {
+	return $wpcpm_body( array( $opening, null === $times ? $wpcpm_times : $times, $no_link ? $wpcpm_no_link : $wpcpm_where, $topic, '{dashboard_link}' ) );
 };
+
+// A one-to-one booking's time zone line with the other person's clock after it (#311): the second
+// sentence goes when `{their_when}` is empty, so a booking between two people on one clock, or with
+// a student who has not saved a time zone, reads as before.
+$wpcpm_times_for_mentor = $wpcpm_times . ' ' . sprintf(
+	/* translators: 1: student name, 2: the call's date and time on the student's clock, with that clock's name. The site leaves this sentence out when the student is on the same clock or has not saved one. */
+	__( 'For %1$s, that is %2$s.', 'wpcredits-program-manager' ),
+	'{their_name}',
+	'{their_when}'
+);
+
+$wpcpm_times_for_student = $wpcpm_times . ' ' . sprintf(
+	/* translators: 1: mentor name, 2: the call's date and time on the mentor's clock, with that clock's name. The site leaves this sentence out when the mentor is on the same clock or has not saved one. */
+	__( 'For %1$s, that is %2$s.', 'wpcredits-program-manager' ),
+	'{their_name}',
+	'{their_when}'
+);
 
 $wpcpm_booked_call_opening = sprintf(
 	/* translators: 1: student name, 2: date and time. */
@@ -274,8 +304,8 @@ return array(
 			'{site_name}',
 			'{student_name}'
 		),
-		'body'         => $wpcpm_booked_mentor( $wpcpm_booked_call_opening, $wpcpm_to_mentor_topic, false ),
-		'placeholders' => $wpcpm_take( $wpcpm_mentor, array( 'site_name', 'student_name', 'when', 'time_zone', 'meeting_place', 'topic', 'dashboard_link' ), array( 'when', 'meeting_place' ) ),
+		'body'         => $wpcpm_booked_mentor( $wpcpm_booked_call_opening, $wpcpm_to_mentor_topic, false, $wpcpm_times_for_mentor ),
+		'placeholders' => $wpcpm_take( $wpcpm_mentor, array( 'site_name', 'student_name', 'when', 'time_zone', 'their_name', 'their_when', 'meeting_place', 'topic', 'dashboard_link' ), array( 'when', 'meeting_place' ) ),
 	),
 	'call-booked-mentor-no-link'    => array(
 		'trigger'      => __( 'When a student books a one-to-one call with a mentor who has not set a meeting link yet.', 'wpcredits-program-manager' ),
@@ -285,8 +315,8 @@ return array(
 			'{site_name}',
 			'{student_name}'
 		),
-		'body'         => $wpcpm_booked_mentor( $wpcpm_booked_call_opening, $wpcpm_to_mentor_topic, true ),
-		'placeholders' => $wpcpm_take( $wpcpm_mentor, array( 'site_name', 'student_name', 'when', 'time_zone', 'topic', 'dashboard_link' ), array( 'when' ) ),
+		'body'         => $wpcpm_booked_mentor( $wpcpm_booked_call_opening, $wpcpm_to_mentor_topic, true, $wpcpm_times_for_mentor ),
+		'placeholders' => $wpcpm_take( $wpcpm_mentor, array( 'site_name', 'student_name', 'when', 'time_zone', 'their_name', 'their_when', 'topic', 'dashboard_link' ), array( 'when' ) ),
 	),
 	'call-booked-student'           => array(
 		'trigger'      => __( 'When the student books a one-to-one call with their mentor.', 'wpcredits-program-manager' ),
@@ -304,13 +334,13 @@ return array(
 					'{mentor_name}',
 					'{when}'
 				),
-				$wpcpm_times,
+				$wpcpm_times_for_student,
 				$wpcpm_where,
 				$wpcpm_to_student_topic,
 				'{dashboard_link}',
 			)
 		),
-		'placeholders' => $wpcpm_take( $wpcpm_student, array( 'site_name', 'mentor_name', 'when', 'time_zone', 'meeting_place', 'topic', 'dashboard_link' ), array( 'when' ) ),
+		'placeholders' => $wpcpm_take( $wpcpm_student, array( 'site_name', 'mentor_name', 'when', 'time_zone', 'their_name', 'their_when', 'meeting_place', 'topic', 'dashboard_link' ), array( 'when' ) ),
 	),
 	'session-joined-mentor'         => array(
 		'trigger'      => __( 'When a student joins a group session of a mentor who has set a meeting link.', 'wpcredits-program-manager' ),
