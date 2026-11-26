@@ -787,6 +787,7 @@ final class WPCPM_Track_Builder_Screen {
 		echo '</form>';
 
 		self::render_course_press( $form );
+		self::render_invite_form( $form );
 		self::render_questions( $form, $url, $question_values, $lesson );
 	}
 
@@ -988,6 +989,40 @@ final class WPCPM_Track_Builder_Screen {
 		echo '<div class="wpcpm-tracks__course-press">';
 		self::render_button( WPCPM_Track_Builder::ACTION_COURSE, isset( $form['id'] ) ? (int) $form['id'] : 0, __( 'Read the course again', 'wpcredits-program-manager' ) );
 		echo '</div>';
+	}
+
+	/**
+	 * The track's private course invitation link (#298), in a form of its own under the properties:
+	 * it is kept apart from the definition (`WPCPM_Track_Invites`), so it never reaches History or
+	 * a publish, and Save the track never sends it.
+	 *
+	 * @param array $form The track as `WPCPM_Track_Builder::form()` gives it.
+	 */
+	private static function render_invite_form( array $form ) {
+		$track = isset( $form['id'] ) ? (int) $form['id'] : 0;
+
+		if ( $track <= 0 ) {
+			return;
+		}
+
+		$id = WPCPM_Track_Invites::FIELD;
+
+		echo '<h2>' . esc_html__( 'Course invitation link', 'wpcredits-program-manager' ) . '</h2>';
+		echo '<p class="description">' . esc_html__( 'The private join link of this track\'s course group on Learn WordPress. The student welcome prints it under "Join your course on Learn WordPress:" for students on this track, and prints nothing while it is empty. It is kept on this site only, never in the track\'s History.', 'wpcredits-program-manager' ) . '</p>';
+		printf( '<form method="post" action="%s">', esc_url( admin_url( 'admin-post.php' ) ) );
+		wp_nonce_field( WPCPM_Track_Builder::ACTION_INVITE );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Track_Builder::ACTION_INVITE ) );
+		printf( '<input type="hidden" name="track" value="%d" />', (int) $track );
+		echo '<table class="form-table" role="presentation"><tbody>';
+		printf(
+			'<tr><th scope="row"><label for="%1$s">%2$s</label></th><td><input type="url" class="regular-text code" id="%1$s" name="%1$s" value="%3$s" placeholder="https://learn.wordpress.org/" autocomplete="off" /></td></tr>',
+			esc_attr( $id ),
+			esc_html__( 'Invitation link', 'wpcredits-program-manager' ),
+			esc_attr( WPCPM_Track_Invites::for_post( $track ) )
+		);
+		echo '</tbody></table>';
+		printf( '<p class="submit"><button type="submit" class="button">%s</button></p>', esc_html__( 'Save the invitation link', 'wpcredits-program-manager' ) );
+		echo '</form>';
 	}
 
 	/**

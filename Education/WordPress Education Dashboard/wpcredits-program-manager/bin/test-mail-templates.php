@@ -1093,6 +1093,14 @@ ck( 'the institution\'s and the company\'s name say they are the name the applic
 $student = WPCPM_Mail_Templates::render( 'invite-student', WPCPM_Mail_Templates::example_values( 'invite-student' ) );
 ck( 'filled with its examples, an invitation carries a marked example link and the dashboard of its audience', array( false !== strpos( $student['body'], 'key=EXAMPLE-KEY-NOT-A-REAL-LINK' ), false !== strpos( $student['body'], "Your Student Report Card:\r\nhttps://example.test/student-report-card/" ), $student['subject'] ), array( true, true, '[WordPress Credits] Welcome to the WordPress Credits Program' ) );
 
+// The course invitation link (#298): a student whose track has one is sent it under its own line, and
+// a student whose track has none gets neither the line nor a blank where it stood.
+$with_link = WPCPM_Mail_Templates::render( 'invite-student', array_merge( WPCPM_Mail_Templates::example_values( 'invite-student' ), array( 'course_invite_link' => 'https://learn.wordpress.org/?invite=abc' ) ) );
+$no_link   = WPCPM_Mail_Templates::render( 'invite-student', array_merge( WPCPM_Mail_Templates::example_values( 'invite-student' ), array( 'course_invite_link' => '' ) ) );
+ck( 'the student welcome prints the track\'s course invitation link under "Join your course on Learn WordPress:", and leaves the line out for a track without one',
+	array( false !== strpos( $with_link['body'], "Join your course on Learn WordPress:\r\nhttps://learn.wordpress.org/?invite=abc" ), false !== strpos( $no_link['body'], 'Join your course' ), false !== strpos( $no_link['body'], "\r\n\r\n\r\n" ) ),
+	array( true, false, false ) );
+
 // The mentor's invitation carries the welcome a new mentor is sent (1.122.33). Its private links, the
 // student courses' group invitation links and the mentor resource folder's, are never in the shipped
 // text: one bracketed line stands where they go, and the mentor coordinator types them on the site.

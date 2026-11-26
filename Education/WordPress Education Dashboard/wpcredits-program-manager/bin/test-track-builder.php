@@ -630,6 +630,7 @@ require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-definition.php';
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-diff.php';
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-columns.php';
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-questions.php';
+require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-invites.php';
 require_once __DIR__ . '/../includes/tools/class-wpcpm-tool.php';
 require_once __DIR__ . '/../includes/tools/class-wpcpm-track-editor.php';
 require_once __DIR__ . '/../includes/tools/class-wpcpm-track-editor-screen.php';
@@ -4355,7 +4356,7 @@ foreach ( array( $caps_tool, $caps_editor ) as $owner ) {
 
 ck( 'every handler of both classes, as many as are hooked on admin-post, dies on the capability for somebody who holds only read, before the nonce',
     array( count( $pressed ), $hooked, array_unique( array_values( $pressed ) ) ),
-    array( 14, 14, array( 'die: You do not have permission to manage the program.' ) ) );
+    array( 15, 15, array( 'die: You do not have permission to manage the program.' ) ) );
 
 ck( 'and not one of them saved, created, copied, deleted, published, ticked, checked, read the base or flashed anything',
     array(
