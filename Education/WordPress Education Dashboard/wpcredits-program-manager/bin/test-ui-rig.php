@@ -177,7 +177,7 @@ ck( 'the install (check_zip and install_zip), restore\'s put-back and the .workt
 ck( 'prepare installs through install_zip, after it keeps the .worktrees listing', 1 === preg_match( '/worktrees_listing > "\$WORK\/worktrees-before\.txt"\n  install_zip "\$ZIP"/', $prepare ) );
 $tmp  = sys_get_temp_dir() . '/wpcpm-ui-rig-test-' . getmypid();
 $zips = '(cd "$T/src" && zip -qr "$T/new.zip" wpcredits-program-manager); (cd "$T/src2" && zip -qr "$T/other.zip" wpcredits-program-manager); ';
-$run  = '' === $install || '' === $putback || '' === $lister || ! is_executable( '/usr/bin/zip' ) ? '' : (string) shell_exec(
+$run  = '' === $install || '' === $putback || '' === $lister || ! is_executable( '/usr/bin/zip' ) ? '' : (string) shell_exec( 'bash -c ' . escapeshellarg(
 	'set -euo pipefail; T=' . escapeshellarg( $tmp ) . '; rm -rf "$T"; mkdir -p "$T/plugins/wpcredits-program-manager/.worktrees/old" "$T/src/wpcredits-program-manager" "$T/src2/wpcredits-program-manager" "$T/stage" "$T/work"; '
 	. 'echo old > "$T/plugins/wpcredits-program-manager/old.php"; echo w > "$T/plugins/wpcredits-program-manager/.worktrees/old/a.php"; ln -s /nonexistent "$T/plugins/wpcredits-program-manager/.worktrees/link"; '
 	. 'echo new > "$T/src/wpcredits-program-manager/new.php"; echo b > "$T/src2/wpcredits-program-manager/b.php"; ' . $zips
@@ -189,14 +189,14 @@ $run  = '' === $install || '' === $putback || '' === $lister || ! is_executable(
 	. 'echo "after swaps: $(ls -A "$PLUGINS/wpcredits-program-manager" | tr "\n" " ")"; ' . "\n" . $putback
 	. 'echo "after restore: $(ls -A "$PLUGINS/wpcredits-program-manager" | tr "\n" " ")"; worktrees_listing | cmp -s - "$T/before.txt" && echo "worktrees same"; rm -rf "$T"' . "\n"
 	. 'true'
-);
+) );
 ck( 'the install, on a folder with .worktrees and a dangling link: the old files go, the zip\'s come in, .worktrees stays', true, false !== strpos( $run, 'after install: .worktrees new.php ' ) );
 ck( 'three swaps after it leave only the last build\'s files beside .worktrees', true, false !== strpos( $run, 'after swaps: .worktrees b.php ' ) );
 ck( 'and restore\'s put-back brings the old files back, leaves .worktrees as it was and unpacks no copy of it', true, false !== strpos( $run, 'after restore: .worktrees old.php ' ) && false !== strpos( $run, 'worktrees same' ) );
-$zip_refusal = '' === $install ? '' : (string) shell_exec(
+$zip_refusal = '' === $install ? '' : (string) shell_exec( 'bash -c ' . escapeshellarg(
 	'set -euo pipefail; T=' . escapeshellarg( $tmp . '-z' ) . '; rm -rf "$T"; mkdir -p "$T/src/other" "$T/plugins/wpcredits-program-manager" "$T/stage"; echo x > "$T/src/other/x.php"; echo keep > "$T/plugins/wpcredits-program-manager/keep.php"; (cd "$T/src" && zip -qr "$T/new.zip" other); '
 	. 'PLUGINS="$T/plugins"; STAGE="$T/stage"; WORK="$T"; WP=true; ' . $lister . "\n" . '( ' . $install . ' ) 2>&1 || echo "exit $?"; ls "$T/plugins/wpcredits-program-manager"; rm -rf "$T"'
-);
+) );
 ck( 'and a zip that holds another folder is refused before anything is removed', true, false !== strpos( $zip_refusal, 'refusing: the zip is empty or holds more' ) && false !== strpos( $zip_refusal, 'exit 1' ) && false !== strpos( $zip_refusal, 'keep.php' ) );
 
 // swap: another build on a prepared copy, from ui-ready, nothing else changed.

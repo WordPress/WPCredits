@@ -286,6 +286,8 @@ function big_png( $w, $h, $bytes ) {
 		$fh = fopen( $p, 'ab' );
 		fwrite( $fh, str_repeat( "\0", $pad ) );
 		fclose( $fh );
+		// filesize() above cached the short size; clear it so the checks see the padded file.
+		clearstatcache( true, $p );
 	}
 
 	return $p;

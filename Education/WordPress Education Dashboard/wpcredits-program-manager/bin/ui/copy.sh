@@ -25,7 +25,7 @@ COPY="http://localhost:8900"
 if { [ "${1:-}" = prepare ] || [ "${1:-}" = swap ]; } && [ -n "${2:-}" ]; then set -- "$1" "$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"; fi
 if [ "${1:-}" = theme ] && [ -n "${2:-}" ] && [ "$2" != own ]; then set -- "$1" "$(cd "$2" && pwd)"; fi
 # Every entry of the plugin folder's .worktrees, with its size, time, mode and link target.
-worktrees_listing() { (cd "$PLUGINS/wpcredits-program-manager" && [ -e .worktrees ] && find .worktrees -print0 | sort -z | xargs -0 stat -f '%N %z %m %Lp %Y') || true; }
+worktrees_listing() { (cd "$PLUGINS/wpcredits-program-manager" && [ -e .worktrees ] && find .worktrees -print0 | sort -z | xargs -0 sh -c 'if stat -c %n / >/dev/null 2>&1; then stat -c "%n %s %Y %a %N" "$@"; else stat -f "%N %z %m %Lp %Y" "$@"; fi' _) || true; }
 # Refuse a zip that holds anything but the wpcredits-program-manager folder, or a .worktrees folder of its own.
 check_zip() {
   local entries
