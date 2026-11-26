@@ -51,7 +51,9 @@ jobs:
           SKIP: 'test-ui-layout'
         run: |
           mkdir -p "$RUNNER_TEMP/out"
-          ls bin/test-*.php | xargs -P "$(nproc)" -I{} bash -c '
+          # The scripts run one at a time because some share temporary files (for example,
+          # test-agreement-generate writes a template into includes/templates).
+          ls bin/test-*.php | xargs -P 1 -I{} bash -c '
             n=$(basename "{}" .php)
             case " $SKIP " in *" $n "*) echo "skip $n" >> "$RUNNER_TEMP/results.txt"; exit 0;; esac
             timeout 300 php "{}" > "$RUNNER_TEMP/out/$n.out" 2>&1
