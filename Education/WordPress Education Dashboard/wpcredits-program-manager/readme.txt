@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.106
+Stable tag: 1.123.107
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,10 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.107 =
+
+* Institution roster: an empty Hours cell now says why it is empty. A student on a track who has not logged any hours yet reads "No hours logged yet". A student on a track whose report form has no Hours question, so they were never shown the hours box, reads "Hours not tracked on this track". Anybody on no track, such as a lead or a student who graduated or left, still reads "Not recorded". A logged 0 still reads "0 of 150" (WordPress/WPCredits#291).
 
 = 1.123.106 =
 

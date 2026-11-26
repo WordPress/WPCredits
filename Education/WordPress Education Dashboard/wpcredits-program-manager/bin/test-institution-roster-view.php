@@ -22,8 +22,10 @@
  *   tracks read "12 of 150" and "6.2 of 50"; the Developer Track, a track the hours map has
  *   never heard of and a student whose track is behind them all read "12 h", because "12 of 0"
  *   is a target this program does not have. A fractional count keeps its fraction, a count
- *   past the target is printed as it stands, and a student nobody has logged for reads
- *   "Not recorded" while a student who logged nothing reads "0 of 150".
+ *   past the target is printed as it stands, and a student on a track nobody has logged for reads
+ *   "No hours logged yet" (or "Hours not tracked on this track" where the form has no Hours
+ *   question, #291), anybody on no track "Not recorded", while a student who logged nothing
+ *   reads "0 of 150".
  * - The filters narrow before the render and survive in the URL: the controls come back
  *   filled in, and the link to a student's detail view carries the cohort and the filters,
  *   which is what makes a filtered roster a page a colleague can be sent.
@@ -911,11 +913,12 @@ function ada_program( array $changes = array() ) {
 	);
 }
 
-// **The header exists and the cell is empty**, which is the state every roster is in the day
-// before the sync first reads the column. It has to read as a gap in the records, the way every
-// other empty cell on this card does, and not as a zero: "0 of 150" about a student nobody has
-// logged for is the page inventing a fact about them.
-ck( 'a student with no hours anywhere reads as a gap', hours_of( render() ), 'Not recorded' );
+// **The header exists and the cell is empty.** Hours are the student's to type and nothing
+// computes them (WordPress/WPCredits#291), so for a student on a track whose form asks Hours an
+// empty cell says they have not logged any yet. It is still not a zero: "0 of 150" about a
+// student nobody has logged for is the page inventing a fact about them.
+ck( 'a student on a track with no hours reads as not logged yet', hours_of( render() ), 'No hours logged yet' );
+ck( 'and is drawn muted, as an empty value', has( group_rows( render(), 'current' ), 'No hours logged yet' ) && false === strpos( hours_of( render() ), '0' ), true );
 ck( 'and the heading is printed even so', has( group_rows( render(), 'current' ), '>Hours</th>' ), true );
 
 // The index, for the students who have never signed in here - which is most of a school's
@@ -924,7 +927,7 @@ ck( 'and the heading is printed even so', has( group_rows( render(), 'current' )
 $GLOBALS['index'][ $A ]['rows']['recSTU00000000002']['hours'] = '12';
 
 ck( 'a student with no account gets their hours off the index', hours_of( render(), 'current', 'Bo Example' ), '12 of 150' );
-ck( 'and they are his, not the first card\'s', hours_of( render(), 'current', 'Ada Example' ), 'Not recorded' );
+ck( 'and they are his, not the first card\'s', hours_of( render(), 'current', 'Ada Example' ), 'No hours logged yet' );
 
 // The 50-hour track is a different denominator, from the same map, and the value is fractional:
 // 6.2 is a real count on the live base, and an intval() anywhere would print 6.
@@ -1024,6 +1027,35 @@ ck( 'every return in the hours cell that carries a value escapes it', substr_cou
 
 // Back to the fixture: everything below reads Ada's own row.
 ada_program();
+// **#291: an empty cell says why it is empty.** A student whose track is behind them, or who
+// is on no track, keeps the card's ordinary gap: the program has no hours box to point at.
+unset( $GLOBALS['index'][ $A ]['rows']['recSTU00000000001']['hours'] );
+ada_program( array( 'program' => 'Graduate' ) );
+ck( '#291: a finished student with no hours keeps the ordinary gap', hours_of( render() ), 'Not recorded' );
+
+// A track published without the Hours question never drew its students an hours box, so the
+// cell must not read as the student's omission.
+$GLOBALS['wpcpm_test_no_hours_track'] = WPCPM_Program::track( 'In Sensei' );
+add_filter(
+	'wpcpm_report_form_fields',
+	static function ( $fields, $track ) {
+		if ( $track === $GLOBALS['wpcpm_test_no_hours_track'] ) {
+			unset( $fields['Hours'] );
+		}
+		return $fields;
+	},
+	99,
+	2
+);
+ada_program();
+ck( '#291: a track whose form has no Hours question says so', hours_of( render() ), 'Hours not tracked on this track' );
+ada_program( array( 'hours' => '12' ) );
+ck( '#291: and a count logged there anyway is still printed', hours_of( render() ), '12 of 150' );
+// The filter stays registered, so it is switched off rather than left to reach later blocks.
+$GLOBALS['wpcpm_test_no_hours_track'] = null;
+ada_program();
+ck( '#291: with the question back, the same student reads as not logged yet', hours_of( render() ), 'No hours logged yet' );
+
 unset( $GLOBALS['index'][ $A ]['rows']['recSTU00000000001']['hours'], $GLOBALS['index'][ $A ]['rows']['recSTU00000000002']['hours'], $GLOBALS['index'][ $A ]['rows']['recSTU00000000003']['hours'] );
 
 echo "\n=== The cohort picker ===\n";
@@ -1791,9 +1823,9 @@ foreach ( explode( '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner', $t23_vi
 	}
 }
 ck( 'each student reads their own program, dates, mentor and facts on their own line', $t23_students, array(
-	'Ada Example 2026-02-16 to 2026-09-30 · Mo Mentor WordPress Credits Program 150h Program details for Ada Example Program WordPress Credits Program 150h Dates 2026-02-16 to 2026-09-30 Days left {n} days left Mentor Mo Mentor WordPress.org adaexample Team Documentation Team Website ada.example.com Field of study Technology & Engineering Tutor Tutor Example Hours Not recorded',
-	'B Bo Example From 2026-02-16 Program details for Bo Example Program WordPress Credits Program 150h Dates From 2026-02-16 Days left Not recorded Mentor A mentor is assigned. Their name shows here once the student\'s progress record reaches this page. WordPress.org Not recorded Team Not recorded Website Not recorded Field of study Not recorded Tutor Not recorded Hours Not recorded',
-	'C Cy Example From 2026-03-01 Program details for Cy Example Program WordPress Credits Program 50h Dates From 2026-03-01 Days left Not recorded Mentor No mentor yet. WordPress.org Not recorded Team Not recorded Website Not recorded Field of study Not recorded Tutor Not recorded Hours Not recorded',
+	'Ada Example 2026-02-16 to 2026-09-30 · Mo Mentor WordPress Credits Program 150h Program details for Ada Example Program WordPress Credits Program 150h Dates 2026-02-16 to 2026-09-30 Days left {n} days left Mentor Mo Mentor WordPress.org adaexample Team Documentation Team Website ada.example.com Field of study Technology & Engineering Tutor Tutor Example Hours No hours logged yet',
+	'B Bo Example From 2026-02-16 Program details for Bo Example Program WordPress Credits Program 150h Dates From 2026-02-16 Days left Not recorded Mentor A mentor is assigned. Their name shows here once the student\'s progress record reaches this page. WordPress.org Not recorded Team Not recorded Website Not recorded Field of study Not recorded Tutor Not recorded Hours No hours logged yet',
+	'C Cy Example From 2026-03-01 Program details for Cy Example Program WordPress Credits Program 50h Dates From 2026-03-01 Days left Not recorded Mentor No mentor yet. WordPress.org Not recorded Team Not recorded Website Not recorded Field of study Not recorded Tutor Not recorded Hours No hours logged yet',
 	'D Dee Example From 2026-01-20 · Mo Mentor Graduated Program details for Dee Example Program Graduated Dates From 2026-01-20 Days left Not recorded Mentor Mo Mentor WordPress.org Not recorded Team Not recorded Website Not recorded Field of study Not recorded Tutor Not recorded Hours Not recorded',
 	'E Eve Example From 2026-02-16 Program details for Eve Example Program Not continuing Dates From 2026-02-16 Days left Not recorded Mentor No mentor yet. WordPress.org Not recorded Team Not recorded Website Not recorded Field of study Not recorded Tutor Not recorded Hours Not recorded',
 	'F Fi Example From 2026-02-16 Program details for Fi Example Program Interested Dates From 2026-02-16 Days left Not recorded Mentor No mentor yet. WordPress.org Not recorded Team Not recorded Website Not recorded Field of study Not recorded Tutor Not recorded Hours Not recorded',
