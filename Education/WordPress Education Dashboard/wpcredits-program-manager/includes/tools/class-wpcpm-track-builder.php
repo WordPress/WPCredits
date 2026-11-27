@@ -32,6 +32,9 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	/** Read the track's Learn course again. */
 	const ACTION_COURSE = 'wpcpm_track_course';
 
+	/** Set or clear the track's private course invitation link (#298). */
+	const ACTION_INVITE = 'wpcpm_track_invite';
+
 	/** How many saves History shows, the cap the semester report screen gives its own. */
 	const HISTORY_LIMIT = 20;
 
@@ -169,6 +172,7 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		add_action( 'admin_post_' . self::ACTION_DUPLICATE, array( $this, 'handle_duplicate' ) );
 		add_action( 'admin_post_' . self::ACTION_NEW, array( $this, 'handle_new' ) );
 		add_action( 'admin_post_' . self::ACTION_COURSE, array( $this, 'handle_course' ) );
+		add_action( 'admin_post_' . self::ACTION_INVITE, array( $this, 'handle_invite' ) );
 		add_action( 'admin_post_' . self::ACTION_PUBLISH, array( $this, 'handle_publish' ) );
 		add_action( 'admin_post_' . self::ACTION_UNPUBLISH, array( $this, 'handle_unpublish' ) );
 		add_action( 'admin_post_' . self::ACTION_VERIFY, array( $this, 'handle_verify' ) );
@@ -1260,6 +1264,52 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 				// it has not drawn yet, so the notice says what is about to happen rather than
 				// reporting something that has not (the final review of T3c).
 				'message' => __( 'The course is read again from Learn on this page.', 'wpcredits-program-manager' ),
+			),
+			array( 'wpcpm_track' => $post_id )
+		);
+	}
+
+	/**
+	 * Set or clear the track's course invitation link (#298), which the student welcome prints.
+	 *
+	 * Its own form and its own option (`WPCPM_Track_Invites`), never the definition: the link is
+	 * private, so it must not reach History, a publish's diff or a seed. It takes effect at once,
+	 * draft or live, since it changes no question and no column.
+	 */
+	public function handle_invite() {
+		$this->verify( self::ACTION_INVITE );
+
+		$post_id = WPCPM_Request::posted_id( 'track' );
+
+		if ( ! is_array( WPCPM_Track_Store::get( $post_id ) ) ) {
+			$this->redirect_back(
+				array(
+					'status'  => 'error',
+					'message' => __( 'That track does not exist.', 'wpcredits-program-manager' ),
+				)
+			);
+		}
+
+		// A link is a code, not prose, read as typed (`handle_new()`).
+		$link  = WPCPM_Request::posted_verbatim( WPCPM_Track_Invites::FIELD );
+		$saved = WPCPM_Track_Invites::save( $post_id, $link );
+
+		if ( is_wp_error( $saved ) ) {
+			$this->redirect_back(
+				array(
+					'status'  => 'error',
+					'message' => $saved->get_error_message(),
+				),
+				array( 'wpcpm_track' => $post_id )
+			);
+		}
+
+		$this->redirect_back(
+			array(
+				'status'  => 'success',
+				'message' => '' === $link
+					? __( 'The course invitation link is removed. New students on this track get no join link in their welcome.', 'wpcredits-program-manager' )
+					: __( 'The course invitation link is saved. New students on this track get it in their welcome email.', 'wpcredits-program-manager' ),
 			),
 			array( 'wpcpm_track' => $post_id )
 		);

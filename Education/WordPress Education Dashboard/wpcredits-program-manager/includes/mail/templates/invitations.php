@@ -196,6 +196,10 @@ return array(
 				__( 'Your first week, step by step:', 'wpcredits-program-manager' ),
 				'{start_here_link}',
 				'',
+				/* translators: The line above the private link that joins the student's course group on Learn WordPress. Keep the colon at the end; the site leaves this line out with the address under it for a track that has no link. */
+				__( 'Join your course on Learn WordPress:', 'wpcredits-program-manager' ),
+				'{course_invite_link}',
+				'',
 			)
 		),
 		'eol'          => "\r\n",
@@ -205,6 +209,11 @@ return array(
 				'example'  => static function () {
 					return class_exists( 'WPCPM_Start_Pages' ) && '' !== WPCPM_Start_Pages::start_url() ? WPCPM_Start_Pages::start_url() : home_url( '/start-here/' );
 				},
+				'required' => false,
+			),
+			'course_invite_link' => array(
+				'means'    => __( 'The private join link of the course group of the student\'s track, typed on the track\'s page in the Track Builder. Empty for a track without one, which leaves its line out.', 'wpcredits-program-manager' ),
+				'example'  => 'https://example.test/course-group-invite/',
 				'required' => false,
 			),
 		),

@@ -1739,7 +1739,7 @@ class WPCPM_Mentor_Calls {
 
 				return self::mail_of(
 					$to_mentor,
-					array( 'student_name' => $name ) + self::call_values( $facts, $recipient, true ),
+					array( 'student_name' => $name ) + self::with_their_name( self::call_values( $facts, $recipient, true ), $name ),
 					array(
 						'headers'     => WPCPM_Mail::reply_to( $student ),
 						'attachments' => $invite,
@@ -1761,7 +1761,7 @@ class WPCPM_Mentor_Calls {
 
 				return self::mail_of(
 					$to_student,
-					array( 'mentor_name' => $mentor->display_name ) + self::call_values( $facts, $recipient, false ),
+					array( 'mentor_name' => $mentor->display_name ) + self::with_their_name( self::call_values( $facts, $recipient, false ), $mentor->display_name ),
 					array(
 						'headers'     => WPCPM_Mail::reply_to( $mentor ),
 						'attachments' => $invite,
@@ -2287,11 +2287,64 @@ class WPCPM_Mentor_Calls {
 			'when'           => self::format_range( $facts['start'], $facts['end'], $zone ),
 			'call_date'      => wp_date( get_option( 'date_format' ), (int) $facts['start'], $zone ),
 			'time_zone'      => WPCPM_Mentor_Availability::zone_label( $zone->getName() ),
+			'their_when'     => self::their_when( $facts, $zone, $to_mentor ),
+			'their_name'     => '',
 			'meeting_place'  => WPCPM_Mentor_Availability::meeting_place( (int) $facts['mentor_id'] ),
 			'topic'          => $topic,
 			'session_topic'  => $topic,
 			'dashboard_link' => $to_mentor ? WPCPM_Mentors_Dashboard::page_url() : WPCPM_Students_Dashboard::page_url(),
 		);
+	}
+
+	/**
+	 * A booking's values with the other person's name for the second time zone sentence (#311), only
+	 * while that sentence has a time to say: a sentence keeps its place while any of its values
+	 * prints, so the name and the time go together.
+	 *
+	 * @param array  $values `call_values()`'s.
+	 * @param string $name   The other person's name, as the email names them.
+	 * @return array
+	 */
+	private static function with_their_name( array $values, $name ) {
+		$values['their_name'] = '' === (string) $values['their_when'] ? '' : (string) $name;
+
+		return $values;
+	}
+
+	/**
+	 * When a call is on the other person's clock, with that clock's name, for the booking emails'
+	 * second time zone sentence (#311).
+	 *
+	 * Only a zone the other person saved counts: one that falls back to the site's would print a
+	 * time they may not be on, which is the mix-up the sentence is there to prevent. Empty, which
+	 * leaves the sentence out, for the same clock as the recipient's, for a zone nobody saved, and
+	 * for a call with no other person on it.
+	 *
+	 * @param array        $facts     Call facts, with `mentor_id` and `student_id`.
+	 * @param DateTimeZone $zone      The recipient's clock.
+	 * @param bool         $to_mentor Whether the reader is the mentor, so the other person is the student.
+	 * @return string
+	 */
+	public static function their_when( array $facts, DateTimeZone $zone, $to_mentor ) {
+		$other = $to_mentor
+			? ( isset( $facts['student_id'] ) ? (int) $facts['student_id'] : 0 )
+			: ( isset( $facts['mentor_id'] ) ? (int) $facts['mentor_id'] : 0 );
+
+		if ( $other <= 0 || ! WPCPM_Mentor_Availability::has_timezone( $other ) ) {
+			return '';
+		}
+
+		$theirs = WPCPM_Mentor_Availability::viewer_timezone( $other );
+
+		// The same clock by its offsets at the call's start, not by name: two names for one clock
+		// (Europe/Madrid and Europe/Paris) would print the same time twice.
+		$at = ( new DateTimeImmutable( '@' . (int) $facts['start'] ) );
+
+		if ( $theirs->getOffset( $at ) === $zone->getOffset( $at ) ) {
+			return '';
+		}
+
+		return self::format_range( $facts['start'], $facts['end'], $theirs ) . ' (' . WPCPM_Mentor_Availability::zone_label( $theirs->getName() ) . ')';
 	}
 
 	/**

@@ -66,6 +66,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-publish.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-definition.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-tracks.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-partners.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-invites.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-store.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-updates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-agreement-template.php';

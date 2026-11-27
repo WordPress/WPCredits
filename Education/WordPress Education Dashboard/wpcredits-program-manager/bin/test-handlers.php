@@ -3521,7 +3521,7 @@ if ( null === $settings_before ) {
 	$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings_before;
 }
 
-echo "\n=== The Track Builder's fourteen handlers (BUILDER-8, TESTS-DOCS-2) ===\n";
+echo "\n=== The Track Builder's fifteen handlers (BUILDER-8, TESTS-DOCS-2) ===\n";
 
 // This file says it smoke-runs every admin-post handler in the plugin, and until the deep check of
 // 1.109.1 it pressed none of the Track Builder's (BUILDER-8, TESTS-DOCS-2). Each is found by name,
@@ -3557,9 +3557,9 @@ foreach ( $track_handlers as $name => $handler ) {
 	$track_targets[ $name ] = $GLOBALS['redirected_to'];
 }
 
-check( 'all fourteen reach their redirect with an error queued in the raw flash meta, the real WPCPM_Flash\'s',
+check( 'all fifteen reach their redirect with an error queued in the raw flash meta, the real WPCPM_Flash\'s',
     array( count( $track_handlers ), array_unique( array_values( $track_flashes ) ) ),
-    array( 14, array( 'error' ) ) );
+    array( 15, array( 'error' ) ) );
 
 // Where each is sent, read right (the fix round of TESTS-DOCS-2): the builder's handlers name their
 // screen with add_query_arg( key, value, url ), which this harness's stand-in did not know, so the
@@ -3574,6 +3574,7 @@ check( 'and each is sent to the screen it names: the list, the new track form, o
         'WPCPM_Track_Builder::handle_duplicate' => $list_screen,
         'WPCPM_Track_Builder::handle_new'       => $list_screen . '&wpcpm_new=1',
         'WPCPM_Track_Builder::handle_course'    => $list_screen,
+        'WPCPM_Track_Builder::handle_invite'    => $list_screen,
         'WPCPM_Track_Builder::handle_publish'   => $publish_screen,
         'WPCPM_Track_Builder::handle_unpublish' => $publish_screen,
         'WPCPM_Track_Builder::handle_verify'    => $publish_screen,

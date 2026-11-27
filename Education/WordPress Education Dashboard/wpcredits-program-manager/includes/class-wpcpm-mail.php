@@ -2153,14 +2153,16 @@ class WPCPM_Mail {
 			array(
 				// As core hands it over, read back from what WordPress stores, and read as every value
 				// is by `fill()`; until 1.122.23 the plugin read it back here, as `fill()` did not.
-				'site_name'         => (string) $blogname,
-				'set_password_link' => $body,
+				'site_name'          => (string) $blogname,
+				'set_password_link'  => $body,
 				// The site's language is English, and so is the line core prints, "Username: ...".
-				'username'          => preg_match( '/^Username: /m', $body ) ? '' : $user->user_login,
-				'login_url'         => $login,
-				'dashboard_link'    => $page,
+				'username'           => preg_match( '/^Username: /m', $body ) ? '' : $user->user_login,
+				'login_url'          => $login,
+				'dashboard_link'     => $page,
 				// Only the student's invitation has the placeholder; a value for the others is never read.
-				'start_here_link'   => 'student' === $kind ? WPCPM_Start_Pages::start_url() : '',
+				'start_here_link'    => 'student' === $kind ? WPCPM_Start_Pages::start_url() : '',
+				// The private join link of the student's track's course group (#298); '' leaves its lines out.
+				'course_invite_link' => 'student' === $kind && class_exists( 'WPCPM_Track_Invites' ) ? WPCPM_Track_Invites::for_student( $user->ID ) : '',
 			)
 		);
 

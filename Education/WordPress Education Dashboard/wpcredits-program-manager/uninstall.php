@@ -92,6 +92,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-pu
 require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-definition.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-tracks.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-partners.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-invites.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-store.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-module.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sync-module.php';
@@ -301,6 +302,8 @@ delete_option( WPCPM_Settings_Screen::OPT_GUIDE_MOVED );
 // The one-time flip of the plugin's private records to `private` status has run; the rows it
 // flipped go with their modules above.
 delete_option( WPCPM_Privacy_Guard::OPT_VERSION );
+// Each track's private course invitation link (#298).
+delete_option( WPCPM_Track_Invites::OPTION );
 
 // A student's last report save, last Airtable edit and "we've already talked" stamp.
 delete_metadata( 'user', 0, WPCPM_Student_Activity::META_REPORT, '', true );
