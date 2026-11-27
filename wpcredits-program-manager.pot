@@ -14,8 +14,7 @@ msgstr ""
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
 
-#: includes/class-wpcpm-admin.php:56
-#: includes/class-wpcpm-admin.php:57
+#: includes/class-wpcpm-admin.php:56 includes/class-wpcpm-admin.php:57
 #: includes/class-wpcpm-overview.php:43
 #: includes/modules/class-wpcpm-administrators-dashboard.php:742
 #: includes/modules/class-wpcpm-institutions-dashboard.php:1613
@@ -24,17 +23,14 @@ msgstr ""
 msgid "Overview"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:81
-#: includes/class-wpcpm-admin.php:82
-#: includes/class-wpcpm-admin.php:125
-#: includes/class-wpcpm-overview.php:261
+#: includes/class-wpcpm-admin.php:81 includes/class-wpcpm-admin.php:82
+#: includes/class-wpcpm-admin.php:125 includes/class-wpcpm-overview.php:261
 #: includes/modules/class-wpcpm-administrators-dashboard.php:814
 #: includes/tools/class-wpcpm-handbook-assistant.php:1045
 msgid "Tools"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:108
-#: includes/class-wpcpm-admin.php:109
+#: includes/class-wpcpm-admin.php:108 includes/class-wpcpm-admin.php:109
 #: includes/class-wpcpm-overview.php:303
 #: includes/class-wpcpm-settings-screen.php:835
 #: includes/modules/class-wpcpm-administrators-dashboard.php:815
@@ -221,8 +217,7 @@ msgstr ""
 msgid "No sponsor has an account yet."
 msgstr ""
 
-#: includes/class-wpcpm-dashboards.php:346
-#: includes/class-wpcpm-ui.php:1573
+#: includes/class-wpcpm-dashboards.php:346 includes/class-wpcpm-ui.php:1573
 #: includes/modules/class-wpcpm-institution-roster-view.php:626
 msgid "Show"
 msgstr ""
@@ -463,8 +458,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-posts.php:848
 #: includes/modules/class-wpcpm-sponsors.php:231
 #: includes/modules/class-wpcpm-sponsors.php:2833
-#: includes/modules/class-wpcpm-sponsors.php:4591
-#: blocks/sponsors/editor.js:80
+#: includes/modules/class-wpcpm-sponsors.php:4591 blocks/sponsors/editor.js:80
 msgid "Sponsors"
 msgstr ""
 
@@ -685,8 +679,7 @@ msgid "Email"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-templates.php:1104
-#: includes/mail/templates/calls.php:48
-#: includes/mail/templates/events.php:53
+#: includes/mail/templates/calls.php:48 includes/mail/templates/events.php:53
 #: includes/mail/templates/institutions.php:119
 #: includes/mail/templates/invitations.php:35
 #: includes/mail/templates/invitations.php:257
@@ -870,8 +863,7 @@ msgid "When a student books a one-to-one call with a mentor who has set a meetin
 msgstr ""
 
 #. translators: 1: site name, 2: student name.
-#: includes/mail/templates/calls.php:273
-#: includes/mail/templates/calls.php:284
+#: includes/mail/templates/calls.php:273 includes/mail/templates/calls.php:284
 #, php-format
 msgid "[%1$s] Call booked with %2$s"
 msgstr ""
@@ -901,8 +893,7 @@ msgid "When a student joins a group session of a mentor who has set a meeting li
 msgstr ""
 
 #. translators: 1: site name, 2: student name.
-#: includes/mail/templates/calls.php:319
-#: includes/mail/templates/calls.php:330
+#: includes/mail/templates/calls.php:319 includes/mail/templates/calls.php:330
 #, php-format
 msgid "[%1$s] %2$s joined your group session"
 msgstr ""
@@ -932,8 +923,7 @@ msgid "When a student joins the sessions of a series at once, with Join all, and
 msgstr ""
 
 #. translators: 1: site name, 2: student name, 3: how many sessions, counted, such as "3 sessions".
-#: includes/mail/templates/calls.php:365
-#: includes/mail/templates/calls.php:377
+#: includes/mail/templates/calls.php:365 includes/mail/templates/calls.php:377
 #, php-format
 msgid "[%1$s] %2$s joined your series: %3$s"
 msgstr ""
@@ -1041,15 +1031,13 @@ msgid "When the student or an Administrator cancels a one-to-one call, or the st
 msgstr ""
 
 #. translators: 1: site name, 2: date of the canceled call.
-#: includes/mail/templates/calls.php:512
-#: includes/mail/templates/calls.php:535
+#: includes/mail/templates/calls.php:512 includes/mail/templates/calls.php:535
 #, php-format
 msgid "[%1$s] Call on %2$s canceled"
 msgstr ""
 
 #. translators: 1: date and time of the call, 2: who canceled.
-#: includes/mail/templates/calls.php:520
-#: includes/mail/templates/calls.php:543
+#: includes/mail/templates/calls.php:520 includes/mail/templates/calls.php:543
 #, php-format
 msgid "The call on %1$s was canceled by %2$s."
 msgstr ""
@@ -1082,21 +1070,18 @@ msgstr ""
 msgid "The group session on %1$s was canceled by %2$s."
 msgstr ""
 
-#: includes/mail/templates/calls.php:577
-#: includes/mail/templates/calls.php:602
+#: includes/mail/templates/calls.php:577 includes/mail/templates/calls.php:602
 msgid "A day before a one-to-one call, unless it was booked within that day."
 msgstr ""
 
 #. translators: 1: site name, 2: the other person's name.
-#: includes/mail/templates/calls.php:580
-#: includes/mail/templates/calls.php:605
+#: includes/mail/templates/calls.php:580 includes/mail/templates/calls.php:605
 #, php-format
 msgid "[%1$s] Reminder: your call with %2$s"
 msgstr ""
 
 #. translators: 1: the other person's name, 2: date and time, 3: "in 4 hours".
-#: includes/mail/templates/calls.php:588
-#: includes/mail/templates/calls.php:613
+#: includes/mail/templates/calls.php:588 includes/mail/templates/calls.php:613
 #, php-format
 msgid "Your call with %1$s is %3$s, on %2$s."
 msgstr ""
@@ -5514,4 +5499,165 @@ msgstr ""
 
 #: includes/tools/class-wpcpm-handbook-assistant.php:1153
 msgid "The AI provider is not answering right now, so answers are the matching parts of the guides."
+msgstr ""
+
+#. translators: %s: how many seconds are left before the page goes to the homepage.
+#: blocks/notice-forward/render.php:32
+#, php-format
+msgid "Taking you to the homepage in %s second."
+msgid_plural "Taking you to the homepage in %s seconds."
+msgstr[0] ""
+msgstr[1] ""
+
+#: blocks/notice-forward/render.php:39
+msgid "You're staying on this page."
+msgstr ""
+
+#: blocks/notice-forward/render.php:44
+msgid "Go now"
+msgstr ""
+
+#: blocks/notice-forward/render.php:44
+msgid "Stay on this page"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Sign in").
+#: blocks/sign-in/render.php:127
+msgid "Sign in to your Student Report Card"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Sign in").
+#: blocks/sign-in/render.php:129
+msgid "Sign in to your Mentor Report Card"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Sign in").
+#: blocks/sign-in/render.php:131
+msgid "Sign in to your Institution Dashboard"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Sign in").
+#: blocks/sign-in/render.php:133
+msgid "Sign in to your Sponsor Dashboard"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Open").
+#: blocks/sign-in/render.php:140
+msgid "Open your Student Report Card"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Open").
+#: blocks/sign-in/render.php:142 inc/login.php:120 patterns/cta.php:43
+msgid "Open your Mentor Report Card"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Open").
+#: blocks/sign-in/render.php:144
+msgid "Open your Institution Dashboard"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Open").
+#: blocks/sign-in/render.php:146
+msgid "Open your Sponsor Dashboard"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Register").
+#: blocks/sign-in/render.php:153 inc/get-involved.php:117
+msgid "Register as a student"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Apply").
+#: blocks/sign-in/render.php:155
+msgid "Apply to mentor students"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Apply").
+#: blocks/sign-in/render.php:157
+msgid "Apply to partner as an institution"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Apply").
+#: blocks/sign-in/render.php:159
+msgid "Apply to become a sponsor"
+msgstr ""
+
+#: blocks/sign-in/render.php:166 blocks/sign-in/render.php:169
+msgid "Already in a program?"
+msgstr ""
+
+#: blocks/sign-in/render.php:167
+msgid "Sign in to your page"
+msgstr ""
+
+#: blocks/sign-in/render.php:170
+msgid "Open your page"
+msgstr ""
+
+#: blocks/sign-in/render.php:172
+msgid "Not in a program yet?"
+msgstr ""
+
+#. translators: The header's button that opens the list of ways to take part in the program.
+#. translators: The heading over the ways to take part in the program, at the top of the menu on a phone.
+#: blocks/sign-in/render.php:173 inc/get-involved.php:179
+#: inc/get-involved.php:205 inc/hub-content.php:401
+msgid "Get involved"
+msgstr ""
+
+#. translators: A card's link when the reader is signed out: a verb, it goes to the login screen and then to the page the card names.
+#: blocks/sign-in/render.php:196
+msgctxt "a card's link to the page it names"
+msgid "Sign in"
+msgstr ""
+
+#. translators: A card's link when the reader is signed in: a verb, it opens the page the card names.
+#: blocks/sign-in/render.php:201
+msgctxt "a card's link to the page it names"
+msgid "Open"
+msgstr ""
+
+#. translators: The Students card's link for a signed-in reader who is not a student: a verb, it goes to the student registration form.
+#: blocks/sign-in/render.php:207
+msgctxt "a card's link to the way into the program it names"
+msgid "Register"
+msgstr ""
+
+#. translators: A card's link for a signed-in reader who is not in that role: a verb, it goes to that role's application form.
+#: blocks/sign-in/render.php:209
+msgctxt "a card's link to the way into the program it names"
+msgid "Apply"
+msgstr ""
+
+#: inc/login.php:118
+msgid "You are already logged in."
+msgstr ""
+
+#. translators: %s: the "Lost your password?" link text, wrapped for emphasis.
+#: inc/login.php:142
+#, php-format
+msgid "Your account was created by the program. If you have never set a password, use %s with the email address the program has for you."
+msgstr ""
+
+#: inc/login.php:143
+msgid "Lost your password?"
+msgstr ""
+
+#: inc/login.php:150
+msgid "Code is poetry."
+msgstr ""
+
+#: inc/site-menu.php:82
+msgid "Student impact"
+msgstr ""
+
+#: inc/site-menu.php:83
+msgid "The program in numbers"
+msgstr ""
+
+#: inc/site-menu.php:101
+msgid "Impact"
+msgstr ""
+
+#: inc/site-menu.php:113
+msgid "FAQ"
 msgstr ""
